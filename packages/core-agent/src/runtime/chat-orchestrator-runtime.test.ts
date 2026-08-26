@@ -285,6 +285,90 @@ describe('createChatOrchestratorRuntime', () => {
     })
   })
 
+  // ROOT CAUSE:
+  //
+  // A stream that failed mid-tool-round threw before onMessages delivered the
+  // final transcript, and the catch path dropped the whole in-flight assistant
+  // message. Tool calls that already executed left no trace, so the next
+  // request pretended they never happened and models confabulated results.
+  //
+  // We fixed this by persisting the partial message on failure, synthesizing a
+  // provider transcript from the streamed tool-call/tool-result events when
+  // the transport never delivered one.
+  it('replays tool rounds from a failed stream in the next provider request', async () => {
+    const harness = createHarness()
+
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'call-weather',
+        toolName: 'weather',
+        args: '{}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({
+        type: 'tool-result',
+        toolCallId: 'call-weather',
+        result: 'sunny',
+      } as StreamEvent)
+      // Let the tool-call queue drain its slices before the failure lands.
+      await new Promise(resolve => setTimeout(resolve, 0))
+      throw new Error('stream exploded mid-round')
+    })
+
+    await harness.runtime.ingest('What is the weather?', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    }).catch(() => 'expected failure')
+
+    const failedAssistant = harness.sessionMessages['session-1']?.find(message => message.role === 'assistant') as StreamingAssistantMessage | undefined
+    expect(failedAssistant?.providerTranscript).toMatchObject([
+      {
+        role: 'assistant',
+        tool_calls: [
+          {
+            id: 'call-weather',
+            type: 'function',
+            function: { name: 'weather', arguments: '{}' },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call-weather',
+        content: 'sunny',
+      },
+    ])
+
+    await harness.runtime.ingest('Can you repeat that?', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const messages = harness.stream.mock.calls[1]?.[2]
+    expect(messages?.map(message => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'tool',
+      'user',
+    ])
+    expect(messages?.[2]).toMatchObject({
+      role: 'assistant',
+      tool_calls: [
+        {
+          id: 'call-weather',
+          type: 'function',
+          function: { name: 'weather', arguments: '{}' },
+        },
+      ],
+    })
+    expect(messages?.[3]).toEqual({
+      role: 'tool',
+      tool_call_id: 'call-weather',
+      content: 'sunny',
+    })
+  })
+
   it('keeps hook order and appends context prompt to the latest user message', async () => {
     const harness = createHarness()
     harness.contextSnapshot['system:weather'] = [

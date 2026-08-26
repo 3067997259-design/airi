@@ -425,6 +425,40 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     return fallbackCreatedAt
   }
 
+  /**
+   * Rebuilds a provider transcript from streamed slices when the transport's
+   * final message list never arrived (mid-stream failure or abort). Without
+   * this, tool calls that already executed leave no trace in the session and
+   * the next request pretends they never happened.
+   */
+  function synthesizeToolTranscriptFromSlices(message: StreamingAssistantMessage): Message[] | undefined {
+    const toolCallSlices = message.slices.filter(slice => slice.type === 'tool-call')
+    if (toolCallSlices.length === 0)
+      return undefined
+
+    const textContent = typeof message.content === 'string' ? message.content : ''
+    const transcript: Message[] = [{
+      role: 'assistant',
+      content: textContent,
+      tool_calls: toolCallSlices.map((slice, index) => ({
+        id: slice.toolCall.toolCallId ?? `synthetic-${index + 1}`,
+        type: 'function' as const,
+        function: {
+          name: slice.toolCall.toolName ?? '',
+          arguments: slice.toolCall.args ?? '{}',
+        },
+      })),
+    }]
+    for (const result of message.tool_results) {
+      transcript.push({
+        role: 'tool',
+        tool_call_id: result.id,
+        content: typeof result.result === 'string' ? result.result : JSON.stringify(result.result ?? ''),
+      })
+    }
+    return transcript
+  }
+
   function buildProviderMessages(sessionMessagesForSend: ChatHistoryItem[]): Array<Message | ErrorMessage> {
     const nowTs = now()
 
@@ -518,6 +552,9 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       createdAt: now(),
       id: assistantMessageId,
     }
+    // Declared at function scope so the catch path can persist whatever tool
+    // transcript was captured before a mid-stream failure.
+    let providerTranscript: Message[] | undefined
     beginStream(sessionId, buildingMessage)
     const hasVoice = options.input?.type === 'input:voice'
       || options.input?.type === 'input:text:voice'
@@ -750,7 +787,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       const llmRequestStartedAt = monotonicNow()
       let llmFirstTokenEmitted = false
       let generationUsage: LlmUsage = { source: 'unavailable' }
-      let providerTranscript: Message[] | undefined
+      let sawToolActivity = false
       const providerInputMessageCount = newMessages.length
       deps.onLlmRequestStarted?.({
         ...correlation,
@@ -774,7 +811,11 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
             || (message.role === 'assistant' && Boolean(message.tool_calls?.length)),
           )
 
-          if (hasToolRound)
+          // Stream events can report tool activity even when the final message
+          // list lacks tool roles (partial rounds, transport quirks). Capture
+          // those turns too so tool results survive into the next request
+          // instead of silently vanishing.
+          if (hasToolRound || sawToolActivity)
             providerTranscript = structuredClone(currentTurnMessages)
         },
         onUsage: (usage) => {
@@ -798,6 +839,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
           switch (event.type) {
             case 'tool-call':
+              sawToolActivity = true
               toolCallQueue.enqueue({
                 type: 'tool-call',
                 toolCall: event,
@@ -805,6 +847,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
               break
             case 'tool-result':
+              sawToolActivity = true
               toolCallQueue.enqueue({
                 type: 'tool-call-result',
                 id: event.toolCallId,
@@ -813,6 +856,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
               break
             case 'tool-error':
+              sawToolActivity = true
               toolCallQueue.enqueue({
                 type: 'tool-call-result',
                 id: event.toolCallId,
@@ -940,6 +984,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         return
 
       console.error('Error sending message:', error)
+      // A failed turn that already performed tool calls still carries context
+      // the next turn needs. Persist the partial assistant message with its
+      // tool transcript instead of dropping the whole round on the floor.
+      if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
+        buildingMessage.providerTranscript = providerTranscript ?? synthesizeToolTranscriptFromSlices(buildingMessage)
+        deps.session.appendSessionMessage(sessionId, buildingMessage)
+      }
       deps.onMessageRoundFailed?.({
         ...correlation,
         source: sendSource,

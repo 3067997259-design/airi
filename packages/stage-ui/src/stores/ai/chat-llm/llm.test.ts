@@ -38,6 +38,14 @@ vi.mock('@xsai/shared-chat', () => ({
   stepCountAtLeast: vi.fn(),
 }))
 
+const { toastWarningMock } = vi.hoisted(() => ({
+  toastWarningMock: vi.fn(),
+}))
+
+vi.mock('vue-sonner', () => ({
+  toast: { warning: toastWarningMock },
+}))
+
 vi.mock('../../../tools', () => ({
   mcp: mcpMock,
   debug: debugMock,
@@ -300,5 +308,56 @@ describe('isToolRelatedError', () => {
         description: 'Runtime version.',
       },
     })
+  })
+})
+
+describe('useLLM tool degrade visibility', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    streamTextMock.mockReset()
+    toastWarningMock.mockClear()
+  })
+
+  it('surfaces tool degrade with a toast and disables tools until re-enabled', async () => {
+    const store = useLLM()
+    const customTool = {
+      type: 'function',
+      function: {
+        name: 'custom-tool',
+        description: 'Custom tool.',
+        parameters: { type: 'object', properties: {} },
+      },
+      execute: vi.fn(async () => 'ok'),
+    } satisfies Tool
+
+    streamTextMock.mockImplementationOnce(() => ({
+      ...createMockStreamResult(),
+      steps: Promise.reject(new Error('model does not support tools')),
+    }))
+
+    await expect(store.stream('model-a', provider, [{ role: 'user', content: 'hello' }] as Message[], {
+      tools: [customTool],
+    })).rejects.toThrow('model does not support tools')
+
+    expect(store.degradedToolKeys).toContain('https://example.com/-model-a')
+    expect(toastWarningMock).toHaveBeenCalledTimes(1)
+    expect(String(toastWarningMock.mock.calls[0]?.[1]?.description)).toContain('https://example.com/-model-a')
+
+    // The degrade persists into the next call: tools are omitted entirely.
+    streamTextMock.mockImplementationOnce(() => createMockStreamResult())
+    await store.stream('model-a', provider, [{ role: 'user', content: 'again' }] as Message[], {
+      tools: [customTool],
+    })
+    expect(streamTextMock.mock.calls.at(-1)?.[0]?.tools).toBeUndefined()
+
+    // Re-enabling restores tool passing.
+    store.reEnableTools()
+    expect(store.degradedToolKeys).toEqual([])
+
+    streamTextMock.mockImplementationOnce(() => createMockStreamResult())
+    await store.stream('model-a', provider, [{ role: 'user', content: 'third' }] as Message[], {
+      tools: [customTool],
+    })
+    expect(Array.isArray(streamTextMock.mock.calls.at(-1)?.[0]?.tools)).toBe(true)
   })
 })

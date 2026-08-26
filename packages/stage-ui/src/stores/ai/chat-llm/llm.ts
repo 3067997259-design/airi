@@ -5,7 +5,8 @@ import type { Message } from '@xsai/shared-chat'
 import { streamFrom as coreStreamFrom, isContentArrayRelatedError, isToolRelatedError, modelKey } from '@proj-airi/core-agent'
 import { listModels } from '@xsai/model'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { toast } from 'vue-sonner'
 
 import { resolveLlmTools } from './tool-resolver'
 
@@ -40,6 +41,13 @@ export const useLLM = defineStore('llm', () => {
       if (isToolRelatedError(err)) {
         console.warn(`[llm] Auto-disabling tools for "${key}" due to tool-related error`)
         toolsCompatibility.value.set(key, false)
+        // Silent permanent degrade made models hallucinate tool calls: the
+        // system prompt still advertised tools while requests carried none.
+        // Surface it so the operator knows tools are off for this model.
+        toast.warning('Tools temporarily disabled', {
+          description: `${key} reported a tool-related error, so tool calling is disabled for this model until restart. Reason: ${String(err).slice(0, 200)}`,
+          duration: 10000,
+        })
       }
       // NOTICE:
       // Auto-degrade content-part arrays to plain strings on the next attempt
@@ -74,8 +82,25 @@ export const useLLM = defineStore('llm', () => {
     }
   }
 
+  /** Model keys whose tool calling is currently degraded in this session. */
+  const degradedToolKeys = computed(() =>
+    [...toolsCompatibility.value.entries()]
+      .filter(([, enabled]) => enabled === false)
+      .map(([key]) => key),
+  )
+
+  /** Re-enables tool calling, for one degraded model key or all of them. */
+  function reEnableTools(key?: string) {
+    if (key)
+      toolsCompatibility.value.delete(key)
+    else
+      toolsCompatibility.value.clear()
+  }
+
   return {
+    degradedToolKeys,
     models,
+    reEnableTools,
     stream,
   }
 })
