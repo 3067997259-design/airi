@@ -16,7 +16,7 @@ const invokeMocks = vi.hoisted(() => ({
     description: 'Search files.',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: { query: { type: 'string' } },
     },
   }]),
 }))
@@ -37,11 +37,21 @@ describe('useTamagotchiMcpToolsStore', async () => {
 
   beforeEach(() => {
     setActivePinia(createPinia())
-    invokeMocks.listMcpTools.mockClear()
+    invokeMocks.listMcpTools.mockReset()
+    invokeMocks.listMcpTools.mockResolvedValue([{
+      serverName: 'filesystem',
+      name: 'filesystem::search',
+      toolName: 'search',
+      description: 'Search files.',
+      inputSchema: {
+        type: 'object',
+        properties: { query: { type: 'string' } },
+      },
+    }])
     invokeMocks.callMcpTool.mockClear()
   })
 
-  it('loads MCP tools, proxies execution, and clears them from the shared llm-tools store', async () => {
+  it('registers one native tool per MCP descriptor and forwards qualified names with object arguments', async () => {
     const llmToolsStore = useLlmToolsStore()
     const store = useTamagotchiMcpToolsStore()
     const toolOptions = {} as Parameters<Tool['execute']>[1]
@@ -49,43 +59,23 @@ describe('useTamagotchiMcpToolsStore', async () => {
     await store.refresh()
 
     const mcpDefinitions = llmToolsStore.tools.filter(tool => tool.id.startsWith('mcp:'))
-    const listTools = llmToolsStore.activeTools.find(tool => tool.function.name === 'builtIn_mcpListTools')
-    const callTool = llmToolsStore.activeTools.find(tool => tool.function.name === 'builtIn_mcpCallTool')
-
     expect(mcpDefinitions).toEqual([
       expect.objectContaining({
-        id: 'mcp:builtIn_mcpListTools',
-        function: expect.objectContaining({ name: 'builtIn_mcpListTools' }),
-      }),
-      expect.objectContaining({
-        id: 'mcp:builtIn_mcpCallTool',
-        function: expect.objectContaining({ name: 'builtIn_mcpCallTool' }),
+        id: 'mcp:mcp_filesystem_search',
+        function: expect.objectContaining({ name: 'mcp_filesystem_search' }),
       }),
     ])
     expect(JSON.stringify(llmToolsStore.$state)).not.toContain('execute')
 
-    const listResult = await listTools?.execute({}, toolOptions)
-    const callResult = await callTool?.execute({
-      name: 'filesystem::search',
-      arguments: JSON.stringify({ query: 'hello', limit: 10 }),
-    }, toolOptions)
+    const nativeTool = llmToolsStore.activeTools.find(tool => tool.function.name === 'mcp_filesystem_search')
+    const result = await nativeTool?.execute({ query: 'hello' }, toolOptions)
 
     expect(invokeMocks.listMcpTools).toHaveBeenCalledTimes(1)
     expect(invokeMocks.callMcpTool).toHaveBeenCalledWith({
       name: 'filesystem::search',
-      arguments: { query: 'hello', limit: 10 },
+      arguments: { query: 'hello' },
     })
-    expect(listResult).toEqual([{
-      serverName: 'filesystem',
-      name: 'filesystem::search',
-      toolName: 'search',
-      description: 'Search files.',
-      inputSchema: {
-        type: 'object',
-        properties: {},
-      },
-    }])
-    expect(callResult).toEqual({
+    expect(result).toEqual({
       content: [{ type: 'text', text: 'ok' }],
       isError: false,
     })
@@ -93,5 +83,33 @@ describe('useTamagotchiMcpToolsStore', async () => {
     store.dispose()
 
     expect(llmToolsStore.tools.filter(tool => tool.id.startsWith('mcp:'))).toEqual([])
+  })
+
+  it('falls back to the proxy meta-tools when no MCP tools are discovered', async () => {
+    invokeMocks.listMcpTools.mockResolvedValue([])
+    const llmToolsStore = useLlmToolsStore()
+    const store = useTamagotchiMcpToolsStore()
+
+    await store.refresh()
+
+    const names = llmToolsStore.tools
+      .filter(tool => tool.id.startsWith('mcp:'))
+      .map(tool => tool.function.name)
+      .sort()
+    expect(names).toEqual(['builtIn_mcpCallTool', 'builtIn_mcpListTools'])
+  })
+
+  it('falls back to the proxy meta-tools when listing fails', async () => {
+    invokeMocks.listMcpTools.mockRejectedValue(new Error('IPC failure'))
+    const llmToolsStore = useLlmToolsStore()
+    const store = useTamagotchiMcpToolsStore()
+
+    await store.refresh()
+
+    const names = llmToolsStore.tools
+      .filter(tool => tool.id.startsWith('mcp:'))
+      .map(tool => tool.function.name)
+      .sort()
+    expect(names).toEqual(['builtIn_mcpCallTool', 'builtIn_mcpListTools'])
   })
 })

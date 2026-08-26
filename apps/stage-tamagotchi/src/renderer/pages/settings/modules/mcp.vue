@@ -26,6 +26,7 @@ import {
   electronMcpWriteConfigText,
 } from '../../../../shared/eventa'
 import { parseElectronMcpConfigText } from '../../../../shared/mcp-config'
+import { useTamagotchiMcpToolsStore } from '../../../stores/tools/mcp'
 import {
   buildConfigFile,
   buildServerConfig,
@@ -238,6 +239,9 @@ async function saveAndRestart() {
     savedSig.value = JSON.stringify(parsed)
     const result = await invokeApplyAndRestart()
     await refreshRuntime()
+    // Re-register the flattened MCP tools so newly started servers are
+    // immediately callable without waiting for the next leader election.
+    await useTamagotchiMcpToolsStore().refresh()
     infoMessage.value = tn('messages.restarted', {
       started: result.started.length,
       failed: result.failed.length,
@@ -259,6 +263,7 @@ async function restartServers() {
   try {
     const result = await invokeApplyAndRestart()
     await refreshRuntime()
+    await useTamagotchiMcpToolsStore().refresh()
     infoMessage.value = tn('messages.restarted', {
       started: result.started.length,
       failed: result.failed.length,

@@ -1,7 +1,7 @@
 import type { Tool } from '@xsai/shared-chat'
 
 import { errorMessageFromValue } from '@proj-airi/stage-shared'
-import { tool } from '@xsai/tool'
+import { rawTool, tool } from '@xsai/tool'
 import { z } from 'zod'
 
 /**
@@ -140,6 +140,110 @@ function createUnavailableMcpToolRuntime(): McpToolRuntime {
       throw new Error('MCP tools are not available in this runtime.')
     },
   }
+}
+
+/** Model-facing tool names must satisfy ^[a-zA-Z0-9_-]{1,64}$ on OpenAI-compatible APIs. */
+const MODEL_TOOL_NAME_MAX_LENGTH = 64
+
+function sanitizeNamePart(part: string): string {
+  const sanitized = part
+    .replace(/\W/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return sanitized || 'x'
+}
+
+/**
+ * Builds a provider-safe tool name for one MCP tool.
+ *
+ * Use when:
+ * - Generating native per-tool definitions from `listTools` descriptors
+ *
+ * Expects:
+ * - `serverName` and `toolName` come from an `McpToolDescriptor`
+ *
+ * Returns:
+ * - `mcp_<server>_<tool>` restricted to `[A-Za-z0-9_]`, capped at 64 chars with
+ *   a stable short hash suffix when truncated so distinct tools stay distinct
+ */
+export function sanitizeMcpToolName(serverName: string, toolName: string): string {
+  const base = `mcp_${sanitizeNamePart(serverName)}_${sanitizeNamePart(toolName)}`
+  if (base.length <= MODEL_TOOL_NAME_MAX_LENGTH)
+    return base
+  let hash = 5381
+  for (let i = 0; i < base.length; i++)
+    hash = ((hash << 5) + hash + base.charCodeAt(i)) >>> 0
+  const suffix = `_${hash.toString(36)}`.slice(0, 8)
+  return `${base.slice(0, MODEL_TOOL_NAME_MAX_LENGTH - suffix.length)}${suffix}`
+}
+
+/**
+ * Coerces an MCP `inputSchema` into a JSON Schema object providers accept.
+ *
+ * Use when:
+ * - Passing `McpToolDescriptor.inputSchema` to `rawTool` parameters
+ *
+ * Expects:
+ * - MCP servers SHOULD send `{ type: 'object' }` schemas, but misbehaving ones
+ *   send arrays, strings, or objects without a type
+ *
+ * Returns:
+ * - A plain object with `type: 'object'` and an object `properties` map;
+ *   `required` is preserved only when it is an array
+ */
+export function normalizeMcpInputSchema(schema: Record<string, unknown> | undefined): Record<string, unknown> {
+  const source = schema !== null && typeof schema === 'object' && !Array.isArray(schema)
+    ? schema
+    : {}
+  const properties = source.properties !== null && typeof source.properties === 'object' && !Array.isArray(source.properties)
+    ? source.properties as Record<string, unknown>
+    : {}
+  const normalized: Record<string, unknown> = {
+    ...source,
+    type: 'object',
+    properties,
+  }
+  if (!Array.isArray(normalized.required))
+    delete normalized.required
+  return normalized
+}
+
+/**
+ * Creates one native model tool per MCP tool descriptor.
+ *
+ * Use when:
+ * - A runtime wants the model to call MCP tools directly instead of going
+ *   through the two-hop `builtIn_mcpListTools` / `builtIn_mcpCallTool` proxies
+ *
+ * Expects:
+ * - Descriptors come from `McpToolRuntime.listTools()`
+ *
+ * Returns:
+ * - xsai raw tools; execution maps back to the fully-qualified
+ *   `<serverName>::<toolName>` name and forwards object arguments as-is
+ */
+export function createMcpNativeTools(descriptors: McpToolDescriptor[], runtime: McpToolRuntime): Tool[] {
+  const usedNames = new Set<string>()
+  return descriptors.map((descriptor) => {
+    let name = sanitizeMcpToolName(descriptor.serverName, descriptor.toolName)
+    for (let counter = 2; usedNames.has(name); counter++) {
+      const tail = `_${counter}`
+      name = `${name.slice(0, MODEL_TOOL_NAME_MAX_LENGTH - tail.length)}${tail}`
+    }
+    usedNames.add(name)
+    const description = `[MCP:${descriptor.serverName}] ${descriptor.description?.trim() || descriptor.toolName}`
+    return rawTool({
+      name,
+      description: description.length > 1024 ? description.slice(0, 1024) : description,
+      parameters: normalizeMcpInputSchema(descriptor.inputSchema),
+      execute: async (rawInput) => {
+        const args = rawInput !== null && typeof rawInput === 'object' && !Array.isArray(rawInput)
+          ? rawInput as Record<string, unknown>
+          : {}
+        return await runtime.callTool({ name: descriptor.name, arguments: args })
+      },
+    })
+  })
 }
 
 /**

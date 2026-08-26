@@ -134,5 +134,54 @@ describe('resolveLlmTools', () => {
       expect(createWebSearchToolsMock).toHaveBeenCalledWith({ apiKey: 'tvly-key' })
       expect(tools).toEqual([builtInTool, webSearchTool])
     })
+
+    it('suppresses the default mcp proxy tools once native mcp_* runtime tools are active', async () => {
+      const nativeTool = createTool('mcp_filesystem_search')
+
+      const tools = await resolveLlmTools({
+        debugTools: [],
+        sparkCommandTools: [],
+        webSearchTools: [],
+        activeTools: [nativeTool],
+      })
+
+      const names = tools.map(tool => toolNameFrom(tool))
+      expect(names).toContain('mcp_filesystem_search')
+      expect(names).not.toContain('builtIn_mcpListTools')
+      expect(names).not.toContain('builtIn_mcpCallTool')
+    })
+
+    it('keeps the default mcp proxy tools when no native mcp_* runtime tool is active', async () => {
+      const runtimeTool = createTool('runtime_play_chess_match')
+
+      const tools = await resolveLlmTools({
+        debugTools: [],
+        sparkCommandTools: [],
+        webSearchTools: [],
+        activeTools: [runtimeTool],
+      })
+
+      const names = tools.map(tool => toolNameFrom(tool))
+      expect(names).toContain('builtIn_mcpListTools')
+      expect(names).toContain('builtIn_mcpCallTool')
+    })
+
+    it('honors an explicit builtInTools override even when native mcp_* tools are active', async () => {
+      const nativeTool = createTool('mcp_filesystem_search')
+      const explicitBuiltin = createTool('explicit_builtin')
+
+      const tools = await resolveLlmTools({
+        builtInTools: [explicitBuiltin],
+        debugTools: [],
+        sparkCommandTools: [],
+        webSearchTools: [],
+        activeTools: [nativeTool],
+      })
+
+      const names = tools.map(tool => toolNameFrom(tool))
+      expect(names).toContain('explicit_builtin')
+      expect(names).toContain('mcp_filesystem_search')
+      expect(names).not.toContain('builtIn_mcpListTools')
+    })
   })
 })

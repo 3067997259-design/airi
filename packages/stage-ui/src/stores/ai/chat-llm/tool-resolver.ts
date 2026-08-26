@@ -138,6 +138,11 @@ async function resolveWebSearchTools(webSearchTools?: ToolSource): Promise<Tool[
  */
 export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Promise<Tool[]> {
   const activeTools = await resolveActiveTools(options.activeTools)
+  // Native per-tool MCP registrations (mcp_* names) replace the two list/call
+  // proxy tools. Keeping both would re-introduce the two-hop, double-encoded
+  // calling convention the native tools exist to remove. An explicit
+  // builtInTools override still wins over this suppression.
+  const hasNativeMcpTools = activeTools.some(tool => toolNameFrom(tool)?.startsWith('mcp_'))
   const [
     builtInTools,
     debugTools,
@@ -145,7 +150,7 @@ export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Pro
     webSearchTools,
     customTools,
   ] = await Promise.all([
-    resolveToolSource(options.builtInTools ?? mcp),
+    resolveToolSource(options.builtInTools ?? (hasNativeMcpTools ? [] : mcp)),
     resolveToolSource(options.debugTools ?? debug),
     resolveSparkCommandTools(options.sparkCommandTools),
     resolveWebSearchTools(options.webSearchTools),
