@@ -1,14 +1,7 @@
 catalogMode: prefer
-minimumReleaseAge: 4320
-minimumReleaseAgeExclude:
-  - '@moeru/*'
-  - '@proj-airi/*'
-  - '@vishot/*'
-  - '@xsai/*'
-  - '@xsai-apple-speech/*'
-  - '@xsai-ext/*'
-  - '@xsai-transformers/*'
-
+# mods: disabled minimumReleaseAge — npmmirror metadata lacks publish times for
+# some locked versions (e.g. stockfish@18.0.8), making the check fail on
+# mirror-sync gaps rather than actual supply-chain risk. Lockfile stays pinned.
 shellEmulator: true
 packages:
   - packages/**
@@ -34,6 +27,9 @@ overrides:
   safe-buffer: npm:@nolyfill/safe-buffer@^1.0.44
   safer-buffer: npm:@nolyfill/safer-buffer@^1.0.44
   side-channel: npm:@nolyfill/side-channel@^1.0.44
+  # mods: npmmirror has not synced the stockfish 18.x line; pin to the newest
+  # mirror-available version so installs work off the domestic registry.
+  stockfish: 17.1.0
   string.prototype.matchall: npm:@nolyfill/string.prototype.matchall@^1.0.44
 patchedDependencies:
   mineflayer-pathfinder: patches/mineflayer-pathfinder.patch
