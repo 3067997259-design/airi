@@ -2,6 +2,7 @@
 import type { Application } from '@pixi/app'
 
 import type { PixiLive2DInternalModel } from '../../../composables/live2d'
+import type { Live2DCdiData } from '../../../composables/live2d/custom-parameters'
 
 import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
 import { useTheme } from '@proj-airi/ui'
@@ -26,9 +27,10 @@ import {
   useMotionUpdatePluginLipSync,
 } from '../../../composables/live2d'
 import { applyCustomFocus } from '../../../composables/live2d/custom-focus'
+import { discoverCustomParameters, useMotionUpdatePluginCustomParameters } from '../../../composables/live2d/custom-parameters'
 import { useFitModel } from '../../../composables/live2d/fit-model'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
-import { useL2dViewControl, useLive2DFocusConfig, useLive2dParams } from '../../../stores'
+import { useL2dViewControl, useLive2DCustomParameters, useLive2DFocusConfig, useLive2dParams } from '../../../stores'
 
 const props = withDefaults(defineProps<{
   modelSrc?: string
@@ -398,6 +400,22 @@ async function performModelLoad() {
         config.entries,
       )
     }
+
+    // Discover the model's parameter surface (cdi3 display names + core
+    // ranges) and re-assert user overrides every frame so hairstyle and
+    // similar toggle choices survive motions and expressions.
+    const customParametersStore = useLive2DCustomParameters()
+    customParametersStore.registerDiscovered(
+      props.modelId ?? 'default',
+      discoverCustomParameters(
+        (internalModel.settings as { _cdiData?: Live2DCdiData } | undefined)?._cdiData,
+        coreModel,
+      ),
+    )
+    motionManagerUpdate.register(
+      useMotionUpdatePluginCustomParameters(customParametersStore, props.modelId ?? 'default'),
+      'final',
+    )
 
     motionManager.on('motionStart', (group, index) => {
       localCurrentMotion.value = { group, index }

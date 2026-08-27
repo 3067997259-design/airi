@@ -194,6 +194,15 @@ live2d:
     shadow: 投影
     reset-parameters: 重置为默认参数
   clear-model-cache: 清除模型缓存
+  custom-parameters:
+    title: 自定义参数
+    description: >
+      从模型本身发现的模型原生开关（发型、瞳孔样式、服装）。启用后每帧重新
+      应用，并按模型持久化。
+    no-parameters: 该模型没有额外的自定义参数。
+    ungrouped: 未分组
+    value: 数值
+    reset: 重置自定义参数
   expressions:
     title: 表情
     override-toggle: 表情系统

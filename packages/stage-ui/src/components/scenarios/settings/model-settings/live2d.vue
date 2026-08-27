@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Live2DFocusConfig, Live2DFocusEntry } from '@proj-airi/stage-ui-live2d'
+import type { Live2DDiscoveredParameter, Live2DFocusConfig, Live2DFocusEntry } from '@proj-airi/stage-ui-live2d'
 
 import type { ModelSettingsRuntimeSnapshot } from './runtime'
 
-import { createDefaultFocusEntries, defaultModelParameters, useExpressionStore, useLive2DFocusConfig, useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
+import { createDefaultFocusEntries, defaultModelParameters, useExpressionStore, useLive2DCustomParameters, useLive2DFocusConfig, useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCache } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldCheckbox, FieldCombobox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -84,6 +84,44 @@ function gainRangeFor(entry: Live2DFocusEntry) {
 }
 function resetFocusConfig() {
   focusConfigStore.resetConfig(currentModelId.value)
+}
+
+// Model-native parameter surface (hairstyle switches, pupil styles, ears...)
+const customParametersStore = useLive2DCustomParameters()
+const customParameterGroups = computed(() => {
+  const catalog = customParametersStore.discoveryFor(currentModelId.value)
+  if (!catalog)
+    return []
+  const groupNameById = new Map(catalog.groups.map(group => [group.id, group.name]))
+  const groups = new Map<string, { id: string, name: string, parameters: Live2DDiscoveredParameter[] }>()
+  for (const parameter of catalog.parameters) {
+    const key = parameter.groupId ?? ''
+    if (!groups.has(key)) {
+      const name = key ? (groupNameById.get(key) ?? key) : t('settings.live2d.custom-parameters.ungrouped')
+      groups.set(key, { id: key, name, parameters: [] })
+    }
+    groups.get(key)!.parameters.push(parameter)
+  }
+  return [...groups.values()]
+})
+const customParameterValues = computed(() => customParametersStore.valuesFor(currentModelId.value))
+function customParameterValue(parameter: Live2DDiscoveredParameter): number {
+  return customParameterValues.value[parameter.id]?.value ?? parameter.default
+}
+function customParameterStep(parameter: Live2DDiscoveredParameter): number {
+  return (parameter.max - parameter.min) > 2 ? 1 : 0.05
+}
+function onCustomParameterToggle(parameter: Live2DDiscoveredParameter, enabled: boolean) {
+  const existing = customParameterValues.value[parameter.id]
+  if (existing) {
+    customParametersStore.setEnabled(currentModelId.value, parameter.id, enabled)
+  }
+  else if (enabled) {
+    customParametersStore.setValue(currentModelId.value, parameter.id, parameter.default)
+  }
+}
+function onCustomParameterSlide(parameter: Live2DDiscoveredParameter, value: number) {
+  customParametersStore.setValue(currentModelId.value, parameter.id, value)
 }
 
 /**
@@ -775,6 +813,55 @@ function handleMotionSelect(selectedMotionPath: string | number | undefined) {
         </div>
       </template>
     </FieldRange>
+  </Section>
+  <Section
+    :title="t('settings.live2d.custom-parameters.title')"
+    icon="i-solar:tuning-2-bold-duotone"
+    :class="[
+      'rounded-xl',
+      'bg-white/80  dark:bg-black/75',
+      'backdrop-blur-lg',
+    ]"
+    size="sm"
+    :expand="false"
+  >
+    <p class="text-xs text-neutral-500 dark:text-neutral-400">
+      {{ t('settings.live2d.custom-parameters.description') }}
+    </p>
+    <p v-if="customParameterGroups.length === 0" class="text-xs text-neutral-500 dark:text-neutral-400">
+      {{ t('settings.live2d.custom-parameters.no-parameters') }}
+    </p>
+    <details v-for="group in customParameterGroups" :key="group.id" class="rounded-lg bg-neutral-100/60 p-2 dark:bg-neutral-900/40">
+      <summary class="cursor-pointer text-sm font-medium">
+        {{ group.name }}（{{ group.parameters.length }}）
+      </summary>
+      <div class="mt-2 flex flex-col gap-2">
+        <div v-for="parameter in group.parameters" :key="parameter.id" class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <Checkbox
+              :model-value="customParameterValues[parameter.id]?.enabled === true"
+              @update:model-value="value => onCustomParameterToggle(parameter, value === true)"
+            />
+            <span class="text-xs font-medium">{{ parameter.name }}</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ parameter.id }}</span>
+          </div>
+          <FieldRange
+            :model-value="customParameterValue(parameter)"
+            as="div"
+            :min="parameter.min"
+            :max="parameter.max"
+            :step="customParameterStep(parameter)"
+            :label="t('settings.live2d.custom-parameters.value')"
+            @update:model-value="value => onCustomParameterSlide(parameter, Number(value))"
+          />
+        </div>
+      </div>
+    </details>
+    <div v-if="customParameterGroups.length > 0">
+      <Button size="sm" @click="customParametersStore.resetModel(currentModelId)">
+        {{ t('settings.live2d.custom-parameters.reset') }}
+      </Button>
+    </div>
   </Section>
   <Section
     :title="t('settings.live2d.expressions.title')"

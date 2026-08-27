@@ -210,6 +210,16 @@ live2d:
     shadow: Drop shadow
     reset-parameters: Reset to default parameters
   clear-model-cache: Clear model cache
+  custom-parameters:
+    title: Custom Parameters
+    description: >
+      Model-native switches discovered from the model itself (hairstyles,
+      pupil styles, outfits). Enabled values are re-applied every frame and
+      persist per model.
+    no-parameters: No additional parameters available for this model.
+    ungrouped: Ungrouped
+    value: Value
+    reset: Reset custom parameters
   expressions:
     title: Expressions
     override-toggle: Expression system
