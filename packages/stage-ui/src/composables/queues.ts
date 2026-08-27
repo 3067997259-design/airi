@@ -67,14 +67,18 @@ export function useEmotionsMessageQueue(emotionsQueue: UseQueueReturn<EmotionPay
 
 export function useDelayMessageQueue() {
   function splitDelays(content: string) {
-    if (!(/<\|DELAY:\d+\|>/i.test(content))) {
+    // Accept both `<|DELAY 1|>` (the form every bundled prompt teaches) and
+    // `<|DELAY:1|>` (the form earlier builds emitted); strict models that
+    // follow the prompt used to have their delays silently dropped.
+    const DELAY_PATTERN = /<\|DELAY[: ](\d+)\|>/i
+    if (!(DELAY_PATTERN.test(content))) {
       return {
         ok: false,
         delay: 0,
       }
     }
 
-    const delayExecArray = /<\|DELAY:(\d+)\|>/i.exec(content)
+    const delayExecArray = DELAY_PATTERN.exec(content)
 
     const delay = delayExecArray?.[1]
     if (!delay) {
