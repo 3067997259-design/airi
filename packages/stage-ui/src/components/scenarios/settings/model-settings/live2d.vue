@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import type { Live2DFocusConfig, Live2DFocusEntry } from '@proj-airi/stage-ui-live2d'
+
 import type { ModelSettingsRuntimeSnapshot } from './runtime'
 
-import { defaultModelParameters, useExpressionStore, useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
+import { createDefaultFocusEntries, defaultModelParameters, useExpressionStore, useLive2DFocusConfig, useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCache } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldCheckbox, FieldCombobox, FieldRange, SelectTab } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { useSettingsStageModel } from '../../../../stores/settings/stage-model'
 import { PropertyPoint } from '../../../data-pane'
 import { Section } from '../../../layouts'
 import { ColorPalette } from '../../../widgets'
@@ -49,6 +52,39 @@ const {
 
 const expressionStore = useExpressionStore()
 const { expressions, expressionGroups } = storeToRefs(expressionStore)
+
+// Per-model focus mapping: models with heavily customized eye rigs need
+// scaled-down or selective tracking instead of the stock fixed gains.
+const focusConfigStore = useLive2DFocusConfig()
+const stageModelStore = useSettingsStageModel()
+const currentModelId = computed(() => stageModelStore.stageModelSelected || undefined)
+const focusConfig = computed<Live2DFocusConfig>(() => focusConfigStore.configFor(currentModelId.value))
+const focusModeOptions = computed(() => [
+  { value: 'standard', label: t('settings.live2d.animation.focus.mode.standard') },
+  { value: 'custom', label: t('settings.live2d.animation.focus.mode.custom') },
+])
+const focusMode = computed<'standard' | 'custom'>({
+  get: () => focusConfig.value.mode,
+  set(mode) {
+    focusConfigStore.setConfig(currentModelId.value, { ...focusConfig.value, mode })
+  },
+})
+const defaultFocusGainById = Object.fromEntries(createDefaultFocusEntries().map(entry => [entry.id, Math.abs(entry.gain)]))
+function updateFocusEntry(index: number, patch: Partial<Live2DFocusEntry>) {
+  const entries = focusConfig.value.entries.map((entry, i) => {
+    if (i === index)
+      return { ...entry, ...patch }
+    return entry
+  })
+  focusConfigStore.setConfig(currentModelId.value, { ...focusConfig.value, entries })
+}
+function gainRangeFor(entry: Live2DFocusEntry) {
+  const base = defaultFocusGainById[entry.id] ?? 1
+  return { min: 0, max: Math.round(base * 2 * 100) / 100, step: base >= 10 ? 1 : 0.05 }
+}
+function resetFocusConfig() {
+  focusConfigStore.resetConfig(currentModelId.value)
+}
 
 /**
  * Check if an expression group is currently active.
@@ -358,6 +394,41 @@ function handleMotionSelect(selectedMotionPath: string | number | undefined) {
           </p>
         </template>
       </PropertyPoint>
+    </div>
+    <label v-if="live2dEyeTracking" class="flex flex-wrap gap-4">
+      <div class="flex-1">
+        <div class="flex items-center gap-1 text-sm font-medium">
+          {{ t('settings.live2d.animation.focus.mapping.title') }}
+        </div>
+        <div class="text-xs text-neutral-500 dark:text-neutral-400">
+          {{ t('settings.live2d.animation.focus.mapping.description') }}
+        </div>
+      </div>
+      <SelectTab v-model="focusMode" :options="focusModeOptions" size="sm" :class="['shrink-0']" />
+    </label>
+    <div v-if="live2dEyeTracking && focusMode === 'custom'" class="flex flex-col gap-2 rounded-lg bg-neutral-100/60 p-3 dark:bg-neutral-900/40">
+      <div v-for="(entry, index) in focusConfig.entries" :key="entry.id" class="flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <Checkbox
+            :model-value="entry.enabled"
+            @update:model-value="value => updateFocusEntry(index, { enabled: value === true })"
+          />
+          <span class="text-xs font-medium">{{ entry.id }}</span>
+          <span class="text-xs text-neutral-500 dark:text-neutral-400">({{ entry.axis }})</span>
+        </div>
+        <FieldRange
+          :model-value="entry.gain"
+          as="div"
+          v-bind="gainRangeFor(entry)"
+          :label="t('settings.live2d.animation.focus.mapping.gain')"
+          @update:model-value="value => updateFocusEntry(index, { gain: Number(value) })"
+        />
+      </div>
+      <div>
+        <Button size="sm" @click="resetFocusConfig">
+          {{ t('settings.live2d.animation.focus.mapping.reset') }}
+        </Button>
+      </div>
     </div>
     <FieldCheckbox
       v-model="live2dForceIdleEyeAnimation"

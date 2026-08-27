@@ -166,6 +166,17 @@ live2d:
       title: Enable mouse tracking
       description: Look at the cursor while it is moving. Idle eye movement resumes after the cursor stops.
       offset: Eye offset(%)
+      mode:
+        standard: Standard
+        custom: Custom
+      mapping:
+        title: Tracking mapping
+        description: >
+          Custom models with heavily modified eye rigs can misbehave under the
+          standard mapping. Custom mode scales each tracked parameter
+          independently per model.
+        gain: Gain
+        reset: Reset to standard
     force-idle-eye-animation:
       title: Idle eye movement
       description: Randomly look around when there is no active cursor focus.

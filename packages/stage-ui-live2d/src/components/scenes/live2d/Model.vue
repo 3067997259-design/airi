@@ -25,9 +25,10 @@ import {
   useMotionUpdatePluginIdleFocus,
   useMotionUpdatePluginLipSync,
 } from '../../../composables/live2d'
+import { applyCustomFocus } from '../../../composables/live2d/custom-focus'
 import { useFitModel } from '../../../composables/live2d/fit-model'
 import { Emotion, EmotionNeutralMotionName } from '../../../constants/emotions'
-import { useL2dViewControl, useLive2dParams } from '../../../stores'
+import { useL2dViewControl, useLive2DFocusConfig, useLive2dParams } from '../../../stores'
 
 const props = withDefaults(defineProps<{
   modelSrc?: string
@@ -372,6 +373,30 @@ async function performModelLoad() {
     const hookedUpdate = motionManager.update as (model: PixiLive2DInternalModel['coreModel'], now: number) => boolean
     motionManager.update = function (model: PixiLive2DInternalModel['coreModel'], now: number) {
       return motionManagerUpdate.hookUpdate(model, now, hookedUpdate)
+    }
+
+    // Replace the stock hardcoded focus gains (updateFocus writes
+    // AngleX/Y ±30, AngleZ xy×-30, EyeBallX/Y ±1, BodyAngleX ±10 after every
+    // plugin hook, so no plugin can override them) with a per-model
+    // configurable mapping. Standard mode keeps the stock behavior untouched.
+    const focusConfigStore = useLive2DFocusConfig()
+    const focusHost = internalModel as PixiLive2DInternalModel & {
+      updateFocus: () => void
+      focusController: { x: number, y: number }
+    }
+    const stockUpdateFocus = focusHost.updateFocus.bind(focusHost)
+    focusHost.updateFocus = function () {
+      const config = focusConfigStore.configFor(props.modelId)
+      if (config.mode !== 'custom') {
+        stockUpdateFocus()
+        return
+      }
+      applyCustomFocus(
+        coreModel,
+        focusHost.focusController.x,
+        focusHost.focusController.y,
+        config.entries,
+      )
     }
 
     motionManager.on('motionStart', (group, index) => {

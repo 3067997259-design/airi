@@ -151,6 +151,16 @@ live2d:
       title: 启用鼠标跟踪
       description: 鼠标移动时注视光标；光标停止后恢复空闲眼部动作。
       offset: 眼部偏移（%）
+      mode:
+        standard: 标准
+        custom: 自定义
+      mapping:
+        title: 跟踪映射
+        description: >
+          眼部结构深度定制的模型在标准映射下可能表现异常。自定义模式可按模型
+          独立缩放每个被跟踪的参数。
+        gain: 增益
+        reset: 恢复标准映射
     force-idle-eye-animation:
       title: 空闲眼部动作
       description: 没有活动光标焦点时随机环顾四周。
