@@ -65,6 +65,31 @@
 改 core-agent/i18n 源码后必须 `pnpm run build:packages`，否则 contract 测试跑的
 还是旧代码（表现为"src 里明明改了却不生效"）。
 
+### M-L — Live2D 双特性 + 云吞落地
+
+**`feat(live2d): configurable focus parameter mapping`**
+pixi `updateFocus()` 写死六条增益（AngleX/Y 30、AngleZ xy×-30、EyeBallX/Y 1、
+BodyAngleX 10）且在所有插件钩子之后执行、无法事后覆盖。`Model.vue` 现按已有
+monkey-patch 惯例包装 `internalModel.updateFocus`：standard 走原生；custom 走
+`applyCustomFocus` 纯函数（逐参数的 axis/gain/enable，按 modelId 持久化）。
+设置页 animation 区新增模式 Choose + 每参数增益滑杆/开关，可直接调低增益或
+关掉某条（云吞这类贴图换瞳模型最需要）。i18n 只补 en + zh-Hans。
+
+**`feat(live2d): per-model custom parameter panel`**
+模型自带的发型/瞳孔/服装/耳朵开关此前从未暴露。zip-loader 已把 cdi3 DisplayInfo
+解析进 `settings._cdiData` 却无人消费；`coreModel.getModel().parameters` 提供权威
+参数 id/范围表。新增 `discoverCustomParameters`（合并 cdi 显示名+分组与 core 范围，
+剔除系统托管参数与物理摆锤）+ final 插件 `useMotionUpdatePluginCustomParameters`
+（每帧重断言启用的覆盖值，动作/表情也抢不走）——复用 expression-controller 的
+任意参数直写模式。设置页新增"自定义参数"Section，按 cdi3 分组折叠展示，启用
+Checkbox + 范围滑杆（档位参数如 HairBList 天然变整数滑杆），每模型持久化/可重置。
+
+**落地**：修好 `D:\airi\云吞kumo\云吞kumo\云吞kumo.model3.json`（补齐 Expressions
+12 项 + Idle/TapBody motions；VTubeube 导出模型通病——热键在 .vtube.json，
+model3.json 是残缺骨架），重打成 `D:\airi\云吞kumo.zip`（已保留中文文件名）。
+注意：AIRI 导入的是 zip 进 IndexedDB+OPFS 缓存，改磁盘文件夹无效，必须重打包
+导入新 zip（新 id → 新缓存键，无需清缓存）。
+
 ### M0 — 安装环境（`db55b9dcc`）
 
 - `pnpm-workspace.yaml`：移除 `minimumReleaseAge`（npmmirror 元数据缺发布时间，
