@@ -8,13 +8,14 @@ import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-ll
 import { createMcpNativeTools, createMcpTools } from '@proj-airi/stage-ui/tools/mcp'
 import { defineStore } from 'pinia'
 
-import { electronMcpCallTool, electronMcpListTools } from '../../../shared/eventa'
+import { electronMcpCallTool, electronMcpGetRuntimeStatus, electronMcpListTools } from '../../../shared/eventa'
 
 export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', () => {
   const llmToolsStore = useLlmToolsStore()
   const llmToolsetPromptsStore = useLlmToolsetPromptsStore()
   const listMcpTools = useElectronEventaInvoke(electronMcpListTools)
   const callMcpTool = useElectronEventaInvoke(electronMcpCallTool)
+  const getMcpRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
   const toolIdPrefix = 'mcp:'
 
   function registeredToolIds() {
@@ -25,10 +26,16 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
 
   // Teaches the model where the mcp_* tools come from instead of leaving it
   // to guess from tool names alone; follows the toolset-prompt registry.
-  function registerMcpToolsetPrompt(serverNames: string[]) {
+  function registerMcpToolsetPrompt(serverNames: string[], serverInstructions: Array<{ name: string, instructions?: string }>) {
     const uniqueServers = [...new Set(serverNames)]
+    const guidance = serverInstructions
+      .filter(entry => entry.instructions && entry.instructions.trim().length > 0)
+      .map(entry => `[${entry.name}] ${entry.instructions!.trim()}`)
     const content = uniqueServers.length > 0
-      ? `Tools named mcp_<server>_<tool> call MCP servers (${uniqueServers.join(', ')}). Invoke them directly with plain object arguments when needed, and never fabricate their results.`
+      ? [
+          `Tools named mcp_<server>_<tool> call MCP servers (${uniqueServers.join(', ')}). Invoke them directly with plain object arguments when needed, and never fabricate their results.`,
+          ...guidance,
+        ].join('\n\n')
       : 'MCP tools are reachable through builtIn_mcpListTools followed by builtIn_mcpCallTool (arguments passed as a JSON string).'
     llmToolsetPromptsStore.registerToolsetPrompts('mcp-tools', [{
       id: 'mcp-tools-overview',
@@ -48,16 +55,22 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
     // nothing usable (no servers configured, or listing failed).
     let tools: Tool[]
     try {
-      const descriptors = await runtime.listTools()
+      const [descriptors, runtimeStatus] = await Promise.all([
+        runtime.listTools(),
+        getMcpRuntimeStatus().catch(() => undefined),
+      ])
       tools = descriptors.length > 0
         ? createMcpNativeTools(descriptors, runtime)
         : await Promise.all(createMcpTools(runtime))
-      registerMcpToolsetPrompt(descriptors.map(descriptor => descriptor.serverName))
+      const runningServers = (runtimeStatus?.servers ?? [])
+        .filter(server => server.state === 'running')
+        .map(server => ({ name: server.name, instructions: server.instructions }))
+      registerMcpToolsetPrompt(descriptors.map(descriptor => descriptor.serverName), runningServers)
     }
     catch (error) {
       console.warn('[tamagotchi-mcp-tools] listTools failed, falling back to proxy tools:', error)
       tools = await Promise.all(createMcpTools(runtime))
-      registerMcpToolsetPrompt([])
+      registerMcpToolsetPrompt([], [])
     }
 
     llmToolsStore.removeToolsByIds(...registeredToolIds())

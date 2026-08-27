@@ -20,6 +20,20 @@ const invokeMocks = vi.hoisted(() => ({
       properties: { query: { type: 'string' } },
     },
   }]),
+  getRuntimeStatus: vi.fn(async () => ({
+    path: 'C:\\mcp.json',
+    updatedAt: 1,
+    servers: [
+      {
+        name: 'filesystem',
+        state: 'running',
+        command: 'node',
+        args: [],
+        pid: 1,
+        instructions: 'Present every search result to the user before acting on it.',
+      },
+    ],
+  })),
 }))
 
 vi.mock('@proj-airi/electron-vueuse', () => ({
@@ -28,6 +42,8 @@ vi.mock('@proj-airi/electron-vueuse', () => ({
       return invokeMocks.listMcpTools
     if (event?.receiveEvent?.id === 'eventa:invoke:electron:mcp:call-tool-receive')
       return invokeMocks.callMcpTool
+    if (event?.receiveEvent?.id === 'eventa:invoke:electron:mcp:get-runtime-status-receive')
+      return invokeMocks.getRuntimeStatus
 
     throw new Error(`Unexpected eventa invoke: ${JSON.stringify(event)}`)
   },
@@ -82,11 +98,12 @@ describe('useTamagotchiMcpToolsStore', async () => {
     })
 
     // The toolset prompt teaches the model the mcp_* naming convention and
-    // names the connected servers.
+    // carries the server-declared instructions from the MCP handshake.
     const toolsetPromptsStore = useLlmToolsetPromptsStore()
     expect(toolsetPromptsStore.activeToolsetPrompt).toContain('MCP Servers')
     expect(toolsetPromptsStore.activeToolsetPrompt).toContain('filesystem')
     expect(toolsetPromptsStore.activeToolsetPrompt).toContain('mcp_<server>_<tool>')
+    expect(toolsetPromptsStore.activeToolsetPrompt).toContain('[filesystem] Present every search result to the user before acting on it.')
 
     store.dispose()
 

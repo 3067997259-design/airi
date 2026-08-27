@@ -177,7 +177,7 @@ export function createMcpStdioManager(): McpStdioManager {
     })
 
     try {
-      await client.connect(transport)
+      const connectResult = await client.connect(transport) as { instructions?: string } | undefined
       transport.stderr?.on('data', (data) => {
         const text = data.toString('utf-8').trim()
         if (text) {
@@ -191,6 +191,7 @@ export function createMcpStdioManager(): McpStdioManager {
         command: config.command,
         args: config.args ?? [],
         pid: transport.pid,
+        instructions: connectResult?.instructions,
       })
     }
     catch (error) {

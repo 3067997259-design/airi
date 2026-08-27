@@ -273,6 +273,8 @@ export interface ElectronMcpStdioServerRuntimeStatus {
   args: string[]
   pid: number | null
   lastError?: string
+  /** Server-declared usage guidance from the MCP initialize handshake, if any. */
+  instructions?: string
 }
 
 export interface ElectronMcpStdioRuntimeStatus {
