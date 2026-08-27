@@ -8,14 +8,21 @@ import type { ChatHistoryItem, ChatToolReference, StreamingAssistantMessage } fr
 import type { ToolCallRerunPayload } from './tool-call-rerun'
 
 import { errorMessageFrom } from '@moeru/std'
-import { createChatOrchestratorRuntime } from '@proj-airi/core-agent'
+import { createChatOrchestratorRuntime, modelKey } from '@proj-airi/core-agent'
 import { IOAttributes, IOEvents, IOSpanNames, IOSubsystems } from '@proj-airi/stage-shared'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
 import { shallowRef, toRaw } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { getConversationAnalyticsSurface } from '../composables'
 import { activeTurnSpan, startSpan } from '../composables/use-io-tracer'
+import {
+  buildStageProtocolSection,
+  containsStageProtocol,
+  OUTPUT_FORMATTING_SECTION,
+  TOOLS_UNAVAILABLE_SECTION,
+} from '../constants/prompts/system-sections'
 import {
   AIRI_CHAT_APP_SURFACE_HEADER,
   AIRI_CHAT_ROUND_ID_HEADER,
@@ -135,6 +142,7 @@ function retrySourceIndexFrom(messages: ChatHistoryItem[], index: number): numbe
 export type { QueuedSendSnapshot } from '@proj-airi/core-agent'
 
 export const useChatStore = defineStore('chat', () => {
+  const { t } = useI18n()
   const llmStore = useLLM()
   const llmToolsStore = useLlmToolsStore()
   const llmToolsetPromptsStore = useLlmToolsetPromptsStore()
@@ -268,7 +276,22 @@ export const useChatStore = defineStore('chat', () => {
     },
     getActiveSessionId: () => activeSessionId.value,
     getActiveProvider: () => activeProvider.value,
-    getSystemPromptSupplement: () => llmToolsetPromptsStore.activeToolsetPrompt,
+    getSystemPromptSupplement: (model, chatProvider) => {
+      // App-owned sections ride on the send-time supplement so the persisted
+      // session system message stays pure character identity. Legacy cards
+      // already embed the stage protocol in their description; skip re-injecting
+      // it for them to avoid duplicating hundreds of tokens.
+      const sections: string[] = []
+      if (!containsStageProtocol(cardStore.systemPrompt))
+        sections.push(buildStageProtocolSection(t))
+      sections.push(OUTPUT_FORMATTING_SECTION)
+      if (model && chatProvider && llmStore.degradedToolKeys.includes(modelKey(model, chatProvider)))
+        sections.push(TOOLS_UNAVAILABLE_SECTION)
+      else if (llmToolsetPromptsStore.activeToolsetPrompt)
+        sections.push(llmToolsetPromptsStore.activeToolsetPrompt)
+      return sections.filter(section => section.trim().length > 0).join('\n\n')
+    },
+    getPostHistoryInstruction: () => cardStore.activeCard?.postHistoryInstructions,
     runtimeContextProviders: [
       createMinecraftContext,
     ],

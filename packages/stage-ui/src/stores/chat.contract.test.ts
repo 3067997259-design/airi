@@ -3,6 +3,7 @@ import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { Message, Tool } from '@xsai/shared-chat'
 
 import { errorMessageFrom } from '@moeru/std'
+import { modelKey } from '@proj-airi/core-agent'
 import { IOAttributes, IOSpanNames } from '@proj-airi/stage-shared'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -168,9 +169,24 @@ vi.mock('./chat/stream-store', () => ({
   }),
 }))
 
+const llmStoreState = vi.hoisted(() => ({
+  degradedToolKeys: [] as string[],
+}))
+const cardStoreState = vi.hoisted(() => ({
+  activeCard: undefined as { postHistoryInstructions?: string } | undefined,
+  systemPrompt: undefined as string | undefined,
+}))
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+  }),
+}))
+
 vi.mock('./ai/chat-llm/llm', () => ({
   useLLM: () => ({
     stream: llmStreamMock,
+    degradedToolKeys: llmStoreState.degradedToolKeys,
   }),
 }))
 
@@ -197,9 +213,7 @@ vi.mock('./modules/consciousness', () => ({
 }))
 
 vi.mock('./modules/airi-card', () => ({
-  useAiriCardStore: () => ({
-    activeCard: undefined,
-  }),
+  useAiriCardStore: () => cardStoreState,
 }))
 
 vi.mock('./modules/artistry-autonomous', () => ({
@@ -222,6 +236,9 @@ const provider = {
 describe('chat store contract', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    llmStoreState.degradedToolKeys.length = 0
+    cardStoreState.activeCard = undefined
+    cardStoreState.systemPrompt = undefined
     llmStreamMock.mockReset()
     trackFirstMessageMock.mockReset()
     for (const analyticsMock of Object.values(chatAnalyticsMocks))
@@ -627,6 +644,75 @@ describe('chat store contract', () => {
     expect(syntheticContextText).not.toContain('<module ')
     expect(syntheticContextText).toContain('[Context]')
     expect(syntheticContextText).toContain('- system:weather: sunny')
+  })
+
+  it('injects the stage control and formatting sections for a protocol-free card', async () => {
+    cardStoreState.systemPrompt = 'A plain character prompt.'
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'ok' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const store = useChatStore()
+    await store.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const systemMessage = llmStreamMock.mock.calls[0]?.[2]?.[0] as any
+    const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
+    expect(systemText).toContain('system prompt')
+    expect(systemText).toContain('## Stage Control')
+    expect(systemText).toContain('## Output Formatting')
+    expect(systemText).toContain('Plugin toolset guidance.')
+  })
+
+  it('skips the stage control section for legacy cards that embed the protocol', async () => {
+    cardStoreState.systemPrompt = 'Persona text <|ACT {"emotion":"happy"}|> protocol inside description'
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'ok' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const store = useChatStore()
+    await store.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const systemMessage = llmStreamMock.mock.calls[0]?.[2]?.[0] as any
+    const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
+    expect(systemText).not.toContain('## Stage Control')
+    expect(systemText).toContain('## Output Formatting')
+    expect(systemText).toContain('Plugin toolset guidance.')
+  })
+
+  it('replaces the toolset section while tool calling is degraded for the model', async () => {
+    cardStoreState.systemPrompt = 'A plain character prompt.'
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'ok' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const store = useChatStore()
+    await store.ingest('probe', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+    // Degrade exactly the model key the first send actually used, so the
+    // assertion does not depend on how the provider instance is resolved.
+    const [sentModel, sentProvider] = llmStreamMock.mock.calls[0]
+    llmStoreState.degradedToolKeys.push(modelKey(sentModel, sentProvider))
+
+    await store.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const systemMessage = llmStreamMock.mock.calls[1]?.[2]?.[0] as any
+    const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
+    expect(systemText).toContain('Tool calling is currently unavailable')
+    expect(systemText).not.toContain('Plugin toolset guidance.')
   })
 
   // ROOT CAUSE:

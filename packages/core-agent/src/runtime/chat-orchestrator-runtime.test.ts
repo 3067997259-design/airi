@@ -50,8 +50,9 @@ function createHarness() {
     await options?.onStreamEvent?.({ type: 'text-delta', text: 'assistant reply' })
     await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
   })
+  const systemPromptSupplement = vi.fn<(model: string, chatProvider: ChatProvider) => string | undefined>(() => undefined)
+  const postHistoryInstruction = vi.fn<() => string | undefined>(() => undefined)
   const ids = ['stream-context', 'assistant-id', 'user-id', 'fallback-id']
-  let systemPromptSupplement: string | undefined
   let nowValue = new Date(2026, 3, 25, 18, 47).getTime()
   let monotonicNowValues = [1000]
   let generation = 1
@@ -79,9 +80,10 @@ function createHarness() {
     llm: {
       stream,
     },
+    getSystemPromptSupplement: (...args) => systemPromptSupplement(...args),
+    getPostHistoryInstruction: () => postHistoryInstruction(),
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
-    getSystemPromptSupplement: () => systemPromptSupplement,
     now: () => nowValue,
     monotonicNow: () => monotonicNowValues.shift() ?? 1000,
     createId: () => ids.shift() ?? 'generated-id',
@@ -127,15 +129,12 @@ function createHarness() {
       },
     },
     promptProjections,
+    postHistoryInstruction,
     runtime,
     sessionMessages,
     stateChanges,
     stream,
-    systemPromptSupplement: {
-      set: (next: string | undefined) => {
-        systemPromptSupplement = next
-      },
-    },
+    systemPromptSupplement,
     telemetry,
     userAppended,
     userTurns,
@@ -369,6 +368,46 @@ describe('createChatOrchestratorRuntime', () => {
     })
   })
 
+  it('passes model and provider to getSystemPromptSupplement and appends it to the system message', async () => {
+    const harness = createHarness()
+    harness.systemPromptSupplement.mockReturnValue('## Supplement')
+
+    await harness.runtime.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    expect(harness.systemPromptSupplement).toHaveBeenCalledWith('gpt-test', provider)
+    const messages = harness.stream.mock.calls[0]?.[2]
+    expect(messages?.[0]).toMatchObject({
+      role: 'system',
+      content: expect.stringContaining('## Supplement'),
+    })
+  })
+
+  it('appends post-history instructions to the final user message and skips them when empty', async () => {
+    const harness = createHarness()
+    harness.postHistoryInstruction.mockReturnValue('Stay in character.')
+
+    await harness.runtime.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const withReminder = harness.stream.mock.calls[0]?.[2]?.at(-1)
+    expect(JSON.stringify(withReminder?.content)).toContain('[Reminder]')
+    expect(JSON.stringify(withReminder?.content)).toContain('Stay in character.')
+
+    harness.postHistoryInstruction.mockReturnValue(undefined)
+    await harness.runtime.ingest('again', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    const withoutReminder = harness.stream.mock.calls[1]?.[2]?.at(-1)
+    expect(JSON.stringify(withoutReminder?.content)).not.toContain('[Reminder]')
+  })
+
   it('keeps hook order and appends context prompt to the latest user message', async () => {
     const harness = createHarness()
     harness.contextSnapshot['system:weather'] = [
@@ -525,7 +564,7 @@ describe('createChatOrchestratorRuntime', () => {
   it('appends system prompt supplement to the provider system message', async () => {
     const harness = createHarness()
     let composedMessages: Message[] = []
-    harness.systemPromptSupplement.set('Plugin toolset guidance.')
+    harness.systemPromptSupplement.mockReturnValue('Plugin toolset guidance.')
     harness.stream.mockImplementationOnce(async (_model, _chatProvider, messages, options) => {
       composedMessages = messages
       await options?.onStreamEvent?.({ type: 'text-delta', text: 'hello' })
@@ -547,7 +586,7 @@ describe('createChatOrchestratorRuntime', () => {
     const harness = createHarness()
     let composedMessages: Message[] = []
     harness.sessionMessages['session-1'] = []
-    harness.systemPromptSupplement.set('Plugin toolset guidance.')
+    harness.systemPromptSupplement.mockReturnValue('Plugin toolset guidance.')
     harness.stream.mockImplementationOnce(async (_model, _chatProvider, messages, options) => {
       composedMessages = messages
       await options?.onStreamEvent?.({ type: 'text-delta', text: 'hello' })

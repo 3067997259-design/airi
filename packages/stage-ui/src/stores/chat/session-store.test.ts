@@ -599,18 +599,18 @@ describe('chat-session-store · cloud deletion', () => {
 
 describe('chat-session-store · active card prompt edits', () => {
   // https://github.com/moeru-ai/airi/discussions/2239
-  it('adds the AIRI chat math syntax to the system message for Issue #2239', async () => {
+  // The math/code formatting rules moved from the persisted system message to
+  // the send-time supplement (constants/prompts/system-sections.ts), so the
+  // stored message must now stay pure character identity.
+  it('keeps the stored system message free of baked-in formatting rules for Issue #2239', async () => {
     const store = useChatSessionStore()
     await store.initialize()
 
     const content = store.messages[0]?.content
 
-    expect(content).toContain('Use $$...$$ for inline math.')
-    expect(content).toContain('Use a separate multiline $$ block for each display equation.')
-    expect(content).toContain('Use a latex fence for a list of independent one-line equations.')
-    expect(content).toContain('Use a math fence for one multiline equation or LaTeX environment.')
-    expect(content).toContain('Do not use single dollar signs as math delimiters.')
-    expect(content).not.toContain('eg: $ x^3 $')
+    expect(content).not.toContain('Use $$...$$ for inline math.')
+    expect(content).not.toContain('Do not use single dollar signs as math delimiters.')
+    expect(content).not.toContain('```python')
   })
 
   // ROOT CAUSE:

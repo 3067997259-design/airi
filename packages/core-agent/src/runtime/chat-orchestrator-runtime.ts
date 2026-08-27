@@ -189,7 +189,14 @@ export interface ChatOrchestratorRuntimeDeps {
   /** Returns the currently active provider ID for categorization policy. */
   getActiveProvider: () => string | undefined
   /** Returns optional prompt text appended to the provider system message for this send. */
-  getSystemPromptSupplement?: () => string | undefined
+  getSystemPromptSupplement?: (model: string, chatProvider: ChatProvider) => string | undefined
+  /**
+   * Returns optional reminder text (e.g. CCv3 post-history instructions) that
+   * is appended to the final user message for this send, mirroring the
+   * `[Context]` block so position-sensitive guidance survives deep history
+   * without requiring mid-conversation system messages.
+   */
+  getPostHistoryInstruction?: () => string | undefined
   /** Runtime context providers ingested immediately before prompt composition. */
   runtimeContextProviders?: Array<() => ContextMessage | null | undefined>
   /** Clock used for persisted message timestamps. @default Date.now */
@@ -717,7 +724,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       })
 
       const newMessages = buildProviderMessages(sessionMessagesForSend)
-      const systemPromptSupplement = deps.getSystemPromptSupplement?.()?.trim()
+      const systemPromptSupplement = deps.getSystemPromptSupplement?.(options.model, options.chatProvider)?.trim()
       if (systemPromptSupplement) {
         const systemMessage = newMessages.find(message => message.role === 'system')
         if (systemMessage) {
@@ -755,6 +762,25 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
             promptText: contextPromptText,
           },
         })
+      }
+
+      // Post-history instructions ride on the final user message — same
+      // delivery shape as the [Context] block — so position-sensitive guidance
+      // stays adjacent to the model's next turn without mid-conversation
+      // system messages that some providers reject.
+      const postHistoryInstruction = deps.getPostHistoryInstruction?.()?.trim()
+      if (postHistoryInstruction) {
+        const lastMessage = newMessages.at(-1)
+        if (lastMessage && lastMessage.role === 'user') {
+          const existingParts = typeof lastMessage.content === 'string'
+            ? [{ type: 'text' as const, text: lastMessage.content }]
+            : lastMessage.content
+
+          lastMessage.content = [
+            ...existingParts,
+            { type: 'text' as const, text: `\n[Reminder]\n${postHistoryInstruction}` },
+          ]
+        }
       }
 
       streamingMessageContext.composedMessage = newMessages as Message[]
