@@ -1,6 +1,7 @@
 import type { Tool } from '@xsai/shared-chat'
 
 import { useLlmToolsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
+import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/toolset-prompts'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -80,9 +81,17 @@ describe('useTamagotchiMcpToolsStore', async () => {
       isError: false,
     })
 
+    // The toolset prompt teaches the model the mcp_* naming convention and
+    // names the connected servers.
+    const toolsetPromptsStore = useLlmToolsetPromptsStore()
+    expect(toolsetPromptsStore.activeToolsetPrompt).toContain('MCP Servers')
+    expect(toolsetPromptsStore.activeToolsetPrompt).toContain('filesystem')
+    expect(toolsetPromptsStore.activeToolsetPrompt).toContain('mcp_<server>_<tool>')
+
     store.dispose()
 
     expect(llmToolsStore.tools.filter(tool => tool.id.startsWith('mcp:'))).toEqual([])
+    expect(toolsetPromptsStore.activeToolsetPrompt).toBe('')
   })
 
   it('falls back to the proxy meta-tools when no MCP tools are discovered', async () => {
@@ -97,6 +106,7 @@ describe('useTamagotchiMcpToolsStore', async () => {
       .map(tool => tool.function.name)
       .sort()
     expect(names).toEqual(['builtIn_mcpCallTool', 'builtIn_mcpListTools'])
+    expect(useLlmToolsetPromptsStore().activeToolsetPrompt).toContain('builtIn_mcpListTools')
   })
 
   it('falls back to the proxy meta-tools when listing fails', async () => {
