@@ -40,6 +40,31 @@
   - 流中途失败时持久化部分 assistant 消息（原来整条丢弃）；
   - 传输层没交付 transcript 时，从流式 tool-call/tool-result 事件合成一份。
 
+### M2.5 — 分层提示词注入管线（`f946642c9` + `16923b2fd` + `699b38d4e`）
+
+系统消息拆成带标题的分节，**会话里只持久化角色身份**，其余发送时组装：
+
+- `## Character`：卡的 systemPrompt/描述/性格/场景（持久，现状不变）。
+- `## Stage Control`：ACT/DELAY/CALL 协议 + 情绪/动作表（应用所有；i18n 新键
+  `base.prompt.protocol.*`，只翻 en + zh-Hans，其余语言回退英文）。存量卡
+  （如 ReLU 官方卡）用 `<|ACT` 标记检测去重不重复注入；**新建空白卡从此自动
+  获得协议**——顺带修复"自建卡没有协议 → 情绪系统哑掉"。
+- `## Output Formatting`：代码块/数学规则（从 session-store 烘焙迁出到发送时；
+  旧会话会出现一次重复，无害）。
+- `## Toolset`：工具说明，**降级感知**——模型命中 `degradedToolKeys` 时替换为
+  "工具本会话不可用，请勿声称已使用工具"，拆除幻觉放大器；MCP 注册的工具集
+  提示会列出已连接服务器与 `mcp_<server>_<tool>` 命名约定。
+- `[Reminder]`：卡的 `postHistoryInstructions`（CCv3 字段，原来只序列化从不注入）
+  以文本块附到最后一条用户消息，沿用 `[Context]` 的投递形态。
+- orchestrator：`getSystemPromptSupplement` 增加 `(model, chatProvider)` 参数。
+
+附带修复（`699b38d4e`）：官方卡教的是 `<|DELAY 1|>`（空格），延迟队列正则只认
+`<|DELAY:1|>`（冒号）——守规模型的延迟被静默丢弃。现在两种都接受。
+
+**踩坑记录**：stage-ui 的测试消费的是 workspace 包的 **dist**（postinstall 时构建），
+改 core-agent/i18n 源码后必须 `pnpm run build:packages`，否则 contract 测试跑的
+还是旧代码（表现为"src 里明明改了却不生效"）。
+
 ### M0 — 安装环境（`db55b9dcc`）
 
 - `pnpm-workspace.yaml`：移除 `minimumReleaseAge`（npmmirror 元数据缺发布时间，
