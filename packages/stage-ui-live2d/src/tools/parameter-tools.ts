@@ -69,12 +69,13 @@ const tools = [
       }
 
       const values = store.valuesFor(modelId)
+      const groupNames = new Map(store.discoveryFor(modelId)?.groups.map(group => [group.id, group.name]))
       return serialize({
         success: true,
         parameters: exposed.map(parameter => ({
           id: parameter.id,
           name: parameter.name,
-          group: parameter.groupId,
+          group: groupNames.get(parameter.groupId ?? '') ?? parameter.groupId,
           min: parameter.min,
           max: parameter.max,
           default: parameter.default,

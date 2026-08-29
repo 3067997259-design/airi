@@ -2,6 +2,7 @@ import type { ExecutableTool } from '@proj-airi/stage-ui/stores/ai/chat-llm/tool
 import type { ChatToolReference } from '@proj-airi/stage-ui/types/chat'
 import type { Tool } from '@xsai/shared-chat'
 
+import { useLive2DCustomParameters } from '@proj-airi/stage-ui-live2d/stores/custom-parameters'
 import { useExpressionStore } from '@proj-airi/stage-ui-live2d/stores/expression-store'
 import { expressionTools } from '@proj-airi/stage-ui-live2d/tools/expression-tools'
 import { live2dParameterTools } from '@proj-airi/stage-ui-live2d/tools/parameter-tools'
@@ -84,20 +85,47 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
    */
   function registerLive2dToolsetPrompt() {
     const exposedExpressions = expressionStore.llmExposedGroups.map(group => group.name)
-    if (exposedExpressions.length === 0) {
+    const customParameters = useLive2DCustomParameters()
+    const parameterModelId = customParameters.discoveredKeys.at(-1)
+    const exposedParameters = customParameters.llmExposedParameters(parameterModelId)
+
+    if (exposedExpressions.length === 0 && exposedParameters.length === 0) {
       llmToolsetPromptsStore.clearToolsetPrompts('live2d-appearance')
       return
+    }
+
+    const sections: string[] = []
+
+    if (exposedExpressions.length > 0) {
+      sections.push([
+        `Named expressions available now: ${exposedExpressions.join(', ')}.`,
+        'Prefer expression_toggle or expression_set for these named looks; they are the rigger\'s intended combinations.',
+      ].join('\n'))
+    }
+
+    if (exposedParameters.length > 0) {
+      // Group-level overview only: listing all parameter ids here would drown
+      // the prompt — live2d_parameter_list is the per-id discovery channel.
+      const catalog = customParameters.discoveryFor(parameterModelId)
+      const groupNames = new Map(catalog?.groups.map(group => [group.id, group.name]))
+      const byGroup = new Map<string, number>()
+      for (const parameter of exposedParameters)
+        byGroup.set(parameter.groupId ?? '', (byGroup.get(parameter.groupId ?? '') ?? 0) + 1)
+      const groupSummary = [...byGroup.entries()]
+        .map(([groupId, count]) => `${groupNames.get(groupId) ?? groupId} (${count})`)
+        .join(', ')
+
+      sections.push([
+        `You can also restyle your appearance with model-native parameters. Exposed groups: ${groupSummary}.`,
+        'Call live2d_parameter_list for the exact ids, ranges, and current values; binary parameters (range 0 to 1) are off/on switches, stepped ranges are style slots.',
+        'Combine several live2d_parameter_set entries in one call so a mood-driven change (hairstyle, ears, accessories) lands as one visual beat. Do not narrate the change; let it speak for itself.',
+      ].join('\n'))
     }
 
     llmToolsetPromptsStore.registerToolsetPrompts('live2d-appearance', [{
       id: 'live2d-appearance-overview',
       title: 'Live2D Appearance',
-      content: [
-        `You can change your own Live2D appearance. Named expressions available now: ${exposedExpressions.join(', ')}.`,
-        'Prefer expression_toggle or expression_set for these named looks; they are the rigger\'s intended combinations.',
-        'Use live2d_parameter_list and live2d_parameter_set only for finer changes an expression cannot make (hairstyle, pupil style, ears, accessories). Set several parameters in one call so the change lands as one visual beat.',
-        'Give expression_set a duration when a reaction should fade on its own, and call expression_reset_all to return to a neutral face. Do not narrate these calls; let the change speak for itself.',
-      ].join('\n\n'),
+      content: sections.join('\n\n'),
     }])
   }
 
