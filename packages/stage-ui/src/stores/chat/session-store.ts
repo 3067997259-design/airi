@@ -1379,6 +1379,16 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   async function setActiveSession(sessionId: string) {
     activeSessionId.value = sessionId
 
+    // Keep the persisted character index in step with the visible selection:
+    // index-driven restores (watchers, initialize, character switches) read
+    // this pointer, and a stale value yanks the UI back to an older
+    // conversation right after the user sends a message.
+    const characterIndex = getCharacterIndex(getCurrentCharacterId())
+    if (characterIndex && characterIndex.sessions[sessionId] && characterIndex.activeSessionId !== sessionId) {
+      characterIndex.activeSessionId = sessionId
+      void persistIndex()
+    }
+
     if (ready.value)
       await useChatSessionStore().loadSession(sessionId)
     else if (!hasKnownSession(sessionId))

@@ -145,7 +145,7 @@ const timelineItems = computed<ChatTimelineItem[]>(() => {
   })
 
   return items
-    .sort((left, right) => (left.createdAt ?? Number.MIN_SAFE_INTEGER) - (right.createdAt ?? Number.MIN_SAFE_INTEGER) || left.order - right.order)
+    .sort((left, right) => (left.createdAt ?? Number.MAX_SAFE_INTEGER) - (right.createdAt ?? Number.MAX_SAFE_INTEGER) || left.order - right.order)
     .map(({ order: _order, ...item }) => item)
 })
 

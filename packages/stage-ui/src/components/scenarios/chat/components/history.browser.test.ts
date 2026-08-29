@@ -344,6 +344,49 @@ describe('chat history', () => {
     expect(screen.container.textContent).not.toContain('Retry')
   })
 
+  // ROOT CAUSE:
+  //
+  // appendSendError historically appended the error item without a
+  // `createdAt`, and the timeline sorted untimed items to the very top
+  // (Number.MIN_SAFE_INTEGER fallback). In a long virtualized history the
+  // failed-send error therefore rendered above the viewport while the user
+  // was looking at the message tail — the failure appeared to produce no
+  // error at all. Untimed items now sort to the tail, where the send
+  // happened.
+  it('renders an untimed failed-send error at the tail of a long history', async () => {
+    const messages: ChatHistoryItem[] = Array.from({ length: 100 }, (_, index) => ({
+      id: `msg-${index}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: index % 2 === 0 ? `Question ${index}` : `Answer ${index}`,
+      createdAt: index,
+    }))
+    // Mirrors the appendSendError output shape before the timestamp fix:
+    // no id, no createdAt.
+    messages.push({ role: 'error', content: 'Remote sent 401 response' })
+
+    const screen = await render(ChatHistory, {
+      props: {
+        messages,
+        style: 'height: 240px; width: 320px; overflow-y: auto;',
+      },
+      global: {
+        plugins: [createEnglishI18n()],
+      },
+    })
+
+    const history = screen.container.querySelector<HTMLElement>('.chat-history-list')
+    expect(history).not.toBeNull()
+    if (!history)
+      throw new Error('Expected a chat history viewport.')
+
+    history.scrollTop = history.scrollHeight
+    history.dispatchEvent(new Event('scroll'))
+
+    await vi.waitFor(() => {
+      expect(screen.container.textContent).toContain('Remote sent 401 response')
+    })
+  })
+
   it('emits tool-call-rerun with message context when a tool call rerun button is clicked', async () => {
     const args = JSON.stringify({ location: 'Tokyo' })
     const assistantMessage: ChatHistoryItem = {

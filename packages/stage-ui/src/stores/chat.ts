@@ -617,8 +617,13 @@ export const useChatStore = defineStore('chat', () => {
       return
 
     chatSession.appendSessionMessage(sessionId, {
+      // id + createdAt anchor the item in the sorted, virtualized timeline:
+      // without a timestamp the sort would demote it to the top of a long
+      // history, outside the virtualized viewport at the message tail.
+      id: nanoid(),
       role: 'error',
       content: errorMessageFrom(error) ?? 'Unknown chat operation failure',
+      createdAt: Date.now(),
     })
   }
 
