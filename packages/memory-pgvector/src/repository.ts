@@ -297,4 +297,102 @@ export function connectMemoryRepository(connectionString: string): MemoryPgvecto
   }
 }
 
+/**
+ * Creates the memory tables, vector extension, and indexes when missing.
+ *
+ * No migration script ships with the package, and the schema below mirrors
+ * `schema.ts` one-to-one; embedders of different dimensions can coexist, so
+ * all three vector columns are always created.
+ */
+export async function ensureMemorySchema(connectionString: string): Promise<void> {
+  const client = postgres(connectionString)
+  try {
+    await client`CREATE EXTENSION IF NOT EXISTS vector`
+    await client`CREATE TABLE IF NOT EXISTS memory_fragments (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      content text NOT NULL,
+      memory_type text NOT NULL,
+      category text NOT NULL,
+      importance integer NOT NULL DEFAULT 5,
+      emotional_impact integer NOT NULL DEFAULT 0,
+      valence real NOT NULL DEFAULT 0,
+      arousal real NOT NULL DEFAULT 0,
+      half_life_hours real NOT NULL DEFAULT 24,
+      session_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+      trigger_pattern text,
+      last_intruded_at bigint,
+      review_status text NOT NULL DEFAULT 'pending',
+      created_at bigint NOT NULL DEFAULT 0,
+      last_accessed bigint NOT NULL DEFAULT 0,
+      access_count integer NOT NULL DEFAULT 1,
+      metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+      content_vector_1536 vector(1536),
+      content_vector_1024 vector(1024),
+      content_vector_768 vector(768),
+      deleted_at bigint
+    )`
+    await client`CREATE TABLE IF NOT EXISTS memory_tags (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      memory_id uuid NOT NULL REFERENCES memory_fragments (id) ON DELETE CASCADE,
+      tag text NOT NULL,
+      created_at bigint NOT NULL DEFAULT 0,
+      deleted_at bigint
+    )`
+    await client`CREATE TABLE IF NOT EXISTS memory_episodic (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      memory_id uuid NOT NULL REFERENCES memory_fragments (id) ON DELETE CASCADE,
+      event_type text NOT NULL,
+      participants jsonb NOT NULL DEFAULT '[]'::jsonb,
+      location text DEFAULT '',
+      created_at bigint NOT NULL DEFAULT 0,
+      deleted_at bigint
+    )`
+    await client`CREATE TABLE IF NOT EXISTS memory_long_term_goals (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      title text NOT NULL,
+      description text NOT NULL,
+      priority integer NOT NULL DEFAULT 5,
+      progress integer NOT NULL DEFAULT 0,
+      deadline bigint,
+      status text NOT NULL DEFAULT 'planned',
+      parent_goal_id uuid,
+      category text NOT NULL DEFAULT 'personal',
+      created_at bigint NOT NULL DEFAULT 0,
+      updated_at bigint NOT NULL DEFAULT 0,
+      deleted_at bigint
+    )`
+    await client`CREATE TABLE IF NOT EXISTS memory_short_term_ideas (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      content text NOT NULL,
+      source_type text NOT NULL DEFAULT 'dream',
+      source_id text,
+      status text NOT NULL DEFAULT 'new',
+      excitement integer NOT NULL DEFAULT 5,
+      created_at bigint NOT NULL DEFAULT 0,
+      updated_at bigint NOT NULL DEFAULT 0,
+      content_vector_1536 vector(1536),
+      content_vector_1024 vector(1024),
+      content_vector_768 vector(768),
+      deleted_at bigint
+    )`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_content_vector_1536_index ON memory_fragments USING hnsw (content_vector_1536 vector_cosine_ops)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_content_vector_1024_index ON memory_fragments USING hnsw (content_vector_1024 vector_cosine_ops)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_content_vector_768_index ON memory_fragments USING hnsw (content_vector_768 vector_cosine_ops)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_memory_type_index ON memory_fragments (memory_type)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_category_index ON memory_fragments (category)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_importance_index ON memory_fragments (importance)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_created_at_index ON memory_fragments (created_at)`
+    await client`CREATE INDEX IF NOT EXISTS memory_items_last_accessed_index ON memory_fragments (last_accessed)`
+    await client`CREATE INDEX IF NOT EXISTS memory_tags_memory_id_index ON memory_tags (memory_id)`
+    await client`CREATE INDEX IF NOT EXISTS memory_tags_tag_index ON memory_tags (tag)`
+    await client`CREATE INDEX IF NOT EXISTS memory_episodic_memory_id_index ON memory_episodic (memory_id)`
+    await client`CREATE INDEX IF NOT EXISTS memory_episodic_event_type_index ON memory_episodic (event_type)`
+    await client`CREATE INDEX IF NOT EXISTS memory_short_term_ideas_content_vector_768_index ON memory_short_term_ideas USING hnsw (content_vector_768 vector_cosine_ops)`
+    await client`CREATE INDEX IF NOT EXISTS memory_short_term_ideas_status_index ON memory_short_term_ideas (status)`
+  }
+  finally {
+    await client.end()
+  }
+}
+
 export { calculateMemoryTimeRelevance }

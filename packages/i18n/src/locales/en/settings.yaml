@@ -798,8 +798,17 @@ pages:
     memory-long-term:
       description: Long-term memory specific settings and management
       title: Long-Term Memory
-      wiring-note: Long-term persistence is not wired yet
-      wiring-note-description: These controls tune the local database. Promotion into a Postgres (pgvector) store is planned and currently inactive.
+      remote:
+        title: Long-term store (Postgres)
+        description: Connect a Postgres (pgvector) database; promoted memories mirror here and survive the local database.
+        connection-label: Connection string
+        connection-placeholder: postgresql://user:password@127.0.0.1:5435/postgres
+        connect: Connect
+        disconnect: Disconnect
+        status:
+          ready: Connected. Promoted memories mirror into this store.
+          unconfigured: Not connected. The local database stays the source of truth.
+          error: Connection failed.
       sections:
         ranking:
           description: Adjust the five ranking terms used by memory retrieval.

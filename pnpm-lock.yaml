@@ -1917,6 +1917,12 @@ importers:
       '@proj-airi/i18n':
         specifier: workspace:^
         version: link:../../packages/i18n
+      '@proj-airi/memory-core':
+        specifier: workspace:^
+        version: link:../../packages/memory-core
+      '@proj-airi/memory-pgvector':
+        specifier: workspace:^
+        version: link:../../packages/memory-pgvector
       '@proj-airi/pipelines-audio':
         specifier: workspace:^
         version: link:../../packages/pipelines-audio

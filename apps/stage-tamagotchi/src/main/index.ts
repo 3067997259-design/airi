@@ -34,6 +34,7 @@ import { setupCodingHost } from './services/airi/coding-host'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupBuiltInServer } from './services/airi/http-server'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
+import { setupMemoryHost } from './services/airi/memory-host'
 import { setupExtensionHost } from './services/airi/plugins'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
 import { resolveAutoUpdaterEnabled, setupAutoUpdater } from './services/electron/auto-updater'
@@ -241,8 +242,15 @@ app.whenReady().then(async () => {
     },
   })
 
+  const memoryHost = injeca.provide('modules:memory-host', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupMemoryHost(context, { connectionString: process.env.MEMORY_DATABASE_URL })
+    },
+  })
+
   const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost },
+    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, memoryHost },
     build: async ({ dependsOn }) => setupMainWindow({
       ...dependsOn,
       onWindowCreated: (window) => {

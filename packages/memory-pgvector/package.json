@@ -16,6 +16,16 @@
     "directory": "packages/memory-pgvector"
   },
   "keywords": [],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./repository": {
+      "types": "./src/repository.ts",
+      "default": "./src/repository.ts"
+    }
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",

@@ -760,8 +760,17 @@ pages:
     memory-long-term:
       description: 长期记忆
       title: 长期记忆
-      wiring-note: 长期持久化尚未接线
-      wiring-note-description: 此页控件调整的是本地数据库；向 Postgres（pgvector）的晋升写入尚未启用。
+      remote:
+        title: 长期存储（Postgres）
+        description: 连接 Postgres（pgvector）数据库；晋升的记忆会镜像到这里，独立于本地数据库保存。
+        connection-label: 连接字符串
+        connection-placeholder: postgresql://user:password@127.0.0.1:5435/postgres
+        connect: 连接
+        disconnect: 断开
+        status:
+          ready: 已连接。晋升的记忆会镜像到该存储。
+          unconfigured: 未连接。本地数据库仍是唯一数据源。
+          error: 连接失败。
       sections:
         ranking:
           description: 调整记忆检索使用的五项评分因素。

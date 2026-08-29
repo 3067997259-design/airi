@@ -37,6 +37,32 @@ export function installMemoryDreamAgent(next: MemoryDreamAgent | undefined): voi
   dreamAgent = next
 }
 
+/** Shape of the main-process long-term store status (MAINTENANCE-PLAN P2.4). */
+export interface MemoryHostStatusLike {
+  status: 'unconfigured' | 'ready' | 'error'
+  error?: string
+}
+
+/**
+ * Renderer-side port to the long-term Postgres store owned by the Electron
+ * main process. Embeddings are computed in the renderer (the embed worker is
+ * browser-only) and shipped alongside the fragment.
+ */
+export interface MemoryHostPort {
+  configure: (params: { connectionString?: string }) => Promise<MemoryHostStatusLike>
+  getStatus: () => Promise<MemoryHostStatusLike>
+  list: (params?: { memoryType?: string, reviewStatus?: string, limit?: number }) => Promise<Array<{ id: string, content: string, memoryType: string, category: string, importance: number, createdAt: number, lastAccessed: number, accessCount: number, reviewStatus?: string, sessionIds?: string[], score?: number }>>
+  search: (params: { embedding: number[], limit?: number, weights?: { similarity?: number, timeRelevance?: number, arousal?: number, accessCount?: number, moodCongruence?: number } }) => Promise<Array<{ id: string, content: string, memoryType: string, category: string, importance: number, createdAt: number, lastAccessed: number, accessCount: number, reviewStatus?: string, sessionIds?: string[], score?: number }>>
+  insert: (params: { content: string, memoryType: string, category: string, importance?: number, valence?: number, arousal?: number, halfLifeHours?: number, sessionId?: string, reviewStatus?: string, embedding?: number[], now?: number }) => Promise<{ id: string }>
+}
+
+let memoryHostPort: MemoryHostPort | undefined
+
+/** Installs the Eventa-backed memory host client for this renderer process. */
+export function installMemoryHostPort(next: MemoryHostPort): void {
+  memoryHostPort = next
+}
+
 /** Stores memory settings and provides a local DuckDB repository to stage. */
 export const useMemoryStore = defineStore('memory', () => {
   const repository = shallowRef<MemoryRepository>()
@@ -66,6 +92,9 @@ export const useMemoryStore = defineStore('memory', () => {
   const intrusionBaseRate = useLocalStorageManualReset('settings/memory/intrusion-base-rate', 0.02, { listenToStorageChanges: false })
   const intrusionCooldownMs = useLocalStorageManualReset('settings/memory/intrusion-cooldown-ms', 30_000, { listenToStorageChanges: false })
   const dreamingEnabled = useLocalStorageManualReset('settings/memory/dreaming-enabled', false, { listenToStorageChanges: false })
+  const pgConnectionString = useLocalStorageManualReset('settings/memory/pg-connection-string', '', { listenToStorageChanges: false })
+  const remoteStatus = shallowRef<'unconfigured' | 'ready' | 'error'>('unconfigured')
+  const remoteError = shallowRef<string>()
   const dreamIdeas = shallowRef<MemoryDreamIdea[]>([])
   const dreaming = shallowRef(false)
 
@@ -401,12 +430,77 @@ export const useMemoryStore = defineStore('memory', () => {
         halfLifeHours: extraction.memoryType === 'short_term' ? shortTermHalfLifeHours.value : undefined,
       }))
     }
-    await memoryRepository.promoteEligible({
+    const promotedIds = await memoryRepository.promoteEligible({
       minAccessCount: promotionAccessCount.value,
       minSessionCount: promotionSessionCount.value,
       halfLifeHours: longTermHalfLifeHours.value,
     })
+    await mirrorPromotedToLongTermStore(memoryRepository, promotedIds, embedMemoryText)
     return fragments
+  }
+
+  /**
+   * Mirrors fragments the local store just promoted into the long-term
+   * Postgres store. Best-effort only: a failure or an unconfigured host
+   * never turns a local promotion into an error, it just records the remote
+   * status for the settings page.
+   */
+  async function mirrorPromotedToLongTermStore(
+    memoryRepository: MemoryRepository,
+    promotedIds: string[],
+    embedMemoryText: (text: string) => Promise<number[]>,
+  ): Promise<void> {
+    if (promotedIds.length === 0 || !memoryHostPort || remoteStatus.value !== 'ready')
+      return
+
+    try {
+      const promoted = new Set(promotedIds)
+      const longTermFragments = await memoryRepository.list({ memoryType: 'long_term', limit: 1000 })
+      for (const fragment of longTermFragments) {
+        if (!promoted.has(fragment.id))
+          continue
+        await memoryHostPort.insert({
+          content: fragment.content,
+          memoryType: fragment.memoryType,
+          category: fragment.category,
+          importance: fragment.importance,
+          valence: fragment.valence,
+          arousal: fragment.arousal ?? undefined,
+          sessionId: fragment.sessionIds.at(-1),
+          reviewStatus: fragment.reviewStatus,
+          embedding: await embedMemoryText(fragment.content),
+        })
+      }
+    }
+    catch (error) {
+      remoteStatus.value = 'error'
+      remoteError.value = errorMessageFrom(error) ?? 'Unknown long-term store error'
+    }
+  }
+
+  /** Connects (or disconnects) the long-term Postgres store. */
+  async function configureRemoteHost(connectionString: string): Promise<MemoryHostStatusLike> {
+    if (!memoryHostPort) {
+      remoteStatus.value = 'unconfigured'
+      return { status: 'unconfigured', error: 'Memory host bridge is not installed in this window' }
+    }
+
+    pgConnectionString.value = connectionString
+    const result = await memoryHostPort.configure({ connectionString: connectionString.trim() || undefined })
+    remoteStatus.value = result.status
+    remoteError.value = result.error
+    return result
+  }
+
+  async function refreshRemoteHostStatus(): Promise<MemoryHostStatusLike> {
+    if (!memoryHostPort) {
+      remoteStatus.value = 'unconfigured'
+      return { status: 'unconfigured' }
+    }
+    const result = await memoryHostPort.getStatus()
+    remoteStatus.value = result.status
+    remoteError.value = result.error
+    return result
   }
 
   function resetState() {
@@ -431,6 +525,9 @@ export const useMemoryStore = defineStore('memory', () => {
     intrusionBaseRate.reset()
     intrusionCooldownMs.reset()
     dreamingEnabled.reset()
+    pgConnectionString.reset()
+    remoteStatus.value = 'unconfigured'
+    remoteError.value = undefined
     dreamIdeas.value = []
     dreaming.value = false
     currentMood.value = { valence: 0, arousal: 0 }
@@ -458,6 +555,11 @@ export const useMemoryStore = defineStore('memory', () => {
     intrusionBaseRate,
     intrusionCooldownMs,
     dreamingEnabled,
+    pgConnectionString,
+    remoteStatus,
+    remoteError,
+    configureRemoteHost,
+    refreshRemoteHostStatus,
     dreamIdeas,
     dreaming,
     configured,

@@ -592,5 +592,67 @@ export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, v
 export const codingApprovalRequested = defineEventa<CodingApprovalRequestPayload>('eventa:event:electron:coding-host:approval:requested')
 export const codingApprovalDecided = defineEventa<CodingApprovalDecisionPayload>('eventa:event:electron:coding-host:approval:decided')
 
+// -- Memory host (long-term Postgres/pgvector store, MAINTENANCE-PLAN P2.4) --
+// The main process owns the Postgres connection; renderers ship embeddings
+// they computed locally (the embed worker is browser-only) and the host
+// delegates to the @proj-airi/memory-pgvector repository.
+
+export interface MemoryHostStatus {
+  status: 'unconfigured' | 'ready' | 'error'
+  error?: string
+}
+
+export interface MemoryHostListParams {
+  memoryType?: string
+  reviewStatus?: string
+  limit?: number
+}
+
+export interface MemoryHostSearchParams {
+  embedding: number[]
+  limit?: number
+  weights?: {
+    similarity?: number
+    timeRelevance?: number
+    arousal?: number
+    accessCount?: number
+    moodCongruence?: number
+  }
+}
+
+export interface MemoryHostInsertParams {
+  content: string
+  memoryType: string
+  category: string
+  importance?: number
+  valence?: number
+  arousal?: number
+  halfLifeHours?: number
+  sessionId?: string
+  reviewStatus?: string
+  embedding?: number[]
+  now?: number
+}
+
+export interface MemoryHostFragment {
+  id: string
+  content: string
+  memoryType: string
+  category: string
+  importance: number
+  createdAt: number
+  lastAccessed: number
+  accessCount: number
+  reviewStatus?: string
+  sessionIds?: string[]
+  score?: number
+}
+
+export const memoryHostConfigure = defineInvokeEventa<MemoryHostStatus, { connectionString?: string }>('eventa:invoke:electron:memory-host:configure')
+export const memoryHostGetStatus = defineInvokeEventa<MemoryHostStatus, void>('eventa:invoke:electron:memory-host:status')
+export const memoryHostList = defineInvokeEventa<MemoryHostFragment[], MemoryHostListParams | void>('eventa:invoke:electron:memory-host:list')
+export const memoryHostSearch = defineInvokeEventa<MemoryHostFragment[], MemoryHostSearchParams>('eventa:invoke:electron:memory-host:search')
+export const memoryHostInsert = defineInvokeEventa<MemoryHostFragment, MemoryHostInsertParams>('eventa:invoke:electron:memory-host:insert')
+
 export { electron } from '@proj-airi/electron-eventa'
 export * from '@proj-airi/electron-eventa/electron-updater'
