@@ -16,6 +16,8 @@ export interface DiscordAdapterConfig {
   discordToken?: string
   airiToken?: string
   airiUrl?: string
+  /** Non-direct channel messages matching any keyword wake AIRI via spark:notify. */
+  attentionKeywords?: string[]
 }
 
 // Define Discord configuration type
@@ -31,6 +33,10 @@ function isDiscordConfig(config: unknown): config is DiscordConfig {
   const c = config as Record<string, unknown>
   return (typeof c.token === 'string' || typeof c.token === 'undefined')
     && (typeof c.enabled === 'boolean' || typeof c.enabled === 'undefined')
+}
+
+function randomEventId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
 function normalizeDiscordMetadata(discord?: Discord): Discord | undefined {
@@ -57,10 +63,12 @@ export class DiscordAdapter {
   private discordClient: Client
   private discordToken: string
   private voiceManager: VoiceManager
+  private attentionKeywords: string[]
   private isReconnecting = false
 
   constructor(config: DiscordAdapterConfig) {
     this.discordToken = config.discordToken || env.DISCORD_TOKEN || ''
+    this.attentionKeywords = config.attentionKeywords ?? []
 
     // Initialize Discord client
     this.discordClient = new Client({
@@ -83,6 +91,8 @@ export class DiscordAdapter {
         'input:voice',
         'module:configure',
         'output:gen-ai:chat:message',
+        'context:update',
+        'spark:notify',
       ],
       token: config.airiToken,
       url: config.airiUrl,
@@ -109,7 +119,7 @@ export class DiscordAdapter {
           const { token, enabled } = config
 
           if (enabled === false) {
-            if (this.discordClient.isReady) {
+            if (this.discordClient.isReady()) {
               log.log('Disabling Discord bot as per configuration...')
               await this.discordClient.destroy()
             }
@@ -119,16 +129,16 @@ export class DiscordAdapter {
           // If enabled, but no token is provided, stop the bot if it's running.
           if (!token) {
             log.warn('Discord bot enabled, but no token provided. Stopping bot.')
-            if (this.discordClient.isReady) {
+            if (this.discordClient.isReady()) {
               await this.discordClient.destroy()
             }
             return
           }
 
           // Connect or reconnect if token changed or client is not ready.
-          if (this.discordToken !== token || !this.discordClient.isReady) {
+          if (this.discordToken !== token || !this.discordClient.isReady()) {
             this.discordToken = token
-            if (this.discordClient.isReady) {
+            if (this.discordClient.isReady()) {
               log.log('Reconnecting Discord client with new token...')
               await this.discordClient.destroy()
             }
@@ -160,7 +170,8 @@ export class DiscordAdapter {
     this.airiClient.onEvent('output:gen-ai:chat:message', async (event) => {
       try {
         const message = (event.data as { message?: { content: string } }).message
-        const discordContext = (event.data)['gen-ai:chat'].input.data.discord
+        const genAiChat = (event.data as { 'gen-ai:chat'?: { input?: { data?: { discord?: Discord } } } })['gen-ai:chat']
+        const discordContext = genAiChat?.input?.data?.discord
 
         if (message?.content && discordContext?.channelId) {
           const channel = await this.discordClient.channels.fetch(discordContext.channelId)
@@ -215,16 +226,18 @@ export class DiscordAdapter {
       const isDM = !message.guild
       const isMentioned = this.discordClient.user && message.mentions.has(this.discordClient.user)
 
-      // Respond if the bot is mentioned OR if it's a DM
+      const rawContent = message.content
+      const content = isMentioned
+        ? rawContent.replace(/<@!?\d+>/g, '').trim()
+        : rawContent.trim()
+
+      if (!content)
+        return
+
+      const authorName = message.member?.displayName ?? message.author.username
+
+      // Direct talk (DM or mention) stays on the conversation lane.
       if (isMentioned || isDM) {
-        const rawContent = message.content
-        const content = isMentioned
-          ? rawContent.replace(/<@!?\d+>/g, '').trim()
-          : rawContent.trim()
-
-        if (!content)
-          return
-
         log.log(`Received text message from ${message.author.tag} in ${isDM ? 'DM' : message.channelId}`)
 
         const discordContext: Discord = {
@@ -283,6 +296,42 @@ export class DiscordAdapter {
             discord: normalizedDiscord,
           },
         })
+      }
+      else {
+        // Channel presence (ATTENTION-DESIGN §6): AIRI is merely present, so
+        // the message goes to the passive context lane — replace-self per
+        // channel, history-only, never a chat bubble.
+        const channelName = (message.channel as { name?: string | null } | null | undefined)?.name ?? message.channelId
+
+        this.airiClient.send({
+          type: 'context:update',
+          data: {
+            id: randomEventId(),
+            contextId: `discord-channel-${message.channelId}`,
+            lane: 'discord',
+            text: `${authorName} in #${channelName}: ${content.slice(0, 160)}`,
+            strategy: ContextUpdateStrategy.ReplaceSelf,
+            destinations: ['proj-airi:stage-*'],
+          },
+        })
+
+        // Keyword triggers wake her through the event lane (kind = ping).
+        const matchedKeyword = this.attentionKeywords.find(keyword =>
+          content.toLowerCase().includes(keyword.toLowerCase()))
+        if (matchedKeyword) {
+          this.airiClient.send({
+            type: 'spark:notify',
+            data: {
+              id: randomEventId(),
+              eventId: randomEventId(),
+              kind: 'ping',
+              urgency: 'soon',
+              headline: `Discord keyword "${matchedKeyword}" in #${channelName}`,
+              note: `${authorName}: ${content.slice(0, 200)}`,
+              destinations: ['proj-airi:stage-*'],
+            },
+          })
+        }
       }
     })
 

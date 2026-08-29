@@ -15,6 +15,12 @@ async function main() {
     discordToken: env.DISCORD_TOKEN || '', // Fallback to env, but will be updated via WebSocket
     airiToken: env.AIRI_TOKEN || 'abcd',
     airiUrl: env.AIRI_URL || 'ws://localhost:6121/ws',
+    // Keyword triggers wake AIRI through the event lane (spark:notify),
+    // comma-separated in DISCORD_ATTENTION_KEYWORDS.
+    attentionKeywords: env.DISCORD_ATTENTION_KEYWORDS
+      ?.split(',')
+      .map(keyword => keyword.trim())
+      .filter(Boolean),
   })
 
   await adapter.start()

@@ -56,6 +56,7 @@ export class AiriAdapter {
         'module:announce',
         'ui:configure',
         'input:text',
+        'spark:emit',
       ],
     })
 
@@ -140,18 +141,28 @@ export class AiriAdapter {
     }
   }
 
+  /** Sends an integration result through the event lane instead of chat input. */
+  private sendCommandOutcome(state: 'done' | 'blocked', note: string): void {
+    const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    this.client.send({
+      type: 'spark:emit',
+      data: {
+        id,
+        eventId: id,
+        state,
+        note,
+        destinations: ['character'],
+      },
+    })
+  }
+
   private async handleSearchTweets(content: string): Promise<boolean> {
     if (content) {
       const tweets = await this.twitterServices.tweet.searchTweets(content)
       logger.main.log(`Found ${tweets.length} tweets for query: ${content}`)
-      // Return results to the user
-      this.client.send({
-        type: 'input:text',
-        data: {
-          text: `Found ${tweets.length} tweets for '${content}':
-${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join('\n')}`,
-        },
-      })
+      const result = `Found ${tweets.length} tweets for '${content}':
+${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join('\n')}`
+      this.sendCommandOutcome('done', result)
       return true
     }
     else {
@@ -183,17 +194,12 @@ ${tweets.slice(0, 5).map((t: Tweet) => `- ${t.text.substring(0, 100)}...`).join(
     if (content) {
       const userProfile = await this.twitterServices.user.getUserProfile(content)
       logger.main.log(`Retrieved profile for user: @${content}`)
-      // Return user info to the user
-      this.client.send({
-        type: 'input:text',
-        data: {
-          text: `User Profile for @${userProfile.username}:
+      const result = `User Profile for @${userProfile.username}:
 Display Name: ${userProfile.displayName}
 Bio: ${userProfile.bio || 'N/A'}
 Followers: ${userProfile.followersCount || 0}
-Following: ${userProfile.followingCount || 0}`,
-        },
-      })
+Following: ${userProfile.followingCount || 0}`
+      this.sendCommandOutcome('done', result)
       return true
     }
     else {
@@ -205,14 +211,9 @@ Following: ${userProfile.followingCount || 0}`,
     const timelineOptions = { count }
     const tweets = await this.twitterServices.timeline.getTimeline(timelineOptions)
     logger.main.log(`Retrieved ${tweets.length} tweets from timeline`)
-    // Return timeline to the user
-    this.client.send({
-      type: 'input:text',
-      data: {
-        text: `Latest ${tweets.length} tweets from your timeline:
-${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)}...`).join('\n')}`,
-      },
-    })
+    const result = `Latest ${tweets.length} tweets from your timeline:
+${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)}...`).join('\n')}`
+    this.sendCommandOutcome('done', result)
     return true
   }
 
@@ -262,23 +263,13 @@ ${tweets.map((t: Tweet) => `- ${t.author.displayName}: ${t.text.substring(0, 80)
 
       // Only send the original processing response if we haven't already sent a specific response
       if (!responseSent) {
-        this.client.send({
-          type: 'input:text',
-          data: {
-            text: `Processed X command: ${input}`,
-          },
-        })
+        this.sendCommandOutcome('done', `Processed X command: ${input}`)
       }
     }
     catch (error: unknown) {
       const errorMessage = errorToMessage(error)
       logger.main.errorWithError('Error handling input:', error)
-      this.client.send({
-        type: 'input:text',
-        data: {
-          text: `Error processing X command: ${errorMessage}`,
-        },
-      })
+      this.sendCommandOutcome('blocked', `Error processing X command: ${errorMessage}`)
     }
   }
 
