@@ -1,5 +1,7 @@
 import type { Tool } from '@xsai/shared-chat'
 
+import type { CodingHostClient } from '../../../bridges/coding-host'
+
 import { applyHashlineEdit } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
 import { CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
@@ -87,6 +89,41 @@ async function executeBash(input: { command: string, mediumApprovalRequired?: bo
   return output ? `${header}\n${output}` : header
 }
 
+const CODE_MODE_MIN_TIMEOUT_MS = 1_000
+const CODE_MODE_MAX_TIMEOUT_MS = 60_000
+
+const codeModeParams = z.object({
+  program: z.string().describe('Program body. Call tools with `await bridge(name, [args])` (e.g. `await bridge("read", ["src/a.ts"])`) and `return` the final value. Runs in a sandboxed worker; one bridge call is one tool dispatch.'),
+  timeoutMs: z.number().optional().describe(`Whole-program wall clock limit between ${CODE_MODE_MIN_TIMEOUT_MS} and ${CODE_MODE_MAX_TIMEOUT_MS} (default 10000).`),
+})
+
+/** Flattens one Code Mode run into a bounded text result for the model. */
+export function codeModeResultToText(result: Awaited<ReturnType<CodingHostClient['runProgram']>>): string {
+  const lines: string[] = []
+
+  if (result.ok) {
+    lines.push(`program finished, ${result.traces.length} tool call(s)`)
+    if (result.value !== undefined)
+      lines.push(`return: ${JSON.stringify(result.value)}`)
+    lines.push(...result.logs.map(log => `log: ${log}`))
+    lines.push(...result.traces.map(trace => `${trace.ok ? 'ok' : 'failed'} ${trace.toolName} -> ${trace.resultSummary}`))
+    return lines.join('\n')
+  }
+
+  lines.push(`program failed (${result.failure.kind}): ${result.failure.message}`)
+  lines.push(...result.failure.logs.map(log => `log: ${log}`))
+  lines.push(...result.failure.traces.map(trace => `${trace.ok ? 'ok' : 'failed'} ${trace.toolName} -> ${trace.resultSummary}`))
+  return lines.join('\n')
+}
+
+async function executeCodeMode(input: { program: string, timeoutMs?: number }): Promise<string> {
+  const timeoutMs = input.timeoutMs === undefined
+    ? undefined
+    : Math.min(Math.max(Math.round(input.timeoutMs), CODE_MODE_MIN_TIMEOUT_MS), CODE_MODE_MAX_TIMEOUT_MS)
+  const result = await createCodingHostClient().runProgram({ program: input.program, timeoutMs })
+  return codeModeResultToText(result)
+}
+
 const tools: Promise<Tool>[] = [
   tool({
     name: CODING_TOOL_META.read.name,
@@ -111,6 +148,12 @@ const tools: Promise<Tool>[] = [
     description: CODING_TOOL_META.bash.description,
     execute: executeBash,
     parameters: bashParams,
+  }),
+  tool({
+    name: 'code_mode',
+    description: 'Run a multi-step coding program in one sandboxed execution. Prefer it over many single tool calls when a task needs several read/write/edit/bash operations: control flow, loops, and conditionals run in code, and the result comes back as one summary with a trace per tool dispatch.',
+    execute: executeCodeMode,
+    parameters: codeModeParams,
   }),
 ]
 

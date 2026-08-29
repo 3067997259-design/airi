@@ -110,6 +110,11 @@ export async function setupCodingHost(
 
   defineInvokeHandler(context, codingHostListTools, async () => ({
     workspaceRoot,
-    tools: tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
+    tools: [
+      ...tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
+      // The PTC runtime is host-level rather than a bridge capability, so it
+      // is listed separately; renderers gate registration on this entry.
+      { name: 'code_mode', description: 'Run a sandboxed program that dispatches the coding tools through bridge().', available: true },
+    ],
   }))
 }

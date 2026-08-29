@@ -151,9 +151,10 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       id: 'coding-hashline-overview',
       title: 'File editing (Hashline)',
       content: [
-        'Workspace tools: read, write, edit, bash. Paths are relative to the workspace root.',
+        'Workspace tools: read, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
         'edit works by content signature: after read, reference the short signature shown before each line, plus the first 16-32 characters of that line as expectedPrefix.',
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',
+        'For tasks needing several tool operations, prefer code_mode: write one program that bridges the tools and runs them in a sandbox; you get one result with a per-call trace.',
         'bash commands are tiered; high-risk commands (push, delete, network, production, publish) require user approval. Use read-only commands (tests, git status/diff, logs) freely.',
       ].join('\n\n'),
     }])
