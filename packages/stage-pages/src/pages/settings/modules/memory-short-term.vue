@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { WIP } from '@proj-airi/stage-ui/components'
+import MemoryShortTermControls from './components/memory-short-term-controls.vue'
 </script>
 
 <template>
-  <WIP />
+  <MemoryShortTermControls />
 </template>
 
 <route lang="yaml">

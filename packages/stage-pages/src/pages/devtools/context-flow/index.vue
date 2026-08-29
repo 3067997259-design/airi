@@ -170,6 +170,16 @@ function summarizeServerEvent(event: { type: string, data: Record<string, any> }
         event.data.state ? `state=${event.data.state}` : '',
         event.data.destinations ? `destinations="${truncateText(formatDestinations(event.data.destinations), 120)}"` : '',
       ].filter(Boolean).join(' ')
+    case 'task:start':
+      return `task=${event.data.taskId ?? 'unknown'} kind=${event.data.kind ?? 'task'}`
+    case 'task:progress':
+      return `task=${event.data.taskId ?? 'unknown'} snapshot=replace logRef=${event.data.logRef ?? 'none'}`
+    case 'task:blocked':
+      return `task=${event.data.taskId ?? 'unknown'} needsInput="${truncateText(String(event.data.needsInput ?? ''), 120)}"`
+    case 'task:done':
+      return `task=${event.data.taskId ?? 'unknown'} conclusion="${truncateText(String(event.data.conclusion ?? ''), 120)}"`
+    case 'event:reaction':
+      return `event=${event.data.eventId ?? event.data.id ?? 'unknown'} reaction="${truncateText(String(event.data.reaction ?? ''), 120)}"`
     case 'spark:command':
       return [
         event.data.intent ? `intent=${event.data.intent}` : '',
@@ -399,6 +409,11 @@ onMounted(() => {
     'spark:notify',
     'spark:emit',
     'spark:command',
+    'task:start',
+    'task:progress',
+    'task:blocked',
+    'task:done',
+    'event:reaction',
     'input:text',
     'input:text:voice',
     'output:gen-ai:chat:message',

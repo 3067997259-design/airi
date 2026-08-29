@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { WIP } from '@proj-airi/stage-ui/components'
+import MemoryBrowser from './components/memory-browser.vue'
+import MemoryLongTermControls from './components/memory-long-term-controls.vue'
 </script>
 
 <template>
-  <WIP />
+  <div :class="['flex', 'flex-col', 'gap-6']">
+    <MemoryLongTermControls />
+    <MemoryBrowser />
+  </div>
 </template>
 
 <route lang="yaml">
