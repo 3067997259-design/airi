@@ -260,10 +260,37 @@ typecheck 全过（stage-ui 消费 core-agent dist，改源码后需 `build:pack
 `plan_update` + 四工具（defaultActive）+ `code_mode`——时序修复真机确认，
 且注册可用性门同时证明了 coding-host bridge 端到端可达。CDP 调研用
 `D:\.airi-smoke\cdp-eval.cjs`（原生 eval，agent-browser 激活式切换在主窗
-口忙时会挂）。**新发现**：ENOTSUP 6121 的重试是无退避热循环（3 分钟 6908
-条错误，IPC 被打满 → 渲染进程间歇无响应），比「非致命」旧记录严重，待给
-server channel apply/restore 加退避上限。待办：Mimosa 完整审计（提交链上
-scanner_enobufs，兼容放行未宣称安全）。
+口忙时会挂）。
+
+### M-M2 — 第二轮：乒乓根修 + 控制台 + pgvector（2026-08-29）
+
+- **ENOTSUP 热循环根修（`14657e2a0`）**：冒烟发现渲染进程周期性冻结后，
+  真凶不是主进程无退避，而是 channel-config watcher 的**回滚乒乓**——失败
+  回滚恢复"上一次 flush 的值"（与已接受快照不同），回滚本身再次触发
+  watcher，apply → fail → rollback → apply 永续循环（每秒 ~13 次失败绑
+  定，6908 条日志/3 分钟，Eventa IPC 打满 → 所有渲染进程间歇冻结）。修复：
+  watcher 以 `appliedConfig` 去重（启动同步已接受的配置不再触发 apply）+
+  回滚恢复快照本身。回归测试 `server-channel.test.ts` 3/3。分析见
+  `docs/solutions/runtime/server-channel-enotsup.md`，CDP 冒烟配方见
+  `docs/solutions/debugging/electron-cdp-smoke.md`（该目录按 AGENTS.md
+  体例新建）。
+- **devtools coding 控制台（`140b32d19`）**：`devtools/coding-console` 页：
+  计划验证门投影、手工 PlanSpec 测试台（无模型即可检验白名单/证据门）、
+  journal 事件流过滤（tool/plan/approval）、coding host 状态芯片。
+- **pgvector 主进程 memory-host（`6c8d623f6`）**：`memory-pgvector` 新增
+  `ensureMemorySchema`（此前全仓库无 DDL——表从未被创建过；幂等建表 +
+  hnsw 索引）与 `./repository` 子路径导出（根 index 顶层 `void main()`
+  会启动 standalone client，主进程必须绕开）。主进程 `memory-host` 服务
+  （coding-host 同款模式）持有 Postgres 连接；stage-ui 记忆 store 暴露
+  `MemoryHostPort` 注入端口；`promoteEligible` 晋升后把片段连同 renderer
+  端计算的 768 维 embedding 镜像进 Postgres（尽力而为，不阻塞本地层）；
+  长期记忆设置页提供连接串配置/连接/断开/状态。已知边界：检索浏览器仍读
+  本地库；真库走查待本机 Docker 起 `server/docker-compose.yaml` 的 db
+  服务（`127.0.0.1:5435`）。
+
+验证（第二轮）：core-agent 172/172、memory-core 15/15、skill-forge
+23/23、memory-pgvector 2/2、tamagotchi 四套件 13/13；memory-pgvector/
+stage-ui/stage-pages/stage-tamagotchi typecheck 全过。
 
 
 

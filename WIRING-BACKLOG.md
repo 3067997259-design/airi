@@ -94,8 +94,13 @@ pgvector 环境走查和 Hashline 基准。每条都有对应文档章节与当�
 - [ ] **权重调参**：§11.3 —— 五个滑杆已暴露，等真实检索数据标定。
 - [x] **dreaming agent**：memory store 提供可替换的 `MemoryDreamAgent` 接口、受限批量
   生成、去重和 idea lifecycle；短期记忆设置页可手动运行并审阅结果，schema 无需迁移。
-- [ ] **pgvector 走查**：Postgres 环境起来后验证 `review_status` 列与迁移脚本一致
-  （telegram 迁移 `0006_memory_affect.sql` 为 telegram 侧；pgvector schema 已加列）。
+- [x] **pgvector 接线（主进程 memory-host，2026-08-29）**：`memory-pgvector` 新增
+  `ensureMemorySchema`（幂等建表，此前 DDL 不存在）与 `./repository` 子路径导出；
+  Electron 主进程 `memory-host` 服务持有连接（Eventa 契约），stage-ui 记忆 store
+  暴露 `MemoryHostPort` 注入端口；`promoteEligible` 晋升后镜像片段（renderer 端
+  768 维 embedding）到 Postgres，失败仅记录状态不阻塞本地层；长期记忆设置页提供
+  连接串配置与状态显示。剩余：真库走查（起 `server/docker-compose.yaml` 的 db
+  服务，`127.0.0.1:5435`）与跨窗口检索 UI。
 
 ## 7. 常规收尾
 

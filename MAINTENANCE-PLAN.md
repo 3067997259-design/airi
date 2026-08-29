@@ -20,9 +20,23 @@
   `getActivePlanStep` 白名单证据打标（无关工具结果满足不了验证门）；
   `code_mode` 工具（bridge 派发展平为有界文本，超时钳位 1-60s，宿主
   listTools 报告可用性）。P2.3 控制台、P2.4 pgvector 接线未动（见下）。
-- ⬜ **仍开放**：P2.3 devtools coding 控制台；P2.4 pgvector 接线（挂载位置
-  决策点仍待拍板，推荐主进程 memory-host 模式）；P3 全部；Mimosa 完整审计
-  （本批提交链 scanner_enobufs，兼容放行，未宣称安全）。
+- ✅ **P2.3 / P2.4 完成（2026-08-29 第二轮）**：P2.3 `devtools/coding-console`
+  页面（计划门投影 + 手工 PlanSpec 测试台 + journal 事件流过滤 + coding host
+  状态芯片）。P2.4 主进程 memory-host：`memory-pgvector` 新增
+  `ensureMemorySchema`（DDL 此前从未存在，连接时幂等建表 + 子路径导出规避
+  根 index 的 standalone `main()` 副作用）、Eventa 契约、stage-ui
+  `MemoryHostPort` 注入端口、晋升镜像（`promoteEligible` 后将晋升片段连同
+  renderer 端计算的 768 维 embedding 写入 Postgres，尽力而为不阻塞本地层）、
+  长期页连接配置区（连接串 + 状态 + 断开）。已知边界：检索浏览器仍读本地
+  库，跨窗口只读查询走 host 的能力已就绪未接 UI。
+- ✅ **P2.1 / P2.2 完成**：`plan_update` 工具 + orchestrator
+  `getActivePlanStep` 白名单证据打标（无关工具结果满足不了验证门）；
+  `code_mode` 工具（bridge 派发展平为有界文本，超时钳位 1-60s，宿主
+  listTools 报告可用性）。
+- ⬜ **仍开放**：pgvector 真库走查（起 `server/docker-compose.yaml` 的 db
+  服务 → 长期页配连接串 → 验证建表/镜像/检索，本机 Docker 未验）；跨窗口
+  记忆检索 UI；P3 全部；Mimosa 完整审计（提交链 scanner_enobufs，兼容
+  放行，未宣称安全）。
 - ✅ **真机 dev 冒烟（2026-08-29，构建版 electron.exe + CDP）**：连续三次
   冷启动（独立 `APP_USER_DATA_PATH`）pinia `llm-tools` 状态均含
   `plan_update`、`read/write/edit/bash`（defaultActive）、`code_mode`——
@@ -30,12 +44,13 @@
   `listTools` 可用性门，注册成功同时证明了 renderer→主进程 coding-host
   bridge 端到端可达。工具调研脚本：`D:\.airi-smoke\cdp-eval.cjs`（原生
   CDP eval，绕过 agent-browser 的激活式切换——主窗口忙时它会挂）。
-- ⚠️ **冒烟新发现（升级为待办）**：channel-server 的 ENOTSUP（本机 TUN
-  网卡干扰 localhost 绑定，MODS.md 已记录）触发**无退避的热重试**——
-  3 分钟内 6908 条错误日志（~13 次/秒），Eventa IPC 被打满后所有渲染进程
-  间歇性无响应（CDP Runtime.evaluate 超时，两个进程 CPU 500+ 秒）。比
-  MODS.md「非致命」的旧记录严重。待办：给 server channel 的
-  apply/restore 重试加指数退避与上限（server-runtime 侧）。
+- ✅ **ENOTSUP 热循环已根修（14657e2a0）**：真凶不是主进程无退避，而是
+  channel-config watcher 的回滚乒乓——失败回滚恢复"上一次 flush 的值"，
+  与已接受快照不同，回滚本身再次触发 watcher：apply → fail → rollback →
+  apply 永续循环（每秒 ~13 次失败绑定，Eventa IPC 被打满，所有渲染进程
+  间歇冻结）。修复：watcher 以 `appliedConfig` 去重（启动同步已接受的
+  配置不再触发 apply）+ 回滚恢复快照本身；回归测试
+  `server-channel.test.ts` 3/3。分析全文：`docs/solutions/runtime/`。
 - 测试基线：core-agent 172、coding-harness 28（hashline+tools）、stage-ui
   plans 1、tamagotchi built-in 3 / plan 5 / coding 2 / policy 5，typecheck
   五包全过。
