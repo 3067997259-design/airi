@@ -6,6 +6,7 @@ import { computed, reactive, ref } from 'vue'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
 import { useAiriCardStore } from '../modules'
+import { useMemoryStore } from '../modules/memory'
 import { useSpeechRuntimeStore } from '../speech-runtime'
 
 export * from './notebook'
@@ -42,6 +43,7 @@ export const useCharacterStore = defineStore('character', () => {
   const reactions = ref<CharacterSparkNotifyReaction[]>([])
   const streamingReactions = ref<Map<string, StreamingReactionState>>(new Map())
   const speechRuntimeStore = useSpeechRuntimeStore()
+  const memoryStore = useMemoryStore()
 
   async function emitTextOutput(text: string) {
     const intent = speechRuntimeStore.openIntent({
@@ -121,6 +123,23 @@ export const useCharacterStore = defineStore('character', () => {
   }
 
   function recordSparkNotifyReaction(sparkEventId: string, message: string, options?: { metadata?: Record<string, unknown> }) {
+    if (!appendReaction(sparkEventId, message, options))
+      return
+
+    void memoryStore.captureEvent({
+      type: 'event:reaction',
+      data: {
+        reaction: message,
+        eventId: sparkEventId,
+        metadata: options?.metadata,
+      },
+    })
+  }
+
+  function appendReaction(sparkEventId: string, message: string, options?: { metadata?: Record<string, unknown> }): boolean {
+    if (reactions.value.some(reaction => reaction.sourceEventId === sparkEventId && reaction.message === message))
+      return false
+
     const newReaction = {
       id: nanoid(),
       message,
@@ -134,6 +153,13 @@ export const useCharacterStore = defineStore('character', () => {
     if (reactions.value.length > MAX_REACTIONS) {
       reactions.value.splice(0, reactions.value.length - MAX_REACTIONS)
     }
+
+    return true
+  }
+
+  /** Adds a reaction received from the event channel without capturing it twice. */
+  function recordEventReaction(eventId: string, message: string, options?: { metadata?: Record<string, unknown> }): boolean {
+    return appendReaction(eventId, message, options)
   }
 
   function clearReactions() {
@@ -146,6 +172,7 @@ export const useCharacterStore = defineStore('character', () => {
     systemPrompt,
 
     recordSparkNotifyReaction,
+    recordEventReaction,
     onSparkNotifyReactionStreamEvent,
     onSparkNotifyReactionStreamEnd,
     clearReactions,

@@ -8,6 +8,7 @@ import { ChatHistory, HearingConfigDialog } from '@proj-airi/stage-ui/components
 import { ChatSessionsDrawer } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics, useAudioAnalyzer } from '@proj-airi/stage-ui/composables'
 import { useAudioContext } from '@proj-airi/stage-ui/stores/audio'
+import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatMaintenanceStore } from '@proj-airi/stage-ui/stores/chat/maintenance'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
@@ -15,6 +16,7 @@ import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store
 import { useL2dViewControl } from '@proj-airi/stage-ui/stores/live2d'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
+import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { BasicTextarea, useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onUnmounted, shallowRef, useTemplateRef, watch } from 'vue'
@@ -55,7 +57,9 @@ const chatStream = useChatStreamStore()
 const { cleanupMessages } = useChatMaintenanceStore()
 const { activeSessionId, messages } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
-const { activeSendSessionId, activeStreamingMessage, sending } = storeToRefs(chatOrchestrator)
+const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(chatOrchestrator)
+const { reactions } = storeToRefs(useCharacterStore())
+const { tasks } = storeToRefs(useTaskStore())
 const { isReceivingRemoteStream } = storeToRefs(useContextBridgeStore())
 const historyMessages = computed(() => messages.value as unknown as ChatHistoryItem[])
 const isActiveSessionSending = computed(() => (
@@ -65,6 +69,7 @@ const isActiveSessionSending = computed(() => (
 const visibleStreamingMessage = computed(() => activeSendSessionId.value === activeSessionId.value
   ? activeStreamingMessage.value
   : streamingMessage.value)
+const activeCompaction = computed(() => compactions.value[activeSessionId.value])
 const { trackChatMessageDeleted, trackChatMessagesCleared } = useAnalytics()
 const { rerunToolCall } = useChatToolCallRerun()
 
@@ -242,8 +247,11 @@ onUnmounted(() => {
             v-if="!threeViewCtrlEnabled && !l2dViewCtrlEnabled"
             variant="mobile"
             :messages="historyMessages"
+            :reactions="reactions"
+            :tasks="tasks"
             :sending="isActiveSessionSending"
             :streaming-message="visibleStreamingMessage"
+            :compaction="activeCompaction"
             class="chat-history"
             :style="chatHistoryStyle"
             :class="chatHistoryClass"

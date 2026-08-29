@@ -221,6 +221,9 @@ vi.mock('../../character', () => ({
   useCharacterOrchestratorStore: () => ({
     handleSparkNotifyWithReaction: vi.fn(async (_event: unknown, options: { fallbackText: string }) => options.fallbackText),
   }),
+  useCharacterStore: () => ({
+    recordEventReaction: vi.fn(() => true),
+  }),
 }))
 
 vi.mock('../../chat', () => ({
@@ -255,6 +258,12 @@ vi.mock('../../chat/stream-store', () => ({
 vi.mock('../../devtools/context-observability', () => ({
   useContextObservabilityStore: () => ({
     recordLifecycle: recordLifecycleMock,
+  }),
+}))
+
+vi.mock('../../modules/memory', () => ({
+  useMemoryStore: () => ({
+    captureEvent: vi.fn(async () => undefined),
   }),
 }))
 

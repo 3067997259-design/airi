@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Live2DDiscoveredParameter, Live2DFocusConfig, Live2DFocusEntry } from '@proj-airi/stage-ui-live2d'
+import type { Live2DDiscoveredParameter, Live2DFocusConfig, Live2DFocusEntry, Live2DParameterLlmMode } from '@proj-airi/stage-ui-live2d'
 
 import type { ModelSettingsRuntimeSnapshot } from './runtime'
 
@@ -857,11 +857,43 @@ function handleMotionSelect(selectedMotionPath: string | number | undefined) {
         </div>
       </div>
     </details>
-    <div v-if="customParameterGroups.length > 0">
-      <Button size="sm" @click="customParametersStore.resetModel(currentModelId)">
-        {{ t('settings.live2d.custom-parameters.reset') }}
-      </Button>
-    </div>
+    <template v-if="customParameterGroups.length > 0">
+      <div mt-4 flex flex-wrap items-center gap-3>
+        <span whitespace-nowrap text-sm text-neutral-600 dark:text-neutral-400>{{ t('settings.live2d.custom-parameters.expose-to-llm-toggle') }}</span>
+        <SelectTab
+          :model-value="customParametersStore.llmMode"
+          :options="llmModeOptions"
+          size="sm"
+          @update:model-value="(v: string) => customParametersStore.setLlmMode(v as Live2DParameterLlmMode)"
+        />
+      </div>
+      <span v-if="customParametersStore.llmMode !== 'none'" text-xs text-neutral-500 dark:text-neutral-400>
+        {{ t('settings.live2d.custom-parameters.expose-to-llm-description') }}
+      </span>
+      <!-- Per-parameter LLM opt-in. Large rigs have hundreds of parameters, so
+           'custom' is the practical mode; the picker reuses the group folds. -->
+      <template v-if="customParametersStore.llmMode === 'custom'">
+        <details v-for="group in customParameterGroups" :key="`llm-${group.id}`" class="rounded-lg bg-neutral-100/60 p-2 dark:bg-neutral-900/40">
+          <summary class="cursor-pointer text-xs font-medium">
+            {{ group.name }}（{{ group.parameters.length }}）
+          </summary>
+          <div class="mt-2 flex flex-col gap-1">
+            <div v-for="parameter in group.parameters" :key="`llm-${parameter.id}`" flex items-center justify-between gap-2>
+              <span text-xs text-neutral-600 dark:text-neutral-400>{{ parameter.name }}</span>
+              <Checkbox
+                :model-value="customParametersStore.isExposedToLlm(currentModelId, parameter.id)"
+                @update:model-value="value => customParametersStore.setLlmExposed(currentModelId, parameter.id, value === true)"
+              />
+            </div>
+          </div>
+        </details>
+      </template>
+      <div>
+        <Button size="sm" @click="customParametersStore.resetModel(currentModelId)">
+          {{ t('settings.live2d.custom-parameters.reset') }}
+        </Button>
+      </div>
+    </template>
   </Section>
   <Section
     :title="t('settings.live2d.expressions.title')"
@@ -912,7 +944,7 @@ function handleMotionSelect(selectedMotionPath: string | number | undefined) {
         />
       </div>
       <span v-if="expressionStore.llmMode !== 'none'" text-xs text-neutral-500 dark:text-neutral-400>
-        {{ t('settings.live2d.expressions.llm-integration-wip') }}
+        {{ t('settings.live2d.expressions.expose-to-llm-description') }}
       </span>
 
       <!-- Custom per-expression LLM toggles (only when mode = 'custom') -->

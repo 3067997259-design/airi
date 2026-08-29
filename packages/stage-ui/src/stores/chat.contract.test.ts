@@ -199,6 +199,7 @@ vi.mock('./ai/chat-llm/tools', () => ({
 vi.mock('./ai/chat-llm/toolset-prompts', () => ({
   useLlmToolsetPromptsStore: () => ({
     activeToolsetPrompt: 'Plugin toolset guidance.',
+    registerToolsetPrompts: vi.fn(),
   }),
 }))
 
@@ -585,12 +586,15 @@ describe('chat store contract', () => {
 
     expect(store.sending).toBe(false)
     expect(trackFirstMessageMock).toHaveBeenCalledOnce()
-    // Datetime is no longer pushed through ingestContextMessage; it is now
-    // applied at message-assembly time as a system-prompt anchor + per-message
-    // [HH:MM] prefix. ingestContextMessage should still be called for other
-    // context providers (e.g. minecraft) when they are configured, but not
-    // for datetime in this test (minecraft is mocked to return undefined).
-    expect(ingestContextMessageMock).not.toHaveBeenCalled()
+    // Memory uses replace-self on every turn, including an empty replacement.
+    // This removes recalled content from the previous session or turn. Datetime
+    // does not use ingestContextMessage, and Minecraft is absent in this test.
+    expect(ingestContextMessageMock).toHaveBeenCalledOnce()
+    expect(ingestContextMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      contextId: 'memory',
+      strategy: 'replace-self',
+      text: '',
+    }))
     expect(persistSessionMessagesMock).not.toHaveBeenCalled()
     expect(hookOrder).toEqual([
       'before-compose',
@@ -832,9 +836,15 @@ describe('chat store contract', () => {
       chatProvider: provider,
     })
 
-    expect(ingestContextMessageMock).toHaveBeenCalledTimes(1)
+    expect(ingestContextMessageMock).toHaveBeenCalledTimes(2)
+    expect(ingestContextMessageMock).toHaveBeenCalledWith(expect.objectContaining({
+      contextId: 'memory',
+      strategy: 'replace-self',
+      text: '',
+    }))
     expect(ingestContextMessageMock).toHaveBeenCalledWith(minecraftContext)
-    expect(ingestContextMessageMock.mock.invocationCallOrder[0]).toBeLessThan(
+    const minecraftCallIndex = ingestContextMessageMock.mock.calls.findIndex(([message]) => message === minecraftContext)
+    expect(ingestContextMessageMock.mock.invocationCallOrder[minecraftCallIndex]).toBeLessThan(
       getContextsSnapshotMock.mock.invocationCallOrder[0],
     )
     const minecraftMessageContent = composedMessages[1]?.content

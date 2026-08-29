@@ -4,6 +4,8 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import GamingModuleSettings from './GamingModuleSettings.vue'
+
 import { useMinecraftStore } from '../../stores/modules/gaming-minecraft'
 
 const minecraftStore = useMinecraftStore()
@@ -61,6 +63,13 @@ onMounted(() => {
       'rounded-xl bg-neutral-100 p-4 dark:bg-[rgba(0,0,0,0.3)]',
     ]"
   >
+    <GamingModuleSettings
+      :store="minecraftStore"
+      i18n-key-prefix="settings.pages.modules.gaming-minecraft"
+    />
+
+    <div :class="['h-px', 'bg-neutral-200', 'dark:bg-neutral-800']" />
+
     <Callout :theme="statusTheme" :label="statusLabel">
       <div :class="['flex flex-col gap-2 text-sm']">
         <div>

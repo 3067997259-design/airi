@@ -1,6 +1,38 @@
 chat:
   actions:
     retry: Retry
+  memory:
+    compacted: '{count} older turns are compacted for the provider prompt'
+    original-available: The original turns remain in this conversation.
+    show-original: Show {count} original messages
+  attention:
+    event: Event
+    task:
+      status:
+        active: In progress
+        blocked: Needs input
+        done: Complete
+      goal: Goal
+      current-step: Current step
+      blockers: Blocked by
+      next-step: Next step
+      log-reference: Log reference
+  plan:
+    status:
+      pending: Pending
+      in_progress: In progress
+      blocked: Needs input
+      completed: Complete
+      failed: Failed
+    current-step: Current step
+    blockers: Blocked by
+    evidence: Evidence
+  approval-card:
+    title: Approval required
+    expected-evidence: Expected evidence
+    approve: Approve
+    reject: Reject
+    hand-over: Let me take over
   message:
     character-name:
       airi: AIRI

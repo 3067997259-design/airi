@@ -203,13 +203,17 @@ live2d:
     ungrouped: 未分组
     value: 数值
     reset: 重置自定义参数
+    expose-to-llm-toggle: 公开给 LLM
+    expose-to-llm-description: >
+      允许角色在对话中调整这些参数。选择"自定义"可逐个指定参数。
   expressions:
     title: 表情
     override-toggle: 表情系统
     sdk-preset-preserved-notice: >
       禁用时仍保留 SDK 表情管理器和眨眼功能。
     no-expression: 此模型没有可用表情。
-    llm-integration-wip: LLM 工具集成尚未接入。
+    expose-to-llm-description: >
+      允许角色在对话中自行选择这些表情。选择"自定义"可逐个指定表情。
     save-default: 保存表情默认值
     reset: 重置所有表情
     expose-to-llm-toggle: 公开给 LLM
@@ -628,6 +632,11 @@ pages:
               label: 思考
       title: 意识
     description: 思维，视觉，言语综合，游戏等
+    attention:
+      description: 控制进行中的任务如何影响聊天回复。
+      title: 注意力
+      focused-mode: 进行任务时使用专注模式
+      focused-mode-description: 在回复中保持任务进度可见，同时保留角色身份。
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 异星工厂 Factorio
@@ -648,6 +657,14 @@ pages:
       enable: 启用我的世界集成
       enable-description: >-
         在 Chat 界面 中包含 Minecraft 自己的上下文和认知，并保持 Passive runtime visibility 启用。
+      server-address: 服务器地址
+      server-address-description: Minecraft 服务器的 IP 地址或主机名。
+      server-address-placeholder: 输入服务器地址（例如 localhost 或 192.168.1.100）
+      server-port: 服务器端口
+      server-port-description: Minecraft 服务器的端口号（默认 25565）
+      username: 用户名
+      username-description: Minecraft Bot 使用的用户名。
+      username-placeholder: 输入 Minecraft Bot 用户名
       configured: 我的世界已正确配置！
       read-only:
         title: 只读外壳
@@ -702,12 +719,140 @@ pages:
               注意：如果您的提供商不支持 verbose_json 结果处理，此设置将不会有任何效果。
             verbose-json-unsupported: >-
               如果您的提供商没有返回 verbose_json 结果。置信度阈值将不会影响转录。
+    skills:
+      description: 自造工具审阅队列 —— 审阅通过前，它们的产出不能作为变更证明
+      title: 自造工具
+      sections:
+        queue:
+          description: 这里的每个工具都处于 probation —— 在你审阅源码之前，它们的结果不能证明任何改动。
+          title: 审阅队列
+          cap: probation 有数量上限。请先毕业或拒绝一个工具，再提交新的。
+          empty: 审阅队列为空。
+          approve: 批准
+          reject: 拒绝
+          hash: 内容哈希
+          sources: 外部来源
+          compatibility: 兼容性探测
+          dream: 回顾失败调用
+          dream-count: '{count} 个修订候选'
+        catalog:
+          description: 开箱即用的工具骨架，可提交审阅。
+          title: 目录
+          submit: 提交审阅
+    coding:
+      description: 由主进程编码宿主驱动的 Hashline 文件工具与 Code Mode 沙箱
+      title: 编码
+      sections:
+        tools:
+          description: 四个工作区工具（read / write / edit / bash）及其运行位置。
+          title: 工作区工具
+          root: 工作区根目录
+          unavailable: 当前窗口不可用编码宿主。
+        code-mode:
+          description: 在沙箱化的 Code Mode 运行时里运行一段小程序；bridge() 分发四个工具。
+          title: Code Mode
+          program: 程序
+          placeholder: 写一段调用 bridge(...) 的程序
+          run: 运行
     memory-long-term:
       description: 长期记忆
       title: 长期记忆
+      sections:
+        ranking:
+          description: 调整记忆检索使用的五项评分因素。
+          title: 检索排序
+        promotion:
+          description: 只有跨会话重复访问后，短期记忆才会晋升。
+          title: 晋升与衰减
+        intrusion:
+          description: 让高唤醒负面记忆偶尔绕过语义检索浮现。
+          title: 闯入记忆
+        browser:
+          description: 查看、编辑、删除记忆，并模拟一次检索。
+          title: 记忆浏览器
+      weights:
+        similarity: 语义相似度
+        time-relevance: 时间相关性
+        arousal: 唤醒度
+        access-count: 访问次数
+        mood-congruence: 心境一致性
+      short-term-half-life: 短期半衰期
+      long-term-half-life: 长期半衰期
+      promotion-access-count: 访问阈值
+      promotion-access-count-description: 晋升前所需的最少检索次数。
+      promotion-session-count: 会话阈值
+      promotion-session-count-description: 晋升前所需的最少会话数。
+      intrusion-enabled: 启用闯入记忆
+      intrusion-enabled-description: 允许高唤醒负面记忆在没有语义匹配时浮现。
+      intrusion-base-rate: 闯入基础概率
+      intrusion-cooldown: 闯入冷却时间（毫秒）
+      intrusion-cooldown-description: 两次闯入记忆之间的最短时间。
+      search-label: 检索探针
+      search-placeholder: 输入文本以模拟检索
+      search: 检索
+      refresh: 刷新
+      results: 检索结果
+      empty: 暂无已存记忆。
+      access-count-value: '{count} 次访问'
+      sessions: 个会话
+      delete: 删除
+      edit-label: 编辑记忆
+      save: 保存
     memory-short-term:
       description: 短期记忆
       title: 短期记忆
+      enabled: 启用记忆检索
+      enabled-description: 将相关记忆作为背景上下文加入下一次提示。
+      capture-enabled: 记录已完成的对话轮
+      capture-enabled-description: 助手回复完成后保存抽取出的事实。
+      compaction-enabled: 启用自动压缩
+      compaction-enabled-description: 达到 token 水位线后压缩较早的 provider 历史。
+      provider: 记忆模型提供商
+      provider-description: 可选。用于抽取和摘要。
+      provider-placeholder: 使用当前对话提供商
+      model: 记忆模型
+      model-description: 可选。用于抽取和摘要的低成本模型。
+      model-placeholder: 使用当前对话模型
+      sections:
+        runtime:
+          description: 选择每轮对话结束后运行的记忆功能。
+          title: 记忆运行时
+        compaction:
+          description: 保留本地完整历史，同时减少发送给 provider 的提示长度。
+          title: 上下文压缩
+        dreaming:
+          description: 从最近的记忆生成一小批可审阅的想法；想法不会直接变成事实记忆。
+          title: 梦境整理
+          empty: 还没有梦境想法。
+        review:
+          description: 新抽取的记忆在这里等待你确认；批准后才有资格晋升为长期记忆。
+          title: 待确认
+          empty: 没有等待审阅的记忆。
+          approve: 批准
+          reject: 拒绝
+      compaction-threshold: 压缩阈值
+      compaction-threshold-description: 当上一轮输入达到有效上下文长度的这个比例时开始压缩。
+      context-length: 上下文长度覆盖值
+      context-length-description: provider 上报为零时使用手动值。保持为零则使用 32k。
+      recent-turn-limit: 保留的最近轮数
+      recent-turn-limit-description: 在 provider 提示中保留这些最近用户轮次。
+      compact-now: 压缩当前会话
+      initialize: 初始化记忆数据库
+      dreaming-enabled: 启用梦境整理
+      dreaming-enabled-description: 允许受限的后台式流程提出短期想法。
+      dream-now: 运行梦境整理
+      dream-count: '{count} 个想法'
+      excitement: '兴奋度 {value}/10'
+      idea-actions:
+        develop: 开始发展
+        implement: 标记为已实现
+        abandon: 放弃
+      database-status:
+        idle: 数据库未初始化
+        ready: 数据库已就绪
+        error: 数据库错误
+        follower: 记忆数据库已由另一个窗口打开
+      follower-hint: 当前窗口不持有记忆数据库。请从主舞台窗口打开记忆设置来查看和管理记忆。
     messaging-discord:
       description: Discord 发消息和语音聊天
       title: Discord

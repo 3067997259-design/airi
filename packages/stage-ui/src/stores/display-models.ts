@@ -108,48 +108,53 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     return displayModelsPresets.find(model => model.id === id)
   }
 
-  const loadLive2DModelPreview = (file: File) => generateLive2DPreview(file)
-  const loadVrmModelPreview = (file: File) => generateVrmPreview(file)
-  const loadSpineModelPreview = (file: File) => generateSpinePreview(file)
-  const loadTachieModelPreview = (file: File) => generateTachiePreview(file)
-  const loadMMDModelPreview = (file: File) => generateMMDPreview(file)
+  // Preview generation spins up an offscreen renderer and fully decodes the
+  // model (a heavy Live2D zip costs ~1 GB of GPU textures). Serializing it
+  // keeps concurrent imports from competing for WebGL contexts and memory,
+  // which previously lost contexts mid-render and silently aborted imports.
+  let previewChain: Promise<unknown> = Promise.resolve()
+
+  // NOTICE:
+  // Preview generation is best-effort and must not block the import. If it
+  // throws (context limits, parse errors, uninitialized preview modules), the
+  // model should still import — just without a thumbnail.
+  // Removal condition: preview generation is guaranteed non-throwing.
+  function enqueuePreview(format: DisplayModelFormat, file: File): Promise<string | undefined> {
+    const run = previewChain.catch(() => {}).then(async () => {
+      try {
+        switch (format) {
+          case DisplayModelFormat.Live2dZip:
+            return await generateLive2DPreview(file)
+          case DisplayModelFormat.VRM:
+            return await generateVrmPreview(file)
+          case DisplayModelFormat.SpineZip:
+            return await generateSpinePreview(file)
+          case DisplayModelFormat.TachieZip:
+            return await generateTachiePreview(file)
+          case DisplayModelFormat.PMXZip:
+          case DisplayModelFormat.PMXDirectory:
+          case DisplayModelFormat.PMD:
+            if (!generateMMDPreview)
+              throw new Error('MMD preview module not initialized')
+            return await generateMMDPreview(file)
+          default:
+            return undefined
+        }
+      }
+      catch (err) {
+        console.error('[display-models] preview generation failed; importing without a thumbnail:', err)
+        return undefined
+      }
+    })
+    previewChain = run
+    return run
+  }
 
   async function addDisplayModel(format: DisplayModelFormat, file: File) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     const newDisplayModel: DisplayModelFile = { id: `display-model-${nanoid()}`, format, type: 'file', file, name: file.name, importedAt: Date.now() }
 
-    if (format === DisplayModelFormat.Live2dZip) {
-      const previewImage = await loadLive2DModelPreview(file)
-      newDisplayModel.previewImage = previewImage
-    }
-    else if (format === DisplayModelFormat.VRM) {
-      const previewImage = await loadVrmModelPreview(file)
-      newDisplayModel.previewImage = previewImage
-    }
-    else if (format === DisplayModelFormat.SpineZip) {
-      const previewImage = await loadSpineModelPreview(file)
-      newDisplayModel.previewImage = previewImage
-    }
-    else if (format === DisplayModelFormat.TachieZip) {
-      const previewImage = await loadTachieModelPreview(file)
-      newDisplayModel.previewImage = previewImage
-    }
-    else if (format === DisplayModelFormat.PMXZip || format === DisplayModelFormat.PMXDirectory || format === DisplayModelFormat.PMD) {
-      // NOTICE:
-      // Preview generation is best-effort and must not block the import.
-      // MMD preview spins up an offscreen WebGL context and the three-stdlib
-      // MMDLoader; if that throws (context limits, parse error, missing Ammo
-      // module), the model should still import — just without a thumbnail.
-      // Removal condition: preview generation is guaranteed non-throwing.
-      try {
-        if (!generateMMDPreview)
-          throw new Error('MMD preview module not initialized')
-        newDisplayModel.previewImage = await loadMMDModelPreview(file)
-      }
-      catch (err) {
-        console.error('[display-models] MMD preview generation failed; importing without a thumbnail:', err)
-      }
-    }
+    newDisplayModel.previewImage = await enqueuePreview(format, file)
 
     displayModels.value.unshift(newDisplayModel)
 

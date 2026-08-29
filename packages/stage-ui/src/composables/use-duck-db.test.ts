@@ -5,6 +5,8 @@ import { nextTick } from 'vue'
 import { useDuckDb } from './use-duck-db'
 
 vi.mock('@proj-airi/drizzle-duckdb-wasm', () => ({
+  DBStorageType: { ORIGIN_PRIVATE_FS: 'origin-private-fs' },
+  DuckDBAccessMode: { READ_WRITE: 3 },
   drizzle: vi.fn().mockImplementation(() => ({
     execute: vi.fn().mockResolvedValue([]),
     $client: {
@@ -34,6 +36,15 @@ describe('useDuckDB (Singleton)', () => {
     const instance1 = await getDb()
     expect(instance1).toBeDefined()
     expect(vi.mocked(drizzle).mock.calls.length).toBe(1)
+    expect(vi.mocked(drizzle).mock.calls[0]?.[0]).toMatchObject({
+      connection: {
+        storage: {
+          type: 'origin-private-fs',
+          path: 'airi-memory.duckdb',
+          accessMode: 3,
+        },
+      },
+    })
 
     const { getDb: getDb2 } = useDuckDb()
     const instance2 = await getDb2()
@@ -54,6 +65,22 @@ describe('useDuckDB (Singleton)', () => {
 
     expect(instance1).toBe(instance2)
     expect(vi.mocked(drizzle).mock.calls.length).toBe(1)
+
+    await closeDb()
+  })
+
+  it('migrates legacy memory columns without unsupported add-column constraints', async () => {
+    const { getDb, closeDb } = useDuckDb()
+
+    const instance = await getDb()
+    const execute = vi.mocked(instance.value!.execute)
+    const statements = execute.mock.calls.map(([statement]) => String(statement)).join('\n')
+
+    expect(statements).toContain('review_status VARCHAR NOT NULL DEFAULT \'pending\'')
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS source_context_json VARCHAR')
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS review_status VARCHAR')
+    expect(statements).not.toMatch(/ADD COLUMN IF NOT EXISTS [^\n]+ NOT NULL/)
+    expect(statements).toContain('SET review_status = \'approved\'')
 
     await closeDb()
   })

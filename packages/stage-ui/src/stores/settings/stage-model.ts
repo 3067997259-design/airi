@@ -52,16 +52,36 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
 
   const stageViewControlsEnabled = refManualReset<boolean>(false)
 
+  // Deferred revocations: a replaced blob URL may still be mid-flight in the
+  // loader (OPFS checkMiddleware fetches it at the start of a heavy model's
+  // multi-second setup). Revoking immediately aborts that fetch with
+  // "TypeError: Failed to fetch" and the first load attempt after every
+  // selection change dies. The blob's backing File stays alive via the
+  // display-models store regardless, so deferring revocation costs nothing.
+  const pendingRevokeTimers = new Set<ReturnType<typeof setTimeout>>()
+  const revokeDelayMs = 120_000
+
   function revokeStageModelUrl(url?: string) {
     if (url?.startsWith('blob:'))
       URL.revokeObjectURL(url)
+  }
+
+  function deferRevokeStageModelUrl(url?: string) {
+    if (!url?.startsWith('blob:'))
+      return
+
+    const timer = setTimeout(() => {
+      pendingRevokeTimers.delete(timer)
+      revokeStageModelUrl(url)
+    }, revokeDelayMs)
+    pendingRevokeTimers.add(timer)
   }
 
   function replaceStageModelUrl(nextUrl?: string) {
     if (stageModelSelectedUrl.value === nextUrl)
       return
 
-    revokeStageModelUrl(stageModelSelectedUrl.value)
+    deferRevokeStageModelUrl(stageModelSelectedUrl.value)
     stageModelSelectedUrl.value = nextUrl
   }
 
@@ -154,6 +174,9 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   }
 
   useEventListener('unload', () => {
+    for (const timer of pendingRevokeTimers)
+      clearTimeout(timer)
+    pendingRevokeTimers.clear()
     revokeStageModelUrl(stageModelSelectedUrl.value)
   })
 
@@ -162,7 +185,7 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
   })
 
   async function resetState() {
-    revokeStageModelUrl(stageModelSelectedUrl.value)
+    deferRevokeStageModelUrl(stageModelSelectedUrl.value)
 
     stageModelSelectionStore.resetState()
     stageModelSelectedDisplayModel.reset()

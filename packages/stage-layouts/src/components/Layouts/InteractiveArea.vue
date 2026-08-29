@@ -3,10 +3,12 @@ import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { ChatHistory } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
+import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
+import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { useDeferredMount } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
@@ -18,9 +20,11 @@ import ChatContainer from '../Widgets/ChatContainer.vue'
 import { useChatToolCallRerun } from '../../composables/useChatToolCallRerun'
 
 const { isReady } = useDeferredMount()
-const { activeSendSessionId, activeStreamingMessage, sending } = storeToRefs(useChatStore())
+const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(useChatStore())
 const { activeSessionId, messages } = storeToRefs(useChatSessionStore())
 const { streamingMessage } = storeToRefs(useChatStreamStore())
+const { reactions } = storeToRefs(useCharacterStore())
+const { tasks } = storeToRefs(useTaskStore())
 const { isReceivingRemoteStream } = storeToRefs(useContextBridgeStore())
 
 const isLoading = ref(true)
@@ -32,6 +36,7 @@ const isActiveSessionSending = computed(() => (
 const visibleStreamingMessage = computed(() => activeSendSessionId.value === activeSessionId.value
   ? activeStreamingMessage.value
   : streamingMessage.value)
+const activeCompaction = computed(() => compactions.value[activeSessionId.value])
 const { trackChatMessageDeleted } = useAnalytics()
 const { rerunToolCall } = useChatToolCallRerun()
 
@@ -64,8 +69,11 @@ async function handleDeleteMessage(index: number) {
           <ChatHistory
             v-if="isReady"
             :messages="historyMessages"
+            :reactions="reactions"
+            :tasks="tasks"
             :sending="isActiveSessionSending"
             :streaming-message="visibleStreamingMessage"
+            :compaction="activeCompaction"
             h-full
             variant="desktop"
             @delete-message="handleDeleteMessage($event.index)"

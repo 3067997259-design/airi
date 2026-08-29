@@ -11,6 +11,14 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig(({ mode }) => {
   return {
     root: import.meta.dirname,
+    optimizeDeps: {
+      exclude: [
+        '@proj-airi/drizzle-duckdb-wasm',
+        '@proj-airi/drizzle-duckdb-wasm/*',
+        '@proj-airi/duckdb-wasm',
+        '@proj-airi/duckdb-wasm/*',
+      ],
+    },
     plugins: [
       Info(),
     ],

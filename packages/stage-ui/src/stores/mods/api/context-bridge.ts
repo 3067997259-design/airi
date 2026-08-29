@@ -16,13 +16,16 @@ import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 
 import { getEventSourceKey, getMetadataSourceLabel } from '../../../utils/event-source'
 import { useLlmStreamingControlStore } from '../../ai/chat-llm/streaming-control'
-import { useCharacterOrchestratorStore } from '../../character'
+import { useCharacterOrchestratorStore, useCharacterStore } from '../../character'
 import { useChatStore } from '../../chat'
 import { useChatContextStore } from '../../chat/context-store'
 import { useChatSessionStore } from '../../chat/session-store'
 import { useChatStreamStore } from '../../chat/stream-store'
 import { useContextObservabilityStore } from '../../devtools/context-observability'
+import { useJournalStore } from '../../journal'
 import { useConsciousnessStore } from '../../modules/consciousness'
+import { useMemoryStore } from '../../modules/memory'
+import { useTaskStore } from '../../tasks'
 import { useModsServerChannelStore } from './channel-server'
 import { createContextChannel } from './context-channel'
 
@@ -54,8 +57,12 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
   const chatContext = useChatContextStore()
   const serverChannelStore = useModsServerChannelStore()
   const contextObservability = useContextObservabilityStore()
+  const journalStore = useJournalStore()
   const characterOrchestratorStore = useCharacterOrchestratorStore()
+  const characterStore = useCharacterStore()
   const consciousnessStore = useConsciousnessStore()
+  const memoryStore = useMemoryStore()
+  const taskStore = useTaskStore()
   const { activeProvider, activeModel } = storeToRefs(consciousnessStore)
   const streamingControl = useLlmStreamingControlStore()
 
@@ -561,6 +568,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
           metadata: event.metadata,
           createdAt: Date.now(),
         }
+        journalStore.appendActive({
+          type: 'context/inject',
+          eventId: event.data.id,
+          contextId: contextMessage.contextId,
+          source: getEventSourceKey(contextMessage),
+          text: contextMessage.text,
+        })
         const ingestAttempt = ingestContextMessageSafely({
           channel: 'server',
           contextMessage,
@@ -657,6 +671,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
               continue
 
             acceptedContextUpdates?.push(update)
+            journalStore.appendActive({
+              type: 'context/inject',
+              eventId: contextMessage.id,
+              contextId: contextMessage.contextId,
+              source: getEventSourceKey(contextMessage),
+              text: contextMessage.text,
+            })
 
             if (ingestAttempt.result) {
               contextObservability.recordLifecycle({
@@ -741,6 +762,77 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
             }
           })
         }
+      }))
+
+      disposeHookFns.value.push(serverChannelStore.onEvent('task:start', (event) => {
+        journalStore.appendActive({
+          type: 'task/update',
+          taskId: event.data.taskId,
+          memory: { goal: event.data.goal, status: 'active' },
+        })
+        taskStore.ingest(event)
+      }))
+      disposeHookFns.value.push(serverChannelStore.onEvent('task:progress', (event) => {
+        journalStore.appendActive({
+          type: 'task/update',
+          taskId: event.data.taskId,
+          memory: Object.fromEntries(Object.entries(event.data.memory)),
+          ...(event.data.logRef ? { logRef: event.data.logRef } : {}),
+        })
+        taskStore.ingest(event)
+      }))
+      disposeHookFns.value.push(serverChannelStore.onEvent('task:blocked', (event) => {
+        journalStore.appendActive({
+          type: 'task/update',
+          taskId: event.data.taskId,
+          memory: Object.fromEntries([
+            ...Object.entries(event.data.memory),
+            ['status', 'blocked'],
+            ['needsInput', event.data.needsInput],
+          ]),
+          ...(event.data.logRef ? { logRef: event.data.logRef } : {}),
+        })
+        taskStore.ingest(event)
+      }))
+      disposeHookFns.value.push(serverChannelStore.onEvent('task:done', (event) => {
+        journalStore.appendActive({
+          type: 'task/update',
+          taskId: event.data.taskId,
+          memory: Object.fromEntries([
+            ...Object.entries(event.data.memory),
+            ['status', 'done'],
+            ['conclusion', event.data.conclusion],
+          ]),
+          ...(event.data.logRef ? { logRef: event.data.logRef } : {}),
+        })
+        if (!taskStore.ingest(event))
+          return
+
+        void memoryStore.captureEvent({
+          type: 'task:done',
+          data: event.data,
+        })
+      }))
+      disposeHookFns.value.push(serverChannelStore.onEvent('event:reaction', (event) => {
+        journalStore.appendActive({
+          type: 'event/reaction',
+          eventId: event.data.eventId ?? event.data.id,
+          reaction: event.data.reaction,
+          source: getMetadataSourceLabel(event.metadata?.source) ?? event.source,
+          timestamp: Date.now(),
+        })
+        const recorded = characterStore.recordEventReaction(
+          event.data.eventId ?? event.data.id,
+          event.data.reaction,
+          { metadata: event.data.metadata },
+        )
+        if (!recorded)
+          return
+
+        void memoryStore.captureEvent({
+          type: 'event:reaction',
+          data: event.data,
+        })
       }))
 
       disposeHookFns.value.push(

@@ -80,6 +80,18 @@ describe('useChatContextStore', () => {
     expect(store.contextHistory.map(message => message.sourceKey)).toEqual(['weather:station-1', 'weather:station-1'])
   })
 
+  it('uses contextId to isolate memory updates when no source metadata exists', () => {
+    const store = useChatContextStore()
+
+    store.ingestContextMessage(createContextMessage({
+      id: 'memory-context',
+      contextId: 'memory',
+      text: 'stored memory reference',
+    }))
+
+    expect(store.getContextBucketsSnapshot().map(bucket => bucket.sourceKey)).toEqual(['memory'])
+  })
+
   /**
    * @example
    * Vue reactive envelopes are unwrapped before they enter the core registry.

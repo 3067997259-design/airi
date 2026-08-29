@@ -6,16 +6,19 @@ import { useI18n } from 'vue-i18n'
 
 import factorioIcon from '../assets/factorio-simple.png'
 
+import { hasCodingHostClient } from '../stores/coding'
 import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useDiscordStore } from '../stores/modules/discord'
 import { useFactorioStore } from '../stores/modules/gaming-factorio'
 import { useMinecraftStore } from '../stores/modules/gaming-minecraft'
 import { useHearingStore } from '../stores/modules/hearing'
+import { useMemoryStore } from '../stores/modules/memory'
 import { useSpeechStore } from '../stores/modules/speech'
 import { useTwitterStore } from '../stores/modules/twitter'
 import { useVisionStore } from '../stores/modules/vision'
 import { useWebSearchStore } from '../stores/modules/web-search'
+import { useSkillsReviewStore } from '../stores/skills'
 
 export interface Module {
   id: string
@@ -43,6 +46,8 @@ export function useModulesList() {
   const minecraftStore = useMinecraftStore()
   const factorioStore = useFactorioStore()
   const artistryStore = useArtistryStore()
+  const memoryStore = useMemoryStore()
+  const skillsReviewStore = useSkillsReviewStore()
   const beatSyncState = ref<BeatSyncDetectorState>()
   const beatSyncSupported = isBeatSyncSupported()
 
@@ -109,7 +114,7 @@ export function useModulesList() {
       description: t('settings.pages.modules.memory-short-term.description'),
       icon: 'i-solar:bookmark-bold-duotone',
       to: '/settings/modules/memory-short-term',
-      configured: false,
+      configured: memoryStore.configured,
       category: 'essential',
     },
     {
@@ -118,7 +123,34 @@ export function useModulesList() {
       description: t('settings.pages.modules.memory-long-term.description'),
       icon: 'i-solar:book-bookmark-bold-duotone',
       to: '/settings/modules/memory-long-term',
-      configured: false,
+      configured: memoryStore.configured,
+      category: 'essential',
+    },
+    {
+      id: 'skills',
+      name: t('settings.pages.modules.skills.title'),
+      description: t('settings.pages.modules.skills.description'),
+      icon: 'i-solar:code-bold-duotone',
+      to: '/settings/modules/skills',
+      configured: skillsReviewStore.queue.length > 0,
+      category: 'essential',
+    },
+    {
+      id: 'attention',
+      name: t('settings.pages.modules.attention.title'),
+      description: t('settings.pages.modules.attention.description'),
+      icon: 'i-solar:focus-2-bold-duotone',
+      to: '/settings/modules/attention',
+      configured: true,
+      category: 'essential',
+    },
+    {
+      id: 'coding',
+      name: t('settings.pages.modules.coding.title'),
+      description: t('settings.pages.modules.coding.description'),
+      icon: 'i-solar:code-square-bold-duotone',
+      to: '/settings/modules/coding',
+      configured: hasCodingHostClient(),
       category: 'essential',
     },
     {

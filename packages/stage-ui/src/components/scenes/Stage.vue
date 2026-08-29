@@ -46,6 +46,7 @@ import { useAudioContext, useSpeakingStore } from '../../stores/audio'
 import { useBackgroundStore } from '../../stores/background'
 import { useChatStore } from '../../stores/chat'
 import { useAiriCardStore } from '../../stores/modules'
+import { useMemoryStore } from '../../stores/modules/memory'
 import { useSpeechStore } from '../../stores/modules/speech'
 import { useProviderConfigStore } from '../../stores/providers/config'
 import { useProviderStore } from '../../stores/providers/provider'
@@ -199,6 +200,7 @@ function resetAssistantSpeechSurface(source: string) {
 
 const { activeCard } = storeToRefs(useAiriCardStore())
 const speechStore = useSpeechStore()
+const memoryStore = useMemoryStore()
 const { ssmlEnabled, activeSpeechProvider, activeSpeechModel, activeSpeechVoice, pitch } = storeToRefs(speechStore)
 const activeCardId = computed(() => activeCard.value?.name ?? 'default')
 const speechRuntimeStore = useSpeechRuntimeStore()
@@ -273,6 +275,7 @@ chatHookCleanups.push(streamingControl.onSignal(async (signal) => {
       if (!emotion)
         return
 
+      memoryStore.setEmotion(emotion)
       // eslint-disable-next-line no-console
       console.debug('emotion detected', emotion)
       emotionsQueue.enqueue(emotion)

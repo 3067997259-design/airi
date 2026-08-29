@@ -1,9 +1,11 @@
 import type { MetadataEventSource, WebSocketBaseEvent, WebSocketEvents } from '@proj-airi/server-sdk'
 
+import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { getMetadataSourceLabel } from '../../utils/event-source'
+import { useConfiguratorByModsChannelServer } from '../configurator'
 import { useModsServerChannelStore } from '../mods/api/channel-server'
 
 export interface MinecraftTrafficEntry {
@@ -51,6 +53,12 @@ function isMinecraftModuleIdentity(value: { name?: string, identity?: MetadataEv
 
 export const useMinecraftStore = defineStore('minecraft', () => {
   const serverChannelStore = useModsServerChannelStore()
+  const configurator = useConfiguratorByModsChannelServer()
+
+  const enabled = useLocalStorageManualReset<boolean>('settings/minecraft/enabled', false)
+  const serverAddress = useLocalStorageManualReset<string>('settings/minecraft/server-address', 'localhost')
+  const serverPort = useLocalStorageManualReset<number | null>('settings/minecraft/server-port', 25565)
+  const username = useLocalStorageManualReset<string>('settings/minecraft/username', 'airi-bot')
 
   const latestRuntimeContextText = ref('')
   const lastRuntimeContextAt = ref(0)
@@ -79,7 +87,19 @@ export const useMinecraftStore = defineStore('minecraft', () => {
 
     return Math.max(0, now.value - lastRuntimeContextAt.value)
   })
-  const configured = computed(() => hasObservedRuntime.value)
+  const settingsConfigured = computed(() => {
+    return !!(serverAddress.value.trim() && username.value.trim() && serverPort.value !== null)
+  })
+  const configured = computed(() => settingsConfigured.value || hasObservedRuntime.value)
+
+  function saveSettings() {
+    configurator.updateFor('minecraft', {
+      enabled: enabled.value,
+      host: serverAddress.value,
+      port: serverPort.value,
+      username: username.value,
+    })
+  }
 
   function pushTrafficEntry(entry: Omit<MinecraftTrafficEntry, 'id'>) {
     trafficSequence += 1
@@ -171,12 +191,12 @@ export const useMinecraftStore = defineStore('minecraft', () => {
       return
 
     initialized.value = true
-    disposeContextUpdate = serverChannelStore.onContextUpdate(handleRuntimeContextUpdate as any)
-    disposeSparkCommand = serverChannelStore.onEvent('spark:command', handleSparkCommand as any)
-    disposeRegistrySync = serverChannelStore.onEvent('registry:modules:sync', handleRegistrySync as any)
-    disposeRegistryHealthy = serverChannelStore.onEvent('registry:modules:health:healthy', handleRegistryHealthy as any)
-    disposeRegistryUnhealthy = serverChannelStore.onEvent('registry:modules:health:unhealthy', handleRegistryUnhealthy as any)
-    disposeModuleDeAnnounced = serverChannelStore.onEvent('module:de-announced', handleModuleDeAnnounced as any)
+    disposeContextUpdate = serverChannelStore.onContextUpdate(handleRuntimeContextUpdate)
+    disposeSparkCommand = serverChannelStore.onEvent('spark:command', handleSparkCommand)
+    disposeRegistrySync = serverChannelStore.onEvent('registry:modules:sync', handleRegistrySync)
+    disposeRegistryHealthy = serverChannelStore.onEvent('registry:modules:health:healthy', handleRegistryHealthy)
+    disposeRegistryUnhealthy = serverChannelStore.onEvent('registry:modules:health:unhealthy', handleRegistryUnhealthy)
+    disposeModuleDeAnnounced = serverChannelStore.onEvent('module:de-announced', handleModuleDeAnnounced)
     runtimeTickTimer = setInterval(() => {
       now.value = Date.now()
     }, RUNTIME_CONTEXT_TICK_MS)
@@ -214,6 +234,11 @@ export const useMinecraftStore = defineStore('minecraft', () => {
   }
 
   function resetState() {
+    enabled.reset()
+    serverAddress.reset()
+    serverPort.reset()
+    username.reset()
+    saveSettings()
     clearRuntimeState()
   }
 
@@ -221,6 +246,11 @@ export const useMinecraftStore = defineStore('minecraft', () => {
     latestRuntimeContextText,
     lastRuntimeContextAt,
     trafficEntries,
+    enabled,
+    serverAddress,
+    serverPort,
+    username,
+    settingsConfigured,
     configured,
     serviceConnected,
     runtimeContextAgeMs,
@@ -228,6 +258,7 @@ export const useMinecraftStore = defineStore('minecraft', () => {
     initialize,
     dispose,
     resetState,
+    saveSettings,
 
     _handleRuntimeContextUpdate: handleRuntimeContextUpdate,
   }

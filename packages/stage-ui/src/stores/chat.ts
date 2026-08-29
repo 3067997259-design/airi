@@ -1,4 +1,5 @@
-import type { ChatOrchestratorRuntimeState, ChatOrchestratorSendOptions, StreamEvent, StreamOptions } from '@proj-airi/core-agent'
+import type { ChatOrchestratorCompactionSnapshot, ChatOrchestratorCompactionSummaryInput, ChatOrchestratorRuntimeState, ChatOrchestratorSendOptions, StreamEvent, StreamOptions } from '@proj-airi/core-agent'
+import type { MemoryExtraction, MemoryMood, MemorySourceContext } from '@proj-airi/memory-core'
 import type { WebSocketEventInputs } from '@proj-airi/server-sdk'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { Message } from '@xsai/shared-chat'
@@ -8,7 +9,7 @@ import type { ChatHistoryItem, ChatToolReference, StreamingAssistantMessage } fr
 import type { ToolCallRerunPayload } from './tool-call-rerun'
 
 import { errorMessageFrom } from '@moeru/std'
-import { createChatOrchestratorRuntime, modelKey } from '@proj-airi/core-agent'
+import { buildAttentionModeSection, createChatOrchestratorRuntime, modelKey, resolveAttentionMode } from '@proj-airi/core-agent'
 import { IOAttributes, IOEvents, IOSpanNames, IOSubsystems } from '@proj-airi/stage-shared'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
@@ -34,15 +35,22 @@ import { useLLM } from './ai/chat-llm/llm'
 import { resolveLlmTools } from './ai/chat-llm/tool-resolver'
 import { useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
+import { useAttentionStore } from './attention'
 import { createMinecraftContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useContextObservabilityStore } from './devtools/context-observability'
+import { useJournalStore } from './journal'
 import { useAiriCardStore } from './modules/airi-card'
 import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useMemoryStore } from './modules/memory'
 import { useWebSearchStore } from './modules/web-search'
+import { usePlanStore } from './plans'
+import { useProviderStore } from './providers/provider'
+import { useSkillsReviewStore } from './skills'
+import { useTaskStore } from './tasks'
 import { executeToolCallRerun } from './tool-call-rerun'
 
 interface ForkOptions {
@@ -139,6 +147,41 @@ function retrySourceIndexFrom(messages: ChatHistoryItem[], index: number): numbe
   return -1
 }
 
+const MEMORY_NEIGHBOR_MESSAGE_LIMIT = 4
+const MEMORY_NEIGHBOR_CHARACTER_LIMIT = 600
+
+function createMemorySourceContext(sessionId: string, userMessageId: string, messages: ChatHistoryItem[]): MemorySourceContext {
+  const sourceIndex = messages.findIndex(message => message.id === userMessageId)
+  if (sourceIndex < 0) {
+    return {
+      sessionId,
+      messageId: userMessageId,
+      neighbors: [],
+    }
+  }
+
+  const messagesBefore = messages.slice(Math.max(0, sourceIndex - Math.floor(MEMORY_NEIGHBOR_MESSAGE_LIMIT / 2)), sourceIndex)
+  const messagesAfter = messages.slice(sourceIndex + 1, sourceIndex + 1 + Math.ceil(MEMORY_NEIGHBOR_MESSAGE_LIMIT / 2))
+  const neighbors = [...messagesBefore, ...messagesAfter]
+    .filter(message => message.role === 'user' || message.role === 'assistant')
+    .map((message) => {
+      const content = extractMessageText(message).trim()
+      if (!content)
+        return undefined
+
+      const label = message.role === 'user' ? 'User' : 'Assistant'
+      return `${label}: ${content.slice(0, MEMORY_NEIGHBOR_CHARACTER_LIMIT)}`
+    })
+    .filter((message): message is string => !!message)
+    .slice(0, MEMORY_NEIGHBOR_MESSAGE_LIMIT)
+
+  return {
+    sessionId,
+    messageId: userMessageId,
+    neighbors,
+  }
+}
+
 export type { QueuedSendSnapshot } from '@proj-airi/core-agent'
 
 export const useChatStore = defineStore('chat', () => {
@@ -153,6 +196,11 @@ export const useChatStore = defineStore('chat', () => {
   // without its paired prompt-injection defense.
   useWebSearchStore()
   const consciousnessStore = useConsciousnessStore()
+  const memoryStore = useMemoryStore()
+  const taskStore = useTaskStore()
+  const attentionStore = useAttentionStore()
+  const skillsStore = useSkillsReviewStore()
+  const planStore = usePlanStore()
   const artistryAutonomousStore = useAutonomousArtistryStore()
   const { activeModel, activeProvider } = storeToRefs(consciousnessStore)
   const chatSession = useChatSessionStore()
@@ -160,13 +208,129 @@ export const useChatStore = defineStore('chat', () => {
   const chatContext = useChatContextStore()
   const cardStore = useAiriCardStore()
   const contextObservability = useContextObservabilityStore()
+  const journalStore = useJournalStore()
   const { activeSessionId } = storeToRefs(chatSession)
   const { streamingMessage } = storeToRefs(chatStream)
+
+  function extractTextFromContent(content: unknown): string {
+    if (typeof content === 'string')
+      return content
+
+    if (!Array.isArray(content))
+      return ''
+
+    return content
+      .filter((part): part is { text: string } => typeof part === 'object' && part !== null && 'text' in part && typeof part.text === 'string')
+      .map(part => part.text)
+      .join('\n')
+  }
+
+  function isMemoryExtraction(value: unknown): value is Omit<MemoryExtraction, 'sessionId'> {
+    if (typeof value !== 'object' || value === null)
+      return false
+
+    const record = value as Record<string, unknown>
+    return typeof record.content === 'string'
+      && record.content.trim().length > 0
+      && typeof record.category === 'string'
+      && (record.memoryType === 'short_term' || record.memoryType === 'muscle')
+      && typeof record.importance === 'number'
+      && typeof record.valence === 'number'
+      && typeof record.arousal === 'number'
+      && Array.isArray(record.tags)
+      && record.tags.every(tag => typeof tag === 'string')
+  }
+
+  async function extractMemoryTurn(input: { sessionId: string, userText: string, assistantText: string, mood?: MemoryMood }): Promise<MemoryExtraction[]> {
+    const providerId = memoryStore.activeProvider || activeProvider.value
+    const model = memoryStore.activeModel || activeModel.value
+    if (!providerId || !model)
+      return []
+
+    const chatProvider = await consciousnessStore.getChatProviderInstance(providerId)
+    if (!chatProvider)
+      return []
+
+    let response = ''
+    try {
+      await llmStore.stream(model, chatProvider, [
+        {
+          role: 'system',
+          content: 'Extract durable facts from one chat turn. Return only a JSON array. Use memoryType short_term or muscle. Return an empty array when no fact is durable.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ user: input.userText, assistant: input.assistantText }),
+        },
+      ], {
+        onStreamEvent: (event) => {
+          if (event.type === 'text-delta')
+            response += event.text
+        },
+      })
+    }
+    catch (error) {
+      console.warn('[Memory] Extraction failed.', errorMessageFrom(error) ?? error)
+      return []
+    }
+
+    try {
+      const json = response.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+      const parsed = JSON.parse(json) as unknown
+      if (!Array.isArray(parsed))
+        return []
+
+      return parsed.filter(isMemoryExtraction).map(extraction => ({
+        ...extraction,
+        sessionId: input.sessionId,
+      }))
+    }
+    catch (error) {
+      console.warn('[Memory] Extraction returned invalid JSON.', errorMessageFrom(error) ?? error)
+      return []
+    }
+  }
+
+  async function summarizeCompactedHistory(input: ChatOrchestratorCompactionSummaryInput): Promise<string> {
+    const providerId = memoryStore.activeProvider || activeProvider.value
+    const model = memoryStore.activeModel || activeModel.value
+    if (!providerId || !model)
+      return ''
+
+    const chatProvider = await consciousnessStore.getChatProviderInstance(providerId)
+    if (!chatProvider)
+      return ''
+
+    let response = ''
+    try {
+      await llmStore.stream(model, chatProvider, [
+        {
+          role: 'system',
+          content: 'Summarize the earlier chat history in concise factual prose. Preserve people, decisions, unresolved questions, and emotional context. Return only the summary.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({ removedTurnCount: input.removedTurnCount, history: input.originalItems }),
+        },
+      ], {
+        onStreamEvent: (event) => {
+          if (event.type === 'text-delta')
+            response += event.text
+        },
+      })
+    }
+    catch (error) {
+      console.warn('[Memory] Summary generation failed.', errorMessageFrom(error) ?? error)
+    }
+
+    return response.trim()
+  }
 
   const sending = shallowRef(false)
   const activeSendSessionId = shallowRef<string>()
   const activeStreamingMessage = shallowRef<StreamingAssistantMessage>()
   const pendingQueuedSendCount = shallowRef(0)
+  const compactions = shallowRef<Record<string, ChatOrchestratorCompactionSnapshot>>({})
   let ownedActiveTurnSpan: typeof activeTurnSpan.value
   const analyticsHooks = createChatAnalyticsHooks({
     getSessionMessages: sessionId => chatSession.getSessionMessages(sessionId),
@@ -240,6 +404,7 @@ export const useChatStore = defineStore('chat', () => {
     activeSendSessionId.value = state.activeSendSessionId
     activeStreamingMessage.value = state.activeStreamingMessage
     pendingQueuedSendCount.value = state.pendingQueuedSendCount
+    compactions.value = state.compactions
   }
 
   function settleOwnedActiveTurnSpan() {
@@ -263,6 +428,45 @@ export const useChatStore = defineStore('chat', () => {
       ingest: envelope => chatContext.ingestContextMessage(envelope),
       snapshot: () => chatContext.getContextsSnapshot(),
     },
+    memory: {
+      retrieve: async ({ query, sessionId }) => (await memoryStore.retrieve(query, sessionId)).map(fragment => ({
+        id: fragment.id,
+        content: fragment.content,
+        score: fragment.score,
+        context: fragment.sourceContext?.neighbors,
+      })),
+    },
+    compaction: {
+      enabled: () => memoryStore.compactionEnabled,
+      contextLength: (model) => {
+        if (memoryStore.contextLengthOverride > 0)
+          return memoryStore.contextLengthOverride
+
+        // Non-browser adapters have no provider catalog injection. Returning
+        // zero delegates to the runtime's stable fallback context length.
+        if (typeof document === 'undefined')
+          return 0
+
+        // Resolve the provider catalog only when compaction actually needs a
+        // model-reported limit. Provider queries use browser injection, so
+        // ordinary chat-store consumers must not initialize them eagerly.
+        const providerStore = useProviderStore()
+        if (typeof providerStore.getModelsForProvider !== 'function')
+          return 0
+
+        return providerStore.getModelsForProvider(activeProvider.value)
+          .find(candidate => candidate.id === model)
+          ?.contextLength ?? 0
+      },
+      threshold: () => memoryStore.compactionThreshold,
+      recentTurnLimit: () => memoryStore.compactionRecentTurnLimit,
+      fallbackContextLength: () => 32_000,
+      summarize: summarizeCompactedHistory,
+    },
+    journal: {
+      startSession: sessionId => journalStore.ensureSession(sessionId),
+      append: (sessionId, event) => journalStore.append(sessionId, event),
+    },
     foregroundStream: {
       patch: (message) => {
         streamingMessage.value = message
@@ -284,6 +488,10 @@ export const useChatStore = defineStore('chat', () => {
       const sections: string[] = []
       if (!containsStageProtocol(cardStore.systemPrompt))
         sections.push(buildStageProtocolSection(t))
+      sections.push(buildAttentionModeSection(resolveAttentionMode(taskStore.tasks, attentionStore.focusedModeEnabled)))
+      const planProjection = planStore.promptProjection()
+      if (planProjection)
+        sections.push(planProjection)
       sections.push(OUTPUT_FORMATTING_SECTION)
       if (model && chatProvider && llmStore.degradedToolKeys.includes(modelKey(model, chatProvider)))
         sections.push(TOOLS_UNAVAILABLE_SECTION)
@@ -335,6 +543,18 @@ export const useChatStore = defineStore('chat', () => {
       if (autonomousTarget === 'user')
         void artistryAutonomousStore.runArtistTask(messageText, toProviderHistory(sessionMessages))
     },
+    onChatTurnComplete: ({ sessionId, chat, context, userMessageId, sessionMessages }) => {
+      const userText = extractTextFromContent(context.message.content).trim()
+      if (!userText)
+        return
+
+      void memoryStore.captureTurn({
+        sessionId,
+        userText,
+        assistantText: chat.outputText,
+        sourceContext: createMemorySourceContext(sessionId, userMessageId, sessionMessages),
+      }, (input: { sessionId: string, userText: string, assistantText: string, mood: MemoryMood }) => extractMemoryTurn(input))
+    },
     onAssistantTurnReady: ({ messageText, sessionMessages }) => {
       const artistry = cardStore.activeCard?.extensions?.airi?.modules?.artistry
       if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant')
@@ -350,7 +570,22 @@ export const useChatStore = defineStore('chat', () => {
     return runtime.ingest(sendingMessage, options, targetSessionId)
   }
 
-  function collectToolReferences(sessionId: string, selectedTools: ChatToolReference[] = []): ChatToolReference[] {
+  /** Runs the provider-only history compaction for the active session. */
+  async function compactActiveSession() {
+    const providerId = activeProvider.value
+    const model = activeModel.value
+    if (!providerId || !model)
+      return false
+
+    const chatProvider = await consciousnessStore.getChatProviderInstance(providerId)
+    if (!chatProvider)
+      return false
+
+    await runtime.compactNow(activeSessionId.value, model, chatProvider)
+    return true
+  }
+
+  function collectToolReferences(sessionId: string, selectedTools: ChatToolReference[] = [], activatedSkillNames: string[] = []): ChatToolReference[] {
     const names = new Set<string>()
 
     for (const message of chatSession.getSessionMessages(sessionId)) {
@@ -360,6 +595,9 @@ export const useChatStore = defineStore('chat', () => {
 
     for (const tool of selectedTools)
       names.add(tool.name)
+
+    for (const toolName of activatedSkillNames)
+      names.add(toolName)
 
     return [...names].map(name => ({ name }))
   }
@@ -388,6 +626,7 @@ export const useChatStore = defineStore('chat', () => {
     if (!chatProvider)
       throw new Error(`Failed to resolve chat provider "${providerId}"`)
 
+    const activatedSkillNames = skillsStore.prepareForPrompt(payload.text)
     await runtime.ingest(payload.text, {
       model: modelId,
       chatProvider,
@@ -397,7 +636,7 @@ export const useChatStore = defineStore('chat', () => {
       // Resolve this function after the request reaches the per-session queue.
       // The history then contains tool names from every earlier queued turn.
       tools: async () => {
-        const references = collectToolReferences(payload.sessionId, payload.tools)
+        const references = collectToolReferences(payload.sessionId, payload.tools, activatedSkillNames)
         return llmToolsStore.getToolsByNames(...references.map(tool => tool.name))
       },
     }, payload.sessionId)
@@ -440,6 +679,7 @@ export const useChatStore = defineStore('chat', () => {
     if (!text)
       throw new Error('Retry target has no retriable user message')
 
+    runtime.clearCompaction(payload.sessionId)
     chatSession.setSessionMessages(payload.sessionId, currentMessages.slice(0, sourceIndex))
 
     try {
@@ -474,6 +714,7 @@ export const useChatStore = defineStore('chat', () => {
   function cleanup(sessionId: string) {
     chatSession.cleanupMessages(sessionId)
     chatContext.resetContexts()
+    runtime.clearCompaction(sessionId)
     runtime.cancelPendingSends(sessionId)
     chatStream.resetStream()
   }
@@ -481,6 +722,7 @@ export const useChatStore = defineStore('chat', () => {
   /** Cancels queued work before permanently removing its owning session. */
   function deleteSession(sessionId: string): Promise<void> {
     runtime.cancelPendingSends(sessionId)
+    runtime.clearCompaction(sessionId)
     return chatSession.deleteSession(sessionId)
   }
 
@@ -515,10 +757,12 @@ export const useChatStore = defineStore('chat', () => {
     activeSendSessionId,
     activeStreamingMessage,
     pendingQueuedSendCount,
+    compactions,
 
     cleanup,
     deleteSession,
     ingest,
+    compactActiveSession,
     ingestOnFork,
     rerunToolCall,
     retry,
@@ -552,7 +796,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 }, {
   synced: {
-    actions: ['cleanup', 'deleteSession', 'rerunToolCall', 'retry', 'send'],
+    actions: ['cleanup', 'deleteSession', 'rerunToolCall', 'retry', 'send', 'compactActiveSession'],
     state: true,
   },
 })

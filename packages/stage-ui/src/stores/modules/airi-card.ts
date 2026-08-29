@@ -104,7 +104,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const card = newAiriCard(updatedCard)
     cards.value.set(id, card)
     if (id === activeCardId.value)
-      applyActiveCardSettings(card)
+      applyActiveCardSettings({ newCard: card })
 
     return true
   }
@@ -383,7 +383,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!cards.value.has(activeCardId.value))
       activeCardId.value = 'default'
 
-    applyActiveCardSettings()
+    // On startup, preserve the user's persisted stage model selection rather
+    // than overwriting it with the card's displayModelId. The stage-model
+    // store already persists the user's last choice; applying the card's
+    // display model here would reset a custom import (e.g. a 40 MB Live2D
+    // zip) back to preset-live2d-1 on every restart.
+    applyActiveCardSettings({ preserveStageModelSelection: true })
   }
 
   /**
@@ -399,7 +404,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     return true
   }
 
-  function applyActiveCardSettings(newCard = activeCard.value) {
+  function applyActiveCardSettings(
+    options: { newCard?: AiriCard, preserveStageModelSelection?: boolean } = {},
+  ) {
+    const newCard = options.newCard ?? activeCard.value
     const {
       artistry,
       consciousness,
@@ -441,7 +449,9 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // Apply body model if the card has a display model configured.
     // NOTICE: must set via store property directly (not storeToRefs .value) so Pinia's
     // proxy correctly calls the writable computed setter → stageModelSelectedState → updateStageModel().
-    if (extension.modules?.displayModelId) {
+    // Skipped on initial startup (preserveStageModelSelection) so the user's
+    // persisted stage model selection survives a restart.
+    if (!options.preserveStageModelSelection && extension.modules?.displayModelId) {
       stageModel.stageModelSelected = extension.modules.displayModelId
     }
 

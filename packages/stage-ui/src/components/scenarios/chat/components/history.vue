@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import type { ChatOrchestratorCompactionSnapshot } from '@proj-airi/core-agent'
 import type { VirtualizerHandle } from 'virtua/vue'
 
+import type { CharacterSparkNotifyReaction } from '../../../../stores/character'
+import type { PlanView } from '../../../../stores/plans'
+import type { AttentionTask } from '../../../../stores/tasks'
 import type { ChatHistoryItem, StreamingAssistantMessage } from '../../../../types/chat'
 import type { ChatToolCallRendererRegistry } from './tool-call-renderer'
 
@@ -8,9 +12,14 @@ import { Virtualizer } from 'virtua/vue'
 import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import ChatApprovalCard from './approval-card.vue'
 import ChatAssistantItem from './assistant-item.vue'
+import ChatCompactionNotice from './compaction-notice.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatHistoryMessageFrame from './history-message-frame.vue'
+import ChatPlanCard from './plan-card.vue'
+import ChatReactionLine from './reaction-line.vue'
+import ChatTaskCard from './task-card.vue'
 import ChatUserItem from './user-item.vue'
 
 import { useChatHistoryScroll } from '../composables/use-chat-history-scroll'
@@ -18,9 +27,39 @@ import { useChatHistoryTopFade } from '../composables/use-chat-history-top-fade'
 import { useVirtualizerScroll } from '../composables/use-virtualizer-scroll'
 import { getChatHistoryItemKey } from '../utils'
 
+interface TimelineMessageItem {
+  kind: 'message'
+  message: ChatHistoryItem
+  messageIndex: number
+  createdAt?: number
+}
+
+interface TimelineReactionItem {
+  kind: 'reaction'
+  reaction: CharacterSparkNotifyReaction
+  createdAt: number
+}
+
+interface TimelineTaskItem {
+  kind: 'task'
+  task: AttentionTask
+  createdAt: number
+}
+
+interface TimelinePlanItem {
+  kind: 'plan'
+  plan: PlanView
+  createdAt: number
+}
+
+type ChatTimelineItem = TimelineMessageItem | TimelineReactionItem | TimelineTaskItem | TimelinePlanItem
+
 const props = withDefaults(defineProps<{
   messages: ChatHistoryItem[]
   streamingMessage?: StreamingAssistantMessage
+  reactions?: readonly CharacterSparkNotifyReaction[]
+  tasks?: readonly AttentionTask[]
+  plans?: readonly PlanView[]
   sending?: boolean
   assistantLabel?: string
   userLabel?: string
@@ -28,8 +67,12 @@ const props = withDefaults(defineProps<{
   retryLabel?: string
   variant?: 'desktop' | 'mobile'
   toolCallRenderers?: ChatToolCallRendererRegistry
+  compaction?: ChatOrchestratorCompactionSnapshot
 }>(), {
   sending: false,
+  reactions: () => Object.freeze([] as CharacterSparkNotifyReaction[]),
+  tasks: () => Object.freeze([] as AttentionTask[]),
+  plans: () => Object.freeze([] as PlanView[]),
   variant: 'desktop',
   toolCallRenderers: () => ({}),
 })
@@ -61,26 +104,92 @@ const showStreamingPlaceholder = computed(() => (streaming.value.slices?.length 
 function shouldShowPlaceholder(message: ChatHistoryItem) {
   return !!streaming.value.id && message.id === streaming.value.id
 }
-const renderMessages = computed<ChatHistoryItem[]>(() => {
+
+const timelineItems = computed<ChatTimelineItem[]>(() => {
+  const items: Array<ChatTimelineItem & { order: number }> = props.messages.map((message, messageIndex) => ({
+    kind: 'message',
+    message,
+    messageIndex,
+    createdAt: message.createdAt,
+    order: messageIndex,
+  }))
+
+  const messageCount = items.length
+  props.reactions.forEach((reaction, index) => {
+    items.push({
+      kind: 'reaction',
+      reaction,
+      createdAt: reaction.createdAt,
+      order: messageCount + index,
+    })
+  })
+
+  const taskOffset = items.length
+  props.tasks.forEach((task, index) => {
+    items.push({
+      kind: 'task',
+      task,
+      createdAt: task.startedAt,
+      order: taskOffset + index,
+    })
+  })
+
+  const planOffset = items.length
+  props.plans.forEach((plan, index) => {
+    items.push({
+      kind: 'plan',
+      plan,
+      createdAt: plan.updatedAt,
+      order: planOffset + index,
+    })
+  })
+
+  return items
+    .sort((left, right) => (left.createdAt ?? Number.MIN_SAFE_INTEGER) - (right.createdAt ?? Number.MIN_SAFE_INTEGER) || left.order - right.order)
+    .map(({ order: _order, ...item }) => item)
+})
+
+const renderItems = computed<ChatTimelineItem[]>(() => {
+  const items = [...timelineItems.value]
   if (!props.sending)
-    return props.messages
+    return items
 
   const streamId = streaming.value.id
   if (!streamId)
-    return props.messages
+    return items
 
   const hasStreamAlready = props.messages.some(message => message.role === 'assistant' && message.id === streamId)
   if (hasStreamAlready)
-    return props.messages
+    return items
 
-  return [...props.messages, streaming.value]
+  items.push({
+    kind: 'message',
+    message: streaming.value,
+    messageIndex: props.messages.length,
+    createdAt: streaming.value.createdAt,
+  })
+  return items
 })
 const topFadeRatio = computed(() => props.variant === 'mobile' ? 0.2 : 0)
 
+function getTimelineItemKey(item: ChatTimelineItem, _index: number): string | number {
+  if (item.kind === 'message')
+    return getChatHistoryItemKey(item.message, item.messageIndex)
+  if (item.kind === 'reaction')
+    return `reaction:${item.reaction.id}`
+  if (item.kind === 'task')
+    return `task:${item.task.taskId}`
+  return `plan:${item.plan.id}`
+}
+
+function canRetryMessage(messageIndex: number) {
+  return props.messages[messageIndex - 1]?.role === 'user'
+}
+
 useChatHistoryScroll({
   container: chatHistoryRef,
-  messages: renderMessages,
-  getKey: getChatHistoryItemKey,
+  messages: renderItems,
+  getKey: getTimelineItemKey,
   scrollToIndex,
 })
 useChatHistoryTopFade({
@@ -136,54 +245,73 @@ function emitToolCallRerun(
       variant === 'mobile' ? 'chat-history-list--mobile' : '',
     ]"
   >
+    <ChatCompactionNotice
+      v-if="compaction"
+      :compaction="compaction"
+      :messages="messages"
+    />
     <Virtualizer
       ref="virtualizer"
-      :data="renderMessages"
+      :data="renderItems"
       :buffer-size="CHAT_HISTORY_OVERSCAN"
     >
-      <template #default="{ item: message, index }">
+      <template #default="{ item, index }">
         <ChatHistoryMessageFrame
-          :key="getChatHistoryItemKey(message, index)"
+          :key="getTimelineItemKey(item, index)"
           :variant="variant"
           :scroll-container="chatHistoryRef"
         >
           <ChatErrorItem
-            v-if="message.role === 'error'"
-            :message="message"
+            v-if="item.kind === 'message' && item.message.role === 'error'"
+            :message="item.message"
             :label="labels.error"
             :retry-label="labels.retry"
-            :can-retry="renderMessages[index - 1]?.role === 'user'"
-            :show-placeholder="sending && index === renderMessages.length - 1"
+            :can-retry="canRetryMessage(item.messageIndex)"
+            :show-placeholder="sending && index === renderItems.length - 1"
             :scroll-container="chatHistoryRef"
             :variant="variant"
-            @copy="emitCopyMessage(message, index)"
-            @retry="emitRetryMessage(message, index)"
-            @delete="emitDeleteMessage(message, index)"
+            @copy="emitCopyMessage(item.message, item.messageIndex)"
+            @retry="emitRetryMessage(item.message, item.messageIndex)"
+            @delete="emitDeleteMessage(item.message, item.messageIndex)"
           />
           <ChatAssistantItem
-            v-else-if="message.role === 'assistant'"
-            :message="message"
+            v-else-if="item.kind === 'message' && item.message.role === 'assistant'"
+            :message="item.message"
             :label="labels.assistant"
-            :show-placeholder="shouldShowPlaceholder(message) && showStreamingPlaceholder"
+            :show-placeholder="shouldShowPlaceholder(item.message) && showStreamingPlaceholder"
             :scroll-container="chatHistoryRef"
             :variant="variant"
             :tool-call-renderers="toolCallRenderers"
-            @copy="emitCopyMessage(message, index)"
-            @delete="emitDeleteMessage(message, index)"
-            @tool-call-rerun="emitToolCallRerun(message, index, $event)"
+            @copy="emitCopyMessage(item.message, item.messageIndex)"
+            @delete="emitDeleteMessage(item.message, item.messageIndex)"
+            @tool-call-rerun="emitToolCallRerun(item.message, item.messageIndex, $event)"
           />
           <ChatUserItem
-            v-else-if="message.role === 'user'"
-            :message="message"
+            v-else-if="item.kind === 'message' && item.message.role === 'user'"
+            :message="item.message"
             :label="labels.user"
             :scroll-container="chatHistoryRef"
             :variant="variant"
-            @copy="emitCopyMessage(message, index)"
-            @delete="emitDeleteMessage(message, index)"
+            @copy="emitCopyMessage(item.message, item.messageIndex)"
+            @delete="emitDeleteMessage(item.message, item.messageIndex)"
+          />
+          <ChatReactionLine
+            v-else-if="item.kind === 'reaction'"
+            :reaction="item.reaction"
+          />
+          <ChatTaskCard
+            v-else-if="item.kind === 'task'"
+            :task="item.task"
+          />
+          <ChatPlanCard
+            v-else-if="item.kind === 'plan'"
+            :plan="item.plan"
           />
         </ChatHistoryMessageFrame>
       </template>
     </Virtualizer>
+
+    <ChatApprovalCard />
   </div>
 </template>
 
