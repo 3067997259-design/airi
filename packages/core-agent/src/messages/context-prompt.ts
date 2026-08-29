@@ -18,7 +18,7 @@ export type ContextSnapshot = Record<string, ContextMessage[]>
  *   (e.g. game state, system status) to the latest user message.
  *
  * Expects:
- * - A snapshot keyed by `contextId`. Only the per-message `text` field is
+ * - A snapshot keyed by the registry source key. Only the per-message `text` field is
  *   included; volatile metadata (random IDs, ms timestamps) is excluded so
  *   the output stays deterministic and KV-cache-friendly.
  *
@@ -40,7 +40,9 @@ export function formatContextPromptText(contextsSnapshot: ContextSnapshot) {
     return ''
 
   const lines = entries.flatMap(([contextId, messages]) =>
-    messages.map(m => `- ${contextId}: ${m.text}`),
+    messages
+      .filter(message => message.text.trim().length > 0)
+      .map(m => `- ${contextId}: ${m.text}`),
   )
 
   if (lines.length === 0)

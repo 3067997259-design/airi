@@ -120,6 +120,7 @@ describe('createContextRegistry', () => {
     }))
     const unknownResult = registry.ingest(createContextMessage({
       id: 'unknown-source',
+      contextId: '',
     }))
 
     expect(extensionModuleResult?.sourceKey).toBe('weather:station-1')
@@ -272,6 +273,27 @@ describe('createContextRegistry', () => {
       }),
     ])
     expect(registry.activeContexts().sensor).toEqual([])
+  })
+
+  it('removes a source bucket when a replace-self update has no text', () => {
+    const registry = createContextRegistry()
+
+    registry.ingest(createContextMessage({
+      contextId: 'memory',
+      text: 'remembered context',
+    }))
+    const result = registry.ingest(createContextMessage({
+      contextId: 'memory',
+      text: '  ',
+    }))
+
+    expect(result).toEqual({
+      sourceKey: 'memory',
+      mutation: 'replace',
+      entryCount: 0,
+    })
+    expect(registry.snapshot()).toEqual({})
+    expect(registry.contextHistory().at(-1)?.text).toBe('  ')
   })
 
   /**

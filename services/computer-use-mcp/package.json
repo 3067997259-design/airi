@@ -52,6 +52,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
     "@moeru/std": "catalog:",
+    "@proj-airi/core-agent": "workspace:*",
     "node-pty": "catalog:",
     "ws": "catalog:",
     "zod": "catalog:"

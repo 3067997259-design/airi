@@ -1108,6 +1108,81 @@ interface SparkEmitEvent {
   metadata?: Record<string, unknown>
 }
 
+/** A bounded artifact reference carried by a task state snapshot. */
+export interface TaskMemoryArtifact {
+  label: string
+  value: string
+  kind: 'file' | 'url' | 'tool' | 'note'
+}
+
+/** The converged task state that can enter a prompt or task card. */
+export interface TaskMemorySnapshot {
+  status: 'active' | 'blocked' | 'done'
+  goal: string | null
+  currentStep: string | null
+  confirmedFacts: string[]
+  artifacts: TaskMemoryArtifact[]
+  blockers: string[]
+  nextStep: string | null
+  updatedAt: number
+  sourceTurnId: string
+  plan?: string[]
+  workingAssumptions?: string[]
+  recentFailureReason?: string | null
+  completionCriteria?: string[]
+}
+
+/** Start event for a long-running task. */
+export interface TaskStartEvent {
+  id: string
+  eventId?: string
+  taskId: string
+  goal: string
+  kind: string
+  estimatedDurationMs?: number
+  metadata?: Record<string, unknown>
+}
+
+/** Replace-self progress snapshot for a long-running task. */
+export interface TaskProgressEvent {
+  id: string
+  eventId?: string
+  taskId: string
+  memory: TaskMemorySnapshot
+  logRef?: string
+  metadata?: Record<string, unknown>
+}
+
+/** Task state that requires user input before execution can continue. */
+export interface TaskBlockedEvent {
+  id: string
+  eventId?: string
+  taskId: string
+  memory: TaskMemorySnapshot
+  needsInput: string
+  logRef?: string
+  metadata?: Record<string, unknown>
+}
+
+/** Final conclusion emitted when an external task completes. */
+export interface TaskDoneEvent {
+  id: string
+  eventId?: string
+  taskId: string
+  memory: TaskMemorySnapshot
+  conclusion: string
+  logRef?: string
+  metadata?: Record<string, unknown>
+}
+
+/** Stable reaction emitted for an external event. */
+interface EventReactionEvent {
+  id: string
+  eventId?: string
+  reaction: string
+  metadata?: Record<string, unknown>
+}
+
 interface SparkCommandGuidanceOption {
   label: string
   steps: Array<string>
@@ -1274,6 +1349,11 @@ export const outputGenAiChatComplete = defineProtocolEventa<OutputGenAiChatCompl
 export const sparkNotify = defineProtocolEventa<SparkNotifyEvent>('spark:notify')
 export const sparkEmit = defineProtocolEventa<SparkEmitEvent>('spark:emit')
 export const sparkCommand = defineProtocolEventa<SparkCommandEvent>('spark:command')
+export const taskStart = defineProtocolEventa<TaskStartEvent>('task:start')
+export const taskProgress = defineProtocolEventa<TaskProgressEvent>('task:progress')
+export const taskBlocked = defineProtocolEventa<TaskBlockedEvent>('task:blocked')
+export const taskDone = defineProtocolEventa<TaskDoneEvent>('task:done')
+export const eventReaction = defineProtocolEventa<EventReactionEvent>('event:reaction')
 
 export const transportConnectionHeartbeat = defineProtocolEventa<TransportConnectionHeartbeatEvent>('transport:connection:heartbeat')
 export const contextUpdate = defineProtocolEventa<ContextUpdateEvent>('context:update')
@@ -1494,6 +1574,21 @@ export interface ProtocolEvents<C = undefined> {
    * - Minecraft: state=working, note="Pillared up; healing" in reply to a command.
    */
   'spark:emit': SparkEmitEvent
+
+  /** Starts a long-running task without adding a chat message. */
+  'task:start': TaskStartEvent
+
+  /** Replaces the current task snapshot without waking the character. */
+  'task:progress': TaskProgressEvent
+
+  /** Blocks a task and asks the user for a decision. */
+  'task:blocked': TaskBlockedEvent
+
+  /** A completed task conclusion that is safe for memory capture. */
+  'task:done': TaskDoneEvent
+
+  /** A stable reaction that is safe for memory capture. */
+  'event:reaction': EventReactionEvent
 
   /**
    * Character issues instructions or context to a sub-agent.

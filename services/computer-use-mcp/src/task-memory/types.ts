@@ -5,36 +5,16 @@
 // "what are we doing, what's confirmed, what's blocking, what's next."
 // ---------------------------------------------------------------------------
 
-export type TaskMemoryStatus = 'active' | 'blocked' | 'done'
+import type { TaskMemory as SharedTaskMemory } from '@proj-airi/core-agent'
 
-export interface TaskMemoryArtifact {
-  label: string
-  value: string
-  kind: 'file' | 'url' | 'tool' | 'note'
-}
+export type TaskMemoryStatus = SharedTaskMemory['status']
+
+export type TaskMemoryArtifact = SharedTaskMemory['artifacts'][number]
 
 /**
  * Primary task execution state attached to a computer-use session.
  */
-export interface TaskMemory {
-  // --- Primary fields ---
-  status: TaskMemoryStatus
-  goal: string | null
-  currentStep: string | null
-  confirmedFacts: string[]
-  artifacts: TaskMemoryArtifact[]
-  blockers: string[]
-  nextStep: string | null
-  updatedAt: number
-  /** Identifies which tool invocation / turn produced this snapshot. */
-  sourceTurnId: string
-
-  // --- Secondary fields (all optional) ---
-  plan?: string[]
-  workingAssumptions?: string[]
-  recentFailureReason?: string | null
-  completionCriteria?: string[]
-}
+export type TaskMemory = SharedTaskMemory
 
 /**
  * Raw extraction output — may have partial fields.

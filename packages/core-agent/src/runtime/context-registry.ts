@@ -7,6 +7,7 @@ const CONTEXT_UPDATE_APPEND_SELF = 'append-self'
 
 interface EventSourcePayload {
   source?: string
+  contextId?: string
   metadata?: { source?: MetadataEventSource }
 }
 
@@ -56,7 +57,7 @@ interface CreateContextRegistryOptions {
   /**
    * Resolves a context message into a stable source bucket key.
    *
-   * @default metadata extension/module key, then event source, then "unknown"
+   * @default metadata extension/module key, then event source, then context id, then "unknown"
    */
   getSourceKey?: (event: EventSourcePayload, fallback?: string) => string
 }
@@ -73,11 +74,8 @@ function formatMetadataSource(source?: MetadataEventSource) {
 }
 
 function defaultGetSourceKey(event: EventSourcePayload, fallback = 'unknown') {
-  return (
-    formatMetadataSource(event.metadata?.source)
-    ?? event.source
-    ?? fallback
-  )
+  const explicitSource = formatMetadataSource(event.metadata?.source) ?? event.source
+  return explicitSource || event.contextId || fallback
 }
 
 /**
@@ -112,7 +110,10 @@ export function createContextRegistry(options: CreateContextRegistryOptions = {}
     let result: ContextIngestResult | undefined
 
     if (envelope.strategy === CONTEXT_UPDATE_REPLACE_SELF) {
-      currentActiveContexts.set(sourceKey, [safeEnvelopeToStore])
+      if (safeEnvelopeToStore.text.trim().length > 0)
+        currentActiveContexts.set(sourceKey, [safeEnvelopeToStore])
+      else
+        currentActiveContexts.delete(sourceKey)
       result = {
         sourceKey,
         mutation: 'replace',
