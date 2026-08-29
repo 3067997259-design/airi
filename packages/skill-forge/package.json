@@ -1,0 +1,33 @@
+{
+  "name": "@proj-airi/skill-forge",
+  "type": "module",
+  "version": "0.12.0-beta.2",
+  "private": true,
+  "description": "Self-authored tool / skill lifecycle, review binding and static analysis for AIRI (SELF-AUTHORED-TOOLS-DESIGN)",
+  "author": {
+    "name": "Moeru AI Project AIRI Team",
+    "email": "airi@moeru.ai",
+    "url": "https://github.com/moeru-ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git",
+    "directory": "packages/skill-forge"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:run": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:vitest"
+  }
+}
