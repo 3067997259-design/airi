@@ -4168,6 +4168,9 @@ importers:
       '@proj-airi/ccc':
         specifier: workspace:*
         version: link:../ccc
+      '@proj-airi/core-agent':
+        specifier: workspace:^
+        version: link:../core-agent
       '@proj-airi/i18n':
         specifier: workspace:*
         version: link:../i18n

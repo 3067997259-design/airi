@@ -49,6 +49,15 @@ devtools:
   pages:
     context-flow:
       title: Context Flow
+    coding-console:
+      title: Coding Console
+      plans-description: Gate projection of every known plan, derived from journal evidence.
+      no-plans: No plans yet. Create one from chat (plan_update) or the bench below.
+      bench-description: Hand-craft a PlanSpec to exercise the whitelist and verification gate without a model.
+      start-plan: Start plan
+      host-description: Availability reported by the main-process coding host.
+      host-unavailable: Coding host is unreachable from this window.
+      journal-description: Append-only journal events for tools, plans, and approvals.
     editor:
       title: AIRI Editor
       description: Open the standalone AIRI Editor window

@@ -49,6 +49,15 @@ devtools:
   pages:
     context-flow:
       title: Context Flow
+    coding-console:
+      title: 编码控制台
+      plans-description: 基于日志证据推导的所有计划的验证门投影。
+      no-plans: 暂无计划。可通过对话（plan_update）或下方测试台创建。
+      bench-description: 手工构造 PlanSpec，在无需模型的情况下检验白名单与验证门。
+      start-plan: 启动计划
+      host-description: 主进程 coding host 上报的可用性。
+      host-unavailable: 当前窗口无法连接编码宿主。
+      journal-description: 工具、计划与审批的追加式日志事件。
     editor:
       title: AIRI 编辑器
       description: 打开独立的 AIRI 编辑器窗口
