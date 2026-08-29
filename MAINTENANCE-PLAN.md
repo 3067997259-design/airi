@@ -21,9 +21,21 @@
   `code_mode` 工具（bridge 派发展平为有界文本，超时钳位 1-60s，宿主
   listTools 报告可用性）。P2.3 控制台、P2.4 pgvector 接线未动（见下）。
 - ⬜ **仍开放**：P2.3 devtools coding 控制台；P2.4 pgvector 接线（挂载位置
-  决策点仍待拍板，推荐主进程 memory-host 模式）；P3 全部；真机 dev 冒烟
-  （plan-card 走查、code_mode 端到端、四工具冷启动三次）；Mimosa 完整审计
+  决策点仍待拍板，推荐主进程 memory-host 模式）；P3 全部；Mimosa 完整审计
   （本批提交链 scanner_enobufs，兼容放行，未宣称安全）。
+- ✅ **真机 dev 冒烟（2026-08-29，构建版 electron.exe + CDP）**：连续三次
+  冷启动（独立 `APP_USER_DATA_PATH`）pinia `llm-tools` 状态均含
+  `plan_update`、`read/write/edit/bash`（defaultActive）、`code_mode`——
+  GPT 时序修复（codingHost 前置于主窗口）真机验证通过；由于注册路径自带
+  `listTools` 可用性门，注册成功同时证明了 renderer→主进程 coding-host
+  bridge 端到端可达。工具调研脚本：`D:\.airi-smoke\cdp-eval.cjs`（原生
+  CDP eval，绕过 agent-browser 的激活式切换——主窗口忙时它会挂）。
+- ⚠️ **冒烟新发现（升级为待办）**：channel-server 的 ENOTSUP（本机 TUN
+  网卡干扰 localhost 绑定，MODS.md 已记录）触发**无退避的热重试**——
+  3 分钟内 6908 条错误日志（~13 次/秒），Eventa IPC 被打满后所有渲染进程
+  间歇性无响应（CDP Runtime.evaluate 超时，两个进程 CPU 500+ 秒）。比
+  MODS.md「非致命」的旧记录严重。待办：给 server channel 的
+  apply/restore 重试加指数退避与上限（server-runtime 侧）。
 - 测试基线：core-agent 172、coding-harness 28（hashline+tools）、stage-ui
   plans 1、tamagotchi built-in 3 / plan 5 / coding 2 / policy 5，typecheck
   五包全过。

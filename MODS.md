@@ -252,11 +252,18 @@ worker 的测试启动故障已修为 worker 内部错误提取，不再为读�
   listTools 单独报告 code_mode 可用性。
 
 验证：core-agent 172/172、coding-harness hashline+tools 28/28、stage-ui
-plans 1/1、tamagotchi built-in 3/3 + plan 5/5 + coding-host policy 5/5 +
-coding 2/2；coding-harness/core-agent/stage-ui/stage-pages/stage-tamagotchi
+plans 1/1、tamagotchi built-in 3/3 + plan 5/5 + coding 2/2 + coding-host
+policy 5/5；coding-harness/core-agent/stage-ui/stage-pages/stage-tamagotchi
 typecheck 全过（stage-ui 消费 core-agent dist，改源码后需 `build:packages`）。
-待真机：dev 冒烟（plan-card 走查、code_mode 端到端、四工具冷启动三次）、
-Mimosa 完整审计（本次提交链上 scanner_enobufs，兼容放行未宣称安全）。
+**真机冒烟通过（2026-08-29）**：构建版 electron.exe + 独立
+`APP_USER_DATA_PATH` + CDP，连续三次冷启动 `llm-tools` 均注册
+`plan_update` + 四工具（defaultActive）+ `code_mode`——时序修复真机确认，
+且注册可用性门同时证明了 coding-host bridge 端到端可达。CDP 调研用
+`D:\.airi-smoke\cdp-eval.cjs`（原生 eval，agent-browser 激活式切换在主窗
+口忙时会挂）。**新发现**：ENOTSUP 6121 的重试是无退避热循环（3 分钟 6908
+条错误，IPC 被打满 → 渲染进程间歇无响应），比「非致命」旧记录严重，待给
+server channel apply/restore 加退避上限。待办：Mimosa 完整审计（提交链上
+scanner_enobufs，兼容放行未宣称安全）。
 
 
 
