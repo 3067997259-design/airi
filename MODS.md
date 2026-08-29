@@ -366,3 +366,6 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
 - 测试中 Mimosa 钩子对 `tool-resolver.test.ts` 里既有的假 `apiKey` 字面量误报
   过"硬编码凭据"，对动态 DDL 误报过 SQL 注入；绕行方式见提交记录。
 - 后续计划：M3（后台长任务 babysitting）、M4（Codex 式长期记忆）未开始。
+  两份已审定的前端设计计划已落档：`LIFE-PLAN.md`（Neuro 式自主节拍——考量回合 + 生命模式矩阵 + mirror 工具 + 外观 journal 化）
+  与 `CAPABILITY-PLAN.md`（能力扩展——fetch/SSRF、审批模式三档、dsh 插件兼容通道、自造工具闭环 skill_submit/沙箱自测/审阅通知）。
+  注意 M3（babysitter）在 LIFE-PLAN 里与自主节拍 tick 合流，不再独立。
