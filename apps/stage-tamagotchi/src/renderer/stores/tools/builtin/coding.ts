@@ -2,6 +2,7 @@ import type { Tool } from '@xsai/shared-chat'
 
 import { applyHashlineEdit } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
+import { CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -11,9 +12,11 @@ import { createCodingHostClient } from '../../../bridges/coding-host'
 // The main process owns the workspace host; every execute crosses the
 // coding-host Eventa bridge (WIRING-BACKLOG §2). `edit` is Hashline-gated:
 // a rejection is "state changed, re-read", never a task failure.
+// Descriptions and parameter docs come from CODING_TOOL_META in
+// @proj-airi/coding-harness so the Code Mode bridge labels cannot drift.
 
 const readParams = z.object({
-  path: z.string().describe('Path inside the workspace, relative or absolute.'),
+  path: z.string().describe(CODING_TOOL_META.read.parameterDescriptions.path),
 })
 
 async function executeRead(input: { path: string }): Promise<string> {
@@ -26,8 +29,8 @@ async function executeRead(input: { path: string }): Promise<string> {
 }
 
 const writeParams = z.object({
-  path: z.string().describe('Path inside the workspace, relative or absolute.'),
-  content: z.string().describe('Full new file content.'),
+  path: z.string().describe(CODING_TOOL_META.write.parameterDescriptions.path),
+  content: z.string().describe(CODING_TOOL_META.write.parameterDescriptions.content),
 })
 
 async function executeWrite(input: { path: string, content: string }): Promise<string> {
@@ -36,10 +39,10 @@ async function executeWrite(input: { path: string, content: string }): Promise<s
 }
 
 const editParams = z.object({
-  path: z.string().describe('Path inside the workspace, relative or absolute.'),
-  signature: z.string().describe('The 2-4 character content signature of the target line from the read projection.'),
-  expectedPrefix: z.string().describe('Leading characters of the line as shown by read (16-32 chars).'),
-  newLineContent: z.string().describe('The full replacement line content.'),
+  path: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.path),
+  signature: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.signature),
+  expectedPrefix: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.expectedPrefix),
+  newLineContent: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.newLineContent),
 })
 
 async function executeEdit(input: { path: string, signature: string, expectedPrefix: string, newLineContent: string }): Promise<string> {
@@ -63,8 +66,8 @@ async function executeEdit(input: { path: string, signature: string, expectedPre
 }
 
 const bashParams = z.object({
-  command: z.string().describe('Shell command to run inside the workspace. High-risk commands require approval.'),
-  mediumApprovalRequired: z.boolean().optional().describe('Force approval for medium-tier commands (default false).'),
+  command: z.string().describe(CODING_TOOL_META.bash.parameterDescriptions.command),
+  mediumApprovalRequired: z.boolean().optional().describe(CODING_TOOL_META.bash.parameterDescriptions.mediumApprovalRequired),
 })
 
 async function executeBash(input: { command: string, mediumApprovalRequired?: boolean }): Promise<string> {
@@ -86,26 +89,26 @@ async function executeBash(input: { command: string, mediumApprovalRequired?: bo
 
 const tools: Promise<Tool>[] = [
   tool({
-    name: 'read',
-    description: 'Read a text file inside the workspace. Every line carries a short content signature; use signatures (not copied lines) for edit.',
+    name: CODING_TOOL_META.read.name,
+    description: CODING_TOOL_META.read.description,
     execute: executeRead,
     parameters: readParams,
   }),
   tool({
-    name: 'write',
-    description: 'Replace a whole text file inside the workspace with new content.',
+    name: CODING_TOOL_META.write.name,
+    description: CODING_TOOL_META.write.description,
     execute: executeWrite,
     parameters: writeParams,
   }),
   tool({
-    name: 'edit',
-    description: 'Line-level edit gated by Hashline: pass the target line\'s signature from read plus its expected prefix. Rejection means the file changed — re-read first.',
+    name: CODING_TOOL_META.edit.name,
+    description: CODING_TOOL_META.edit.description,
     execute: executeEdit,
     parameters: editParams,
   }),
   tool({
-    name: 'bash',
-    description: 'Run a shell command inside the workspace. Read-only/tests run freely; high-risk commands (push, delete, network, production) require user approval.',
+    name: CODING_TOOL_META.bash.name,
+    description: CODING_TOOL_META.bash.description,
     execute: executeBash,
     parameters: bashParams,
   }),

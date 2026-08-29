@@ -27,6 +27,10 @@
     "./hashline/read": {
       "types": "./src/hashline/read.ts",
       "default": "./src/hashline/read.ts"
+    },
+    "./tools/coding-tool-meta": {
+      "types": "./src/tools/coding-tool-meta.ts",
+      "default": "./src/tools/coding-tool-meta.ts"
     }
   },
   "scripts": {

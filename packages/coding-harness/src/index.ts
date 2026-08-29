@@ -23,8 +23,8 @@ export type {
 export { executeSandboxedProgram } from './ptc/runner'
 export type { SandboxRunnerOptions } from './ptc/runner'
 
-export { createCodingTools } from './tools/coding-tools'
-export type { ApprovalOutcome, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
+export { CODING_TOOL_META, createCodingTools } from './tools/coding-tools'
+export type { ApprovalOutcome, CodingToolName, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
 
 export { createNodeWorkspaceHost, resolveInsideWorkspace } from './tools/workspace-host'
 export type { CommandResult, WorkspaceHost, WorkspaceReadResult } from './tools/workspace-host'

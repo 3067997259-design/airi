@@ -13,6 +13,10 @@ import { classifyBashCommand } from '@proj-airi/core-agent'
 
 import { applyHashlineEdit } from '../hashline/edit'
 import { formatSignedFileProjection } from '../hashline/read'
+import { CODING_TOOL_META } from './coding-tool-meta'
+
+export { CODING_TOOL_META } from './coding-tool-meta'
+export type { CodingToolName } from './coding-tool-meta'
 
 export type { BashRiskTier }
 
@@ -42,8 +46,8 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
 
   return [
     {
-      name: 'read',
-      description: 'Read a file inside the workspace; every line carries a short content signature the model must use for edits.',
+      name: CODING_TOOL_META.read.name,
+      description: CODING_TOOL_META.read.description,
       async run(args) {
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
@@ -59,8 +63,8 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
       },
     },
     {
-      name: 'write',
-      description: 'Replace a whole file inside the workspace with new content.',
+      name: CODING_TOOL_META.write.name,
+      description: CODING_TOOL_META.write.description,
       async run(args) {
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
@@ -70,8 +74,8 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
       },
     },
     {
-      name: 'edit',
-      description: 'Hashline edit: replace one line identified by its content signature, confirmed by an expected prefix.',
+      name: CODING_TOOL_META.edit.name,
+      description: CODING_TOOL_META.edit.description,
       async run(args) {
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
@@ -95,8 +99,8 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
       },
     },
     {
-      name: 'bash',
-      description: 'Run a shell command in the workspace. Static risk tiers: high-tier commands require approval.',
+      name: CODING_TOOL_META.bash.name,
+      description: CODING_TOOL_META.bash.description,
       async run(args) {
         const toolArgs = args as ToolArgs
         const line = requireString(toolArgs, 0, 'command')
