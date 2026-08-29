@@ -1,0 +1,45 @@
+{
+  "name": "@proj-airi/coding-harness",
+  "type": "module",
+  "version": "0.12.0-beta.2",
+  "private": true,
+  "description": "Coding harness primitives for AIRI: Hashline content-signed file editing (CODING-HARNESS-DESIGN)",
+  "author": {
+    "name": "Moeru AI Project AIRI Team",
+    "email": "airi@moeru.ai",
+    "url": "https://github.com/moeru-ai"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moeru-ai/airi.git",
+    "directory": "packages/coding-harness"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./hashline/edit": {
+      "types": "./src/hashline/edit.ts",
+      "default": "./src/hashline/edit.ts"
+    },
+    "./hashline/read": {
+      "types": "./src/hashline/read.ts",
+      "default": "./src/hashline/read.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@moeru/std": "catalog:",
+    "@proj-airi/core-agent": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:vitest"
+  }
+}
