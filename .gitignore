@@ -155,4 +155,10 @@ __screenshots__
 # cannot drift from its source.
 packages/i18n/glossary/glossary.tbx
 
+# Local model assets and machine-specific state of the mods fork
+/云吞kumo/
+/云吞kumo.zip
+.pnpm-store/
+.mimosa/
+
 /airi-docs/
