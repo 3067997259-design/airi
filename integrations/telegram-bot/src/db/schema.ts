@@ -1,4 +1,4 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, text, uniqueIndex, uuid, vector } from 'drizzle-orm/pg-core'
+import { bigint, boolean, index, integer, jsonb, pgTable, real, text, uniqueIndex, uuid, vector } from 'drizzle-orm/pg-core'
 
 export const chatMessagesTable = pgTable('chat_messages', {
   id: uuid().primaryKey().defaultRandom(),
@@ -114,6 +114,12 @@ export const memoryFragmentsTable = pgTable('memory_fragments', {
   category: text().notNull(), // 'chat', 'relationships', 'people', 'life', etc.
   importance: integer().notNull().default(5), // 1-10 scale
   emotional_impact: integer().notNull().default(0), // -10 to 10 scale
+  valence: real().notNull().default(0), // -1 to 1 affective valence
+  arousal: real().notNull().default(0), // 0 to 1 activation level
+  half_life_hours: real().notNull().default(24),
+  session_ids: jsonb().$type<string[]>().notNull().default([]),
+  trigger_pattern: text(),
+  last_intruded_at: bigint({ mode: 'number' }),
   created_at: bigint({ mode: 'number' }).notNull().default(0).$defaultFn(() => Date.now()),
   last_accessed: bigint({ mode: 'number' }).notNull().default(0).$defaultFn(() => Date.now()),
   access_count: integer().notNull().default(1),

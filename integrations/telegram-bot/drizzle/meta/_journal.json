@@ -43,6 +43,13 @@
       "when": 1744020688550,
       "tag": "0005_workable_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787916157334,
+      "tag": "0006_memory_affect",
+      "breakpoints": true
     }
   ]
 }
