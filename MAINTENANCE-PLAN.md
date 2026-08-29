@@ -35,8 +35,17 @@
   listTools 报告可用性）。
 - ⬜ **仍开放**：pgvector 真库走查（起 `server/docker-compose.yaml` 的 db
   服务 → 长期页配连接串 → 验证建表/镜像/检索，本机 Docker 未验）；跨窗口
-  记忆检索 UI；P3 全部；Mimosa 完整审计（提交链 scanner_enobufs，兼容
-  放行，未宣称安全）。
+  记忆检索 UI；P3 全部。
+- ✅ **Mimosa 完整审计已封印（2026-08-29）**：`scanner_enobufs` 根因是提交
+  时段机器内存/socket 缓冲耗尽（7 个 Electron + 构建并行，23.6G 总内存），
+  并非扫描器缺陷；空载重跑 28 秒完成。结果：117 findings（105 HIGH /
+  12 MEDIUM，全部 `verdictEffect: none`，整体 `inconclusive`）——91 条集中
+  在 `model-driver-mediapipe/tasks/assets/wasm/`（MediaPipe 预编译三方资产，
+  非本 fork 代码）；其余为有意执行的代码路径（js-planner 沙箱、
+  computer-use-mcp runner/ssh，已被本 fork 的审批/证据门覆盖）、测试夹具类
+  硬编码凭据、以及 server hosted-backend 路由的 guard 假设（inconclusive，
+  本 fork 不运行 hosted backend）。依赖咨询：52 包扫描 0 命中。
+  Seal: `sha256:4953f1f4bde2d68c3428caaa1960fd6a9e3b58457b54319f1335b4d7e37de307`。
 - ✅ **真机 dev 冒烟（2026-08-29，构建版 electron.exe + CDP）**：连续三次
   冷启动（独立 `APP_USER_DATA_PATH`）pinia `llm-tools` 状态均含
   `plan_update`、`read/write/edit/bash`（defaultActive）、`code_mode`——
