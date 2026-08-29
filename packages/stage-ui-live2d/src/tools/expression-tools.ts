@@ -9,12 +9,47 @@ import { useExpressionStore } from '../stores/expression-store'
 // Helper
 // ---------------------------------------------------------------------------
 
-function ensureModelLoaded(): ExpressionToolResult | null {
+/**
+ * Gate shared by every expression tool.
+ *
+ * Two distinct refusals matter to the model: no model on stage (nothing exists
+ * to drive) versus a model whose expressions the user kept private (they exist
+ * but are off-limits). Collapsing them would make the LLM retry a request the
+ * user deliberately disabled.
+ */
+function ensureExpressionsAvailable(): ExpressionToolResult | null {
   const store = useExpressionStore()
-  if (!store.modelId || store.expressions.size === 0) {
+  if (!store.modelId || store.expressions.size === 0)
     return { success: false, error: 'No Live2D model is currently loaded.' }
+
+  if (store.llmExposedGroups.length === 0) {
+    return {
+      success: false,
+      error: 'No Live2D expressions are exposed for LLM control. The user can enable them in Settings > Character Model > Expressions.',
+    }
   }
+
   return null
+}
+
+/**
+ * Rejects names the user did not expose, listing what is allowed instead.
+ *
+ * Only group names are addressable: raw parameter ids bypass the per-group
+ * exposure choice, so they are not offered here even though the store can
+ * resolve them.
+ */
+function ensureExposed(name: string): ExpressionToolResult | null {
+  const store = useExpressionStore()
+  const exposed = store.llmExposedGroups.map(group => group.name)
+  if (exposed.includes(name))
+    return null
+
+  return {
+    success: false,
+    error: `Expression "${name}" is not available for LLM control.`,
+    available: exposed,
+  }
 }
 
 function serialize(result: ExpressionToolResult): string {
@@ -36,7 +71,7 @@ const tools = [
       'Examples: expression_set("Cry", true), expression_set("Blush", 0.7, 3)',
     ].join(' '),
     execute: async ({ name, value, duration }) => {
-      const err = ensureModelLoaded()
+      const err = ensureExpressionsAvailable() ?? ensureExposed(name)
       if (err)
         return serialize(err)
 
@@ -60,12 +95,25 @@ const tools = [
       'Omit the name to list all available expressions with their current values.',
     ].join(' '),
     execute: async ({ name }) => {
-      const err = ensureModelLoaded()
+      const err = ensureExpressionsAvailable() ?? (name ? ensureExposed(name) : null)
       if (err)
         return serialize(err)
 
       const store = useExpressionStore()
-      const result = store.get(name ?? undefined)
+      // Listing must not leak groups the user kept private, so an omitted name
+      // reports the exposed groups rather than the store's full catalog.
+      if (!name) {
+        const states = store.llmExposedGroups.flatMap((group) => {
+          const result = store.get(group.name)
+          const state = result.state
+          if (state == null)
+            return []
+          return (Array.isArray(state) ? state : [state]).map(entry => ({ ...entry, name: group.name }))
+        })
+        return serialize({ success: true, state: states, available: store.llmExposedGroups.map(group => group.name) })
+      }
+
+      const result = store.get(name)
       return serialize(result)
     },
     parameters: z.object({
@@ -81,7 +129,7 @@ const tools = [
       'Optionally provide a duration in seconds for auto-reset.',
     ].join(' '),
     execute: async ({ name, duration }) => {
-      const err = ensureModelLoaded()
+      const err = ensureExpressionsAvailable() ?? ensureExposed(name)
       if (err)
         return serialize(err)
 
@@ -95,28 +143,15 @@ const tools = [
     }),
   }),
 
-  // ----- expression.saveDefaults -------------------------------------------
-  tool({
-    name: 'expression_save_defaults',
-    description: 'Save the current expression state as the new defaults. Persists across app restarts.',
-    execute: async () => {
-      const err = ensureModelLoaded()
-      if (err)
-        return serialize(err)
-
-      const store = useExpressionStore()
-      const result = store.saveDefaults()
-      return serialize(result)
-    },
-    parameters: z.object({}),
-  }),
-
   // ----- expression.resetAll -----------------------------------------------
+  // `saveDefaults` is deliberately not exposed: it rewrites the user's
+  // persisted resting appearance for the model, which is a settings decision
+  // rather than an in-conversation action.
   tool({
     name: 'expression_reset_all',
-    description: 'Reset all expressions to their default values.',
+    description: 'Turn off every active expression and return the face to its resting state.',
     execute: async () => {
-      const err = ensureModelLoaded()
+      const err = ensureExpressionsAvailable()
       if (err)
         return serialize(err)
 

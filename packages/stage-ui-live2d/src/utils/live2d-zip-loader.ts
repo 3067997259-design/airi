@@ -27,6 +27,53 @@ function shouldIgnoreLive2DArchiveEntry(filePath: string): boolean {
     .some(segment => ignoredArchivePathSegmentRules.some(rule => rule.matches(segment)))
 }
 
+/**
+ * Attaches cdi3 display info and exp3 expression payloads to model settings.
+ *
+ * Both archive loading paths (ZipLoader for fresh zips, FileLoader for OPFS
+ * cache replays) must run this, otherwise a cache hit silently loses the
+ * `_cdiData`/`_expFiles` the custom-parameter and expression panels rely on.
+ */
+async function attachArchiveMetadata(
+  settings: ModelSettings,
+  filePaths: string[],
+  readFileText: (path: string) => Promise<string>,
+  logTag: string,
+): Promise<void> {
+  try {
+    const metadataSettings = settings as ModelSettings & {
+      _cdiData?: unknown
+      _expFiles?: Array<{ name: string, fileName: string, data: unknown }>
+    }
+
+    // Find and parse CDI file
+    const cdiPath = filePaths.find(f => f.toLowerCase().endsWith('.cdi3.json'))
+    if (cdiPath) {
+      metadataSettings._cdiData = JSON.parse(await readFileText(cdiPath))
+      console.info(`[${logTag}] Extracted CDI data from:`, cdiPath)
+    }
+
+    // Find and collect expression files
+    const expPaths = filePaths.filter(f => f.toLowerCase().endsWith('.exp3.json'))
+    if (expPaths.length > 0) {
+      const expFiles: Array<{ name: string, fileName: string, data: unknown }> = []
+      for (const expPath of expPaths) {
+        const baseName = expPath.split('/').pop()?.replace('.exp3.json', '') || expPath
+        expFiles.push({
+          name: baseName,
+          fileName: expPath,
+          data: JSON.parse(await readFileText(expPath)),
+        })
+      }
+      metadataSettings._expFiles = expFiles
+      console.info(`[${logTag}] Extracted`, expFiles.length, 'expression files')
+    }
+  }
+  catch (e) {
+    console.warn(`[${logTag}] Failed to extract CDI/EXP metadata:`, e)
+  }
+}
+
 ZipLoader.createSettings = async (reader: JSZip) => {
   const filePaths = Object.keys(reader.files)
   const settings = await (async () => {
@@ -37,41 +84,7 @@ ZipLoader.createSettings = async (reader: JSZip) => {
     return createModelSettings(await ZipLoader.readText(reader, settingsFilePath), settingsFilePath)
   })()
 
-  // Extract CDI data from the zip if available
-  try {
-    const metadataSettings = settings as ModelSettings & {
-      _cdiData?: unknown
-      _expFiles?: Array<{ name: string, fileName: string, data: unknown }>
-    }
-
-    // Find and parse CDI file
-    const cdiPath = filePaths.find(f => f.toLowerCase().endsWith('.cdi3.json'))
-    if (cdiPath) {
-      const cdiText = await reader.file(cdiPath)!.async('text')
-      metadataSettings._cdiData = JSON.parse(cdiText)
-      console.info('[ZipLoader] Extracted CDI data from:', cdiPath)
-    }
-
-    // Find and collect expression files
-    const expPaths = filePaths.filter(f => f.toLowerCase().endsWith('.exp3.json'))
-    if (expPaths.length > 0) {
-      const expFiles: Array<{ name: string, fileName: string, data: unknown }> = []
-      for (const expPath of expPaths) {
-        const expText = await reader.file(expPath)!.async('text')
-        const baseName = expPath.split('/').pop()?.replace('.exp3.json', '') || expPath
-        expFiles.push({
-          name: baseName,
-          fileName: expPath,
-          data: JSON.parse(expText),
-        })
-      }
-      metadataSettings._expFiles = expFiles
-      console.info('[ZipLoader] Extracted', expFiles.length, 'expression files')
-    }
-  }
-  catch (e) {
-    console.warn('[ZipLoader] Failed to extract CDI/EXP metadata:', e)
-  }
+  await attachArchiveMetadata(settings, filePaths, path => reader.file(path)!.async('text'), 'ZipLoader')
 
   return settings
 }
@@ -227,6 +240,19 @@ FileLoader.createSettings = async (files: File[]) => {
   const settingsText = await FileLoader.readText(settingsFile)
   const settings = createModelSettings(settingsText, settingsUrl)
   Object.assign(settings, { _objectURL: URL.createObjectURL(settingsFile) })
+
+  const filePaths = files.map(file => file.webkitRelativePath || file.name)
+  await attachArchiveMetadata(
+    settings,
+    filePaths,
+    async (path) => {
+      const file = files.find(f => (f.webkitRelativePath || f.name) === path)
+      if (!file)
+        throw new Error(`Cannot find file: ${path}`)
+      return defaultFileLoaderReadText(file)
+    },
+    'FileLoader',
+  )
 
   return settings
 }

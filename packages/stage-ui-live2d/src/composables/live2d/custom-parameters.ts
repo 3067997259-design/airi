@@ -68,7 +68,14 @@ export function discoverCustomParameters(
   cdiData: Live2DCdiData | undefined,
   coreModel: { getModel?: () => { parameters?: CoreParameterTable } } | undefined,
 ): Live2DDiscoveredModelParameters {
-  const coreParams = coreModel?.getModel?.()?.parameters
+  let coreParams: { ids?: ArrayLike<string>, minimumValues?: ArrayLike<number>, maximumValues?: ArrayLike<number>, defaultValues?: ArrayLike<number> } | undefined
+  try {
+    const model = coreModel?.getModel?.()
+    coreParams = model?.parameters
+  }
+  catch (error) {
+    console.warn('[custom-parameters] getModel() threw; falling back to heuristic ranges', error)
+  }
   const ranges = new Map<string, { min: number, max: number, default: number }>()
   if (coreParams?.ids) {
     for (let i = 0; i < coreParams.ids.length; i++) {
@@ -132,6 +139,8 @@ export function useMotionUpdatePluginCustomParameters(
   modelId: string | undefined,
 ): MotionManagerPlugin {
   return (ctx) => {
+    // The settings window can replace this object through a storage event.
+    // Resolve it on each frame so the model uses the current cross-window state.
     const values = store.valuesFor(modelId)
     for (const [parameterId, entry] of Object.entries(values)) {
       if (!entry.enabled)

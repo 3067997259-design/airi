@@ -387,9 +387,18 @@ async function performModelLoad() {
       focusController: { x: number, y: number }
     }
     const stockUpdateFocus = focusHost.updateFocus.bind(focusHost)
+    // Snapshot the focus config once at load time so the per-frame updateFocus
+    // path has zero Vue reactivity/pinia lookups. Standard models (no custom
+    // mapping for this model id) skip the wrapper entirely and always use the
+    // stock behavior; a custom mapping is only applied when explicitly saved.
+    const initialFocusConfig = props.modelId
+      ? focusConfigStore.configFor(props.modelId)
+      : null
+    const effectiveFocusConfig = initialFocusConfig?.mode === 'custom'
+      ? initialFocusConfig
+      : null
     focusHost.updateFocus = function () {
-      const config = focusConfigStore.configFor(props.modelId)
-      if (config.mode !== 'custom') {
+      if (!effectiveFocusConfig) {
         stockUpdateFocus()
         return
       }
@@ -397,21 +406,19 @@ async function performModelLoad() {
         coreModel,
         focusHost.focusController.x,
         focusHost.focusController.y,
-        config.entries,
+        effectiveFocusConfig.entries,
       )
     }
 
-    // Discover the model's parameter surface (cdi3 display names + core
-    // ranges) and re-assert user overrides every frame so hairstyle and
-    // similar toggle choices survive motions and expressions.
+    // Discover the model's parameter surface once at load time. Re-assert the
+    // current overrides each frame so cross-window settings changes survive
+    // motions and expressions.
     const customParametersStore = useLive2DCustomParameters()
-    customParametersStore.registerDiscovered(
-      props.modelId ?? 'default',
-      discoverCustomParameters(
-        (internalModel.settings as { _cdiData?: Live2DCdiData } | undefined)?._cdiData,
-        coreModel,
-      ),
+    const discoveredParameters = discoverCustomParameters(
+      (internalModel.settings as { _cdiData?: Live2DCdiData } | undefined)?._cdiData,
+      coreModel,
     )
+    customParametersStore.registerDiscovered(props.modelId ?? 'default', discoveredParameters)
     motionManagerUpdate.register(
       useMotionUpdatePluginCustomParameters(customParametersStore, props.modelId ?? 'default'),
       'final',

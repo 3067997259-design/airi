@@ -1,5 +1,7 @@
+import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
+import { StorageSerializers } from '@vueuse/core'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,9 +35,16 @@ export interface ExpressionEntry {
    * non-zero value encountered.
    */
   targetValue: number
-  /** Active auto-reset timer handle, if any. */
-  resetTimer?: ReturnType<typeof setTimeout>
 }
+
+/**
+ * Per-entry metadata that does not change while a model stays loaded.
+ *
+ * `currentValue` is deliberately absent: runtime values live in the
+ * cross-renderer `live2d/expression-values` record so a toggle in the settings
+ * window reaches the stage window that owns the model.
+ */
+type ExpressionCatalogEntry = Omit<ExpressionEntry, 'currentValue'>
 
 /**
  * Describes a named expression group loaded from model3.json / exp3.json.
@@ -62,6 +71,9 @@ export interface ExpressionState {
   active: boolean
   autoResetAt?: number
 }
+
+/** Reused so reactive getters never allocate a fresh fallback reference. */
+const EMPTY_VALUES: Readonly<Record<string, number>> = Object.freeze({})
 
 /** Unified tool result envelope. */
 export interface ExpressionToolResult {
@@ -107,11 +119,66 @@ function savePersistedDefaults(modelId: string, defaults: Record<string, number>
 export const useExpressionStore = defineStore('live2d-expressions', () => {
   // ---- state ---------------------------------------------------------------
 
-  /** Map keyed by expression/parameter name -> entry. */
-  const expressions = ref<Map<string, ExpressionEntry>>(new Map())
+  /**
+   * Static per-parameter metadata, keyed by expression/parameter name.
+   * Rebuilt on every model load; never carries the live runtime value.
+   */
+  const catalog = ref<Map<string, ExpressionCatalogEntry>>(new Map())
 
   /** Currently loaded model ID (used for persistence scoping). */
   const modelId = ref<string>('')
+
+  /**
+   * Live parameter values, keyed by model id then parameter name.
+   *
+   * This is the cross-renderer source of truth. The stage window owns the model
+   * and re-reads these values every frame; the settings window writes them.
+   * localStorage is the bridge because the two windows are separate Electron
+   * renderers with separate Pinia instances — the same mechanism the custom
+   * parameter overrides use.
+   */
+  const valueRecord = useLocalStorageManualReset<Record<string, Record<string, number>>>('live2d/expression-values', {})
+
+  /**
+   * Auto-reset timers are renderer-local: only the window that scheduled a
+   * timed expression owns its expiry, and handles are not serialisable.
+   */
+  const resetTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  function currentValues(): Record<string, number> {
+    if (!modelId.value)
+      return EMPTY_VALUES
+    return valueRecord.value[modelId.value] ?? EMPTY_VALUES
+  }
+
+  function valueOf(name: string): number {
+    const stored = currentValues()[name]
+    if (stored != null)
+      return stored
+    return catalog.value.get(name)?.defaultValue ?? 0
+  }
+
+  function writeValues(next: Record<string, number>) {
+    if (!modelId.value)
+      return
+    valueRecord.value = { ...valueRecord.value, [modelId.value]: next }
+  }
+
+  /**
+   * Materialises the catalog plus the live values into the shape consumers
+   * (settings panel, expression-controller, LLM tools) already expect.
+   */
+  const expressions = computed<Map<string, ExpressionEntry>>(() => {
+    const values = currentValues()
+    const merged = new Map<string, ExpressionEntry>()
+    for (const [name, entry] of catalog.value) {
+      merged.set(name, {
+        ...entry,
+        currentValue: values[name] ?? entry.defaultValue,
+      })
+    }
+    return merged
+  })
 
   /**
    * Named expression groups parsed from model3.json + exp3.json.
@@ -119,35 +186,60 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
    */
   const expressionGroups = ref<Map<string, ExpressionGroupDefinition>>(new Map())
 
-  /** LLM exposure mode: 'all' exposes everything, 'none' exposes nothing, 'custom' uses per-group map. */
-  const llmMode = ref<'all' | 'none' | 'custom'>('none')
+  /**
+   * Cross-window catalog mirror. The model (and therefore the expression
+   * controller) usually loads in the main stage window while the settings
+   * panel lives in the settings window — separate Electron renderers with
+   * separate Pinia instances. localStorage (shared per origin, with VueUse
+   * storage-event sync, the same mechanism `availableMotions` uses) bridges
+   * the registration to windows that never loaded the model themselves.
+   */
+  interface SerializedExpressionCatalog {
+    modelId: string
+    groups: ExpressionGroupDefinition[]
+    entries: ExpressionCatalogEntry[]
+  }
+  const catalogMirror = useLocalStorageManualReset<SerializedExpressionCatalog | null>('live2d/expression-catalog', null, {
+    serializer: StorageSerializers.object,
+  })
+
+  /**
+   * LLM exposure mode: 'all' exposes everything, 'none' exposes nothing,
+   * 'custom' uses the per-group map below.
+   *
+   * Chosen in the settings window but read by the stage window, which owns the
+   * tool executors, so this crosses renderers through localStorage like the
+   * runtime values do.
+   */
+  const llmMode = useLocalStorageManualReset<'all' | 'none' | 'custom'>('live2d/expression-llm-mode', 'none')
 
   /** Per-group LLM exposure flags (only used when llmMode === 'custom'). */
-  const llmExposed = ref<Map<string, boolean>>(new Map())
+  const llmExposedRecord = useLocalStorageManualReset<Record<string, boolean>>('live2d/expression-llm-exposed', {})
+  const llmExposed = computed(() => new Map(Object.entries(llmExposedRecord.value)))
 
   // ---- internal helpers ----------------------------------------------------
 
   function clearAllTimers() {
-    for (const entry of expressions.value.values()) {
-      if (entry.resetTimer != null) {
-        clearTimeout(entry.resetTimer)
-        entry.resetTimer = undefined
-      }
-    }
+    for (const timer of resetTimers.values())
+      clearTimeout(timer)
+    resetTimers.clear()
   }
 
-  function toState(entry: ExpressionEntry): ExpressionState {
+  function stateOf(name: string): ExpressionState {
+    const entry = catalog.value.get(name)
+    const value = valueOf(name)
+    const defaultValue = entry?.defaultValue ?? 0
     return {
-      name: entry.name,
-      value: entry.currentValue,
-      default: entry.defaultValue,
-      active: entry.currentValue !== entry.defaultValue,
-      autoResetAt: entry.resetTimer != null ? Date.now() : undefined,
+      name,
+      value,
+      default: defaultValue,
+      active: value !== defaultValue,
+      autoResetAt: resetTimers.has(name) ? Date.now() : undefined,
     }
   }
 
   function allNames(): string[] {
-    return Array.from(expressions.value.keys())
+    return Array.from(catalog.value.keys())
   }
 
   // ---- public API ----------------------------------------------------------
@@ -162,32 +254,51 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
     parameterEntries: ExpressionEntry[],
   ) {
     clearAllTimers()
-    expressions.value = new Map()
-    expressionGroups.value = new Map()
     modelId.value = id
+    expressionGroups.value = new Map(groups.map(group => [group.name, group]))
 
-    // Register expression groups
-    for (const group of groups) {
-      expressionGroups.value.set(group.name, group)
-    }
-
-    // Register individual parameter entries
-    for (const entry of parameterEntries) {
-      expressions.value.set(entry.name, { ...entry })
-    }
-
-    // Restore persisted defaults
     const persisted = loadPersistedDefaults(id)
-    if (persisted) {
-      for (const [name, defaultVal] of Object.entries(persisted)) {
-        const entry = expressions.value.get(name)
-        if (entry) {
-          entry.defaultValue = defaultVal
-          entry.currentValue = defaultVal
-        }
-      }
+    const nextCatalog = new Map<string, ExpressionCatalogEntry>()
+    for (const { currentValue: _currentValue, ...entry } of parameterEntries) {
+      // A user-saved default overrides the exp3/moc3 default for both the
+      // resting value and what a toggle-off returns to.
+      const defaultValue = persisted?.[entry.name] ?? entry.defaultValue
+      nextCatalog.set(entry.name, { ...entry, defaultValue })
+    }
+    catalog.value = nextCatalog
+
+    // A reload of the same model keeps whatever the user had toggled; a
+    // different model starts from its own defaults.
+    if (valueRecord.value[id] == null)
+      writeValues(Object.fromEntries([...nextCatalog].map(([name, entry]) => [name, entry.defaultValue])))
+
+    // Publish the catalog so windows that never loaded the model (e.g. the
+    // settings window hosting this panel) can still list its expressions.
+    catalogMirror.value = {
+      modelId: id,
+      groups: groups.map(group => ({
+        name: group.name,
+        parameters: group.parameters.map(parameter => ({ ...parameter })),
+      })),
+      entries: [...nextCatalog.values()].map(entry => ({ ...entry })),
     }
   }
+
+  // Hydrate (and cross-window sync) from the catalog mirror. Skips the write
+  // originating from this window's own registerExpressions call.
+  watch(catalogMirror, (next) => {
+    if (!next || next.modelId === modelId.value)
+      return
+    clearAllTimers()
+    modelId.value = next.modelId
+    expressionGroups.value = new Map(next.groups.map(group => [group.name, group]))
+
+    const persisted = loadPersistedDefaults(next.modelId)
+    catalog.value = new Map(next.entries.map(entry => [
+      entry.name,
+      { ...entry, defaultValue: persisted?.[entry.name] ?? entry.defaultValue },
+    ]))
+  }, { immediate: true })
 
   /**
    * Resolve a name to either an expression group or a direct parameter entry.
@@ -203,6 +314,33 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
       return { kind: 'param', entry }
 
     return null
+  }
+
+  /**
+   * Commits one batch of parameter writes as a single record replacement.
+   *
+   * Group toggles touch several parameters at once; writing them together keeps
+   * the cross-renderer record from emitting a partially-applied expression.
+   */
+  function applyValues(updates: Array<{ name: string, value: number }>, duration?: number) {
+    const next = { ...currentValues() }
+    for (const { name, value } of updates) {
+      const timer = resetTimers.get(name)
+      if (timer != null) {
+        clearTimeout(timer)
+        resetTimers.delete(name)
+      }
+      next[name] = value
+
+      if (duration && duration > 0) {
+        const resetTo = catalog.value.get(name)?.defaultValue ?? 0
+        resetTimers.set(name, setTimeout(() => {
+          resetTimers.delete(name)
+          writeValues({ ...currentValues(), [name]: resetTo })
+        }, duration * 1000))
+      }
+    }
+    writeValues(next)
   }
 
   /**
@@ -222,34 +360,24 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
     const numericValue = typeof value === 'boolean' ? (value ? 1 : 0) : value
 
     if (resolved.kind === 'group') {
-      const states: ExpressionState[] = []
-      for (const param of resolved.group.parameters) {
-        const entry = expressions.value.get(param.parameterId)
-        if (entry) {
-          applyValue(entry, numericValue, duration)
-          states.push(toState(entry))
-        }
-      }
-      return { success: true, state: states }
+      const names = resolved.group.parameters
+        .map(param => param.parameterId)
+        .filter(name => catalog.value.has(name))
+      applyValues(names.map(name => ({ name, value: numericValue })), duration)
+      return { success: true, state: names.map(stateOf) }
     }
 
     // Direct parameter
-    applyValue(resolved.entry, numericValue, duration)
-    return { success: true, state: toState(resolved.entry) }
+    applyValues([{ name: resolved.entry.name, value: numericValue }], duration)
+    return { success: true, state: stateOf(resolved.entry.name) }
   }
 
   /**
    * Get expression state.
    */
   function get(name?: string): ExpressionToolResult {
-    if (!name) {
-      // Return all
-      const states: ExpressionState[] = []
-      for (const entry of expressions.value.values()) {
-        states.push(toState(entry))
-      }
-      return { success: true, state: states }
-    }
+    if (!name)
+      return { success: true, state: allNames().map(stateOf) }
 
     const resolved = resolve(name)
     if (!resolved) {
@@ -261,16 +389,13 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
     }
 
     if (resolved.kind === 'group') {
-      const states: ExpressionState[] = []
-      for (const param of resolved.group.parameters) {
-        const entry = expressions.value.get(param.parameterId)
-        if (entry)
-          states.push(toState(entry))
-      }
+      const states = resolved.group.parameters
+        .filter(param => catalog.value.has(param.parameterId))
+        .map(param => stateOf(param.parameterId))
       return { success: true, state: states }
     }
 
-    return { success: true, state: toState(resolved.entry) }
+    return { success: true, state: stateOf(resolved.entry.name) }
   }
 
   /**
@@ -293,26 +418,23 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
       const isActive = resolved.group.parameters.some((p) => {
         if (p.value === 0)
           return false
-        const entry = expressions.value.get(p.parameterId)
-        return entry && entry.currentValue === p.value
+        return catalog.value.has(p.parameterId) && valueOf(p.parameterId) === p.value
       })
-      const states: ExpressionState[] = []
-      for (const param of resolved.group.parameters) {
-        const entry = expressions.value.get(param.parameterId)
-        if (entry) {
-          const newValue = isActive ? entry.modelDefault : param.value
-          applyValue(entry, newValue, duration)
-          states.push(toState(entry))
-        }
-      }
-      return { success: true, state: states }
+      const updates = resolved.group.parameters
+        .filter(param => catalog.value.has(param.parameterId))
+        .map(param => ({
+          name: param.parameterId,
+          value: isActive ? catalog.value.get(param.parameterId)!.modelDefault : param.value,
+        }))
+      applyValues(updates, duration)
+      return { success: true, state: updates.map(update => stateOf(update.name)) }
     }
 
     // Direct parameter toggle: flip between modelDefault and exp3 target value
     const entry = resolved.entry
     const newValue = entry.currentValue !== entry.modelDefault ? entry.modelDefault : entry.targetValue
-    applyValue(entry, newValue, duration)
-    return { success: true, state: toState(entry) }
+    applyValues([{ name: entry.name, value: newValue }], duration)
+    return { success: true, state: stateOf(entry.name) }
   }
 
   /**
@@ -324,10 +446,13 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
     }
 
     const defaults: Record<string, number> = {}
-    for (const [name, entry] of expressions.value) {
-      entry.defaultValue = entry.currentValue
-      defaults[name] = entry.currentValue
+    const nextCatalog = new Map(catalog.value)
+    for (const [name, entry] of nextCatalog) {
+      const value = valueOf(name)
+      nextCatalog.set(name, { ...entry, defaultValue: value })
+      defaults[name] = value
     }
+    catalog.value = nextCatalog
 
     savePersistedDefaults(modelId.value, defaults)
     return { success: true }
@@ -338,23 +463,18 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
    */
   function resetAll(): ExpressionToolResult {
     clearAllTimers()
-    const states: ExpressionState[] = []
-    for (const entry of expressions.value.values()) {
-      entry.currentValue = entry.modelDefault
-      states.push(toState(entry))
-    }
-    return { success: true, state: states }
+    writeValues(Object.fromEntries([...catalog.value].map(([name, entry]) => [name, entry.modelDefault])))
+    return { success: true, state: allNames().map(stateOf) }
   }
 
   /**
-   * Full cleanup when a model is unloaded.
+   * Releases this renderer's view of the loaded model. The persisted value
+   * record survives so a reload (or the other window) keeps the user's toggles.
    */
   function dispose() {
     clearAllTimers()
-    expressions.value = new Map()
+    catalog.value = new Map()
     expressionGroups.value = new Map()
-    llmMode.value = 'none'
-    llmExposed.value = new Map()
     modelId.value = ''
   }
 
@@ -365,7 +485,7 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
   }
 
   function setLlmExposed(name: string, value: boolean) {
-    llmExposed.value.set(name, value)
+    llmExposedRecord.value = { ...llmExposedRecord.value, [name]: value }
   }
 
   /** Check if a specific expression group is exposed to LLM tools. */
@@ -374,29 +494,17 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
       return true
     if (llmMode.value === 'none')
       return false
-    return llmExposed.value.get(name) ?? false
+    return llmExposedRecord.value[name] ?? false
   }
 
-  // ---- private -------------------------------------------------------------
-
-  function applyValue(entry: ExpressionEntry, value: number, duration?: number) {
-    // Cancel existing timer
-    if (entry.resetTimer != null) {
-      clearTimeout(entry.resetTimer)
-      entry.resetTimer = undefined
-    }
-
-    entry.currentValue = value
-
-    // Schedule auto-reset if duration > 0
-    if (duration && duration > 0) {
-      const resetTo = entry.defaultValue
-      entry.resetTimer = setTimeout(() => {
-        entry.currentValue = resetTo
-        entry.resetTimer = undefined
-      }, duration * 1000)
-    }
-  }
+  /**
+   * Expression groups the LLM may act on, plus their parameter shape.
+   *
+   * Tools use this instead of the raw catalog so an exposure choice made in the
+   * settings window actually narrows what the model can reach.
+   */
+  const llmExposedGroups = computed(() => [...expressionGroups.value.values()]
+    .filter(group => isExposedToLlm(group.name)))
 
   return {
     // State (read-only externally, but reactive)
@@ -405,6 +513,7 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
     expressionGroups,
     llmMode,
     llmExposed,
+    llmExposedGroups,
 
     // Actions
     registerExpressions,

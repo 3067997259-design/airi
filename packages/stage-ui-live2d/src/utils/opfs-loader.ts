@@ -46,6 +46,29 @@ function blobFromBytes(data: Uint8Array): Blob {
   return new Blob([buffer])
 }
 
+/**
+ * Serializes OPFS reads and writes per cache key.
+ *
+ * The main stage and the settings preview (separate renderer windows in
+ * Electron) load the same model concurrently and share one OPFS origin. An
+ * unsynchronized `get` can read a directory that another window's `save` has
+ * just cleared but not yet rewritten — the partial file set then loads a
+ * model whose textures never resolve, and `setupLive2DModel` never emits
+ * `textureLoaded`, hanging the stage. Concurrent `save` calls race
+ * `clearDirectory` against `writeFile` and fail with `InvalidStateError`,
+ * so the cache is never persisted and every restart pays the full unzip.
+ *
+ * Web Locks are per-origin and coordinate across Electron renderer
+ * processes, which an in-process mutex cannot. Falls back to direct
+ * execution where the API is unavailable (e.g. test stubs).
+ */
+function withKeyLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  if (!locks)
+    return task()
+  return locks.request(`airi-live2d-opfs:${key}`, task)
+}
+
 export class OPFSCache {
   static async clearAll(): Promise<void> {
     try {
@@ -132,6 +155,10 @@ export class OPFSCache {
   }
 
   static async get(key: string, sourceUrl: string): Promise<File[] | null> {
+    return withKeyLock(key, () => OPFSCache.getUnlocked(key, sourceUrl))
+  }
+
+  private static async getUnlocked(key: string, sourceUrl: string): Promise<File[] | null> {
     try {
       const root = await navigator.storage.getDirectory()
       const dirHandle = await root.getDirectoryHandle(key, { create: false })
@@ -188,6 +215,10 @@ export class OPFSCache {
    * - A completed OPFS directory write, or logs and returns on cache write failure
    */
   static async save(key: string, zipBlob: Blob, sourceUrl?: string): Promise<void> {
+    return withKeyLock(key, () => OPFSCache.saveUnlocked(key, zipBlob, sourceUrl))
+  }
+
+  private static async saveUnlocked(key: string, zipBlob: Blob, sourceUrl?: string): Promise<void> {
     try {
       const zip = await JSZip.loadAsync(await zipBlob.arrayBuffer(), { decodeFileName: decodeZipFileName })
       const fileEntries = Object.values(zip.files)

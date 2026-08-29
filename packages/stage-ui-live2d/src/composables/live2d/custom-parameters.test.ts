@@ -88,4 +88,31 @@ describe('useMotionUpdatePluginCustomParameters', () => {
     expect(setParameterValueById).toHaveBeenCalledTimes(1)
     expect(setParameterValueById).toHaveBeenCalledWith('HairBList', 2)
   })
+
+  // ROOT CAUSE:
+  //
+  // The model renderer captured the override object when it created the
+  // motion plugin. The settings renderer later replaced that object after a
+  // storage event, but the plugin continued to read the old object.
+  //
+  // We fixed this by resolving the current model overrides on each frame.
+  it('applies overrides that change after plugin creation', () => {
+    const setParameterValueById = vi.fn()
+    let values: Record<string, { value: number, enabled: boolean }> = {}
+    const store = {
+      valuesFor: () => values,
+    }
+
+    const plugin = useMotionUpdatePluginCustomParameters(store as never, 'model-a')
+    plugin({ model: { setParameterValueById } } as never)
+    expect(setParameterValueById).not.toHaveBeenCalled()
+
+    values = {
+      HairBList: { value: 2, enabled: true },
+    }
+    plugin({ model: { setParameterValueById } } as never)
+
+    expect(setParameterValueById).toHaveBeenCalledTimes(1)
+    expect(setParameterValueById).toHaveBeenCalledWith('HairBList', 2)
+  })
 })

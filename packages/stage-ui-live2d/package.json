@@ -26,6 +26,7 @@
     "./stores/model-parameters": "./src/stores/model-parameters.ts",
     "./stores/expression-store": "./src/stores/expression-store.ts",
     "./tools/expression-tools": "./src/tools/expression-tools.ts",
+    "./tools/parameter-tools": "./src/tools/parameter-tools.ts",
     "./utils/eye-motions": "./src/utils/eye-motions.ts",
     "./utils/live2d-preview": "./src/utils/live2d-preview.ts",
     "./utils/live2d-zip-loader": "./src/utils/live2d-zip-loader.ts",
