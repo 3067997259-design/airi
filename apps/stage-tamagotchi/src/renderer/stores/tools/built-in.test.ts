@@ -64,6 +64,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
       { id: 'tamagotchi:get_weather', defaultActive: false },
       { id: 'tamagotchi:expression_set', defaultActive: false },
       { id: 'tamagotchi:live2d_parameter_set', defaultActive: false },
+      { id: 'tamagotchi:plan_update', defaultActive: false },
     ])
     expect(toolsStore.getToolsByNames('get_weather')[0]?.function.name).toBe('get_weather')
   })

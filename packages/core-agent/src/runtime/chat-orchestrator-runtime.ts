@@ -276,6 +276,13 @@ export interface ChatOrchestratorRuntimeDeps {
   compaction?: ChatOrchestratorCompactionOptions
   /** Optional journal sink for chat, tool, and context lifecycle events. */
   journal?: ChatOrchestratorJournalPort
+  /**
+   * Returns the plan step the model is currently working on. Tool journal
+   * events are stamped with the step identity only when the tool is inside
+   * the step whitelist, so unrelated tool results can never satisfy a step's
+   * verification gate.
+   */
+  getActivePlanStep?: () => { planId: string, stepId: string, allowedTools: readonly string[] } | undefined
   /** Clock used for persisted message timestamps. @default Date.now */
   now?: () => number
   /** Monotonic clock used for elapsed telemetry in milliseconds. @default performance.now */
@@ -526,6 +533,14 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       // chat failure. The runtime still reports the storage fault to the host.
       console.warn('[Chat] Journal append failed.', error)
     }
+  }
+
+  /** Plan identity stamped onto tool events, or nothing when unlinked. */
+  function planLinkFor(toolName: string): { planId?: string, stepId?: string } {
+    const step = deps.getActivePlanStep?.()
+    if (!step || !step.allowedTools.includes(toolName))
+      return {}
+    return { planId: step.planId, stepId: step.stepId }
   }
 
   function emitStateChange() {
@@ -1075,10 +1090,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               buildingMessage.slices.push(ctx.data)
               if (ctx.data.toolCall.toolCallId && ctx.data.toolCall.toolName)
                 toolCallNames.set(ctx.data.toolCall.toolCallId, ctx.data.toolCall.toolName)
+              const toolName = ctx.data.toolCall.toolName ?? ''
+              const callLink = planLinkFor(toolName)
               appendJournal(sessionId, {
                 type: 'tool/call',
-                toolName: ctx.data.toolCall.toolName ?? '',
+                toolName,
                 args: ctx.data.toolCall.args ?? '',
+                ...(callLink.planId ? { planId: callLink.planId } : {}),
               })
               updateStream(sessionId, buildingMessage)
               return
@@ -1086,11 +1104,14 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
             if (ctx.data.type === 'tool-call-result') {
               buildingMessage.tool_results.push(ctx.data)
+              const resultToolName = toolCallNames.get(ctx.data.id) ?? ctx.data.id
+              const resultLink = planLinkFor(resultToolName)
               appendJournal(sessionId, {
                 type: 'tool/result',
-                toolName: toolCallNames.get(ctx.data.id) ?? ctx.data.id,
+                toolName: resultToolName,
                 ok: !ctx.data.isError,
                 summary: typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result ?? ''),
+                ...(resultLink.planId ? { planId: resultLink.planId, stepId: resultLink.stepId } : {}),
               })
               updateStream(sessionId, buildingMessage)
             }

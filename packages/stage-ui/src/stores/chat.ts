@@ -467,6 +467,16 @@ export const useChatStore = defineStore('chat', () => {
       startSession: sessionId => journalStore.ensureSession(sessionId),
       append: (sessionId, event) => journalStore.append(sessionId, event),
     },
+    getActivePlanStep: () => {
+      const plan = planStore.activePlan
+      const stepId = plan?.state.currentStepId
+      if (!plan || !stepId)
+        return undefined
+      const step = plan.spec.steps.find(candidate => candidate.id === stepId)
+      if (!step)
+        return undefined
+      return { planId: plan.id, stepId, allowedTools: step.allowedTools }
+    },
     foregroundStream: {
       patch: (message) => {
         streamingMessage.value = message

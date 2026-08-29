@@ -13,8 +13,13 @@ import { defineStore } from 'pinia'
 import { createCodingHostClient } from '../../bridges/coding-host'
 import { codingTools } from './builtin/coding'
 import { imageJournalTools } from './builtin/image-journal'
+import { planTools } from './builtin/plan'
 import { weatherTools } from './builtin/weather'
 import { widgetsTools } from './builtin/widgets'
+
+export const planToolReferences = [
+  { name: 'plan_update' },
+] satisfies ChatToolReference[]
 
 export const widgetToolReferences = [
   { name: 'stage_widgets' },
@@ -99,6 +104,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
   async function refresh() {
     registerLive2dToolsetPrompt()
     registerCodingToolsetPrompt()
+    registerPlanningToolsetPrompt()
     skillsStore.syncRuntimeTools()
 
     // The coding host bridge can be transiently unavailable (main process
@@ -121,6 +127,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       weatherTools(),
       expressionTools(),
       live2dParameterTools(),
+      planTools(),
     ])).flat()
 
     llmToolsStore.removeToolsByIds(...registeredToolIds())
@@ -148,6 +155,23 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'edit works by content signature: after read, reference the short signature shown before each line, plus the first 16-32 characters of that line as expectedPrefix.',
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',
         'bash commands are tiered; high-risk commands (push, delete, network, production, publish) require user approval. Use read-only commands (tests, git status/diff, logs) freely.',
+      ].join('\n\n'),
+    }])
+  }
+
+  /**
+   * Tells the model when and how to plan. Without it the model would either
+   * ignore the plan tool or, worse, treat its own completion claims as the
+   * finish line instead of collecting evidence.
+   */
+  function registerPlanningToolsetPrompt() {
+    llmToolsetPromptsStore.registerToolsetPrompts('planning', [{
+      id: 'planning-overview',
+      title: 'Planning',
+      content: [
+        'For multi-step tasks, create a plan first with plan_update (action "start"): a goal plus small ordered steps, each declaring its allowed tools and expected evidence.',
+        'Call plan_update (action "focus") whenever you begin a new step, so tool results attach to that step as evidence.',
+        'A step is completed only when its evidence exists — an allowed tool result, a verification, or a user approval. Saying "done" does not complete a step; the plan card tracks real evidence.',
       ].join('\n\n'),
     }])
   }
