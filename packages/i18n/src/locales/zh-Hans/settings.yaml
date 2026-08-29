@@ -764,7 +764,7 @@ pages:
         title: 长期存储（Postgres）
         description: 连接 Postgres（pgvector）数据库；晋升的记忆会镜像到这里，独立于本地数据库保存。
         connection-label: 连接字符串
-        connection-placeholder: postgresql://user:password@127.0.0.1:5435/postgres
+        connection-placeholder: postgresql://user:password{'@'}127.0.0.1:5435/postgres
         connect: 连接
         disconnect: 断开
         status:

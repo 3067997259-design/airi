@@ -802,7 +802,7 @@ pages:
         title: Long-term store (Postgres)
         description: Connect a Postgres (pgvector) database; promoted memories mirror here and survive the local database.
         connection-label: Connection string
-        connection-placeholder: postgresql://user:password@127.0.0.1:5435/postgres
+        connection-placeholder: postgresql://user:password{'@'}127.0.0.1:5435/postgres
         connect: Connect
         disconnect: Disconnect
         status:
