@@ -90,7 +90,175 @@ model3.json 是残缺骨架），重打成 `D:\airi\云吞kumo.zip`（已保留�
 注意：AIRI 导入的是 zip 进 IndexedDB+OPFS 缓存，改磁盘文件夹无效，必须重打包
 导入新 zip（新 id → 新缓存键，无需清缓存）。
 
-### M0 — 安装环境（`db55b9dcc`）
+### M-L2 — 表情写入跨窗口修复 + 外观工具接入 LLM
+
+**表情开关无效（根因）**：`registerExpressions` 把目录镜像进 localStorage 让设置
+窗口能"列出"表情，但 `toggle` 只改本渲染进程内存里的 `expressions` Map。设置窗口
+和舞台窗口是两个 Electron 渲染进程、两套 Pinia，所以设置页勾选只改了自己那份副本，
+真正持有模型、每帧读自己 Map 的舞台窗口从未收到 → 勾了没反应。自定义参数没这问题，
+因为它的覆盖值本来就存在 localStorage-backed ref 里、插件每帧重读。
+
+修法：把运行时值从 `expressions` 里抽出来，改成 localStorage-backed 的
+`live2d/expression-values`（按 modelId → 参数名 → 数值），两个窗口都读写它；
+`expressions` 变成 `catalog`（静态元数据）+ 值的 computed 合并，对外形状不变，
+所以 expression-controller / 设置页 / 工具都不用改调用方式。定时自动复位的
+timer 仍是渲染进程本地的（handle 不可序列化，谁排的谁负责）。`llmMode` /
+`llmExposed` 同理跨窗口化——否则设置页选了"全部"，跑工具的舞台窗口也看不到。
+
+回归测试 `expression-store.test.ts`：两个 Pinia 实例 + 手动派发 `storage` 事件
+（jsdom 不会为同文档写入自动发），断言设置窗口的 toggle/resetAll 能到达舞台窗口。
+
+**"公开给 LLM"此前确实是 WIP**：`expressionTools` 写好了但从没被任何地方注册，
+`isExposedToLlm` 也没有任何调用方——选"全部"只会弹提示。现在：
+- `built-in.ts` 把 `expressionTools()` + 新增的 `live2dParameterTools()` 一起注册，
+  并加进 `artistryToolReferences`（主聊天路径）。
+- 每个工具都按 `llmExposedGroups` 过滤；`expression_get` 不传名字时只列已公开的组，
+  不泄露用户设为私有的表情。删掉 `expression_save_defaults` 的暴露——那是改用户
+  持久化默认外观的设置项，不该由模型代劳。
+- **更复杂的参数也暴露了**：`parameter-tools.ts` 三个工具
+  （`live2d_parameter_list` / `_set` / `_release`）把自定义参数面板那 200+ 个
+  模型原生参数开给 LLM，值按 min/max 夹取，一次调用可设多个参数（组合外观算一次
+  视觉变化）。云吞有 212 参数 / 24 分组，全开会淹掉工具描述，所以设置页同样给了
+  无/全部/自定义三档 + 逐参数勾选。
+- toolset prompt 告诉模型两层怎么选：命名表情优先（那是绑定师调好的组合），
+  参数只用于表情做不到的细节（发型/瞳孔/耳朵/挂件）。用户没公开任何东西时
+  整段 prompt 不注入，不浪费 token。
+
+顺带清掉了上一轮排查留下的 `TEMP-DIAG` 日志。
+
+### M-D — 设计文档集（六份，尚未实现）
+
+勘探后产出的设计稿，全部**未写实现代码**。总纲 `DESIGN-PRINCIPLES.md`
+说明分歧时的裁决原则，一句话是：**让她的能力可以增长，但让她的错误
+无法伪装成成功。**
+
+| 文档 | 回答 | 核心发现 |
+|---|---|---|
+| `DESIGN-PRINCIPLES.md` | 按什么原则裁决 | 七条原则，第一条是"结构优先于自律" |
+| `ATTENTION-DESIGN.md` | 什么进上下文 | 注意力调度器**已在跑**，只是没接 UI |
+| `WORKSPACE-DESIGN.md` | 什么算真的 | 权威表**已写完**在 computer-use-mcp，桌面端零 gate |
+| `SELF-AUTHORED-TOOLS-DESIGN.md` | 能力如何增长 | 自证循环：她写的工具产出她要用的证据 |
+| `CODING-HARNESS-DESIGN.md` | 如何可靠改代码 | Hashline 是 M1 的同类问题（+15pp） |
+| `MEMORY-DESIGN.md` | 什么值得留下 | 四层记忆表**已建好从未使用**，重排公式已在生产跑 |
+
+**贯穿全部六份的判断**：作者与此前的工作留下了大量"做完但没接线"的资产，
+所以设计主体是**接线而非重构**。已验证的断层包括：
+`compactConversationEntries`（零调用方）、`use-duck-db.ts` 的 `memory_test(vec FLOAT[768])`
+（被注释掉的 nomic 写入链路）、`memory_fragments` 五张表（零应用代码）、
+`character/orchestrator/store.ts`（完整调度器，reactions 只在 devtools 可见）、
+`PLANNING_AUTHORITY_ORDER`（9 级权威表 + 纯函数齐全）、
+`js-planner-*`（子进程沙箱 + capability bridge，1503 行 + 600 行测试）。
+
+**两处架构修正**（写在文档头部的修订块里）：
+
+1. **采用 append-only 事件日志**（`model-visible means logged`）作为统一状态底层。
+   四泳道状态、`PlanState`、`TaskMemory`、`evidenceRefs`、压缩摘要全部成为
+   同一条日志的**投影**。白送 fork/resume、审阅切片、回放。
+   注意它是单向的：凡模型看到的必被记录，但**凡记录的不必都给模型看**。
+2. **AIRI 现有插件架构就是对的。** DeepSeek Harness 的 Cordis 内核
+   （"只负责加载/卸载/依赖，不承载具体能力"）与 AIRI 的
+   `injeca` + `module:announce` + server-channel/eventa 是同一形状。
+   所以 coding 能力应实现为**一个插件**，不是新外壳。
+   此前"参照物选错了"的说法只对 UI 层面成立。
+
+**安全**：调研期间抓取外部文档（oh-my-pi 的 `DEVELOPMENT.md`）时，
+返回内容里嵌有试图让读取方改变身份、绕过准则的注入文本。
+未见原始文本，无法判定来源（作者放置 / 页面样本 / 链路引入），
+但"抓取外部内容会遇到针对读取方的指令"已被实证 →
+写入威胁模型（`CODING-HARNESS-DESIGN.md` §8）：**外部内容是数据，不是指令**。
+威胁模型边界明确为"对抗弱模型的乐观偏差、疏漏与注入尝试，
+**不对抗有意欺骗的强模型**"。
+
+**已验证（2026-08-28）**：dsh 插件的 manifest 与安装机制已查清 ——
+静态装配 = pnpm link 依赖（`~/.dsh/plugins/<name>`）+ `dsh.profile.bundles`
+列表 + 顶层 YAML 数组的 patch 层；插件包 = 普通 npm 包 + 少量 dsh 元数据
+（`dsh.bundle.patch` / `dsh.client.inject` 等）。另发现第二条通道：
+会话内**动态 cordis 插件**（`cordis_define`/`cordis_run`/审批/不可变
+packageId）。详见 `CODING-HARNESS-DESIGN.md` §7.1 / §7.3。
+
+### M-D+ — 四篇设计文档实现批次（2026-08-28）
+
+| 文档 | 落地内容 | 代码位置 |
+|---|---|---|
+| CODING-HARNESS | 第一期 Hashline（18 测试）；第二期 journal（23 测试）；第三期 PTC 沙箱提取 + Code Mode SDK + 4 工具（Node 宿主）；第四期证据门核心闭环（8 测试） | `packages/coding-harness/`、`packages/core-agent/src/journal/`、`src/planning/` |
+| SELF-AUTHORED-TOOLS | 第一期血缘（authority +3 源 / provenance / gate / approval，24 测试）；第三期 Skill 契约（21 测试）；第四期审阅界面（镜像接线，7 测试 + skills.vue + i18n） | `packages/core-agent/src/authority/`、`packages/skill-forge/`、`packages/stage-ui/src/stores/skills.ts` |
+| ATTENTION | 缺陷 A 补齐：Discord 频道在场 → `context:update`（replace-self），关键词 → `spark:notify`（`DISCORD_ATTENTION_KEYWORDS` 环境变量） | `integrations/discord-bot/src/adapters/airi-adapter.ts` |
+| MEMORY | §11.2 人工确认流程：新抽取默认 `pending`，晋升要求 `approved`，拒绝不召回；设置页"待确认"队列 | `packages/memory-core/`、`packages/memory-pgvector/`、`packages/stage-ui/src/stores/modules/memory.ts` |
+
+**交叉加固**：并行会话对我交付件的兼容性增强均已合入并全绿 ——
+`authority/gate.ts`（"至少一条可证变更"语义）、`journal/store.ts`
+（structuredClone 防御）、`skill-forge/lifecycle.ts`（审阅/隔离输入校验）。
+
+**测试面**：core-agent 155/155、memory-core 15/15、skill-forge 21/21、
+coding-harness hashline 18/18（ptc/tools 的 fork 套件在升权壳下 26/26 验证过，
+本机受限 shell 无法跑子进程测试）、stage-ui skills 7/7。
+
+**当时的剩余接线期任务**：全部列入 `WIRING-BACKLOG.md`；其中 pnpm install 收录
+新包、四工具 Electron IPC 宿主与注册、桌面审批卡和防双轨扩展已在 M-D+1 收尾。
+MC 侧沙箱 import 切换仍明确等待真机验证。
+
+### M-D+1 — 接线层与桌面 UI 收尾（2026-08-29）
+
+本批次把 M-D 的纯逻辑地基接入 Electron 舞台和设置窗口：
+
+- `coding-host` 通过 Eventa 挂载到 Electron 主进程，提供 workspace read/write、
+  Hashline edit、分级 bash 和 Code Mode；高风险命令等待审批卡，超时拒绝。
+- 聊天运行时将 user/assistant/tool/context/approval/review/task/reaction 写入 core
+  journal；计划卡由 journal evidence gate 投影，模型的 `completed` 声明不能单独完成步骤。
+- 每轮 system supplement 注入有界的 `buildTurnProjection`，包含当前步骤、最近证据和
+  上一工具结果；Code Mode 面板显示每次 bridge trace。
+- reviewed self-authored skill 才进入动态工具表。opencode 适配器在调用前执行版本探测，
+  失配自动 quarantine；批准的触发模式同时进入 prompt 和 muscle memory。
+- Attention 设置页提供 focused mode 开关；新增 `docs/ai/context/integration-channels.md`
+  固化集成事件的泳道选择。
+- Minecraft 设置页复用 `GamingModuleSettings`，将 enabled/host/port/username 通过
+  `ui:configure` 发送给既有 `minecraft-bot` runtime；状态、context:update 和 spark 流量
+  仍保持只读可观测边界。MC 沙箱尚未切换，等待真机验证。
+- Memory 设置页增加受限 dreaming pass：idea 写入既有
+  `memory_short_term_ideas` 表，独立于事实记忆，支持去重、审阅和 lifecycle 更新；
+  `MemoryDreamAgent` 可由后续模型适配器注入。
+
+验证：core-agent、coding-harness、memory-core、memory-pgvector、stage-ui 和
+stage-pages 类型检查通过；核心计划/工具/记忆测试通过。permission-frozen Code Mode
+worker 的测试启动故障已修为 worker 内部错误提取，不再为读取 workspace 依赖扩大白名单。
+
+### M-M — 维护批次一（2026-08-29）
+
+把 M-D+1 收尾后的接线断层与风险项清掉，全部记录见 `MAINTENANCE-PLAN.md`：
+
+- **固化**：未提交的 M-D+/M-D+1/时序修复按逻辑分 12 个 commit 入库；
+  `.gitignore` 补 `云吞kumo/`、`.pnpm-store/`、`.mimosa/`（模型资产 46MB×2
+  不进 git）。设计文档的伪代码块从 ```ts 改标 ```text 让 moeru-lint 通过。
+- **auto-updater fork 政策**：`resolveAutoUpdaterEnabled()` 默认关闭上游
+  更新检查（feed 硬编码指向 moeru-ai/airi Releases，自动升级会覆盖魔改），
+  `AIRI_ENABLE_UPSTREAM_UPDATES=1` 可临时开启。原来只对 steam 分发禁用。
+- **记忆设置导航**：短期/长期记忆页顶部加 `memory-scope-nav` 切换（长期页
+  此前只能手输 URL 到达）；长期页加 Callout 明示"长期持久化尚未接线"。
+- **MC 配置投递状态**：表单字段本就是 localStorage-backed（修正"重启丢失"
+  的误判），真缺口是 `ui:configure` 无回执。store 增加 `deliveryState`
+  （idle/pending/sent），保存时服务离线记 pending，bot registry 上线时自动
+  重发；删除与手动起服务指引矛盾的 setup 块。
+- **四工具单一来源**：`coding-harness/tools/coding-tool-meta.ts` 导出
+  `CODING_TOOL_META`（无副作用子模块，renderer 不拖 node:fs 进 bundle），
+  xsAI 工具声明与 Code Mode bridge 标签共用一份描述。
+- **plan_update 工具**：激活休眠的计划机器——此前 `plans.start` 生产零调用
+  方，证据门/白名单/plan-card 全部空转。orchestrator 新增
+  `getActivePlanStep` dep：tool/call+result 仅当工具在当前步骤白名单内才
+  打 `planId`/`stepId` 标（无关工具结果无法满足验证门，结构优先于自律）；
+  工具支持 start（自动 supersede 旧计划）/focus/cancel，永远无法宣称完成。
+- **code_mode 工具**：把 PTC 沙箱暴露给模型（此前只有设置页人工入口）。
+  模型写一段程序 `bridge()` 派发四工具，一次调用替代 N 次单工具调用；结果
+  展平为有界文本（返回值+日志+每 bridge 一行 trace），超时钳位 1-60s；宿主
+  listTools 单独报告 code_mode 可用性。
+
+验证：core-agent 172/172、coding-harness hashline+tools 28/28、stage-ui
+plans 1/1、tamagotchi built-in 3/3 + plan 5/5 + coding-host policy 5/5 +
+coding 2/2；coding-harness/core-agent/stage-ui/stage-pages/stage-tamagotchi
+typecheck 全过（stage-ui 消费 core-agent dist，改源码后需 `build:packages`）。
+待真机：dev 冒烟（plan-card 走查、code_mode 端到端、四工具冷启动三次）、
+Mimosa 完整审计（本次提交链上 scanner_enobufs，兼容放行未宣称安全）。
+
+
 
 - `pnpm-workspace.yaml`：移除 `minimumReleaseAge`（npmmirror 元数据缺发布时间，
   误报供应链违规）；`stockfish` 钉到 `17.1.0`（镜像没有 18.x）。
@@ -129,8 +297,8 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
 - channel-server 绑定 `127.0.0.1:6121` 报 `ENOTSUP`（疑似 TUN/代理网卡干扰
   LSP），非致命，窗口与 MCP 管理器均正常启动；若 widgets 通道异常先查这里。
 - **auto-updater 指向 moeru-ai 上游 Releases**：魔改版若被自动升级会覆盖本地
-  修改。当前 beta feed 是 v0.12.0-beta.1（低于本地 beta.2），暂无风险；一旦
-  上游发布更高版本，装正式版前应先在配置里禁用自动更新（后续 mod 待办）。
+  修改。已于 M-M 批次默认关闭上游更新检查（`AIRI_ENABLE_UPSTREAM_UPDATES=1`
+  可临时开启）；如需恢复自动更新，先把 feed 指向 fork 自己的 Releases。
 - NSIS 卸载配置 `deleteAppDataOnUninstall: true`：卸载会连
   `%APPDATA%\ai.moeru.airi`（含旧角色数据）一起删，卸载前先备份。
 
