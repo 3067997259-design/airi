@@ -43,6 +43,15 @@
   为 PG 数组字面量导致 `<=>` 无法比较（改为字符串字面量 + `::vector` 转型）；
   ② 全仓库无 DDL（`ensureMemorySchema` 幂等建表已在本轮早些时候补上）。
   走查手册：`docs/solutions/runtime/pgvector-walkthrough.md`。
+- ✅ **UI 闭环 + 数据迁移 + i18n 修复（2026-08-29 晚，agent-browser 验收）**：
+  ① 长期页连接串贴入 → 状态「已连接。晋升的记忆会镜像到该存储」——P2.4
+  UI → Eventa → 主进程 → Postgres 全链路闭环；② 用户数据"丢失"实为双
+  userData 目录（官方安装版 `AppData\Roaming\ai.moeru.airi` 832MB vs 源码
+  构建 `@proj-airi\stage-tamagotchi`），robocopy /MIR 迁移后对话记录回归；
+  ③ 长期页空白根因是新键 `connection-placeholder` 里的 `@`（vue-i18n
+  linked-message 前缀）令 tokenizer 抛错、整页组件树挂掉——`{'@'}` 转义
+  修复，页面满血渲染（导航/连接区/五滑杆/晋升/闯入/浏览器）。
+  分析见 `docs/solutions/debugging/vue-i18n-special-chars.md`。
 - ✅ **Mimosa 完整审计已封印（2026-08-29）**：`scanner_enobufs` 根因是提交
   时段机器内存/socket 缓冲耗尽（7 个 Electron + 构建并行，23.6G 总内存），
   并非扫描器缺陷；空载重跑 28 秒完成。结果：117 findings（105 HIGH /

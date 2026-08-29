@@ -326,6 +326,22 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
 - 产物：`apps/stage-tamagotchi/dist/win-unpacked/airi.exe`（免安装）与
   `dist/AIRI-<version>-windows-x64-setup.exe`。
 
+### 运行时注意事项（第二轮补充）
+
+- **双 userData 目录**：源码构建（electron.exe 直跑）用
+  `%APPDATA%\@proj-airi\stage-tamagotchi`，官方安装版用
+  `%APPDATA%\ai.moeru.airi`——第一印象"数据全丢"其实是换目录。已用
+  robocopy /MIR 把旧版 832MB 迁入源码构建目录；旧目录保留未动。
+- **主进程新 workspace 包白名单**：electron.vite.config.ts 的
+  `externalizeDeps.exclude` + `resolve.alias` 是主进程消费 TS-only
+  workspace 包的硬前提（Node ESM 读到无扩展名源码导入就炸）。
+  memory-host 链（memory-pgvector/repository → memory-core）曾漏配，
+  症状是启动即 `ERR_MODULE_NOT_FOUND`、进程停在 3 个不进渲染。
+  新增主进程依赖的 workspace 包时两处都要加。
+- **vue-i18n 消息里的 `@`**：locale 值含 URL/邮箱时 `@` 是 linked-message
+  前缀，tokenizer 直接抛错并令整页空白（`{'@'}` 转义）。
+  见 `docs/solutions/debugging/vue-i18n-special-chars.md`。
+
 ## 运行时注意事项（首跑实测）
 
 - channel-server 绑定 `127.0.0.1:6121` 报 `ENOTSUP`（疑似 TUN/代理网卡干扰
