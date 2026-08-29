@@ -1,0 +1,22 @@
+{
+  "name": "@proj-airi/memory-core",
+  "type": "module",
+  "version": "0.12.0-beta.2",
+  "private": true,
+  "description": "Pure memory scoring and lifecycle contracts for AIRI",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:run": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:vitest"
+  }
+}
