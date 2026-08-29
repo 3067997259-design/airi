@@ -42,6 +42,8 @@ export default defineConfig({
         exclude: [
           '@proj-airi/coding-harness',
           '@proj-airi/core-agent',
+          '@proj-airi/memory-core',
+          '@proj-airi/memory-pgvector',
         ],
         include: [
           // Native modules that have `__dirname` usages. Externalize to avoid bundling
@@ -98,6 +100,10 @@ export default defineConfig({
         // extensionless source imports at runtime.
         '@proj-airi/coding-harness': resolve(join(import.meta.dirname, '..', '..', 'packages', 'coding-harness', 'src', 'index.ts')),
         '@proj-airi/core-agent': resolve(join(import.meta.dirname, '..', '..', 'packages', 'core-agent', 'src', 'index.ts')),
+        // The memory host imports the repository subpath: the package root
+        // carries a standalone-client side effect (void main()).
+        '@proj-airi/memory-pgvector/repository': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-pgvector', 'src', 'repository.ts')),
+        '@proj-airi/memory-core': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-core', 'src', 'index.ts')),
         '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
         '@proj-airi/server-runtime/server': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'server', 'index.ts')),
         '@proj-airi/server-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'index.ts')),
