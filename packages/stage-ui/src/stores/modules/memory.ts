@@ -130,6 +130,10 @@ export const useMemoryStore = defineStore('memory', () => {
       repository.value = createDuckDbMemoryRepository(database.db.value)
       databaseStatus.value = 'ready'
       databaseError.value = undefined
+      // The main process auto-reconnects the long-term store from its
+      // persisted connection string at boot; pick that status up so the
+      // first promotion mirrors instead of being skipped as unconfigured.
+      await refreshRemoteHostStatus()
       return repository.value
     }
     catch (error) {

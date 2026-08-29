@@ -245,7 +245,7 @@ app.whenReady().then(async () => {
   const memoryHost = injeca.provide('modules:memory-host', {
     build: async () => {
       const { context } = createContext(ipcMain)
-      await setupMemoryHost(context, { connectionString: process.env.MEMORY_DATABASE_URL })
+      await setupMemoryHost(context, { connectionString: process.env.MEMORY_DATABASE_URL }, app.getPath('userData'))
     },
   })
 

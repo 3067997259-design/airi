@@ -3,6 +3,9 @@ name: proj-airi-backend
 services:
   db:
     image: ghcr.io/tensorchord/vchord-postgres:pg18-v1.0.0
+    # Long-term memory store: come back automatically whenever the Docker
+    # daemon starts, so AIRI regains mirroring without manual steps.
+    restart: unless-stopped
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
