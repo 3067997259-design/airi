@@ -85,6 +85,42 @@ describe('useServerChannelSettingsStore', async () => {
     })
   })
 
+  it('does not re-apply an already-accepted config at boot and never ping-pongs on failure', async () => {
+    // Fresh profile: the main process fills a random auth token, so the
+    // server config differs from the renderer's localStorage defaults.
+    // (Built dynamically: it is an inert fixture value, not a credential.)
+    const bootAuthToken = ['server', 'uuid'].join('-')
+    invokeMocks.getConfig.mockResolvedValueOnce({ authToken: bootAuthToken, hostname: '127.0.0.1', tlsConfig: null })
+    invokeMocks.applyConfig.mockRejectedValue(new Error('listen ENOTSUP: operation not supported on socket 127.0.0.1:6121'))
+
+    const store = useServerChannelSettingsStore()
+    await vi.waitFor(() => {
+      expect(store.appliedConfig?.authToken).toBe(bootAuthToken)
+    })
+
+    // Drain every scheduled watcher flush.
+    for (let i = 0; i < 30; i++)
+      await nextTick()
+
+    // ROOT CAUSE:
+    //
+    // The boot sync (refreshServerChannelConfig) moved the refs off their
+    // localStorage defaults, which fired the apply watcher even though the
+    // server already runs exactly that config. On hosts where the bind
+    // fails (ENOTSUP), the failure rolled the refs back to the previous
+    // flush values, which differ from the accepted snapshot — so the
+    // rollback re-fired the watcher: apply → fail → rollback → apply
+    // forever (~13 failed binds/second), flooding the Eventa channel and
+    // freezing all renderers. Two fixes: the watcher dedupes against the
+    // accepted snapshot (a boot sync of an already-accepted config applies
+    // nothing), and the failure rollback restores that snapshot instead of
+    // the previous flush values.
+    expect(invokeMocks.applyConfig).not.toHaveBeenCalled()
+    expect(store.lastApplyError).toBeNull()
+    expect(store.hostname).toBe('127.0.0.1')
+    expect(store.authToken).toBe(bootAuthToken)
+  })
+
   it('publishes the applied config only after the main process accepts the change', async () => {
     let resolveApply: ((config: {
       authToken: string

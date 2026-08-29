@@ -45,8 +45,17 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
     return config
   }
 
-  watch([tlsConfig, hostname, authToken], async ([newTls, newHost, newAuth], [oldTls, oldHost, oldAuth]) => {
-    if (syncingWithServer.value || (JSON.stringify(newTls) === JSON.stringify(oldTls) && newHost === oldHost && newAuth === oldAuth)) {
+  function matchesAppliedConfig(tls: unknown, host: string, auth: string) {
+    const applied = appliedConfig.value
+    if (!applied)
+      return false
+    return JSON.stringify(tls) === JSON.stringify(applied.tlsConfig ?? null)
+      && host === applied.hostname
+      && auth === applied.authToken
+  }
+
+  watch([tlsConfig, hostname, authToken], async ([newTls, newHost, newAuth], [, oldHost, oldAuth]) => {
+    if (syncingWithServer.value || matchesAppliedConfig(newTls, newHost, newAuth)) {
       return
     }
 
@@ -64,10 +73,15 @@ export const useServerChannelSettingsStore = defineStore('tamagotchi-server-chan
       const message = errorMessageFrom(error) ?? 'Failed to apply WebSocket security setting'
       lastApplyError.value = message
 
+      // Roll back to the last server-accepted snapshot, never to the
+      // watcher's previous-flush values: those differ from the accepted
+      // snapshot, so restoring them re-fires this watcher and produces an
+      // endless apply → fail → rollback → apply ping-pong (observed as
+      // ~13 failed binds/second flooding every renderer's Eventa channel).
       syncingWithServer.value = true
-      tlsConfig.value = oldTls
-      hostname.value = oldHost
-      authToken.value = oldAuth
+      tlsConfig.value = appliedConfig.value?.tlsConfig ?? null
+      hostname.value = appliedConfig.value?.hostname ?? oldHost
+      authToken.value = appliedConfig.value?.authToken ?? oldAuth
       syncingWithServer.value = false
 
       toast.error(message)
