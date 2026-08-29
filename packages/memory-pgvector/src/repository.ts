@@ -5,7 +5,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
 import { calculateMemoryTimeRelevance, parseMemorySourceContext, scoreMemoryFragment } from '@proj-airi/memory-core'
-import { and, cosineDistance, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 
 import { memoryEpisodicTable, memoryFragmentsTable, memorySchema, memoryShortTermIdeasTable, memoryTagsTable } from './schema'
@@ -94,7 +94,11 @@ export function createMemoryRepository(db: MemoryDatabase): MemoryRepository {
     const limit = input.limit ?? 3
     const similarityThreshold = input.similarityThreshold ?? 0.5
     const now = input.now ?? Date.now()
-    const similarity = sql<number>`(1 - ${cosineDistance(memoryFragmentsTable.content_vector_768, input.embedding)})`
+    // postgres.js serializes a JS array param as a Postgres array literal,
+    // which `vector <=>` cannot compare; bind the pgvector string form and
+    // cast explicitly instead.
+    const embeddingLiteral = `[${input.embedding.map(value => Number(value.toFixed(6))).join(',')}]`
+    const similarity = sql<number>`(1 - (${memoryFragmentsTable.content_vector_768} <=> ${embeddingLiteral}::vector))`
     const rows = await db
       .select({
         fragment: memoryFragmentsTable,
