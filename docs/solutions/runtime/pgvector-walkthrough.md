@@ -50,12 +50,20 @@ postgresql://postgres:<password-from-compose>@127.0.0.1:5435/postgres
 ```
 
 into the connection field and press Connect. The status callout flips to
-"Connected". From then on, fragments the short-term layer promotes
-(`promoteEligible`) are mirrored into Postgres together with a 768-d
-embedding computed in the renderer; failure only degrades the status shown,
-it never blocks the local memory layer.
+"Connected".
 
-## 4. What lives where
+**This is a one-time step.** The main process persists the last successful
+connection string to `<userData>/memory-host.json` and re-applies it at
+every boot (`setupMemoryHost` reads it after the `MEMORY_DATABASE_URL`
+override). The container itself carries `restart: unless-stopped`, so it
+comes back whenever the Docker daemon starts. Daily flow after the first
+connect: open AIRI (Docker Desktop running) → long-term mirroring is
+already live; if the daemon is down the status degrades to
+"Connection failed" and the local memory layer carries on — the next
+successful boot connect heals it. To make even Docker Desktop automatic,
+enable "Start Docker Desktop when you sign in" in its settings.
+
+## 3.1 What lives where
 
 | Piece | Location |
 |---|---|
