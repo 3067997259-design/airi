@@ -18,6 +18,7 @@ import { handleHotUpdate, routes } from 'vue-router/auto-routes'
 
 import App from './App.vue'
 
+import { installCodingHostBridge } from './bridges/coding-host-install'
 import { i18n } from './modules/i18n'
 import { resolveRendererWindowContext } from './window-context'
 
@@ -54,6 +55,10 @@ const synced = setupSynced({
 pinia.use(synced.pinia)
 if (import.meta.env.DEV)
   pinia.use(piniaPluginTracing)
+
+// Every renderer process installs the coding host bridge (main process
+// Eventa contracts); the stage-ui store consumes it from any window.
+installCodingHostBridge()
 
 const router = createRouter({
   history: createWebHashHistory(),

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
@@ -18,11 +19,30 @@ import { defineConfig } from 'electron-vite'
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
+const codingHarnessWorkerPath = resolve(join(import.meta.dirname, '..', '..', 'packages', 'coding-harness', 'src', 'ptc', 'worker.ts'))
+
+const emitCodingHarnessWorker = {
+  name: 'proj-airi:emit-coding-harness-worker',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'worker.ts',
+      source: readFileSync(codingHarnessWorkerPath, 'utf8'),
+    })
+  },
+}
 
 export default defineConfig({
   main: {
     build: {
       externalizeDeps: {
+        // These workspace packages expose TypeScript source during development.
+        // Keep them in the main bundle so Node ESM does not load extensionless
+        // source imports from the pnpm workspace junctions.
+        exclude: [
+          '@proj-airi/coding-harness',
+          '@proj-airi/core-agent',
+        ],
         include: [
           // Native modules that have `__dirname` usages. Externalize to avoid bundling
           // them into ESM and causing issues in runtime.
@@ -33,6 +53,7 @@ export default defineConfig({
       },
     },
     plugins: [
+      emitCodingHarnessWorker,
       {
         // To replace `build.rolldownOptions`, as electron-vite still uses the deprecated
         // `rollupOptions`, using `rollupOptions` and `rolldownOptions` at the same
@@ -72,6 +93,11 @@ export default defineConfig({
 
     resolve: {
       alias: {
+        // Workspace packages expose TypeScript source during development. Bundle
+        // these Node-side boundaries so Node ESM does not resolve their
+        // extensionless source imports at runtime.
+        '@proj-airi/coding-harness': resolve(join(import.meta.dirname, '..', '..', 'packages', 'coding-harness', 'src', 'index.ts')),
+        '@proj-airi/core-agent': resolve(join(import.meta.dirname, '..', '..', 'packages', 'core-agent', 'src', 'index.ts')),
         '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
         '@proj-airi/server-runtime/server': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'server', 'index.ts')),
         '@proj-airi/server-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'index.ts')),

@@ -499,5 +499,98 @@ export const electronAuthLogout = defineInvokeEventa<void>('eventa:invoke:electr
 export const i18nSetLocale = defineInvokeEventa<void, Locale>('eventa:invoke:electron:i18n:set-locale')
 export const i18nGetLocale = defineInvokeEventa<string | undefined>('eventa:invoke:electron:i18n:get-locale')
 
+// ---------------------------------------------------------------------------
+// Coding host — Hashline file tools, bash execution and PTC (Code Mode).
+// Main process owns the workspace host; renderers invoke through these
+// contracts (CODING-HARNESS-DESIGN §2 / §3, WIRING-BACKLOG §2).
+// ---------------------------------------------------------------------------
+
+export interface CodingFsReadParams {
+  path: string
+}
+export interface CodingFsReadResult {
+  content: string
+  mtime?: string
+}
+export interface CodingFsWriteParams {
+  path: string
+  content: string
+}
+export interface CodingFsWriteResult {
+  ok: true
+}
+
+export type CodingBashRiskTier = 'read-only' | 'medium' | 'high'
+export interface CodingExecRunParams {
+  command: string
+  /** Upgrades medium-tier commands to approval-required for this call. */
+  mediumApprovalRequired?: boolean
+  /** Forces the approval gate for a high-impact tool wrapper. */
+  approvalRequired?: boolean
+  timeoutMs?: number
+}
+export interface CodingExecRunResult {
+  tier: CodingBashRiskTier
+  status: 'ok' | 'error' | 'denied' | 'timeout'
+  stdout: string
+  stderr: string
+  exitCode?: number
+  /** Present when `status === 'denied'` so the UI can correlate the card. */
+  requestId?: string
+  reason?: 'approval_required'
+}
+
+export type CodingCodeRunFailureKind = 'parse' | 'runtime' | 'timeout' | 'bridge-limit' | 'bridge' | 'sandbox'
+export interface CodingCodeRunFailure {
+  kind: CodingCodeRunFailureKind
+  message: string
+  logs: string[]
+  traces: CodingCodeRunTrace[]
+}
+export interface CodingCodeRunTrace {
+  toolName: string
+  args: unknown[]
+  ok: boolean
+  resultSummary: string
+}
+export type CodingCodeRunResult
+  = | { ok: true, value?: unknown, logs: string[], traces: CodingCodeRunTrace[] }
+    | { ok: false, failure: CodingCodeRunFailure }
+export interface CodingCodeRunParams {
+  program: string
+  timeoutMs?: number
+}
+
+export interface CodingToolAvailability {
+  name: string
+  description: string
+  available: boolean
+}
+export interface CodingToolsStatusResult {
+  workspaceRoot: string
+  tools: CodingToolAvailability[]
+}
+
+export interface CodingApprovalRequestPayload {
+  requestId: string
+  /** The command (or plan step) that needs approval. */
+  subject: string
+  reason: string
+  riskLevel: 'high' | 'medium'
+  expectedEvidence?: string
+}
+export interface CodingApprovalDecisionPayload {
+  requestId: string
+  decision: 'approved' | 'rejected' | 'hand-over'
+}
+
+export const codingHostFsRead = defineInvokeEventa<CodingFsReadResult, CodingFsReadParams>('eventa:invoke:electron:coding-host:fs:read')
+export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
+export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
+export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
+export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')
+export const codingApprovalRequested = defineEventa<CodingApprovalRequestPayload>('eventa:event:electron:coding-host:approval:requested')
+export const codingApprovalDecided = defineEventa<CodingApprovalDecisionPayload>('eventa:event:electron:coding-host:approval:decided')
+
 export { electron } from '@proj-airi/electron-eventa'
 export * from '@proj-airi/electron-eventa/electron-updater'

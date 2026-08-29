@@ -7,11 +7,14 @@ import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useS
 import { ChatHistory, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
+import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
+import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { BasicTextarea } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
@@ -40,7 +43,10 @@ const airiCardStore = useAiriCardStore()
 
 const { activeSessionId, messages } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
-const { activeSendSessionId, activeStreamingMessage, sending } = storeToRefs(chatStore)
+const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(chatStore)
+const { reactions } = storeToRefs(useCharacterStore())
+const { tasks } = storeToRefs(useTaskStore())
+const { planViews } = storeToRefs(usePlanStore())
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { t } = useI18n()
 const { openImagePreview } = journalPreviewStore
@@ -216,6 +222,7 @@ const isActiveSessionSending = computed(() => sending.value && activeSendSession
 const visibleStreamingMessage = computed(() => activeSendSessionId.value === activeSessionId.value
   ? activeStreamingMessage.value
   : streamingMessage.value)
+const activeCompaction = computed(() => compactions.value[activeSessionId.value])
 
 async function handleDeleteMessage(index: number) {
   const message = messages.value[index]
@@ -270,9 +277,13 @@ async function handleCleanupMessages() {
     <div w-full flex-1 overflow-hidden>
       <ChatHistory
         :messages="historyMessages"
+        :reactions="reactions"
+        :tasks="tasks"
+        :plans="planViews"
         :assistant-label="assistantLabel"
         :sending="isActiveSessionSending"
         :streaming-message="visibleStreamingMessage"
+        :compaction="activeCompaction"
         :tool-call-renderers="toolCallRenderers"
         @delete-message="handleDeleteMessage($event.index)"
         @retry-message="handleRetryMessage($event.index)"

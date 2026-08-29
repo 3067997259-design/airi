@@ -9,6 +9,14 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   root: import.meta.dirname,
+  optimizeDeps: {
+    exclude: [
+      '@proj-airi/drizzle-duckdb-wasm',
+      '@proj-airi/drizzle-duckdb-wasm/*',
+      '@proj-airi/duckdb-wasm',
+      '@proj-airi/duckdb-wasm/*',
+    ],
+  },
   plugins: [
     Info(),
     vue(),
