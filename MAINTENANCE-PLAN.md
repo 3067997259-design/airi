@@ -33,9 +33,16 @@
   `getActivePlanStep` 白名单证据打标（无关工具结果满足不了验证门）；
   `code_mode` 工具（bridge 派发展平为有界文本，超时钳位 1-60s，宿主
   listTools 报告可用性）。
-- ⬜ **仍开放**：pgvector 真库走查（起 `server/docker-compose.yaml` 的 db
-  服务 → 长期页配连接串 → 验证建表/镜像/检索，本机 Docker 未验）；跨窗口
-  记忆检索 UI；P3 全部。
+- ⬜ **仍开放**：UI 端到端走查（连接串贴入长期页 → 状态绿 → 对话晋升后查
+  Postgres，容器已在 `127.0.0.1:5435` 运行）；跨窗口记忆检索 UI；P3 全部。
+- ✅ **pgvector 真库走查完成（2026-08-29）**：Docker Desktop 装好后起
+  `server/docker-compose.yaml` 的 db 服务（healthy，`127.0.0.1:5435`），
+  新增集成测试 `repository.integration.test.ts`（无 `DATABASE_URL` 时自动
+  跳过）在真库跑通 ensureMemorySchema + 插入 + 向量检索 + 列表 + 清理。
+  走查抓出两个真 bug 并已修：① `search()` 的向量参数被 postgres.js 序列化
+  为 PG 数组字面量导致 `<=>` 无法比较（改为字符串字面量 + `::vector` 转型）；
+  ② 全仓库无 DDL（`ensureMemorySchema` 幂等建表已在本轮早些时候补上）。
+  走查手册：`docs/solutions/runtime/pgvector-walkthrough.md`。
 - ✅ **Mimosa 完整审计已封印（2026-08-29）**：`scanner_enobufs` 根因是提交
   时段机器内存/socket 缓冲耗尽（7 个 Electron + 构建并行，23.6G 总内存），
   并非扫描器缺陷；空载重跑 28 秒完成。结果：117 findings（105 HIGH /
