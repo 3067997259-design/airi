@@ -36,7 +36,7 @@ import { setupBuiltInServer } from './services/airi/http-server'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupExtensionHost } from './services/airi/plugins'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
-import { setupAutoUpdater } from './services/electron/auto-updater'
+import { resolveAutoUpdaterEnabled, setupAutoUpdater } from './services/electron/auto-updater'
 import { setupGlobalShortcutService } from './services/electron/global-shortcut'
 import { setupMediaPermissionHandlers } from './services/electron/media-permissions'
 import { setupTray } from './tray'
@@ -137,7 +137,9 @@ app.whenReady().then(async () => {
   const autoUpdater = injeca.provide('services:auto-updater', {
     dependsOn: { appConfig },
     build: ({ dependsOn }) => setupAutoUpdater({
-      enabled: import.meta.env.VITE_DISTRIBUTION !== 'steam',
+      // Fork policy: never check the upstream moeru-ai feed by default, even
+      // for non-steam distributions; see resolveAutoUpdaterEnabled.
+      enabled: resolveAutoUpdaterEnabled(),
       getStoredUpdateLane: () => dependsOn.appConfig.get()?.updateChannel,
       setStoredUpdateLane: (lane) => {
         const currentConfig = dependsOn.appConfig.get()

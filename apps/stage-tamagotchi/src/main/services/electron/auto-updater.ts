@@ -272,6 +272,20 @@ export interface AutoUpdaterOptions {
   setStoredUpdateLane?: (lane: UpdateLane | undefined) => void
 }
 
+/**
+ * Fork update policy: the release feed in this service resolves against
+ * upstream moeru-ai/airi GitHub Releases, so an automatic update would
+ * overwrite local mods with an upstream build. The check therefore stays off
+ * for every distribution unless explicitly re-enabled for a local
+ * update-harness run (pairs with the dev-only UPDATE_SERVER_URL override).
+ *
+ * Removal condition: point the feed constants at a fork-owned release feed and
+ * hand the default back to the distribution check.
+ */
+export function resolveAutoUpdaterEnabled(): boolean {
+  return process.env.AIRI_ENABLE_UPSTREAM_UPDATES === '1'
+}
+
 function isPrereleaseVersion(version: string) {
   return (semver.prerelease(version)?.length ?? 0) > 0
 }
