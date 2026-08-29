@@ -92,6 +92,12 @@ export const useMinecraftStore = defineStore('minecraft', () => {
   })
   const configured = computed(() => settingsConfigured.value || hasObservedRuntime.value)
 
+  // `ui:configure` has no ack in the channel-server protocol, so delivery is
+  // tracked as best-effort: "sent" means the send happened while the bot was
+  // present, "pending" means the last save happened while it was offline and
+  // is re-sent the next time the bot announces itself.
+  const deliveryState = ref<'idle' | 'pending' | 'sent'>('idle')
+
   function saveSettings() {
     configurator.updateFor('minecraft', {
       enabled: enabled.value,
@@ -99,6 +105,13 @@ export const useMinecraftStore = defineStore('minecraft', () => {
       port: serverPort.value,
       username: username.value,
     })
+    deliveryState.value = serviceConnected.value ? 'sent' : 'pending'
+  }
+
+  /** Re-sends the last saved config once the bot (re)appears on the channel. */
+  function redeliverPendingSettings() {
+    if (deliveryState.value === 'pending' && settingsConfigured.value)
+      saveSettings()
   }
 
   function pushTrafficEntry(entry: Omit<MinecraftTrafficEntry, 'id'>) {
@@ -142,8 +155,10 @@ export const useMinecraftStore = defineStore('minecraft', () => {
       return
     }
 
-    if (!wasPresent)
+    if (!wasPresent) {
       serviceHealthy.value = true
+      redeliverPendingSettings()
+    }
   }
 
   function handleRegistryHealthy(event: WebSocketBaseEvent<'registry:modules:health:healthy', WebSocketEvents['registry:modules:health:healthy']>) {
@@ -152,6 +167,7 @@ export const useMinecraftStore = defineStore('minecraft', () => {
 
     servicePresent.value = true
     serviceHealthy.value = true
+    redeliverPendingSettings()
   }
 
   function handleRegistryUnhealthy(event: WebSocketBaseEvent<'registry:modules:health:unhealthy', WebSocketEvents['registry:modules:health:unhealthy']>) {
@@ -238,6 +254,7 @@ export const useMinecraftStore = defineStore('minecraft', () => {
     serverAddress.reset()
     serverPort.reset()
     username.reset()
+    deliveryState.value = 'idle'
     saveSettings()
     clearRuntimeState()
   }
@@ -252,6 +269,7 @@ export const useMinecraftStore = defineStore('minecraft', () => {
     username,
     settingsConfigured,
     configured,
+    deliveryState,
     serviceConnected,
     runtimeContextAgeMs,
 

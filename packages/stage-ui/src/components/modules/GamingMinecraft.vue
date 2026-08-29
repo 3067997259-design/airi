@@ -12,6 +12,7 @@ const minecraftStore = useMinecraftStore()
 const { t } = useI18n()
 
 const {
+  deliveryState,
   serviceConnected,
   latestRuntimeContextText,
   lastRuntimeContextAt,
@@ -25,6 +26,14 @@ const statusLabel = computed(() => {
   return serviceConnected.value
     ? t('settings.pages.modules.gaming-minecraft.status.service-online')
     : t('settings.pages.modules.gaming-minecraft.status.service-offline')
+})
+
+const deliveryLabel = computed(() => {
+  if (deliveryState.value === 'sent')
+    return t('settings.pages.modules.gaming-minecraft.delivery.sent')
+  if (deliveryState.value === 'pending')
+    return t('settings.pages.modules.gaming-minecraft.delivery.pending')
+  return ''
 })
 
 const lastRuntimeUpdate = computed(() => {
@@ -68,6 +77,10 @@ onMounted(() => {
       i18n-key-prefix="settings.pages.modules.gaming-minecraft"
     />
 
+    <div v-if="deliveryLabel" :class="['text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
+      {{ deliveryLabel }}
+    </div>
+
     <div :class="['h-px', 'bg-neutral-200', 'dark:bg-neutral-800']" />
 
     <Callout :theme="statusTheme" :label="statusLabel">
@@ -77,16 +90,6 @@ onMounted(() => {
         </div>
       </div>
     </Callout>
-
-    <div :class="['flex flex-col gap-3']">
-      <div :class="['text-sm font-medium text-neutral-900 dark:text-neutral-100']">
-        {{ t('settings.pages.modules.gaming-minecraft.setup.title') }}
-      </div>
-      <div :class="['flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-300']">
-        <p>{{ t('settings.pages.modules.gaming-minecraft.setup.description') }}</p>
-        <code :class="['w-fit rounded-md bg-neutral-950/90 px-2 py-1 text-xs text-neutral-100']">integrations/minecraft/README.md</code>
-      </div>
-    </div>
 
     <div :class="['flex flex-col gap-3']">
       <div :class="['text-sm font-medium text-neutral-900 dark:text-neutral-100']">

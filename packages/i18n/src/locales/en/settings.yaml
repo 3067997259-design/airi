@@ -683,6 +683,9 @@ pages:
     gaming-minecraft:
       description: Playing Minecraft!
       title: Minecraft
+      delivery:
+        sent: Saved and delivered to the running service.
+        pending: Saved locally. The service is offline; it will be sent when the bot comes online.
       enable: Enable Minecraft Integration
       enable-description: >-
         Include Minecraft self-knowledge in Stage chat turns and keep passive
@@ -795,6 +798,8 @@ pages:
     memory-long-term:
       description: Long-term memory specific settings and management
       title: Long-Term Memory
+      wiring-note: Long-term persistence is not wired yet
+      wiring-note-description: These controls tune the local database. Promotion into a Postgres (pgvector) store is planned and currently inactive.
       sections:
         ranking:
           description: Adjust the five ranking terms used by memory retrieval.
