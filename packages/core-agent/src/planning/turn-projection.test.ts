@@ -7,6 +7,7 @@ describe('buildTurnProjection', () => {
     const result = buildTurnProjection({
       plan: {
         goal: 'Repair the coding host',
+        horizon: 'session',
         steps: [{
           id: 'step-2',
           lane: 'coding',

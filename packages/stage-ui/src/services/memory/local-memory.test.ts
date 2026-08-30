@@ -33,6 +33,54 @@ function memoryRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('createDuckDbMemoryRepository', () => {
+  it('saves, loads, and soft-deletes plan snapshots by id', async () => {
+    const planRow = {
+      id: 'goal-1',
+      spec_json: JSON.stringify({
+        goal: 'Maintain the workspace',
+        horizon: 'long',
+        steps: [{
+          id: 'inspect',
+          lane: 'coding',
+          intent: 'Inspect the workspace',
+          allowedTools: ['list'],
+          expectedEvidence: [{ source: 'tool_result', description: 'directory listing' }],
+          riskLevel: 'low',
+          approvalRequired: false,
+        }],
+      }),
+      state_json: JSON.stringify({
+        currentStepId: 'inspect',
+        completedSteps: [],
+        failedSteps: [],
+        skippedSteps: [],
+        evidenceRefs: [],
+        blockers: [],
+      }),
+      status: 'in_progress',
+      created_at: 10,
+      updated_at: 20,
+      deadline: null,
+    }
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async query => query.includes('FROM memory_long_term_goals') ? [planRow] : [])
+    const repository = createDuckDbMemoryRepository({ execute })
+
+    const plans = await repository.loadPlans()
+    await repository.savePlan(plans[0]!)
+    await repository.softDeletePlan('goal-1', 30)
+
+    expect(plans[0]).toEqual(expect.objectContaining({
+      id: 'goal-1',
+      spec: expect.objectContaining({ horizon: 'long' }),
+      state: expect.objectContaining({ currentStepId: 'inspect' }),
+    }))
+    const saveQuery = execute.mock.calls.find(([query]) => query.includes('INSERT INTO memory_long_term_goals'))?.[0]
+    expect(saveQuery).toContain('spec_json')
+    expect(saveQuery).toContain('state_json')
+    expect(saveQuery).toContain('ON CONFLICT (id) DO UPDATE')
+    expect(execute.mock.calls.some(([query]) => query.includes('SET deleted_at = 30'))).toBe(true)
+  })
+
   it('restores source-turn neighbors from persisted search rows', async () => {
     const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => query.includes('SELECT * FROM') ? [memoryRow()] : [])
     const repository = createDuckDbMemoryRepository({ execute })

@@ -30,6 +30,7 @@ const stepSchema = z.object({
 const params = z.object({
   action: z.enum(['start', 'focus', 'cancel']).describe('start: replace the plan with a new spec. focus: announce the step you are working on. cancel: abandon the plan.'),
   goal: z.string().optional().describe('action=start: the overall goal.'),
+  horizon: z.enum(['session', 'long']).optional().describe('action=start: session for a bounded current task; long for a rolling goal. Defaults to session.'),
   steps: z.array(stepSchema).min(1).optional().describe('action=start: ordered steps; the first one becomes in_progress automatically.'),
   stepId: z.string().optional().describe('action=focus: the step id to focus.'),
 })
@@ -42,6 +43,7 @@ const params = z.object({
 export async function executePlanUpdate(input: {
   action: 'start' | 'focus' | 'cancel'
   goal?: string
+  horizon?: 'session' | 'long'
   steps?: Array<{
     id: string
     lane: PlanLane
@@ -59,17 +61,19 @@ export async function executePlanUpdate(input: {
     if (!input.goal?.trim() || !input.steps?.length)
       return 'plan_update action "start" requires both goal and steps.'
 
-    // One plan drives the gate at a time: superseding marks the old plan's
-    // current step blocked so its card reports why it stopped.
-    const previous = planStore.activePlan
+    const horizon = input.horizon ?? 'session'
+    // Session plans supersede only the current session plan. A long goal is
+    // a separate rolling lane and keeps its stable id across replans.
+    const previous = horizon === 'session' ? planStore.activeSessionPlan : undefined
     if (previous) {
       const previousStepId = previous.state.currentStepId ?? previous.spec.steps[0]?.id
       if (previousStepId)
-        planStore.updateStep(previous.id, previousStepId, 'blocked', 'superseded by a new plan')
+        await planStore.updateStep(previous.id, previousStepId, 'blocked', 'superseded by a new plan')
     }
 
     const spec: PlanSpec = {
       goal: input.goal.trim(),
+      horizon,
       steps: input.steps.map(step => ({
         id: step.id,
         lane: step.lane,
@@ -80,26 +84,26 @@ export async function executePlanUpdate(input: {
         approvalRequired: step.approvalRequired,
       })),
     }
-    const planId = planStore.start(spec)
+    const planId = await planStore.start(spec)
     return `Plan ${planId} created with ${spec.steps.length} step(s). Focus: "${spec.steps[0].id}". Tool results only count as evidence for the focused step's allowed tools.`
   }
 
   if (input.action === 'focus') {
-    const plan = planStore.activePlan
+    const plan = planStore.activeSessionPlan ?? planStore.activeLongPlan
     if (!plan)
       return 'No active plan. Use action "start" first.'
     if (!input.stepId || !plan.spec.steps.some(step => step.id === input.stepId))
       return `Unknown stepId. Plan steps: ${plan.spec.steps.map(step => step.id).join(', ')}.`
-    planStore.updateStep(plan.id, input.stepId, 'in_progress')
+    await planStore.updateStep(plan.id, input.stepId, 'in_progress')
     return `Focusing step "${input.stepId}".`
   }
 
-  const plan = planStore.activePlan
+  const plan = planStore.activeSessionPlan ?? planStore.activeLongPlan
   if (!plan)
     return 'No active plan to cancel.'
   const stepId = plan.state.currentStepId ?? plan.spec.steps[0]?.id
   if (stepId)
-    planStore.updateStep(plan.id, stepId, 'failed', 'cancelled by the model')
+    await planStore.updateStep(plan.id, stepId, 'failed', 'cancelled by the model')
   return 'Plan cancelled.'
 }
 

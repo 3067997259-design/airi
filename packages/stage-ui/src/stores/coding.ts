@@ -23,6 +23,8 @@ export interface CodingToolPortAvailability {
 }
 
 export interface CodingHostClientPort {
+  listDir: (params: { path: string }) => Promise<{ entries: Array<{ name: string, kind: 'file' | 'dir' }> }>
+  readFile: (params: { path: string }) => Promise<{ content: string, mtime?: string }>
   listTools: () => Promise<{ workspaceRoot: string, tools: CodingToolPortAvailability[] }>
   runCommand: (params: { command: string, mediumApprovalRequired?: boolean, approvalRequired?: boolean, timeoutMs?: number }) => Promise<{
     tier: 'read-only' | 'medium' | 'high'
@@ -84,6 +86,18 @@ export function useCodingToolsStore() {
     return statusSnapshot.value
   }
 
+  async function listDir(path: string) {
+    if (!client)
+      throw new Error('Coding host is not available in this window.')
+    return (await client.listDir({ path })).entries
+  }
+
+  async function readFile(path: string) {
+    if (!client)
+      throw new Error('Coding host is not available in this window.')
+    return client.readFile({ path })
+  }
+
   async function setApprovalMode(mode: CodingApprovalMode) {
     approvalMode.value = mode
     await client?.setApprovalMode(mode)
@@ -121,6 +135,8 @@ export function useCodingToolsStore() {
     runView,
     approvalMode,
     refreshStatus,
+    listDir,
+    readFile,
     runProgram,
     setApprovalMode,
   }

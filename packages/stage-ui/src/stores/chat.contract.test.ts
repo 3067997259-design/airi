@@ -311,6 +311,33 @@ describe('chat store contract', () => {
     ])
   })
 
+  it('intercepts /goal, mounts plan_update, and injects the long-goal command contract', async () => {
+    let composedMessages: Message[] = []
+    let toolNames: string[] = []
+    llmStreamMock.mockImplementationOnce(async (_model: string, _chatProvider: ChatProvider, messages: Message[], options: any) => {
+      composedMessages = messages
+      const tools = typeof options.tools === 'function' ? await options.tools() : options.tools
+      toolNames = tools.map((candidate: Tool) => candidate.function.name)
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await useChatStore().send({
+      sessionId: 'session-1',
+      text: '/goal Keep the workspace healthy',
+    })
+
+    const systemText = String(composedMessages[0]?.content)
+    const userContent = composedMessages.at(-1)?.content
+    const userText = typeof userContent === 'string'
+      ? userContent
+      : userContent?.filter(part => part.type === 'text').map(part => part.text).join('\n')
+    expect(systemText).toContain('## Command')
+    expect(systemText).toContain('horizon `long`')
+    expect(userText).toContain('Keep the workspace healthy')
+    expect(userText).not.toContain('/goal')
+    expect(toolNames).toContain('plan_update')
+  })
+
   it('passes the current consciousness reasoning option to the chat provider', async () => {
     const settings = useConsciousnessSettingsStore()
     await settings.setReasoning(true)

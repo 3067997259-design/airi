@@ -66,6 +66,8 @@ export type ChatHistoryItem = (ChatMessage | ErrorMessage) & {
   id?: string
   /** Tools selected for this message. The runtime rebuilds executors from these names. */
   tools?: ChatToolReference[]
+  /** Background task rounds remain provider history but do not render as chat bubbles. */
+  hiddenFromHistory?: boolean
 }
 
 export interface ChatStreamEventContext {
@@ -88,4 +90,4 @@ export type ChatStreamEvent
     | { type: 'assistant-end', message: string, sessionId: string, context: ChatStreamEventContext }
     | { type: 'assistant-message', message: ChatAssistantMessage, sessionId: string, messageText: string, context: ChatStreamEventContext }
 
-export type StreamingAssistantMessage = ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number, id?: string }
+export type StreamingAssistantMessage = ChatAssistantMessage & { context?: ContextMessage } & { createdAt?: number, id?: string, hiddenFromHistory?: boolean }

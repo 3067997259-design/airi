@@ -101,7 +101,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
   it('registers coding tools when the coding host reports them as available', async () => {
     listCodingTools.mockResolvedValue({
       workspaceRoot: 'C:/AIRI-workspace',
-      tools: [...['read', 'write', 'edit', 'bash'], 'code_mode'].map(name => ({
+      tools: ['list', 'read', 'write', 'edit', 'bash', 'code_mode'].map(name => ({
         name,
         description: `${name} tool`,
         available: true,
@@ -111,7 +111,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     const toolsStore = useLlmToolsStore()
     await useTamagotchiBuiltinToolsStore().refresh()
 
-    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['read', 'write', 'edit', 'bash', 'code_mode'])
-    expect(toolsStore.getToolsByNames('read', 'write', 'edit', 'bash', 'code_mode').map(tool => tool.function.name)).toEqual(['read', 'write', 'edit', 'bash', 'code_mode'])
+    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'read', 'write', 'edit', 'bash', 'code_mode'])
+    expect(toolsStore.getToolsByNames('list', 'read', 'write', 'edit', 'bash', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'read', 'write', 'edit', 'bash', 'code_mode'])
   })
 })

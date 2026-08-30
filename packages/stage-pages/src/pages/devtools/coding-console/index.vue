@@ -100,13 +100,13 @@ const planSpecText = ref(JSON.stringify({
 }, null, 2))
 const planSpecError = ref('')
 
-function startPlanFromEditor() {
+async function startPlanFromEditor() {
   planSpecError.value = ''
   try {
     const parsed = JSON.parse(planSpecText.value) as PlanSpec
     if (!parsed.goal || !Array.isArray(parsed.steps) || parsed.steps.length === 0)
       throw new Error('spec needs a goal and at least one step')
-    planStore.start(parsed)
+    await planStore.start(parsed)
   }
   catch (error) {
     planSpecError.value = errorMessageFrom(error) ?? 'Invalid plan spec'

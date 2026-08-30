@@ -80,6 +80,9 @@ describe('useDuckDB (Singleton)', () => {
     expect(statements).toContain('review_status VARCHAR NOT NULL DEFAULT \'pending\'')
     expect(statements).toContain('ADD COLUMN IF NOT EXISTS source_context_json VARCHAR')
     expect(statements).toContain('ADD COLUMN IF NOT EXISTS review_status VARCHAR')
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS spec_json VARCHAR')
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS state_json VARCHAR')
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS horizon VARCHAR')
     expect(statements).not.toMatch(/ADD COLUMN IF NOT EXISTS [^\n]+ NOT NULL/)
     expect(statements).toContain('SET review_status = \'approved\'')
 

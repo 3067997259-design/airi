@@ -1,3 +1,4 @@
+import type { PlanSpec, PlanState, PlanStepStatus } from '@proj-airi/core-agent'
 import type { MemoryDreamIdea, MemoryDreamIdeaStatus, MemoryExtraction, MemoryFragment, MemoryMood, MemoryRepository, MemoryReviewStatus, MemoryScoreWeights, ScoredMemoryFragment } from '@proj-airi/memory-core'
 
 import { parseMemorySourceContext, scoreMemoryFragment, shouldPromoteMemory } from '@proj-airi/memory-core'
@@ -28,7 +29,11 @@ function stringValue(value: unknown, fallback = ''): string {
 }
 
 function numberValue(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+  if (typeof value === 'number' && Number.isFinite(value))
+    return value
+  if (typeof value === 'bigint')
+    return Number(value)
+  return fallback
 }
 
 function quote(value: string): string {
@@ -111,12 +116,74 @@ function rowToDreamIdea(row: MemoryRow): MemoryDreamIdea {
   }
 }
 
+export interface PersistedPlanRecord {
+  id: string
+  spec: PlanSpec
+  state: PlanState
+  status: PlanStepStatus
+  createdAt: number
+  updatedAt: number
+}
+
+export interface PlanPersistenceRepository {
+  savePlan: (plan: PersistedPlanRecord) => Promise<void>
+  loadPlans: () => Promise<PersistedPlanRecord[]>
+  softDeletePlan: (id: string, deletedAt?: number) => Promise<void>
+}
+
+export type DuckDbMemoryRepository = MemoryRepository & PlanPersistenceRepository
+
+const PLAN_STATUSES = new Set<PlanStepStatus>(['pending', 'in_progress', 'completed', 'failed', 'skipped', 'blocked'])
+const PLAN_LANES = new Set(['coding', 'desktop', 'browser_dom', 'terminal', 'human', 'mcp', 'websocket', 'conversation'])
+const PLAN_EVIDENCE_SOURCES = new Set(['tool_result', 'verification_gate', 'human_approval'])
+const PLAN_STATE_EVIDENCE_SOURCES = new Set(['tool_result', 'verification_gate', 'human_approval', 'runtime_trace'])
+
+function stringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(item => typeof item === 'string')
+}
+
+function isPlanSpec(value: unknown): value is PlanSpec {
+  if (!isRecord(value) || typeof value.goal !== 'string' || (value.horizon !== 'session' && value.horizon !== 'long') || !Array.isArray(value.steps))
+    return false
+  if (value.deadline !== undefined && (typeof value.deadline !== 'number' || !Number.isFinite(value.deadline)))
+    return false
+  return value.steps.every(step => isRecord(step)
+    && typeof step.id === 'string'
+    && typeof step.lane === 'string'
+    && PLAN_LANES.has(step.lane)
+    && typeof step.intent === 'string'
+    && stringArray(step.allowedTools)
+    && Array.isArray(step.expectedEvidence)
+    && step.expectedEvidence.every(evidence => isRecord(evidence)
+      && typeof evidence.source === 'string'
+      && PLAN_EVIDENCE_SOURCES.has(evidence.source)
+      && typeof evidence.description === 'string')
+    && (step.riskLevel === 'low' || step.riskLevel === 'medium' || step.riskLevel === 'high')
+    && typeof step.approvalRequired === 'boolean')
+}
+
+function isPlanState(value: unknown): value is PlanState {
+  return isRecord(value)
+    && (value.currentStepId === undefined || typeof value.currentStepId === 'string')
+    && stringArray(value.completedSteps)
+    && stringArray(value.failedSteps)
+    && stringArray(value.skippedSteps)
+    && stringArray(value.blockers)
+    && Array.isArray(value.evidenceRefs)
+    && value.evidenceRefs.every(evidence => isRecord(evidence)
+      && typeof evidence.stepId === 'string'
+      && typeof evidence.source === 'string'
+      && PLAN_STATE_EVIDENCE_SOURCES.has(evidence.source)
+      && typeof evidence.summary === 'string')
+    && (value.lastReplanReason === undefined || typeof value.lastReplanReason === 'string')
+}
+
 function createId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
 /** Creates the browser DuckDB fallback for the storage-neutral memory contract. */
-export function createDuckDbMemoryRepository(db: MemoryDbExecutor): MemoryRepository {
+export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemoryRepository {
   async function search(input: {
     embedding: number[]
     now?: number
@@ -368,5 +435,80 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): MemoryReposi
     return (await listDreamIdeas({ limit: 10_000 })).find(idea => idea.id === id)
   }
 
-  return { search, insert, recordAccess, promoteEligible, list, update, remove, addDreamIdea, listDreamIdeas, updateDreamIdea }
+  async function savePlan(plan: PersistedPlanRecord): Promise<void> {
+    const completedCurrentSteps = plan.spec.steps.filter(step => plan.state.completedSteps.includes(step.id)).length
+    const progress = plan.spec.steps.length === 0 ? 0 : Math.round(completedCurrentSteps / plan.spec.steps.length * 100)
+    const currentIntent = plan.spec.steps.find(step => step.id === plan.state.currentStepId)?.intent ?? plan.spec.goal
+    await db.execute(`
+      INSERT INTO memory_long_term_goals (
+        id, title, description, priority, progress, deadline, status,
+        parent_goal_id, category, created_at, updated_at, deleted_at,
+        spec_json, state_json, horizon
+      ) VALUES (
+        ${quote(plan.id)}, ${quote(plan.spec.goal)}, ${quote(currentIntent)}, 5, ${progress},
+        ${plan.spec.deadline ?? 'NULL'}, ${quote(plan.status)},
+        NULL, 'plan', ${plan.createdAt}, ${plan.updatedAt}, NULL,
+        ${jsonLiteral(plan.spec)}, ${jsonLiteral(plan.state)}, ${quote(plan.spec.horizon)}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        title = excluded.title,
+        description = excluded.description,
+        progress = excluded.progress,
+        deadline = excluded.deadline,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        deleted_at = NULL,
+        spec_json = excluded.spec_json,
+        state_json = excluded.state_json,
+        horizon = excluded.horizon
+    `)
+  }
+
+  async function loadPlans(): Promise<PersistedPlanRecord[]> {
+    const result = await db.execute(`
+      SELECT id, spec_json, state_json, status, created_at, updated_at, deadline
+      FROM memory_long_term_goals
+      WHERE category = 'plan' AND deleted_at IS NULL
+      ORDER BY updated_at ASC
+    `)
+    return rowsFromResult(result).flatMap((row) => {
+      const specValue = parseJson(row.spec_json)
+      const stateValue = parseJson(row.state_json)
+      if (!isPlanSpec(specValue) || !isPlanState(stateValue))
+        return []
+      const deadline = row.deadline == null ? undefined : numberValue(row.deadline)
+      const spec = deadline === undefined || specValue.deadline !== undefined
+        ? specValue
+        : { ...specValue, deadline }
+      const statusValue = stringValue(row.status, 'pending')
+      return [{
+        id: stringValue(row.id),
+        spec,
+        state: stateValue,
+        status: PLAN_STATUSES.has(statusValue as PlanStepStatus) ? statusValue as PlanStepStatus : 'pending',
+        createdAt: numberValue(row.created_at),
+        updatedAt: numberValue(row.updated_at),
+      }]
+    })
+  }
+
+  async function softDeletePlan(id: string, deletedAt = Date.now()): Promise<void> {
+    await db.execute(`UPDATE memory_long_term_goals SET deleted_at = ${deletedAt}, updated_at = ${deletedAt} WHERE id = ${quote(id)} AND category = 'plan' AND deleted_at IS NULL`)
+  }
+
+  return {
+    search,
+    insert,
+    recordAccess,
+    promoteEligible,
+    list,
+    update,
+    remove,
+    addDreamIdea,
+    listDreamIdeas,
+    updateDreamIdea,
+    savePlan,
+    loadPlans,
+    softDeletePlan,
+  }
 }

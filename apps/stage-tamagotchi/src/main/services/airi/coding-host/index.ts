@@ -25,6 +25,7 @@ import {
   codingApprovalRequested,
   codingHostCodeRun,
   codingHostExecRun,
+  codingHostFsList,
   codingHostFsRead,
   codingHostFsWrite,
   codingHostGetApprovalMode,
@@ -118,6 +119,8 @@ export async function setupCodingHost(
   defineInvokeHandler(context, codingHostGetApprovalMode, () => ({ mode: policy.mode }))
 
   defineInvokeHandler(context, codingHostFsRead, async ({ path }) => host.readFile(path))
+
+  defineInvokeHandler(context, codingHostFsList, async ({ path }) => ({ entries: await host.listDir(path) }))
 
   defineInvokeHandler(context, codingHostFsWrite, async ({ path, content }) => {
     await host.writeFile(path, content)

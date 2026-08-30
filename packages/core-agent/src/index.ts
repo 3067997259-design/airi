@@ -117,6 +117,7 @@ export { buildTurnProjection } from './planning/turn-projection'
 export type { TurnProjection, TurnProjectionInput } from './planning/turn-projection'
 export { createChatHooks } from './runtime/agent-hooks'
 export type {
+  ChatCommandDirective,
   ChatMemoryContextItem,
   ChatOrchestratorCompactionOptions,
   ChatOrchestratorCompactionSnapshot,

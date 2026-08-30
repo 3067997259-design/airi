@@ -1,5 +1,5 @@
 /**
- * Single-source model-facing metadata for the four coding tools. Both
+ * Single-source model-facing metadata for the coding tools. Both
  * consumers derive their declarations from it — the Electron renderer builds
  * its xsAI zod tool descriptions here, and `createCodingTools` labels its
  * Code Mode bridge entries — so the two surfaces cannot drift apart.
@@ -8,6 +8,13 @@
  * metadata without pulling the Node-only workspace host.
  */
 export const CODING_TOOL_META = {
+  list: {
+    name: 'list',
+    description: 'List one directory level inside the workspace. Use it to discover files and subdirectories without running a shell command.',
+    parameterDescriptions: {
+      path: 'Directory inside the workspace, relative or absolute. Use "." for the workspace root.',
+    },
+  },
   read: {
     name: 'read',
     description: 'Read a text file inside the workspace. Every line carries a short content signature; use signatures (not copied lines) for edit.',

@@ -17,7 +17,7 @@ import ChatAssistantItem from './assistant-item.vue'
 import ChatCompactionNotice from './compaction-notice.vue'
 import ChatErrorItem from './error-item.vue'
 import ChatHistoryMessageFrame from './history-message-frame.vue'
-import ChatPlanCard from './plan-card.vue'
+import ChatPlanLanes from './plan-lanes.vue'
 import ChatReactionLine from './reaction-line.vue'
 import ChatReviewCard from './review-card.vue'
 import ChatTaskCard from './task-card.vue'
@@ -47,13 +47,13 @@ interface TimelineTaskItem {
   createdAt: number
 }
 
-interface TimelinePlanItem {
-  kind: 'plan'
-  plan: PlanView
+interface TimelinePlanGroupItem {
+  kind: 'plan-group'
+  plans: readonly PlanView[]
   createdAt: number
 }
 
-type ChatTimelineItem = TimelineMessageItem | TimelineReactionItem | TimelineTaskItem | TimelinePlanItem
+type ChatTimelineItem = TimelineMessageItem | TimelineReactionItem | TimelineTaskItem | TimelinePlanGroupItem
 
 const props = withDefaults(defineProps<{
   messages: ChatHistoryItem[]
@@ -107,13 +107,15 @@ function shouldShowPlaceholder(message: ChatHistoryItem) {
 }
 
 const timelineItems = computed<ChatTimelineItem[]>(() => {
-  const items: Array<ChatTimelineItem & { order: number }> = props.messages.map((message, messageIndex) => ({
-    kind: 'message',
-    message,
-    messageIndex,
-    createdAt: message.createdAt,
-    order: messageIndex,
-  }))
+  const items: Array<ChatTimelineItem & { order: number }> = props.messages.flatMap((message, messageIndex) => message.hiddenFromHistory
+    ? []
+    : [{
+        kind: 'message' as const,
+        message,
+        messageIndex,
+        createdAt: message.createdAt,
+        order: messageIndex,
+      }])
 
   const messageCount = items.length
   props.reactions.forEach((reaction, index) => {
@@ -135,15 +137,14 @@ const timelineItems = computed<ChatTimelineItem[]>(() => {
     })
   })
 
-  const planOffset = items.length
-  props.plans.forEach((plan, index) => {
+  if (props.plans.length > 0) {
     items.push({
-      kind: 'plan',
-      plan,
-      createdAt: plan.updatedAt,
-      order: planOffset + index,
+      kind: 'plan-group',
+      plans: props.plans,
+      createdAt: Math.max(...props.plans.map(plan => plan.updatedAt)),
+      order: items.length,
     })
-  })
+  }
 
   return items
     .sort((left, right) => (left.createdAt ?? Number.MAX_SAFE_INTEGER) - (right.createdAt ?? Number.MAX_SAFE_INTEGER) || left.order - right.order)
@@ -160,7 +161,7 @@ const renderItems = computed<ChatTimelineItem[]>(() => {
     return items
 
   const hasStreamAlready = props.messages.some(message => message.role === 'assistant' && message.id === streamId)
-  if (hasStreamAlready)
+  if (hasStreamAlready || streaming.value.hiddenFromHistory)
     return items
 
   items.push({
@@ -180,7 +181,7 @@ function getTimelineItemKey(item: ChatTimelineItem, _index: number): string | nu
     return `reaction:${item.reaction.id}`
   if (item.kind === 'task')
     return `task:${item.task.taskId}`
-  return `plan:${item.plan.id}`
+  return 'plan-group'
 }
 
 function canRetryMessage(messageIndex: number) {
@@ -304,9 +305,9 @@ function emitToolCallRerun(
             v-else-if="item.kind === 'task'"
             :task="item.task"
           />
-          <ChatPlanCard
-            v-else-if="item.kind === 'plan'"
-            :plan="item.plan"
+          <ChatPlanLanes
+            v-else-if="item.kind === 'plan-group'"
+            :plans="item.plans"
           />
         </ChatHistoryMessageFrame>
       </template>

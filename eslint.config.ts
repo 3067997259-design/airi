@@ -28,6 +28,7 @@ export default defineConfig({
     'docs/superpowers/**',
     '.agents/**',
     '.github/**',
+    '.zcode/**', // Local agent session state, not repository code
     'CLAUDE.md', // Skip the symbolic link
   ],
 }, {

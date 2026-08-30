@@ -32,7 +32,14 @@ describe('plan_update executor', () => {
 
     expect(result).toContain('created with 2 step(s)')
     expect(planStore.activePlan?.spec.goal).toBe('Add a footer component')
+    expect(planStore.activePlan?.spec.horizon).toBe('session')
     expect(planStore.activePlan?.state.currentStepId).toBe('step-1')
+  })
+
+  it('starts a long-horizon goal when requested', async () => {
+    await executePlanUpdate({ action: 'start', horizon: 'long', goal: 'Maintain the workspace', steps: [codingStep('step-1', 'Inspect it')] })
+
+    expect(usePlanStore().activePlan?.spec.horizon).toBe('long')
   })
 
   it('requires goal and steps when starting', async () => {

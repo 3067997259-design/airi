@@ -24,7 +24,9 @@ beforeAll(async () => {
   await mkdir(FIXTURE_ROOT, { recursive: true })
   rootDir = await mkdtemp(join(FIXTURE_ROOT, 'workspace-'))
   outsideDir = await mkdtemp(join(FIXTURE_ROOT, 'outside-'))
+  await mkdir(join(rootDir, 'src'))
   await writeFile(join(rootDir, 'adapter.ts'), 'export const MODE = "read" as const')
+  await writeFile(join(rootDir, 'src', 'nested.ts'), 'export const nested = true')
   const host = createNodeWorkspaceHost(rootDir)
   const tools = createCodingTools(host, { approveBash: () => false })
   runtime = createCodeModeRuntime(tools, { timeoutMs: 5_000 })
@@ -35,6 +37,20 @@ afterAll(async () => {
 })
 
 describe('coding tools over the node host', () => {
+  it('lists one directory level without shell approval', async () => {
+    const result = await runtime.run(`return await bridge('list', ['.'])`)
+    expect(result).toEqual(expect.objectContaining({ ok: true }))
+    if (result.ok) {
+      expect(result.value).toEqual({
+        path: '.',
+        entries: expect.arrayContaining([
+          { name: 'adapter.ts', kind: 'file' },
+          { name: 'src', kind: 'dir' },
+        ]),
+      })
+    }
+  })
+
   it('reads a file with signed projections', async () => {
     const result = await runtime.run(`return await bridge('read', ['adapter.ts'])`)
     expect(result).toEqual(expect.objectContaining({ ok: true }))
@@ -158,5 +174,6 @@ describe('workspace path containment', () => {
 
     await expect(host.readFile('linked-outside/secret.txt')).rejects.toThrow(/escapes workspace/)
     await expect(host.writeFile('linked-outside/new.txt', 'outside')).rejects.toThrow(/escapes workspace/)
+    await expect(host.listDir('linked-outside')).rejects.toThrow(/escapes workspace/)
   })
 })

@@ -512,6 +512,16 @@ export interface CodingFsReadResult {
   content: string
   mtime?: string
 }
+export interface CodingFsListParams {
+  path: string
+}
+export interface CodingFsListEntry {
+  name: string
+  kind: 'file' | 'dir'
+}
+export interface CodingFsListResult {
+  entries: CodingFsListEntry[]
+}
 export interface CodingFsWriteParams {
   path: string
   content: string
@@ -585,6 +595,7 @@ export interface CodingApprovalDecisionPayload {
 }
 
 export const codingHostFsRead = defineInvokeEventa<CodingFsReadResult, CodingFsReadParams>('eventa:invoke:electron:coding-host:fs:read')
+export const codingHostFsList = defineInvokeEventa<CodingFsListResult, CodingFsListParams>('eventa:invoke:electron:coding-host:fs:list')
 export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')

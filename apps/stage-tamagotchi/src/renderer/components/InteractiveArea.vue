@@ -26,34 +26,52 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import JournalToolCallBlock from './chat-tool-renderers/journal-tool-call-block.vue'
-import SkillShelf from './SkillShelf.vue'
+import TriggerPanel from './trigger-panel.vue'
 
+import { createSlashTriggerProvider } from '../composables/slash-trigger-provider'
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
-import { useSkillShelf } from '../composables/use-skill-shelf'
+import { useTriggerPanel } from '../composables/use-trigger-panel'
+import { createWorkspaceTriggerProvider } from '../composables/workspace-trigger-provider'
 import { artistryToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
 useHearingInputChannel(messageInput)
+const { t } = useI18n()
+const codingStore = useCodingToolsStore()
 
-// Codex-style skill shelf: a trailing `/name` token in the input opens the
-// shelf; inserting a skill rewrites the token so the review store matches it
-// at send time (prepareForPrompt).
 const skillsReviewStore = useSkillsReviewStore()
 const {
-  filteredSkills: shelfSkills,
-  isOpen: isSkillShelfOpen,
-  onInput: onInputSkillShelf,
-  onKeyDown: onKeyDownSkillShelf,
-  select: selectSkillFromShelf,
-  selectedIndex: shelfSelectedIndex,
-} = useSkillShelf(messageInput, () => skillsReviewStore.reviewedSkills)
+  sections: slashSections,
+  isOpen: isSlashPanelOpen,
+  onInput: onSlashInput,
+  onKeyDown: onSlashKeyDown,
+  select: selectSlashItem,
+  selectedIndex: slashSelectedIndex,
+  close: closeSlashPanel,
+} = useTriggerPanel(messageInput, createSlashTriggerProvider(
+  () => skillsReviewStore.reviewedSkills,
+  key => t(key),
+))
+const {
+  sections: workspaceSections,
+  isOpen: isWorkspacePanelOpen,
+  onInput: onWorkspaceInput,
+  onKeyDown: onWorkspaceKeyDown,
+  select: selectWorkspaceItem,
+  selectedIndex: workspaceSelectedIndex,
+  close: closeWorkspacePanel,
+} = useTriggerPanel(messageInput, createWorkspaceTriggerProvider(
+  path => codingStore.listDir(path),
+  kind => t(`stage.workspace-reference.${kind}`),
+))
 const lastEnterTime = ref(0)
 const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
 
 const chatStore = useChatStore()
 const chatSession = useChatSessionStore()
 const chatStream = useChatStreamStore()
+const planStore = usePlanStore()
 const backgroundStore = useBackgroundStore()
 const journalPreviewStore = useJournalPreviewStore()
 const airiCardStore = useAiriCardStore()
@@ -63,9 +81,8 @@ const { streamingMessage } = storeToRefs(chatStream)
 const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(chatStore)
 const { reactions } = storeToRefs(useCharacterStore())
 const { tasks } = storeToRefs(useTaskStore())
-const { planViews } = storeToRefs(usePlanStore())
+const { planViews } = storeToRefs(planStore)
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
-const { t } = useI18n()
 const { openImagePreview } = journalPreviewStore
 const isComposing = ref(false)
 const DOUBLE_ENTER_INTERVAL_MS = 300
@@ -82,7 +99,6 @@ const sendModeLabels = computed<Record<SendMode, string>>(() => ({
   'ctrl-enter': t('stage.send-mode.ctrl-enter'),
   'double-enter': t('stage.send-mode.double-enter'),
 }))
-const codingStore = useCodingToolsStore()
 const approvalMode = codingStore.approvalMode
 // Cycle the tri-state: require -> substitute -> full -> require.
 const APPROVAL_MODE_ICONS: Record<string, string> = {
@@ -132,6 +148,8 @@ async function handleSend() {
   // optimistic clear
   messageInput.value = ''
   attachments.value = []
+  closeSlashPanel()
+  closeWorkspacePanel()
 
   try {
     await chatStore.send({
@@ -183,7 +201,7 @@ function handleMessageInputKeydown(event: KeyboardEvent) {
   if (isComposing.value)
     return
 
-  if (onKeyDownSkillShelf(event))
+  if (onWorkspaceKeyDown(event) || onSlashKeyDown(event))
     return
 
   if (event.key !== 'Enter')
@@ -218,6 +236,10 @@ function handleMessageInputKeydown(event: KeyboardEvent) {
         }
       }
   }
+}
+
+function handleMessageInput() {
+  void Promise.all([onSlashInput(), onWorkspaceInput()])
 }
 
 async function handleFilePaste(files: File[]) {
@@ -272,8 +294,9 @@ async function handleDeleteMessage(index: number) {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
   backgroundStore.initializeStore()
+  await planStore.initialize()
 })
 
 async function handleRetryMessage(index: number) {
@@ -512,11 +535,21 @@ async function handleCleanupMessages() {
       >
     </div>
     <div class="relative w-full">
-      <SkillShelf
-        v-if="isSkillShelfOpen"
-        :skills="shelfSkills"
-        :selected-index="shelfSelectedIndex"
-        @select="selectSkillFromShelf"
+      <TriggerPanel
+        v-if="isSlashPanelOpen"
+        :sections="slashSections"
+        :selected-index="slashSelectedIndex"
+        :empty-label="t('stage.skill-shelf.empty')"
+        :hint="t('stage.skill-shelf.hint')"
+        @select="selectSlashItem"
+      />
+      <TriggerPanel
+        v-if="isWorkspacePanelOpen"
+        :sections="workspaceSections"
+        :selected-index="workspaceSelectedIndex"
+        :empty-label="t('stage.workspace-reference.empty')"
+        :hint="t('stage.skill-shelf.hint')"
+        @select="selectWorkspaceItem"
       />
       <BasicTextarea
         v-model="messageInput"
@@ -531,7 +564,7 @@ async function handleCleanupMessages() {
         transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
         @compositionstart="isComposing = true"
         @compositionend="isComposing = false"
-        @input="onInputSkillShelf"
+        @input="handleMessageInput"
         @keydown="handleMessageInputKeydown"
         @paste-file="handleFilePaste"
       />

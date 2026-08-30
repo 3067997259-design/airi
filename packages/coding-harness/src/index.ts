@@ -27,7 +27,7 @@ export { CODING_TOOL_META, createCodingTools } from './tools/coding-tools'
 export type { ApprovalOutcome, CodingToolName, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
 
 export { createNodeWorkspaceHost, resolveInsideWorkspace } from './tools/workspace-host'
-export type { CommandResult, WorkspaceHost, WorkspaceReadResult } from './tools/workspace-host'
+export type { CommandResult, WorkspaceDirectoryEntry, WorkspaceHost, WorkspaceReadResult } from './tools/workspace-host'
 
 export { bashApprovalRequired, classifyBashCommand } from '@proj-airi/core-agent'
 export type { BashRiskTier } from '@proj-airi/core-agent'

@@ -18,6 +18,9 @@ chat:
       next-step: Next step
       log-reference: Log reference
   plan:
+    horizon:
+      session: Session plans
+      long: Long-term goals
     status:
       pending: Pending
       in_progress: In progress
@@ -27,6 +30,7 @@ chat:
     current-step: Current step
     blockers: Blocked by
     evidence: Evidence
+    deadline: Deadline
   approval-card:
     title: Approval required
     expected-evidence: Expected evidence
@@ -70,8 +74,20 @@ send-mode:
   ctrl-enter: Ctrl + Enter
   double-enter: Double Enter
 skill-shelf:
+  section: Skills
   empty: No reviewed skills yet — she can author one with skill_submit.
   hint: Type to filter · Enter to insert · Esc to close
+command:
+  section: Commands
+  badge: built-in
+  plan:
+    description: Create a bounded plan for this session.
+  goal:
+    description: Create or continue a long-running goal.
+workspace-reference:
+  empty: No matching workspace files.
+  file: File
+  directory: Directory
 speech-output:
   mute: Mute voice
   unmute: Unmute voice

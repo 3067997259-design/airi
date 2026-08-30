@@ -82,7 +82,7 @@ describe('planning authority contract', () => {
 
   it('builds a bounded guidance block with the trust label', () => {
     const block = buildPlanningGuidanceBlock({
-      plan: { goal: 'fix lint', steps: [{ id: 'a', lane: 'coding', intent: 'run lint', allowedTools: ['bash'], expectedEvidence: [{ source: 'tool_result', description: 'lint ok' }], riskLevel: 'low', approvalRequired: false }] },
+      plan: { goal: 'fix lint', horizon: 'session', steps: [{ id: 'a', lane: 'coding', intent: 'run lint', allowedTools: ['bash'], expectedEvidence: [{ source: 'tool_result', description: 'lint ok' }], riskLevel: 'low', approvalRequired: false }] },
       state: { completedSteps: [], failedSteps: [], skippedSteps: [], evidenceRefs: [], blockers: [] },
     })
     expect(block).toContain(PLANNING_ORCHESTRATION_TRUST_LABEL)

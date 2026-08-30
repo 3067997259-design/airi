@@ -18,6 +18,9 @@ chat:
       next-step: 下一步
       log-reference: 日志引用
   plan:
+    horizon:
+      session: 会话计划
+      long: 长期目标
     status:
       pending: 待开始
       in_progress: 进行中
@@ -27,6 +30,7 @@ chat:
     current-step: 当前步骤
     blockers: 卡在
     evidence: 证据
+    deadline: 截止日期
   approval-card:
     title: 需要批准
     expected-evidence: 预期证据
@@ -70,8 +74,20 @@ send-mode:
   ctrl-enter: Ctrl + Enter
   double-enter: 双击Enter
 skill-shelf:
+  section: 技能
   empty: 还没有审阅通过的技能——她可以用 skill_submit 自己写一个。
   hint: 输入以筛选 · Enter 插入 · Esc 关闭
+command:
+  section: 指令
+  badge: 内置
+  plan:
+    description: 为当前会话创建一个有边界的计划。
+  goal:
+    description: 创建或继续一个长期目标。
+workspace-reference:
+  empty: 工作区中没有匹配的文件。
+  file: 文件
+  directory: 目录
 speech-output:
   mute: 静音语音
   unmute: 恢复语音

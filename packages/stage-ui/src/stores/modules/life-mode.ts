@@ -7,6 +7,7 @@ import { useChatStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 import { useJournalStore } from '../journal'
 import { useMemoryStore } from '../modules/memory'
+import { usePlanStore } from '../plans'
 
 /**
  * Life-mode configuration (LIFE-PLAN §四).
@@ -55,6 +56,39 @@ let port: LifeModePort | undefined
 let disposeTickListener: (() => void) | undefined
 
 export type LifeTickOutcome = 'gated' | 'considered-silent' | 'spoke' | 'noted'
+
+interface LongGoalStallState {
+  progressKey?: string
+  stalledTicks: number
+  reportBlocker: boolean
+}
+
+/**
+ * Advances the evidence-stall counter for one long-term goal step.
+ * Three unchanged task ticks schedule one separate user-facing blocker round.
+ */
+export function advanceLongGoalStallState(input: {
+  previous: LongGoalStallState
+  progressKey: string
+  progressed: boolean
+}): LongGoalStallState {
+  if (input.progressed) {
+    return {
+      progressKey: input.progressKey,
+      stalledTicks: 0,
+      reportBlocker: false,
+    }
+  }
+
+  const stalledTicks = input.previous.progressKey === input.progressKey
+    ? input.previous.stalledTicks + 1
+    : 1
+  return {
+    progressKey: input.progressKey,
+    stalledTicks,
+    reportBlocker: stalledTicks >= 3,
+  }
+}
 
 /**
  * Builds one structured stimulus brief from real journal facts (LIFE-PLAN
@@ -121,6 +155,7 @@ export const useLifeModeStore = defineStore('life-mode', () => {
   const config = ref<LifeModeConfig>({ ...DEFAULT_LIFE_MODE_CONFIG })
   const lastTick = ref<LifeTickPayload>()
   const outcomes = ref<LifeTickOutcome[]>([])
+  const longGoalStall = ref<LongGoalStallState>({ stalledTicks: 0, reportBlocker: false })
 
   function recordOutcome(outcome: LifeTickOutcome): void {
     outcomes.value = [...outcomes.value.slice(-19), outcome]
@@ -151,6 +186,27 @@ export const useLifeModeStore = defineStore('life-mode', () => {
     const newest = [...eventsSnapshot].reverse().find(event =>
       event.type === 'plan/update' || event.type === 'approval/asked')
     return newest ? journalEventToFact(newest) : undefined
+  }
+
+  function longGoalProgressSignature(plan: ReturnType<typeof usePlanStore>['activeLongPlan']): string {
+    if (!plan)
+      return ''
+    return JSON.stringify({
+      currentStepId: plan.state.currentStepId,
+      completedSteps: plan.state.completedSteps,
+      failedSteps: plan.state.failedSteps,
+      skippedSteps: plan.state.skippedSteps,
+      evidenceRefs: plan.state.evidenceRefs,
+    })
+  }
+
+  function buildLongGoalStimulus(plan: NonNullable<ReturnType<typeof usePlanStore>['activeLongPlan']>): string {
+    const currentStep = plan.spec.steps.find(step => step.id === plan.state.currentStepId)
+    const recentEvidence = plan.state.evidenceRefs.at(-1)?.summary ?? 'No verified evidence has been recorded yet.'
+    return buildStimulusBrief({
+      spotlight: `long-term goal "${plan.goal}"; current step: ${currentStep?.intent ?? plan.state.currentStepId ?? 'not selected'}`,
+      recentEvents: [`Latest evidence: ${recentEvidence}`],
+    })
   }
 
   /**
@@ -203,6 +259,53 @@ export const useLifeModeStore = defineStore('life-mode', () => {
       return
     }
 
+    const planStore = usePlanStore()
+    const activeLongPlan = planStore.activeLongPlan
+    const currentLongStep = activeLongPlan?.spec.steps.find(step => step.id === activeLongPlan.state.currentStepId)
+    if (activeLongPlan && currentLongStep) {
+      const stimulus = buildLongGoalStimulus(activeLongPlan)
+      if (longGoalStall.value.reportBlocker) {
+        await useChatStore().send({
+          sessionId,
+          text: `${stimulus}\nBlocker: no new verified evidence was recorded across ${longGoalStall.value.stalledTicks} autonomous task ticks.`,
+          source: 'self-initiative',
+          selfInitiativeMode: 'blocker',
+          tools: [{ name: 'self_speak' }],
+        })
+        longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
+        return
+      }
+
+      const beforeProgress = longGoalProgressSignature(activeLongPlan)
+      const progressKey = `${activeLongPlan.id}:${currentLongStep.id}`
+      await useChatStore().send({
+        sessionId,
+        text: stimulus,
+        source: 'self-initiative',
+        selfInitiativeMode: 'task',
+        planId: activeLongPlan.id,
+        tools: [...currentLongStep.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
+      })
+      await planStore.persistPlan(activeLongPlan.id)
+      const nextPlan = planStore.planViews.find(plan => plan.id === activeLongPlan.id)
+      longGoalStall.value = advanceLongGoalStallState({
+        previous: longGoalStall.value,
+        progressKey,
+        progressed: beforeProgress !== longGoalProgressSignature(nextPlan),
+      })
+      recordOutcome('noted')
+      journalStore.appendActive({
+        type: 'life/tick',
+        tickId: payload.tickId,
+        outcome: 'noted',
+        stimulus: stimulus.slice(0, 300),
+        timestamp: payload.timestamp,
+      })
+      return
+    }
+
+    longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
+
     const snapshot = journalStore.events
     const mood = useMemoryStore().currentMood
     const stimulus = buildStimulusBrief({
@@ -226,6 +329,7 @@ export const useLifeModeStore = defineStore('life-mode', () => {
     config,
     lastTick,
     outcomes,
+    longGoalStall,
     syncConfig,
     setMode,
     setConfigPatch,

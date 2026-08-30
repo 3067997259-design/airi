@@ -1,5 +1,5 @@
 /**
- * The four coding tools (CODING-HARNESS-DESIGN §2.3): read / write / edit /
+ * The coding tools (CODING-HARNESS-DESIGN §2.3): list / read / write / edit /
  * bash, exposed as Code Mode bridge capabilities. `edit` is Hashline-gated;
  * `bash` is statically tiered and approval-checked. All path arguments are
  * contained inside the workspace host.
@@ -50,6 +50,15 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
     ?? (() => false)
 
   return [
+    {
+      name: CODING_TOOL_META.list.name,
+      description: CODING_TOOL_META.list.description,
+      async run(args) {
+        const toolArgs = args as ToolArgs
+        const path = requireString(toolArgs, 0, 'path')
+        return { path, entries: await host.listDir(path) }
+      },
+    },
     {
       name: CODING_TOOL_META.read.name,
       description: CODING_TOOL_META.read.description,

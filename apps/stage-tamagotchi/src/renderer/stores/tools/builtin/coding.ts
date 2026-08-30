@@ -10,7 +10,7 @@ import { z } from 'zod'
 
 import { createCodingHostClient } from '../../../bridges/coding-host'
 
-// -- LLM Tools: read / write / edit (Hashline) / bash --
+// -- LLM Tools: list / read / write / edit (Hashline) / bash --
 // The main process owns the workspace host; every execute crosses the
 // coding-host Eventa bridge (WIRING-BACKLOG §2). `edit` is Hashline-gated:
 // a rejection is "state changed, re-read", never a task failure.
@@ -20,6 +20,15 @@ import { createCodingHostClient } from '../../../bridges/coding-host'
 const readParams = z.object({
   path: z.string().describe(CODING_TOOL_META.read.parameterDescriptions.path),
 })
+
+const listParams = z.object({
+  path: z.string().describe(CODING_TOOL_META.list.parameterDescriptions.path),
+})
+
+async function executeList(input: { path: string }): Promise<string> {
+  const result = await createCodingHostClient().listDir({ path: input.path })
+  return JSON.stringify({ path: input.path, entries: result.entries })
+}
 
 async function executeRead(input: { path: string }): Promise<string> {
   const file = await createCodingHostClient().readFile({ path: input.path })
@@ -125,6 +134,12 @@ async function executeCodeMode(input: { program: string, timeoutMs?: number }): 
 }
 
 const tools: Promise<Tool>[] = [
+  tool({
+    name: CODING_TOOL_META.list.name,
+    description: CODING_TOOL_META.list.description,
+    execute: executeList,
+    parameters: listParams,
+  }),
   tool({
     name: CODING_TOOL_META.read.name,
     description: CODING_TOOL_META.read.description,

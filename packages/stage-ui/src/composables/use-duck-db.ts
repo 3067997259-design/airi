@@ -134,6 +134,18 @@ export function useDuckDb() {
           )
         `)
         await dbInstance.execute(`
+          ALTER TABLE memory_long_term_goals
+          ADD COLUMN IF NOT EXISTS spec_json VARCHAR
+        `)
+        await dbInstance.execute(`
+          ALTER TABLE memory_long_term_goals
+          ADD COLUMN IF NOT EXISTS state_json VARCHAR
+        `)
+        await dbInstance.execute(`
+          ALTER TABLE memory_long_term_goals
+          ADD COLUMN IF NOT EXISTS horizon VARCHAR
+        `)
+        await dbInstance.execute(`
           CREATE TABLE IF NOT EXISTS memory_short_term_ideas (
             id VARCHAR PRIMARY KEY,
             content VARCHAR NOT NULL,

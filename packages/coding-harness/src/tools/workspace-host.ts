@@ -13,12 +13,18 @@
  */
 import { execFile } from 'node:child_process'
 import { realpathSync } from 'node:fs'
-import { mkdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
 export interface WorkspaceReadResult {
   content: string
   mtime?: string
+}
+
+/** One shallow entry returned by the workspace directory boundary. */
+export interface WorkspaceDirectoryEntry {
+  name: string
+  kind: 'file' | 'dir'
 }
 
 export interface CommandResult {
@@ -28,6 +34,7 @@ export interface CommandResult {
 }
 
 export interface WorkspaceHost {
+  listDir: (path: string) => Promise<WorkspaceDirectoryEntry[]>
   readFile: (path: string) => Promise<WorkspaceReadResult>
   writeFile: (path: string, content: string) => Promise<void>
   runCommand: (command: string) => Promise<CommandResult>
@@ -66,6 +73,23 @@ export function createNodeWorkspaceHost(root: string): WorkspaceHost {
   }
 
   return {
+    async listDir(path) {
+      const resolved = await ensureExistingInside(path)
+      const entries = await readdir(resolved, { withFileTypes: true })
+      const classified = await Promise.all(entries.map(async (entry): Promise<WorkspaceDirectoryEntry> => {
+        // Resolve every child before classification. A directory symlink that
+        // leaves the workspace must fail the same containment check as read.
+        const canonicalEntry = resolveInsideWorkspace(canonicalRoot, await realpath(resolve(resolved, entry.name)))
+        const stats = await stat(canonicalEntry)
+        return {
+          name: entry.name,
+          kind: stats.isDirectory() ? 'dir' : 'file',
+        }
+      }))
+      return classified.sort((left, right) => left.kind === right.kind
+        ? left.name.localeCompare(right.name)
+        : left.kind === 'dir' ? -1 : 1)
+    },
     async readFile(path) {
       const resolved = await ensureExistingInside(path)
       const [content, stats] = await Promise.all([

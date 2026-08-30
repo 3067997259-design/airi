@@ -46,6 +46,10 @@ export interface PlanSpecStep {
 
 export interface PlanSpec {
   goal: string
+  /** Execution lifetime selected by `/plan` or `/goal`. */
+  horizon: 'session' | 'long'
+  /** Optional target time for a long goal, as Unix milliseconds. */
+  deadline?: number
   steps: PlanSpecStep[]
 }
 

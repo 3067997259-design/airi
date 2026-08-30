@@ -24,6 +24,8 @@ import { createWebFetchClient } from './web-fetch'
 export function installCodingHostBridge(): void {
   const client = createCodingHostClient()
   installCodingHostClient({
+    listDir: params => client.listDir(params),
+    readFile: params => client.readFile(params),
     listTools: () => client.listTools(),
     runCommand: params => client.runCommand(params),
     runProgram: params => client.runProgram(params),

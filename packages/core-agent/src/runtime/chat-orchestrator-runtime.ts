@@ -55,6 +55,12 @@ function cloneStreamingMessage(message: StreamingAssistantMessage): StreamingAss
  */
 export type ChatSendSource = 'text' | 'voice' | 'self-initiative'
 
+/** A UI command that was intercepted before the user text reached the model. */
+export interface ChatCommandDirective {
+  name: string
+  subject: string
+}
+
 /**
  * Options accepted by the chat orchestrator runtime for one user send.
  */
@@ -75,6 +81,12 @@ export interface ChatOrchestratorSendOptions {
   input?: ChatStreamEventContext['input']
   /** Round origin; defaults to the transport-derived text/voice source. */
   source?: ChatSendSource
+  /** Intercepted command metadata used for send-specific system guidance. */
+  command?: ChatCommandDirective
+  /** Plan that owns this send when a background task targets one plan. */
+  planId?: string
+  /** Selects the self-initiative contract for autonomous task or blocker rounds. */
+  selfInitiativeMode?: 'social' | 'task' | 'blocker'
 }
 
 interface QueuedSend {
@@ -269,7 +281,7 @@ export interface ChatOrchestratorRuntimeDeps {
   /** Returns the currently active provider ID for categorization policy. */
   getActiveProvider: () => string | undefined
   /** Returns optional prompt text appended to the provider system message for this send. */
-  getSystemPromptSupplement?: (model: string, chatProvider: ChatProvider) => string | undefined
+  getSystemPromptSupplement?: (model: string, chatProvider: ChatProvider, options: ChatOrchestratorSendOptions) => string | undefined
   /**
    * Returns the `## Self-Initiative` section for a consideration turn
    * (LIFE-PLAN §二.2). Called only when the send source is
@@ -277,7 +289,7 @@ export interface ChatOrchestratorRuntimeDeps {
    * caller placed in the user message. Omit to run consideration turns
    * without the section (not recommended).
    */
-  getSelfInitiativePrompt?: (stimulus: string) => string | undefined
+  getSelfInitiativePrompt?: (stimulus: string, options: ChatOrchestratorSendOptions) => string | undefined
   /**
    * Returns optional reminder text (e.g. CCv3 post-history instructions) that
    * is appended to the final user message for this send, mirroring the
@@ -299,7 +311,7 @@ export interface ChatOrchestratorRuntimeDeps {
    * the step whitelist, so unrelated tool results can never satisfy a step's
    * verification gate.
    */
-  getActivePlanStep?: () => { planId: string, stepId: string, allowedTools: readonly string[] } | undefined
+  getActivePlanStep?: (options: ChatOrchestratorSendOptions) => { planId: string, stepId: string, allowedTools: readonly string[] } | undefined
   /** Clock used for persisted message timestamps. @default Date.now */
   now?: () => number
   /** Monotonic clock used for elapsed telemetry in milliseconds. @default performance.now */
@@ -553,8 +565,8 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
   }
 
   /** Plan identity stamped onto tool events, or nothing when unlinked. */
-  function planLinkFor(toolName: string): { planId?: string, stepId?: string } {
-    const step = deps.getActivePlanStep?.()
+  function planLinkFor(toolName: string, options: ChatOrchestratorSendOptions): { planId?: string, stepId?: string } {
+    const step = deps.getActivePlanStep?.(options)
     if (!step || !step.allowedTools.includes(toolName))
       return {}
     return { planId: step.planId, stepId: step.stepId }
@@ -926,7 +938,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     const roundId = createId()
     const streamingMessageContext: ChatStreamEventContext = {
       turnId: roundId,
-      message: { role: 'user', content: sendingMessage, createdAt: sendingCreatedAt, id: streamContextMessageId },
+      message: {
+        role: 'user',
+        content: sendingMessage,
+        createdAt: sendingCreatedAt,
+        id: streamContextMessageId,
+        ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
+      },
       contexts: deps.context.snapshot(),
       composedMessage: [],
       input: options.input,
@@ -953,6 +971,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       tool_results: [],
       createdAt: now(),
       id: assistantMessageId,
+      ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
     }
     // Declared at function scope so the catch path can persist whatever tool
     // transcript was captured before a mid-stream failure.
@@ -1023,6 +1042,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         createdAt: sendingCreatedAt,
         id: roundId,
         ...(options.toolReferences?.length ? { tools: options.toolReferences } : {}),
+        ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
       }
       deps.session.appendSessionMessage(sessionId, userMessage)
       appendJournal(sessionId, {
@@ -1121,7 +1141,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               if (ctx.data.toolCall.toolCallId && ctx.data.toolCall.toolName)
                 toolCallNames.set(ctx.data.toolCall.toolCallId, ctx.data.toolCall.toolName)
               const toolName = ctx.data.toolCall.toolName ?? ''
-              const callLink = planLinkFor(toolName)
+              const callLink = planLinkFor(toolName, options)
               appendJournal(sessionId, {
                 type: 'tool/call',
                 toolName,
@@ -1135,7 +1155,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
             if (ctx.data.type === 'tool-call-result') {
               buildingMessage.tool_results.push(ctx.data)
               const resultToolName = toolCallNames.get(ctx.data.id) ?? ctx.data.id
-              const resultLink = planLinkFor(resultToolName)
+              const resultLink = planLinkFor(resultToolName, options)
               appendJournal(sessionId, {
                 type: 'tool/result',
                 toolName: resultToolName,
@@ -1150,14 +1170,14 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       })
 
       const newMessages = buildProviderMessages(sessionId, sessionMessagesForSend)
-      const systemPromptSupplement = deps.getSystemPromptSupplement?.(options.model, options.chatProvider)?.trim()
+      const systemPromptSupplement = deps.getSystemPromptSupplement?.(options.model, options.chatProvider, options)?.trim()
       if (systemPromptSupplement)
         appendSystemSupplement(newMessages, systemPromptSupplement)
 
       // Consideration turns add the self-initiative contract; see the
       // getSelfInitiativePrompt deps docs (LIFE-PLAN §二.2).
       if (options.source === 'self-initiative') {
-        const selfInitiativeSection = deps.getSelfInitiativePrompt?.(sendingMessage)?.trim()
+        const selfInitiativeSection = deps.getSelfInitiativePrompt?.(sendingMessage, options)?.trim()
         if (selfInitiativeSection)
           appendSystemSupplement(newMessages, selfInitiativeSection)
       }

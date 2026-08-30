@@ -9,7 +9,7 @@ const props = defineProps<{
   plan: PlanView
 }>()
 
-const { t } = useI18n()
+const { locale, t } = useI18n()
 const visible = shallowRef(props.plan.status === 'blocked')
 
 watch(() => props.plan.status, (status, previousStatus) => {
@@ -18,6 +18,12 @@ watch(() => props.plan.status, (status, previousStatus) => {
 })
 
 const statusLabel = computed(() => t(`stage.chat.plan.status.${props.plan.status}`))
+const horizonLabel = computed(() => t(`stage.chat.plan.horizon.${props.plan.spec.horizon}`))
+const deadlineLabel = computed(() => {
+  if (props.plan.spec.horizon !== 'long' || props.plan.spec.deadline === undefined)
+    return undefined
+  return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(props.plan.spec.deadline)
+})
 const statusIcon = computed(() => {
   if (props.plan.status === 'blocked')
     return 'i-solar:danger-circle-bold-duotone text-red-500'
@@ -51,6 +57,16 @@ const statusIcon = computed(() => {
       >
         <span :class="['shrink-0', statusIcon]" aria-hidden="true" />
         <span class="min-w-0 flex-1 truncate">{{ plan.goal }}</span>
+        <span
+          :class="[
+            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+            plan.spec.horizon === 'long'
+              ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/70 dark:text-violet-200'
+              : 'bg-sky-100 text-sky-700 dark:bg-sky-900/70 dark:text-sky-200',
+          ]"
+        >
+          {{ horizonLabel }}
+        </span>
         <span class="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
           [{{ statusLabel }} · {{ plan.state.completedSteps.length }}/{{ plan.spec.steps.length }}]
         </span>
@@ -66,6 +82,10 @@ const statusIcon = computed(() => {
       <div v-if="plan.state.currentStepId" class="mb-2">
         <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.current-step') }}:</span>
         {{ plan.state.currentStepId }}
+      </div>
+      <div v-if="deadlineLabel" class="mb-2">
+        <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.deadline') }}:</span>
+        <time :datetime="new Date(plan.spec.deadline!).toISOString()">{{ deadlineLabel }}</time>
       </div>
       <div v-if="plan.state.blockers.length" class="mb-2 text-red-600 dark:text-red-400">
         <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.blockers') }}:</span>

@@ -1,9 +1,10 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { Message } from '@xsai/shared-chat'
 
+import type { JournalEventInput } from '../journal/types'
 import type { ChatHistoryItem, ContextMessage, StreamingAssistantMessage } from '../types/chat'
 import type { StreamEvent, StreamOptions } from '../types/llm'
-import type { ChatMemoryContextItem } from './chat-orchestrator-runtime'
+import type { ChatMemoryContextItem, ChatOrchestratorSendOptions } from './chat-orchestrator-runtime'
 
 import { ContextUpdateStrategy } from '@proj-airi/server-shared/types'
 import { describe, expect, it, vi } from 'vitest'
@@ -14,7 +15,11 @@ const provider = {
   chat: () => ({ baseURL: 'https://example.com/' }),
 } as unknown as ChatProvider
 
-function createHarness(options: { withMemory?: boolean, withCompaction?: boolean } = {}) {
+function createHarness(options: {
+  withMemory?: boolean
+  withCompaction?: boolean
+  planSteps?: Record<string, { planId: string, stepId: string, allowedTools: readonly string[] }>
+} = {}) {
   const sessionMessages: Record<string, ChatHistoryItem[]> = {
     'session-1': [
       {
@@ -34,6 +39,7 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
   const assistantAppended: unknown[] = []
   const userTurns: unknown[] = []
   const assistantTurns: unknown[] = []
+  const journalEvents: JournalEventInput[] = []
   const stateChanges: unknown[] = []
   const contextIngest = vi.fn((message: ContextMessage) => {
     contextSnapshot[message.contextId] = [message]
@@ -56,8 +62,8 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
     await options?.onStreamEvent?.({ type: 'text-delta', text: 'assistant reply' })
     await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
   })
-  const systemPromptSupplement = vi.fn<(model: string, chatProvider: ChatProvider) => string | undefined>(() => undefined)
-  const selfInitiativePrompt = vi.fn<(stimulus: string) => string | undefined>(() => undefined)
+  const systemPromptSupplement = vi.fn<(model: string, chatProvider: ChatProvider, options: ChatOrchestratorSendOptions) => string | undefined>(() => undefined)
+  const selfInitiativePrompt = vi.fn<(stimulus: string, options: ChatOrchestratorSendOptions) => string | undefined>(() => undefined)
   const postHistoryInstruction = vi.fn<() => string | undefined>(() => undefined)
   const ids = ['stream-context', 'assistant-id', 'user-id', 'fallback-id']
   let nowValue = new Date(2026, 3, 25, 18, 47).getTime()
@@ -104,6 +110,13 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
     getSystemPromptSupplement: (...args) => systemPromptSupplement(...args),
     getSelfInitiativePrompt: (...args) => selfInitiativePrompt(...args),
     getPostHistoryInstruction: () => postHistoryInstruction(),
+    journal: {
+      startSession: () => {},
+      append: (_sessionId, event) => {
+        journalEvents.push(event)
+      },
+    },
+    getActivePlanStep: sendOptions => options.planSteps?.[sendOptions.planId ?? ''],
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
     now: () => nowValue,
@@ -141,6 +154,7 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
       },
     },
     lifecycleRecords,
+    journalEvents,
     now: {
       set: (next: number) => {
         nowValue = next
@@ -574,7 +588,10 @@ describe('createChatOrchestratorRuntime', () => {
       chatProvider: provider,
     })
 
-    expect(harness.systemPromptSupplement).toHaveBeenCalledWith('gpt-test', provider)
+    expect(harness.systemPromptSupplement).toHaveBeenCalledWith('gpt-test', provider, expect.objectContaining({
+      model: 'gpt-test',
+      chatProvider: provider,
+    }))
     const messages = harness.stream.mock.calls[0]?.[2]
     expect(messages?.[0]).toMatchObject({
       role: 'system',
@@ -592,7 +609,7 @@ describe('createChatOrchestratorRuntime', () => {
       source: 'self-initiative',
     })
 
-    expect(harness.selfInitiativePrompt).toHaveBeenCalledWith('stimulus brief here')
+    expect(harness.selfInitiativePrompt).toHaveBeenCalledWith('stimulus brief here', expect.objectContaining({ source: 'self-initiative' }))
     const messages = harness.stream.mock.calls[0]?.[2]
     expect(messages?.[0]).toMatchObject({
       role: 'system',
@@ -600,6 +617,66 @@ describe('createChatOrchestratorRuntime', () => {
     })
     expect(harness.telemetry.messageSendStarted.at(-1)).toMatchObject({ source: 'self-initiative' })
     expect(harness.userAppended.at(-1)).toMatchObject({ source: 'self-initiative' })
+  })
+
+  it('keeps autonomous task rounds in provider history but hides their chat bubbles', async () => {
+    const harness = createHarness()
+    harness.selfInitiativePrompt.mockReturnValue('## Self-Initiative (task)')
+
+    await harness.runtime.ingest('work the current long-term goal step', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      source: 'self-initiative',
+      selfInitiativeMode: 'task',
+      planId: 'goal-1',
+    })
+
+    expect(harness.selfInitiativePrompt).toHaveBeenCalledWith(
+      'work the current long-term goal step',
+      expect.objectContaining({ planId: 'goal-1', selfInitiativeMode: 'task' }),
+    )
+    const taskMessages = harness.sessionMessages['session-1']?.slice(1)
+    expect(taskMessages).toHaveLength(2)
+    expect(taskMessages?.every(message => message.hiddenFromHistory)).toBe(true)
+  })
+
+  it('links task tool evidence to the plan selected by the send', async () => {
+    const harness = createHarness({
+      planSteps: {
+        'goal-1': { planId: 'goal-1', stepId: 'inspect', allowedTools: ['read'] },
+        'goal-2': { planId: 'goal-2', stepId: 'write', allowedTools: ['write'] },
+      },
+    })
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'call-read',
+        toolName: 'read',
+        args: '{"path":"README.md"}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({
+        type: 'tool-result',
+        toolCallId: 'call-read',
+        result: 'workspace contents',
+      } as StreamEvent)
+    })
+
+    await harness.runtime.ingest('inspect the workspace', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      source: 'self-initiative',
+      selfInitiativeMode: 'task',
+      planId: 'goal-1',
+    })
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      toolName: 'read',
+      planId: 'goal-1',
+      stepId: 'inspect',
+      ok: true,
+    }))
+    expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({ planId: 'goal-2' }))
   })
 
   it('skips the self-initiative section and hook for ordinary sends', async () => {

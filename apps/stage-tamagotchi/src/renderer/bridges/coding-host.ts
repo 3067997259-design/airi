@@ -6,6 +6,8 @@ import type {
   CodingCodeRunResult,
   CodingExecRunParams,
   CodingExecRunResult,
+  CodingFsListParams,
+  CodingFsListResult,
   CodingFsReadParams,
   CodingFsReadResult,
   CodingFsWriteParams,
@@ -29,6 +31,7 @@ import {
   codingApprovalRequested,
   codingHostCodeRun,
   codingHostExecRun,
+  codingHostFsList,
   codingHostFsRead,
   codingHostFsWrite,
   codingHostListTools,
@@ -36,6 +39,7 @@ import {
 } from '../../shared/eventa'
 
 export interface CodingHostClient {
+  listDir: (params: CodingFsListParams) => Promise<CodingFsListResult>
   readFile: (params: CodingFsReadParams) => Promise<CodingFsReadResult>
   writeFile: (params: CodingFsWriteParams) => Promise<CodingFsWriteResult>
   runCommand: (params: CodingExecRunParams) => Promise<CodingExecRunResult>
@@ -59,6 +63,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const context = getElectronEventaContext()
 
   const readFile = defineInvoke(context, codingHostFsRead)
+  const listDir = defineInvoke(context, codingHostFsList)
   const writeFile = defineInvoke(context, codingHostFsWrite)
   const runCommand = defineInvoke(context, codingHostExecRun)
   const runProgram = defineInvoke(context, codingHostCodeRun)
@@ -66,6 +71,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const setApprovalMode = defineInvoke(context, codingHostSetApprovalMode)
 
   return {
+    listDir,
     readFile,
     writeFile,
     runCommand,
