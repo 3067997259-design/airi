@@ -540,6 +540,48 @@ export const useChatStore = defineStore('chat', () => {
     ownedActiveTurnSpan = undefined
   }
 
+  // Plan continuation (COMMAND-PLAN §3.3): a turn that leaves a runnable
+  // plan step is followed by up to N automatic tool rounds, so one user
+  // message can carry a plan to completion instead of advancing one step.
+  // User-originated sends reset the budget; blocked/approval steps never
+  // schedule.
+  const MAX_PLAN_CONTINUATIONS_PER_SEND = 2
+  const PLAN_CONTINUATION_COOLDOWN_MS = 600
+  const planContinuations = new Map<string, number>()
+
+  function runnablePlanStep() {
+    const plan = planStore.activePlan
+    if (!plan)
+      return undefined
+    const stepId = plan.state.currentStepId
+    if (!stepId || plan.state.completedSteps.includes(stepId) || plan.state.failedSteps.includes(stepId))
+      return undefined
+    const step = plan.spec.steps.find(candidate => candidate.id === stepId)
+    if (!step || step.approvalRequired || step.allowedTools.length === 0)
+      return undefined
+    return step
+  }
+
+  function schedulePlanContinuation(sessionId: string) {
+    const step = runnablePlanStep()
+    if (!step) {
+      planContinuations.delete(sessionId)
+      return
+    }
+    const count = planContinuations.get(sessionId) ?? 0
+    if (count >= MAX_PLAN_CONTINUATIONS_PER_SEND)
+      return
+    planContinuations.set(sessionId, count + 1)
+    setTimeout(() => {
+      void send({
+        sessionId,
+        text: `Plan continuation (${count + 1}/${MAX_PLAN_CONTINUATIONS_PER_SEND}): step "${step.id}" (${step.intent}) is still runnable. Focus it and execute it now with its allowed tools; do not stop until it completes or blocks.`,
+        source: 'self-initiative',
+        tools: [...step.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
+      }).catch(() => {})
+    }, PLAN_CONTINUATION_COOLDOWN_MS)
+  }
+
   const runtime = createChatOrchestratorRuntime({
     session: {
       ensureSession: sessionId => chatSession.ensureSession(sessionId),
@@ -598,7 +640,7 @@ export const useChatStore = defineStore('chat', () => {
     getActivePlanStep: (options) => {
       const plan = options.planId
         ? planStore.planViews.find(candidate => candidate.id === options.planId)
-        : planStore.activePlan
+        : planStore.scopedActivePlans(activeSessionId.value).at(-1)
       const stepId = plan?.state.currentStepId
       if (!plan || !stepId)
         return undefined
@@ -629,7 +671,8 @@ export const useChatStore = defineStore('chat', () => {
       if (!containsStageProtocol(cardStore.systemPrompt))
         sections.push(buildStageProtocolSection(t))
       sections.push(buildAttentionModeSection(resolveAttentionMode(taskStore.tasks, attentionStore.focusedModeEnabled)))
-      const planProjection = planStore.promptProjection(options.planId)
+      const scopedPlan = planStore.scopedActivePlans(activeSessionId.value).at(-1)
+      const planProjection = planStore.promptProjection(options.planId ?? scopedPlan?.id)
       if (planProjection)
         sections.push(planProjection)
       if (options.command?.name === 'plan' || options.command?.name === 'goal')
@@ -717,6 +760,8 @@ export const useChatStore = defineStore('chat', () => {
       }, extractMemoryTurn)
 
       journalSelfRoundOutcome(userMessageId, sessionMessages, userText)
+
+      schedulePlanContinuation(sessionId)
     },
     onAssistantTurnReady: ({ messageText, sessionMessages }) => {
       const artistry = cardStore.activeCard?.extensions?.airi?.modules?.artistry
@@ -910,6 +955,8 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Sends one serializable chat request through the elected leader. */
   async function send(payload: ChatSendPayload): Promise<ChatSendResult> {
+    if (payload.source !== 'self-initiative')
+      planContinuations.delete(payload.sessionId)
     try {
       return await executeSend(payload)
     }

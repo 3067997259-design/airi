@@ -121,6 +121,8 @@ export interface PersistedPlanRecord {
   spec: PlanSpec
   state: PlanState
   status: PlanStepStatus
+  /** Origin chat session of a session-horizon plan; long goals are global. */
+  sessionId?: string
   createdAt: number
   updatedAt: number
 }
@@ -443,12 +445,13 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
       INSERT INTO memory_long_term_goals (
         id, title, description, priority, progress, deadline, status,
         parent_goal_id, category, created_at, updated_at, deleted_at,
-        spec_json, state_json, horizon
+        spec_json, state_json, horizon, session_id
       ) VALUES (
         ${quote(plan.id)}, ${quote(plan.spec.goal)}, ${quote(currentIntent)}, 5, ${progress},
         ${plan.spec.deadline ?? 'NULL'}, ${quote(plan.status)},
         NULL, 'plan', ${plan.createdAt}, ${plan.updatedAt}, NULL,
-        ${jsonLiteral(plan.spec)}, ${jsonLiteral(plan.state)}, ${quote(plan.spec.horizon)}
+        ${jsonLiteral(plan.spec)}, ${jsonLiteral(plan.state)}, ${quote(plan.spec.horizon)},
+        ${plan.sessionId ? quote(plan.sessionId) : 'NULL'}
       )
       ON CONFLICT (id) DO UPDATE SET
         title = excluded.title,
@@ -460,13 +463,14 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
         deleted_at = NULL,
         spec_json = excluded.spec_json,
         state_json = excluded.state_json,
-        horizon = excluded.horizon
+        horizon = excluded.horizon,
+        session_id = excluded.session_id
     `)
   }
 
   async function loadPlans(): Promise<PersistedPlanRecord[]> {
     const result = await db.execute(`
-      SELECT id, spec_json, state_json, status, created_at, updated_at, deadline
+      SELECT id, spec_json, state_json, status, created_at, updated_at, deadline, session_id
       FROM memory_long_term_goals
       WHERE category = 'plan' AND deleted_at IS NULL
       ORDER BY updated_at ASC
@@ -486,6 +490,7 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
         spec,
         state: stateValue,
         status: PLAN_STATUSES.has(statusValue as PlanStepStatus) ? statusValue as PlanStepStatus : 'pending',
+        sessionId: stringValue(row.session_id) || undefined,
         createdAt: numberValue(row.created_at),
         updatedAt: numberValue(row.updated_at),
       }]

@@ -5,6 +5,7 @@ import type { CodingApprovalDecisionPayload, PlanApprovalAskPayload } from '../.
 
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
+import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
@@ -63,6 +64,21 @@ export function installPlanApprovalInvoker(next: PlanApprovalInvoker | undefined
   planApprovalInvoker = next
 }
 
+/** Overridable chat-session origin; tests install a fixed session id. */
+type PlanSessionProvider = () => string | undefined
+let planSessionProvider: PlanSessionProvider | undefined
+
+/** Installs the chat-session source; pass undefined to restore the session store. */
+export function installPlanSessionProvider(next: PlanSessionProvider | undefined): void {
+  planSessionProvider = next
+}
+
+function currentPlanSession(): string | undefined {
+  if (planSessionProvider)
+    return planSessionProvider()
+  return useChatSessionStore().activeSessionId
+}
+
 async function askPlanApproval(payload: PlanApprovalAskPayload): Promise<CodingApprovalDecisionPayload> {
   if (planApprovalInvoker)
     return planApprovalInvoker(payload)
@@ -89,6 +105,7 @@ export async function executePlanUpdate(input: {
   rationale?: string
 }): Promise<string> {
   const planStore = usePlanStore()
+  const currentSession = currentPlanSession()
 
   if (input.action === 'start') {
     if (!input.goal?.trim() || !input.steps?.length)
@@ -122,11 +139,11 @@ export async function executePlanUpdate(input: {
         approvalRequired: step.approvalRequired,
       })),
     }
-    const planId = await planStore.start(spec)
+    const planId = await planStore.start(spec, undefined, { sessionId: currentSession })
     return `Plan ${planId} created with ${spec.steps.length} step(s). Focus: "${spec.steps[0].id}". Tool results only count as evidence for the focused step's allowed tools. Keep executing steps within this turn until blocked or finished.`
   }
 
-  const plan = planStore.activeSessionPlan ?? planStore.activeLongPlan
+  const plan = planStore.scopedActivePlans(currentSession).at(-1)
 
   if (input.action === 'focus') {
     if (!plan)
@@ -158,14 +175,14 @@ export async function executePlanUpdate(input: {
 
   if (input.action === 'complete') {
     if (!plan)
-      return 'No active plan. Use action "start" first.'
+      return 'No active plan in this session. Use action "start" first.'
     if (!input.stepId || !plan.spec.steps.some(step => step.id === input.stepId))
       return `Unknown stepId. Plan steps: ${plan.spec.steps.map(step => step.id).join(', ')}.`
     return await planStore.completeStep(plan.id, input.stepId, input.rationale)
   }
 
   if (!plan)
-    return 'No active plan to cancel.'
+    return 'No active plan in this session to cancel.'
   const stepId = plan.state.currentStepId ?? plan.spec.steps[0]?.id
   if (stepId)
     await planStore.updateStep(plan.id, stepId, 'failed', 'cancelled by the model')

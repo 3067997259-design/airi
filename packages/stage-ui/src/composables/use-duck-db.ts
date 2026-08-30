@@ -120,6 +120,7 @@ export function useDuckDb() {
         await dbInstance.execute(`
           CREATE TABLE IF NOT EXISTS memory_long_term_goals (
             id VARCHAR PRIMARY KEY,
+            session_id VARCHAR,
             title VARCHAR NOT NULL,
             description VARCHAR NOT NULL,
             priority INTEGER NOT NULL DEFAULT 5,

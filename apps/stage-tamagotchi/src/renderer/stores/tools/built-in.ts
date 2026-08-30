@@ -22,6 +22,7 @@ import { codingTools } from './builtin/coding'
 import { imageJournalTools } from './builtin/image-journal'
 import { planTools } from './builtin/plan'
 import { skillSubmitTools } from './builtin/skill-submit'
+import { userAskTools } from './builtin/user-ask'
 import { weatherTools } from './builtin/weather'
 import { widgetsTools } from './builtin/widgets'
 
@@ -201,6 +202,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       }),
       planTools(),
       skillSubmitTools(),
+      userAskTools(),
       Promise.resolve(selfTools),
     ])).flat()
 

@@ -38,6 +38,11 @@ chat:
     approve: 批准
     reject: 拒绝
     hand-over: 交给我来做
+  question-card:
+    title: 她有一个问题
+    dismiss: 关闭（她会按自己的假设继续）
+    placeholder: 输入你的回答…
+    send: 发送
   review-card:
     title: 技能等待你审阅
     content-hash: 内容哈希

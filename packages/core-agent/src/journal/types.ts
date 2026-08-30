@@ -22,6 +22,8 @@ export const JOURNAL_EVENT_TYPES = [
   'approval/decided',
   'review/asked',
   'review/decided',
+  'user/asked',
+  'user/answered',
   'fork/point',
   'archived/pointer',
   'appearance/changed',
@@ -148,6 +150,22 @@ export interface ApprovalDecidedEvent {
   decision: 'allowed-once' | 'rejected' | 'cancelled'
 }
 
+export interface UserAskedEvent {
+  type: 'user/asked'
+  seq: number
+  requestId: string
+  question: string
+  choices?: string[]
+}
+
+export interface UserAnsweredEvent {
+  type: 'user/answered'
+  seq: number
+  requestId: string
+  answer: string
+  channel?: 'choice' | 'text' | 'dismissed'
+}
+
 export interface ReviewAskedEvent {
   type: 'review/asked'
   seq: number
@@ -233,6 +251,8 @@ export type JournalEvent
     | ApprovalDecidedEvent
     | ReviewAskedEvent
     | ReviewDecidedEvent
+    | UserAskedEvent
+    | UserAnsweredEvent
     | ForkPointEvent
     | ArchivePointerEvent
     | AppearanceChangedEvent

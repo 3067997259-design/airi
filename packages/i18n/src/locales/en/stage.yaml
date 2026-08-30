@@ -38,6 +38,11 @@ chat:
     approve: Approve
     reject: Reject
     hand-over: Let me take over
+  question-card:
+    title: She has a question
+    dismiss: Dismiss (she will continue on her own assumption)
+    placeholder: Type your answer…
+    send: Send
   review-card:
     title: Skill awaiting your review
     content-hash: Content hash

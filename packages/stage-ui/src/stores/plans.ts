@@ -15,6 +15,8 @@ export interface PlanView {
   spec: PlanSpec
   state: PlanState
   status: PlanStepStatus
+  /** Origin chat session of a session-horizon plan; long goals are global. */
+  sessionId?: string
   updatedAt: number
 }
 
@@ -22,6 +24,8 @@ interface RuntimePlanRecord {
   id: string
   spec: PlanSpec
   stateSnapshot: PlanState
+  /** Origin chat session of a session-horizon plan; long goals are global. */
+  sessionId?: string
   createdAt: number
   updatedAt: number
 }
@@ -178,6 +182,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
         spec: plan.spec,
         state,
         status: 'pending' as PlanStepStatus,
+        ...(plan.sessionId ? { sessionId: plan.sessionId } : {}),
         updatedAt: plan.updatedAt,
       }
       view.status = latestPlanStatus(view)
@@ -188,6 +193,17 @@ export const usePlanStore = defineStore('runtime-plans', () => {
   const activeSessionPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'session').at(-1))
   const activeLongPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'long').at(-1))
   const activePlan = computed(() => activeSessionPlan.value ?? activeLongPlan.value)
+
+  /**
+   * Active plans visible from one chat session: long goals are global,
+   * session plans belong to the session that created them.
+   */
+  function scopedActivePlans(sessionId?: string) {
+    return activePlans.value.filter(plan =>
+      plan.spec.horizon === 'long'
+      || !plan.sessionId
+      || plan.sessionId === sessionId)
+  }
 
   async function initialize(): Promise<void> {
     if (initialized.value)
@@ -216,6 +232,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
         id: plan.id,
         spec: clonePlanSpec(plan.spec),
         stateSnapshot: clonePlanState(plan.state),
+        ...(plan.sessionId ? { sessionId: plan.sessionId } : {}),
         createdAt: plan.createdAt,
         updatedAt: plan.updatedAt,
       } satisfies RuntimePlanRecord]))
@@ -251,12 +268,13 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       spec: clonePlanSpec(view.spec),
       state: stateSnapshot,
       status: view.status,
+      ...(record.sessionId ? { sessionId: record.sessionId } : {}),
       createdAt: record.createdAt,
       updatedAt,
     })
   }
 
-  async function start(spec: PlanSpec, requestedId?: string): Promise<string> {
+  async function start(spec: PlanSpec, requestedId?: string, options?: { sessionId?: string }): Promise<string> {
     await initialize()
     const rolling = spec.horizon === 'long' ? activeLongPlan.value : undefined
     const id = requestedId ?? rolling?.id ?? createPlanId()
@@ -277,6 +295,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
         id,
         spec: clonePlanSpec(spec),
         stateSnapshot: emptyPlanState(),
+        ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
         createdAt: now,
         updatedAt: now,
       }]
@@ -395,6 +414,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     activeSessionPlan,
     activeLongPlan,
     activePlan,
+    scopedActivePlans,
     initialize,
     persistPlan,
     start,

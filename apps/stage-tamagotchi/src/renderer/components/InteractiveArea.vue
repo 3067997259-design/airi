@@ -4,7 +4,7 @@ import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
-import { ChatHistory, JournalPreviewModal } from '@proj-airi/stage-ui/components'
+import { ChatHistory, ChatQuestionCard, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
@@ -81,7 +81,14 @@ const { streamingMessage } = storeToRefs(chatStream)
 const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(chatStore)
 const { reactions } = storeToRefs(useCharacterStore())
 const { tasks } = storeToRefs(useTaskStore())
-const { planViews } = storeToRefs(planStore)
+const { planViews: allPlanViews } = storeToRefs(planStore)
+const planViews = computed(() => {
+  const current = activeSessionId.value
+  return allPlanViews.value.filter(plan =>
+    plan.spec.horizon === 'long'
+    || !plan.sessionId
+    || plan.sessionId === current)
+})
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { openImagePreview } = journalPreviewStore
 const isComposing = ref(false)
@@ -534,6 +541,7 @@ async function handleCleanupMessages() {
         @change="handleFileSelect"
       >
     </div>
+    <ChatQuestionCard />
     <div class="relative w-full">
       <TriggerPanel
         v-if="isSlashPanelOpen"

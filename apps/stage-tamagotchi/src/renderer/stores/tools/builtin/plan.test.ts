@@ -3,7 +3,7 @@ import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { executePlanUpdate, installPlanApprovalInvoker } from './plan'
+import { executePlanUpdate, installPlanApprovalInvoker, installPlanSessionProvider } from './plan'
 
 function codingStep(id: string, intent: string) {
   return {
@@ -21,6 +21,7 @@ describe('plan_update executor', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     installPlanApprovalInvoker(undefined)
+    installPlanSessionProvider(() => 'test-session')
   })
 
   it('starts a plan and reports the focused step', async () => {
