@@ -13,7 +13,7 @@
  */
 import { execFile } from 'node:child_process'
 import { realpathSync } from 'node:fs'
-import { readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
+import { mkdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
 export interface WorkspaceReadResult {
@@ -78,6 +78,11 @@ export function createNodeWorkspaceHost(root: string): WorkspaceHost {
       }
     },
     async writeFile(path, content) {
+      // Create the parent chain first: the realpath canonicalization below
+      // cannot resolve paths whose intermediate directories do not exist yet
+      // (e.g. skills/<id>/source.mjs on first submission).
+      const lexicalPath = resolveInsideWorkspace(canonicalRoot, path)
+      await mkdir(dirname(lexicalPath), { recursive: true })
       const resolved = await ensureWritableInside(path)
       await writeFileAsync(resolved, content, 'utf8')
     },

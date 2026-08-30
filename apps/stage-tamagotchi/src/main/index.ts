@@ -26,6 +26,7 @@ import { installSingleInstanceGuard } from './app/single-instance'
 import { createArtistryConfig } from './configs/artistry'
 import { createGlobalAppConfig } from './configs/global'
 import { emitAppBeforeQuit, emitAppReady, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
+import { createEventaWindowBroadcast } from './libs/electron/eventa-window-broadcast'
 import { setElectronMainDirname } from './libs/electron/location'
 import { createI18n } from './libs/i18n'
 import { setupAppleSpeechTranscriptionService } from './services/airi/apple-speech-transcription'
@@ -33,9 +34,11 @@ import { setupServerChannel } from './services/airi/channel-server'
 import { setupCodingHost } from './services/airi/coding-host'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupBuiltInServer } from './services/airi/http-server'
+import { setupLifeMode } from './services/airi/life-mode'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupMemoryHost } from './services/airi/memory-host'
 import { setupExtensionHost } from './services/airi/plugins'
+import { setupWebFetch } from './services/airi/web-fetch'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
 import { resolveAutoUpdaterEnabled, setupAutoUpdater } from './services/electron/auto-updater'
 import { setupGlobalShortcutService } from './services/electron/global-shortcut'
@@ -235,10 +238,14 @@ app.whenReady().then(async () => {
       }),
   })
 
+  // One broadcast hub for main-initiated renderer events (approval cards,
+  // life-mode ticks): the plain ipc contexts only echo to a request's sender.
+  const eventaBroadcast = createEventaWindowBroadcast()
+
   const codingHost = injeca.provide('modules:coding-host', {
     build: async () => {
       const { context } = createContext(ipcMain)
-      await setupCodingHost(context)
+      await setupCodingHost(context, { broadcast: eventaBroadcast })
     },
   })
 
@@ -249,8 +256,22 @@ app.whenReady().then(async () => {
     },
   })
 
+  const webFetch = injeca.provide('modules:web-fetch', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupWebFetch(context)
+    },
+  })
+
+  const lifeMode = injeca.provide('modules:life-mode', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupLifeMode(context, { broadcast: eventaBroadcast }, app.getPath('userData'))
+    },
+  })
+
   const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, memoryHost },
+    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, memoryHost, webFetch, lifeMode },
     build: async ({ dependsOn }) => setupMainWindow({
       ...dependsOn,
       onWindowCreated: (window) => {

@@ -116,6 +116,32 @@ function savePersistedDefaults(modelId: string, defaults: Record<string, number>
 // Store
 // ---------------------------------------------------------------------------
 
+/**
+ * One expression mutation that should reach the journal (LIFE-PLAN M2).
+ * Applied at the store's write choke points, so LLM tools and the settings
+ * panel both narrate their visual changes.
+ */
+export interface AppearanceExpressionChange {
+  kind: 'expression' | 'expression-reset'
+  name: string
+  value?: number
+}
+
+let appearanceJournalPort: ((change: AppearanceExpressionChange) => void) | undefined
+
+export function installExpressionJournalPort(next: ((change: AppearanceExpressionChange) => void) | undefined): void {
+  appearanceJournalPort = next
+}
+
+function notifyAppearanceJournal(change: AppearanceExpressionChange): void {
+  try {
+    appearanceJournalPort?.(change)
+  }
+  catch {
+    // Journaling is observability; a sink failure must not break the change.
+  }
+}
+
 export const useExpressionStore = defineStore('live2d-expressions', () => {
   // ---- state ---------------------------------------------------------------
 
@@ -341,6 +367,10 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
       }
     }
     writeValues(next)
+    // One journal beat per commit. A timed auto-reset (duration expiry) is
+    // motion-driven, not a choice, so it deliberately stays unjournaled.
+    for (const update of updates)
+      notifyAppearanceJournal({ kind: 'expression', name: update.name, value: update.value })
   }
 
   /**
@@ -464,6 +494,7 @@ export const useExpressionStore = defineStore('live2d-expressions', () => {
   function resetAll(): ExpressionToolResult {
     clearAllTimers()
     writeValues(Object.fromEntries([...catalog.value].map(([name, entry]) => [name, entry.modelDefault])))
+    notifyAppearanceJournal({ kind: 'expression-reset', name: '*' })
     return { success: true, state: allNames().map(stateOf) }
   }
 

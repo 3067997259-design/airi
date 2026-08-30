@@ -19,6 +19,7 @@ import ChatErrorItem from './error-item.vue'
 import ChatHistoryMessageFrame from './history-message-frame.vue'
 import ChatPlanCard from './plan-card.vue'
 import ChatReactionLine from './reaction-line.vue'
+import ChatReviewCard from './review-card.vue'
 import ChatTaskCard from './task-card.vue'
 import ChatUserItem from './user-item.vue'
 
@@ -312,6 +313,7 @@ function emitToolCallRerun(
     </Virtualizer>
 
     <ChatApprovalCard />
+    <ChatReviewCard />
   </div>
 </template>
 

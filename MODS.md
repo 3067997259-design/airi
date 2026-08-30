@@ -369,3 +369,124 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   两份已审定的前端设计计划已落档：`LIFE-PLAN.md`（Neuro 式自主节拍——考量回合 + 生命模式矩阵 + mirror 工具 + 外观 journal 化）
   与 `CAPABILITY-PLAN.md`（能力扩展——fetch/SSRF、审批模式三档、dsh 插件兼容通道、自造工具闭环 skill_submit/沙箱自测/审阅通知）。
   注意 M3（babysitter）在 LIFE-PLAN 里与自主节拍 tick 合流，不再独立。
+
+## 第三轮实施（2026-08-29）：CAPABILITY-PLAN + LIFE-PLAN 落地
+
+- **fetch 工具**：`packages/stage-ui/src/tools/fetch.ts` + `fetch-ssrf.ts`（纯函数
+  SSRF 守卫：http(s) 白名单、内网/环回/IP 整数与十六进制形式、DNS 解析变体在
+  主进程 `web-fetch` 服务里）。桌面端经 `installFetchTextPort` 走主进程
+  `eventa:invoke:electron:web-fetch:fetch`——node:dns 解析 + 手动重定向逐跳复检；
+  web 端回落浏览器启发式（初始 URL 守卫）。大小上限 512KB 原始 / 8K 字符默认，
+  抓取内容一律 `<untrusted_content>` 标注来源。tool-resolver 无条件挂载
+  fetch，配套 `FETCH_TOOLSET_PROMPT`（chat store 预实例化 module store）。
+- **bash 审批三档**：`require`（中危+高危都卡）/ `substitute`（仅高危，原默认）/
+  `full`（全部放行）。主进程 coding-host 的 `codingHostSetApprovalMode` 切策略
+  （coding-tools 的 `mediumBashApprovalRequired` 支持函数形式按次求值）；
+  renderer 侧 `useCodingToolsStore.approvalMode`（localStorage 持久化 +
+  refreshStatus 时回推主进程）。UI：设置 → 编码 → Bash 审批三键 +
+  InteractiveArea 输入区盾牌循环按钮（默认 substitute 高亮不变色）。
+- **自造工具闭环三齿**：
+  1. `skill_submit`（tamagotchi builtin）：`analyzeSkillSource`（skill-forge 新增
+     确定性静态分析，findings 首次由规则而非模型自报）+ `validateDeclaration`
+     诚实声明门；落盘 `workspace/skills/<id>/{source.mjs,selftest.mjs,meta.json}`；
+     自测失败不提交、声明确认与源码矛盾直接拒；风险分层后进 probation。
+  2. 沙箱自测：selftest 程序经 code-mode 沙箱（`codingHostCodeRun`）实跑，
+     失败返回 trace 日志给模型重写。
+  3. 审阅通知：`stores/reviews.ts` 普通单例（非 pinia，卡片渲染不依赖活跃
+     pinia）+ skills store 在 review 事件点 `ingestReviewEvent` 喂数据；
+     聊天时间线新增 `ReviewCard`（镜像 approval-card，蓝系）。
+- **LIFE M1 mirror**：`stage-ui-live2d/src/tools/mirror-tools.ts`——激活表情 +
+    持有的装扮参数（group 显示名）+ 心情（mood 走端口注入，live2d 包不依赖
+    stage-ui），返回自然语言快照 + 精确 JSON；注册进 built-in（appearance 组）。
+- **LIFE M2 外观 journal 化**：core-agent `JOURNAL_EVENT_TYPES` 新增
+  `appearance/changed`（含 `life/tick`）；custom-parameters / expression-store
+  的变更写点在 `installAppearanceJournalPort`/`installExpressionJournalPort`
+  注入后向 journal 追加——LLM 工具与设置面板都叙事化。
+- **LIFE M3 考量回合 + 生命模式**：
+  - core-agent：`ChatSendSource = 'text' | 'voice' | 'self-initiative'`、
+    `ChatOrchestratorSendOptions.source`、correlation 钩子联合类型同步、
+    `getSelfInitiativePrompt` 系统补注钩子（仅自主轮注入 `## Self-Initiative` 节）。
+  - stage-ui：`ChatSendPayload.source`；自主轮只挂 self_speak/self_note 两工具；
+    `## Self-Initiative` 节含集中模式合成（focused 只报工作不社交）；
+    `tools/life/self-tools.ts`；chat store 在回合完成后按工具调用审计
+    `life/tick`（spoke/noted/considered-silent——沉默也入册）。
+  - 生命周期：主进程 `life-mode` 服务（`<userData>/life-mode.json` 持久化，
+    同 memory-host 模式）+ 纯函数门控 `evaluateLifeTickGate`
+    （mode→静默时段→每日预算→冷却，逐项可测）→ `lifeTick` 事件 → leader
+    renderer `useLifeModeStore`（busy 互斥门 + 刺激物构建：真实 journal 事实）→
+    `chatStore.send({ source: 'self-initiative' })`。
+  - 三档：off（=现状）/ respond（照常入册不开口）/ autonomous（考察回合启用）；
+    设置页 `settings/modules/life-mode.vue` + modules 列表入口 + i18n。
+  - 注册联动：built-in tools store watch 生命模式，≠off 才注册 self 工具。
+
+### 验收记录（第三轮）
+
+- typecheck 全过：stage-ui / stage-tamagotchi / stage-ui-live2d / core-agent /
+  coding-harness / skill-forge / i18n。
+- lint 全过（changed 文件 52 个，eslint --fix + 手工修 7 处残留）。
+- vitest 定向回归全绿：fetch 13、mirror 5、skill-forge 静态分析 14、
+  orchestrator 31（含自主轮注入/普通轮跳过）、coding-tools 11、skills 11、
+  history browser 11、journal 3、life-mode brief 3、skill-submit 8、
+  life-mode gates 9、built-in 3。
+- tamagotchi 生产构建：electron-vite 主进程/preload/renderer 输出 + typecheck
+  全绿（web-fetch 与 life-mode 主服务打包路径验证）。
+- **遗留/后置**：dsh 内容插件适配器（样本插件解剖需先拍板，GitHub 直连限制）；
+  @文件引用与 skill 上拉栏 UI；M4 阶梯（L0 观测→L1 闯入记忆分享→L2 作息在场→
+  L3 世界泡，与 babysitter 合流）；生命周期预算/冷却的 UI 提示位；
+  skills 队列持久化仍为内存态（产物已落盘，队列状态跨重启靠重提）。
+
+## 第三轮验收（含 agent-browser 真机走查，2026-08-30）
+
+真机环境：build 后的 electron + CDP 9250 + agent-browser（raw CDP eval 直连
+leader 渲染进程）。API key 解禁、余额充足。**真机走查逼出 7 个仅靠单测发现不了的 bug**：
+
+1. **主进程打包 fetch 工具外部化**：electron.vite externalizeDeps.exclude
+   只匹配整包名，`@proj-airi/stage-ui/tools/fetch` 子路径条目不生效 → 启动即
+   `ERR_MODULE_NOT_FOUND`。改为整包 `@proj-airi/stage-ui`（配合 alias 只真正
+   打包两个工具文件）。
+2. **渲染进程整体挂载失败**：renderer main.ts 在 `app.use(pinia)` 前调用
+   `installCodingHostBridge`，而 `installLifeModePort` 立即 `useLifeModeStore()`
+   → 抛异常，`#app` 空、白屏。修法：life-mode port 安装改为微任务延迟 sync，
+   onTick 惰性解析 store。
+3. **主进程 main→renderer 推送盲区**：eventa `createContext(ipcMain)` 无 sender
+   时 emit 不投递任何窗口 → 审批卡/生命 tick 永远到不了渲染层。新增
+   `eventa-window-broadcast`：每个 BrowserWindow 绑一个 window context，emit
+   时广播到所有窗口；invoke handler 仍留在 plain context。
+4. **ui 包 Collapsible prop 名错**：是 `default`/`label`，不是 `default-open`；
+   且 content slot 在 Transition 内需**单根**。审批卡/审阅卡此前完全折叠且只
+   渲染首个子节点。
+5. **i18n 键路径缺 `stage.` 前缀 + dist 未重建**：卡组件用 `chat.*` 而非
+   `stage.chat.*`；且 renderer 消费 i18n 的 `dist`（boot 文档已有此教训）。
+6. **workspace writeFile 不建父目录**：skill_submit 落盘 `skills/<id>/` 时
+   realpath 对不存在的中间目录抛 ENOENT → 她被迫发起 mkdir 审批。修法：
+   writeFile 先递归建父链；且 skill 执行器改用 `readRaw`（read 返回带行号
+   签名的投影，不是纯源码，导致 `export default` 剥离后残留字符串语法错）。
+7. **生命模式 setConfig 传 reactive 代理**：`setConfigPatch` 把 vue proxy 直接
+   送 eventa invoke，`structuredClone` 失败 → disk 永不更新、main 一直按 off
+   运行。修法：port 边界 `toPlainConfig` 深拷贝。
+
+真机验证通过的验收项：
+- **fetch**：抓 example.com 正常并标注来源；`http://127.0.0.1:9250` 与
+  `http://localhost:6221` 均被 SSRF 守卫拒绝；她尝试用 bash curl 绕过被高危
+  闸门拦下（`bash denied`）。
+- **web_search**：Tavily 实搜出结果并引用链接。
+- **审批三档**：设置页三档切换 + 输入区盾牌循环按钮实时改 aria + localStorage
+  持久化 + 跨窗口同步；`require` 下中危 bash 触发审批卡（琥珀系，中文标题/
+  按钮，含命令 subject、risk badge），点批准 → 目录真实创建，超时 → denied。
+- **skill_submit 完整闭环**：她提交 reverse_text/flip_text → 落盘
+  `workspace/skills/<id>/{source.mjs,meta.json,selftest.mjs}`（staticAnalysis 全
+  clean、contentHash 绑定）→ 沙箱自测通过 → 聊天审阅卡（天空系）→ 审阅并启用
+  → trust=reviewed → 真机执行 `flip_text({text:"self-authored loop complete"})`
+  返回 `"etelpmoc pool derohtua-fles"`（成功反转）。剩余缺口：技能队列为内存态，
+  跨重启需重提（已列后置）；激活机制支持关键词/默认可用（defaultActive 已改
+  true 使审阅即用）。
+- **mirror**：返回她的真实外观快照（云吞模型、现行发型档位 `HairBList=2`、
+  心情 neutral/calm + 精确 JSON）。
+- **M2 外观 journal**：`setValue` 改 `HairBList` 后 journal 追加
+  `appearance/changed {source:parameter, target:HairBList, value:2}`。
+- **生命模式**：`respond` 模式每 1 分钟心跳，renderer 记
+  `life/tick {outcome:gated, gate:respond}`（入册不开口、零 token），符合不变量 #2；
+  `autonomous` + 静默时段 0-23 下主进程 economic 门在 emit 前拦截，无新 tick。
+
+额外发现并确认：LLM provider 在真机下偶发 `Failed to fetch`（网络抖动），文本回
+踢 + 错误条机制正常（此前修复的失败发送提示在真机复现并兜底）。

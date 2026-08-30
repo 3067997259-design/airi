@@ -80,7 +80,7 @@ export function createChatAnalyticsHooks(options: CreateChatAnalyticsHooksOption
         turn_index: turnIndex,
         provider_id: provider || 'unknown',
         model_id: model || 'unknown',
-        source,
+        source: source === 'voice' ? 'voice' : 'text',
         error_code: errorCode,
         failure_stage: failureStage,
         trigger_method: source === 'voice' ? 'voice' : 'text_input',
@@ -100,7 +100,9 @@ export function createChatAnalyticsHooks(options: CreateChatAnalyticsHooksOption
         message_index: options.getSessionMessages(sessionId).length,
         message_length: messageText.length,
         has_attachment: false,
-        mode: source,
+        // Self-initiative rounds are text-origin in telemetry; only voice is
+        // a distinct trigger method.
+        mode: source === 'voice' ? 'voice' : 'text',
         trigger_method: source === 'voice' ? 'voice' : 'text_input',
         trigger_type: 'user_action',
       })

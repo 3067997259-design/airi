@@ -23,7 +23,12 @@ export type { BashRiskTier }
 export interface CodingToolsOptions {
   /** Decides bash escalation; absent means deny everything above read-only. */
   approveBash?: (tier: BashRiskTier, command: string) => boolean | ApprovalOutcome | Promise<boolean | ApprovalOutcome>
-  mediumBashApprovalRequired?: boolean
+  /**
+   * Whether medium-tier commands wait for approval. A function is re-evaluated
+   * per call, so a host policy switch (approval-mode tri-state) can change
+   * behavior without rebuilding the tool set.
+   */
+  mediumBashApprovalRequired?: boolean | (() => boolean)
 }
 
 export interface ApprovalOutcome {
@@ -60,6 +65,16 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
             mtime: file.mtime ? file.mtime.slice(0, 16) : undefined,
           }),
         }
+      },
+    },
+    {
+      name: CODING_TOOL_META.readRaw.name,
+      description: CODING_TOOL_META.readRaw.description,
+      async run(args) {
+        const toolArgs = args as ToolArgs
+        const path = requireString(toolArgs, 0, 'path')
+        const file = await host.readFile(path)
+        return { path, content: file.content }
       },
     },
     {
@@ -105,8 +120,11 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         const toolArgs = args as ToolArgs
         const line = requireString(toolArgs, 0, 'command')
         const tier = classifyBashCommand(line)
+        const mediumRequired = typeof options.mediumBashApprovalRequired === 'function'
+          ? options.mediumBashApprovalRequired()
+          : options.mediumBashApprovalRequired
 
-        if (tier === 'high' || (tier === 'medium' && options.mediumBashApprovalRequired)) {
+        if (tier === 'high' || (tier === 'medium' && mediumRequired)) {
           const decision = await approve(tier, line)
           const outcome = typeof decision === 'boolean' ? { approved: decision } : decision
           if (!outcome.approved)

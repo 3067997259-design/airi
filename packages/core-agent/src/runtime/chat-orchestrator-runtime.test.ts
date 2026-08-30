@@ -57,6 +57,7 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
     await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
   })
   const systemPromptSupplement = vi.fn<(model: string, chatProvider: ChatProvider) => string | undefined>(() => undefined)
+  const selfInitiativePrompt = vi.fn<(stimulus: string) => string | undefined>(() => undefined)
   const postHistoryInstruction = vi.fn<() => string | undefined>(() => undefined)
   const ids = ['stream-context', 'assistant-id', 'user-id', 'fallback-id']
   let nowValue = new Date(2026, 3, 25, 18, 47).getTime()
@@ -101,6 +102,7 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
       stream,
     },
     getSystemPromptSupplement: (...args) => systemPromptSupplement(...args),
+    getSelfInitiativePrompt: (...args) => selfInitiativePrompt(...args),
     getPostHistoryInstruction: () => postHistoryInstruction(),
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
@@ -153,6 +155,7 @@ function createHarness(options: { withMemory?: boolean, withCompaction?: boolean
     memoryRetrieve,
     postHistoryInstruction,
     runtime,
+    selfInitiativePrompt,
     sessionMessages,
     stateChanges,
     summary,
@@ -577,6 +580,39 @@ describe('createChatOrchestratorRuntime', () => {
       role: 'system',
       content: expect.stringContaining('## Supplement'),
     })
+  })
+
+  it('injects the self-initiative section only for consideration turns and tags telemetry source', async () => {
+    const harness = createHarness()
+    harness.selfInitiativePrompt.mockReturnValue('## Self-Initiative\nThis round has no user input.')
+
+    await harness.runtime.ingest('stimulus brief here', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      source: 'self-initiative',
+    })
+
+    expect(harness.selfInitiativePrompt).toHaveBeenCalledWith('stimulus brief here')
+    const messages = harness.stream.mock.calls[0]?.[2]
+    expect(messages?.[0]).toMatchObject({
+      role: 'system',
+      content: expect.stringContaining('## Self-Initiative'),
+    })
+    expect(harness.telemetry.messageSendStarted.at(-1)).toMatchObject({ source: 'self-initiative' })
+    expect(harness.userAppended.at(-1)).toMatchObject({ source: 'self-initiative' })
+  })
+
+  it('skips the self-initiative section and hook for ordinary sends', async () => {
+    const harness = createHarness()
+
+    await harness.runtime.ingest('hello', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    expect(harness.selfInitiativePrompt).not.toHaveBeenCalled()
+    const messages = harness.stream.mock.calls[0]?.[2]
+    expect(JSON.stringify(messages?.[0]?.content)).not.toContain('Self-Initiative')
   })
 
   it('appends post-history instructions to the final user message and skips them when empty', async () => {

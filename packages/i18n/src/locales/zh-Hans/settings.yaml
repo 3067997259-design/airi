@@ -637,6 +637,31 @@ pages:
       title: 注意力
       focused-mode: 进行任务时使用专注模式
       focused-mode-description: 在回复中保持任务进度可见，同时保留角色身份。
+    life-mode:
+      description: 自主心跳——她何时可以主动开口。
+      title: 生命模式
+      sections:
+        mode:
+          title: 模式
+          description: 生命模式决定她能否在没有输入时主动发起对话。
+          off: 关闭
+          off-description: 纯输入驱动——与今天的现状一致，什么都不变。
+          respond: 只回应
+          respond-description: 触发源照常入 journal（包括沉默），但她从不主动发起回合。
+          autonomous: 自主
+          autonomous-description: 心跳驱动考量回合；她可以主动开口。静默时段、每日预算与冷却仍在前方门控每一轮。
+        rhythm:
+          title: 节律与预算
+          description: 心跳间隔，以及每一轮考量回合前的硬成本闸。
+          interval: 心跳间隔（分钟）
+          budget: 每日自发轮预算（0 = 不限）
+          cooldown: 回合间冷却（分钟）
+        quiet:
+          title: 静默时段
+          description: 每天一段零自发轮的窗口。开始等于结束即关闭。
+          start: 静默开始（小时，0-23）
+          end: 静默结束（小时，0-23）
+          hint: 时间使用本地 24 小时制；跨午夜的区间自动环绕。
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 异星工厂 Factorio
@@ -757,6 +782,15 @@ pages:
           program: 程序
           placeholder: 写一段调用 bridge(...) 的程序
           run: 运行
+        approval-mode:
+          description: 她执行 bash 命令需要多少审批。除完全控制外，高危命令始终保留审批闸门。
+          title: Bash 审批
+          require: 需要审核
+          require-description: 中危与高危命令都等待你的决定。
+          substitute: 代替审核
+          substitute-description: 中危命令自动放行；高危命令仍等待。
+          full: 完全控制
+          full-description: 全部放行，包括高危命令。
     memory-long-term:
       description: 长期记忆
       title: 长期记忆

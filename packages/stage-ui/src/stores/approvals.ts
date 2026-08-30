@@ -49,6 +49,7 @@ export function installApprovalsBridge(next: ApprovalsBridgePort): void {
       ...(request.stepId ? { stepId: request.stepId } : {}),
       riskLevel: request.riskLevel,
       reason: request.reason,
+      subject: request.subject,
     })
   })
   disposeDecisionListener = next.onDecision?.((payload) => {

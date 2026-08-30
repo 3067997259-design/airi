@@ -33,6 +33,11 @@ chat:
     approve: Approve
     reject: Reject
     hand-over: Let me take over
+  review-card:
+    title: Skill awaiting your review
+    content-hash: Content hash
+    approve: Review & activate
+    reject: Reject
   message:
     character-name:
       airi: AIRI
@@ -54,6 +59,11 @@ render-error:
     Model ID: {modelId}
     Error: {error}
 message: Say something...
+approval-mode:
+  title: Bash approval mode
+  require: Require approval (medium and high-risk commands wait)
+  substitute: Approve medium (medium-risk commands run, high-risk waits)
+  full: Full control (nothing waits, including high-risk commands)
 send-mode:
   title: Send key
   enter: Enter

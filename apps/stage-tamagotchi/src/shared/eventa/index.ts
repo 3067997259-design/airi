@@ -589,6 +589,14 @@ export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingF
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
 export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')
+
+// Bash approval tri-state (CAPABILITY-PLAN §三):
+// - require:    medium + high commands wait for a human decision
+// - substitute: medium runs automatically, high still waits
+// - full:       nothing waits (auto-approve, including high)
+export type CodingApprovalMode = 'require' | 'substitute' | 'full'
+export const codingHostSetApprovalMode = defineInvokeEventa<void, { mode: CodingApprovalMode }>('eventa:invoke:electron:coding-host:approval-mode:set')
+export const codingHostGetApprovalMode = defineInvokeEventa<{ mode: CodingApprovalMode }, void>('eventa:invoke:electron:coding-host:approval-mode:get')
 export const codingApprovalRequested = defineEventa<CodingApprovalRequestPayload>('eventa:event:electron:coding-host:approval:requested')
 export const codingApprovalDecided = defineEventa<CodingApprovalDecisionPayload>('eventa:event:electron:coding-host:approval:decided')
 
@@ -653,6 +661,51 @@ export const memoryHostGetStatus = defineInvokeEventa<MemoryHostStatus, void>('e
 export const memoryHostList = defineInvokeEventa<MemoryHostFragment[], MemoryHostListParams | void>('eventa:invoke:electron:memory-host:list')
 export const memoryHostSearch = defineInvokeEventa<MemoryHostFragment[], MemoryHostSearchParams>('eventa:invoke:electron:memory-host:search')
 export const memoryHostInsert = defineInvokeEventa<MemoryHostFragment, MemoryHostInsertParams>('eventa:invoke:electron:memory-host:insert')
+
+// -- Web fetch (CAPABILITY-PLAN §二 fetch) --
+// The main process owns the SSRF-hardened fetcher: `node:dns` resolution
+// re-checks private/loopback IPs and the manual redirect loop re-checks every
+// hop, so the `fetch` LLM tool cannot be steered at internal services.
+
+export interface WebFetchParams {
+  url: string
+  maxChars: number
+}
+
+export interface WebFetchResult {
+  status: number
+  finalUrl: string
+  text: string
+  truncated: boolean
+  contentType?: string
+}
+
+export const webFetchInvoke = defineInvokeEventa<WebFetchResult, WebFetchParams>('eventa:invoke:electron:web-fetch:fetch')
+
+// -- Life mode (LIFE-PLAN M3) --
+// The main process owns the durable life-mode config (persisted next to the
+// app config, like the memory host) and the heartbeat that becomes a
+// consideration turn. Cheap gates (quiet hours, daily budget, cooldown) run
+// here, before any renderer round is initiated.
+
+export interface LifeModeConfigContract {
+  mode: 'off' | 'respond' | 'autonomous'
+  intervalMinutes: number
+  quietHoursStart: number
+  quietHoursEnd: number
+  dailyBudget: number
+  cooldownMinutes: number
+}
+
+export interface LifeTickEventPayload {
+  tickId: string
+  reason: string
+  timestamp: number
+}
+
+export const lifeModeGetConfig = defineInvokeEventa<LifeModeConfigContract, void>('eventa:invoke:electron:life-mode:config:get')
+export const lifeModeSetConfig = defineInvokeEventa<LifeModeConfigContract, LifeModeConfigContract>('eventa:invoke:electron:life-mode:config:set')
+export const lifeTickEmitted = defineEventa<LifeTickEventPayload>('eventa:event:electron:life-mode:tick')
 
 export { electron } from '@proj-airi/electron-eventa'
 export * from '@proj-airi/electron-eventa/electron-updater'

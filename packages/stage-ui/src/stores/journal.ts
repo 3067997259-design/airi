@@ -29,6 +29,19 @@ export const useJournalStore = defineStore('runtime-journal', () => {
     return [...asked.values()].filter(event => !decided.has(event.requestId))
   })
 
+  /** Self-authored skills waiting for a human review decision. */
+  const pendingReviews = computed(() => {
+    const asked = new Map<string, Extract<JournalEvent, { type: 'review/asked' }>>()
+    const decided = new Set<string>()
+    for (const event of events.value) {
+      if (event.type === 'review/asked')
+        asked.set(event.reviewRequestId, event)
+      if (event.type === 'review/decided')
+        decided.add(event.reviewRequestId)
+    }
+    return [...asked.values()].filter(event => !decided.has(event.reviewRequestId))
+  })
+
   const stores = new Map<string, JournalStore>()
   const projections = new Map<string, ProjectionRegistry>()
   const projectionSnapshots = shallowRef<Record<string, unknown>>({})
@@ -93,6 +106,7 @@ export const useJournalStore = defineStore('runtime-journal', () => {
     events,
     toolEvidence,
     pendingApprovals,
+    pendingReviews,
     projectionSnapshots,
     ensureSession,
     append,

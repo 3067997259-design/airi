@@ -13,6 +13,7 @@ import { useDiscordStore } from '../stores/modules/discord'
 import { useFactorioStore } from '../stores/modules/gaming-factorio'
 import { useMinecraftStore } from '../stores/modules/gaming-minecraft'
 import { useHearingStore } from '../stores/modules/hearing'
+import { useLifeModeStore } from '../stores/modules/life-mode'
 import { useMemoryStore } from '../stores/modules/memory'
 import { useSpeechStore } from '../stores/modules/speech'
 import { useTwitterStore } from '../stores/modules/twitter'
@@ -47,6 +48,7 @@ export function useModulesList() {
   const factorioStore = useFactorioStore()
   const artistryStore = useArtistryStore()
   const memoryStore = useMemoryStore()
+  const lifeModeStore = useLifeModeStore()
   const skillsReviewStore = useSkillsReviewStore()
   const beatSyncState = ref<BeatSyncDetectorState>()
   const beatSyncSupported = isBeatSyncSupported()
@@ -142,6 +144,15 @@ export function useModulesList() {
       icon: 'i-solar:focus-2-bold-duotone',
       to: '/settings/modules/attention',
       configured: true,
+      category: 'essential',
+    },
+    {
+      id: 'life-mode',
+      name: t('settings.pages.modules.life-mode.title'),
+      description: t('settings.pages.modules.life-mode.description'),
+      icon: 'i-solar:heart-pulse-bold-duotone',
+      to: '/settings/modules/life-mode',
+      configured: lifeModeStore.config.mode !== 'off',
       category: 'essential',
     },
     {

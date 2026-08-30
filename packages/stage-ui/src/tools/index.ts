@@ -1,4 +1,5 @@
 export * from './character'
 export * from './debug'
+export * from './fetch'
 export * from './mcp'
 export * from './web-search'

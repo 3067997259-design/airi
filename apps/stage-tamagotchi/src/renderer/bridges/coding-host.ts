@@ -1,5 +1,6 @@
 import type {
   CodingApprovalDecisionPayload,
+  CodingApprovalMode,
   CodingApprovalRequestPayload,
   CodingCodeRunParams,
   CodingCodeRunResult,
@@ -31,6 +32,7 @@ import {
   codingHostFsRead,
   codingHostFsWrite,
   codingHostListTools,
+  codingHostSetApprovalMode,
 } from '../../shared/eventa'
 
 export interface CodingHostClient {
@@ -39,6 +41,7 @@ export interface CodingHostClient {
   runCommand: (params: CodingExecRunParams) => Promise<CodingExecRunResult>
   runProgram: (params: CodingCodeRunParams) => Promise<CodingCodeRunResult>
   listTools: () => Promise<CodingToolsStatusResult>
+  setApprovalMode: (mode: CodingApprovalMode) => Promise<void>
   onApprovalRequested: (listener: (payload: CodingApprovalRequestPayload) => void) => () => void
   onApprovalDecided: (listener: (payload: CodingApprovalDecisionPayload) => void) => () => void
   decideApproval: (payload: CodingApprovalDecisionPayload) => void
@@ -60,6 +63,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const runCommand = defineInvoke(context, codingHostExecRun)
   const runProgram = defineInvoke(context, codingHostCodeRun)
   const listTools = defineInvoke(context, codingHostListTools)
+  const setApprovalMode = defineInvoke(context, codingHostSetApprovalMode)
 
   return {
     readFile,
@@ -67,6 +71,9 @@ function createCodingHostClientInner(): CodingHostClient {
     runCommand,
     runProgram,
     listTools,
+    setApprovalMode: async (mode) => {
+      await setApprovalMode({ mode })
+    },
     onApprovalRequested(listener) {
       const off = context.on(codingApprovalRequested, (event) => {
         if (event.body)

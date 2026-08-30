@@ -101,6 +101,33 @@ describe('coding tools over the node host', () => {
     }
   })
 
+  it('re-evaluates a function-form medium approval knob on every call', async () => {
+    // A live host policy can flip the medium gate without rebuilding tools.
+    let gate = false
+    const host = createNodeWorkspaceHost(rootDir)
+    const tools = createCodingTools(host, {
+      approveBash: () => ({ approved: false }),
+      mediumBashApprovalRequired: () => gate,
+    })
+    const runtime = createCodeModeRuntime(tools)
+    const mediumCommand = 'return await bridge(\'bash\', [\'mkdir -p made-by-gate\'])'
+
+    const withoutGate = await runtime.run(mediumCommand)
+    expect(withoutGate.ok).toBe(true)
+    if (withoutGate.ok)
+      expect((withoutGate.value as { status: string }).status).toBe('ok')
+
+    gate = true
+    const withGate = await runtime.run(mediumCommand)
+    expect(withGate.ok).toBe(true)
+    if (withGate.ok) {
+      const bash = withGate.value as { status: string, tier: string, reason?: string }
+      expect(bash.status).toBe('denied')
+      expect(bash.tier).toBe('medium')
+      expect(bash.reason).toBe('approval_required')
+    }
+  })
+
   it('returns structured command output for allowed commands', async () => {
     const result = await runtime.run(`return await bridge('bash', ['node --version'])`)
     expect(result).toEqual(expect.objectContaining({ ok: true }))

@@ -666,6 +666,31 @@ pages:
       title: Attention
       focused-mode: Use focused mode for active tasks
       focused-mode-description: Keep task progress visible in replies while preserving the character identity.
+    life-mode:
+      description: Autonomous heartbeats — when she may speak on her own.
+      title: Life Mode
+      sections:
+        mode:
+          title: Mode
+          description: Life mode decides whether she can initiate conversation without input.
+          off: Off
+          off-description: Pure input-driven — today's behavior, nothing changes.
+          respond: Respond only
+          respond-description: Her triggers still journal (including silence), but she never initiates a round.
+          autonomous: Autonomous
+          autonomous-description: Consideration turns run on a heartbeat; she may speak on her own. Quiet hours, daily budget, and cooldown still gate every round.
+        rhythm:
+          title: Rhythm & budget
+          description: The heartbeat interval and the hard cost gates in front of every consideration round.
+          interval: Heartbeat interval (minutes)
+          budget: Daily spontaneous-round budget (0 = unlimited)
+          cooldown: Cooldown between rounds (minutes)
+        quiet:
+          title: Quiet hours
+          description: A daily window with zero spontaneous rounds. Leave start equal to end to disable.
+          start: Quiet starts at (hour, 0-23)
+          end: Quiet ends at (hour, 0-23)
+          hint: All times use your local 24h clock; a range crossing midnight wraps.
     gaming-factorio:
       description: Playing Factorio!
       title: Factorio
@@ -795,6 +820,15 @@ pages:
           program: Program
           placeholder: Write a program that calls bridge(...)
           run: Run
+        approval-mode:
+          description: How much bash approval SHE needs to run commands. High-risk commands stay gated in every mode except full control.
+          title: Bash approval
+          require: Require approval
+          require-description: Medium and high-risk commands wait for your decision.
+          substitute: Approve medium
+          substitute-description: Medium-risk commands run automatically; high-risk commands still wait.
+          full: Full control
+          full-description: Nothing waits, including high-risk commands.
     memory-long-term:
       description: Long-term memory specific settings and management
       title: Long-Term Memory

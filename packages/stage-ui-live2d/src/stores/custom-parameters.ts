@@ -53,6 +53,35 @@ export interface Live2DDiscoveredModelParameters {
  * - Discovery is re-registered on every model load; overrides persist per
  *   model id in localStorage and survive restarts.
  */
+
+/**
+ * One appearance mutation that should reach the journal (LIFE-PLAN M2).
+ * The app shell installs the port so every parameter change — from the LLM
+ * tools or the settings panel — becomes a narratable `appearance/changed`
+ * event.
+ */
+export interface AppearanceParameterChange {
+  kind: 'parameter'
+  parameterId: string
+  value?: number
+  enabled?: boolean
+}
+
+let appearanceJournalPort: ((change: AppearanceParameterChange) => void) | undefined
+
+export function installAppearanceJournalPort(next: ((change: AppearanceParameterChange) => void) | undefined): void {
+  appearanceJournalPort = next
+}
+
+function notifyAppearanceJournal(change: AppearanceParameterChange): void {
+  try {
+    appearanceJournalPort?.(change)
+  }
+  catch {
+    // Journaling is observability; a sink failure must not break the change.
+  }
+}
+
 export const useLive2DCustomParameters = defineStore('live2d-custom-parameters', () => {
   const overrides = useLocalStorageManualReset<Record<string, Record<string, Live2DCustomParameterValue>>>('live2d/custom-parameters', {})
   const discoveredRecord = useLocalStorageManualReset<Record<string, Live2DDiscoveredModelParameters>>('live2d/discovered-parameters', {})
@@ -127,6 +156,7 @@ export const useLive2DCustomParameters = defineStore('live2d-custom-parameters',
     const entry = model[parameterId] ?? { value, enabled: true }
     model[parameterId] = { ...entry, value, enabled: true }
     overrides.value = { ...overrides.value, [modelId]: model }
+    notifyAppearanceJournal({ kind: 'parameter', parameterId, value, enabled: true })
   }
 
   function setEnabled(modelId: string | undefined, parameterId: string, enabled: boolean) {
@@ -138,6 +168,7 @@ export const useLive2DCustomParameters = defineStore('live2d-custom-parameters',
       return
     model[parameterId] = { ...entry, enabled }
     overrides.value = { ...overrides.value, [modelId]: model }
+    notifyAppearanceJournal({ kind: 'parameter', parameterId, enabled })
   }
 
   function resetModel(modelId: string | undefined) {

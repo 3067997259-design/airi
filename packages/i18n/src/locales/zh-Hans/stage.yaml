@@ -33,6 +33,11 @@ chat:
     approve: 批准
     reject: 拒绝
     hand-over: 交给我来做
+  review-card:
+    title: 技能等待你审阅
+    content-hash: 内容哈希
+    approve: 审阅并启用
+    reject: 拒绝
   message:
     character-name:
       airi: AIRI
@@ -54,6 +59,11 @@ render-error:
     模型 ID：{modelId}
     错误：{error}
 message: 说点什么...
+approval-mode:
+  title: Bash 审批模式
+  require: 需要审核（中危与高危命令都等待）
+  substitute: 代替审核（中危命令放行，高危等待）
+  full: 完全控制（全部放行，包括高危）
 send-mode:
   title: 发送键值
   enter: Enter

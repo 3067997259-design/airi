@@ -1,3 +1,4 @@
+import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { shallowRef } from 'vue'
 
 import { useJournalStore } from './journal'
@@ -10,6 +11,11 @@ import { useJournalStore } from './journal'
  * app shell installs the bridge client once per renderer process (module
  * singleton), pages only consume `useCodingToolsStore`.
  */
+
+/** Bash approval tri-state (CAPABILITY-PLAN §三). */
+export type CodingApprovalMode = 'require' | 'substitute' | 'full'
+
+export const CODING_APPROVAL_MODES: readonly CodingApprovalMode[] = Object.freeze(['require', 'substitute', 'full'])
 export interface CodingToolPortAvailability {
   name: string
   description: string
@@ -35,6 +41,8 @@ export interface CodingHostClientPort {
     ok: false
     failure: { kind: string, message: string, logs: string[], traces: Array<{ toolName: string, args: unknown[], ok: boolean, resultSummary: string }> }
   }>
+  /** Applies the bash approval tri-state on the host. */
+  setApprovalMode: (mode: CodingApprovalMode) => Promise<void>
 }
 
 let client: CodingHostClientPort | undefined
@@ -60,6 +68,7 @@ export interface CodeRunViewState {
 }
 
 const runView = shallowRef<CodeRunViewState>({ running: false, logs: [], traces: [] })
+const approvalMode = useLocalStorageManualReset<CodingApprovalMode>('settings/coding/approval-mode', 'substitute')
 
 export function useCodingToolsStore() {
   const journal = useJournalStore()
@@ -67,8 +76,17 @@ export function useCodingToolsStore() {
   async function refreshStatus() {
     if (!client)
       return undefined
+    // Re-assert the persisted tri-state on every status refresh (window boot
+    // ordering): the host defaults to `substitute` but the user may have
+    // switched modes in a previous session.
+    await client.setApprovalMode(approvalMode.value)
     statusSnapshot.value = await client.listTools()
     return statusSnapshot.value
+  }
+
+  async function setApprovalMode(mode: CodingApprovalMode) {
+    approvalMode.value = mode
+    await client?.setApprovalMode(mode)
   }
 
   async function runProgram(program: string, timeoutMs?: number) {
@@ -101,7 +119,9 @@ export function useCodingToolsStore() {
   return {
     status: statusSnapshot,
     runView,
+    approvalMode,
     refreshStatus,
     runProgram,
+    setApprovalMode,
   }
 }

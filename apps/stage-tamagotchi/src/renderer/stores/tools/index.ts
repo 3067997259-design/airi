@@ -1,6 +1,7 @@
 export {
   artistryToolReferences,
   live2dAppearanceToolReferences,
+  skillAuthoringToolReferences,
   useTamagotchiBuiltinToolsStore,
   widgetToolReferences,
 } from './built-in'

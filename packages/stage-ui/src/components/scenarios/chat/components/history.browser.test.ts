@@ -354,12 +354,13 @@ describe('chat history', () => {
   // error at all. Untimed items now sort to the tail, where the send
   // happened.
   it('renders an untimed failed-send error at the tail of a long history', async () => {
-    const messages: ChatHistoryItem[] = Array.from({ length: 100 }, (_, index) => ({
-      id: `msg-${index}`,
-      role: index % 2 === 0 ? 'user' : 'assistant',
-      content: index % 2 === 0 ? `Question ${index}` : `Answer ${index}`,
-      createdAt: index,
-    }))
+    const messages: ChatHistoryItem[] = Array.from({ length: 100 }, (_, index): ChatHistoryItem => {
+      const base = { id: `msg-${index}`, content: index % 2 === 0 ? `Question ${index}` : `Answer ${index}`, createdAt: index }
+      return index % 2 === 0
+        ? { ...base, role: 'user' as const }
+        // The assistant variant carries the streaming slice records.
+        : { ...base, role: 'assistant' as const, slices: [], tool_results: [] }
+    })
     // Mirrors the appendSendError output shape before the timestamp fix:
     // no id, no createdAt.
     messages.push({ role: 'error', content: 'Remote sent 401 response' })

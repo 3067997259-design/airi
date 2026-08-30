@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ChatApprovalCard } from '@proj-airi/stage-ui/components'
-import { useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
+import { CODING_APPROVAL_MODES, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { Button, FieldTextArea } from '@proj-airi/ui'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const coding = useCodingToolsStore()
-const { status, runView } = coding
+const { status, runView, approvalMode } = coding
 const program = ref(`// Try the Code Mode sandbox: bridge() dispatches the four
 // coding tools (read / write / edit / bash) against the workspace.
 const file = await bridge('read', ['README.txt'])\nreturn file`)
@@ -19,6 +19,10 @@ onMounted(() => {
 
 async function run() {
   await coding.runProgram(program.value, timeoutMs.value)
+}
+
+function approvalKey(mode: string, suffix: string): string {
+  return `settings.pages.modules.coding.sections.approval-mode.${mode}${suffix}`
 }
 </script>
 
@@ -98,6 +102,33 @@ async function run() {
           <pre v-if="runView.value !== undefined" :class="['mt-2', 'text-xs', 'overflow-x-auto']">{{ JSON.stringify(runView.value, null, 2) }}</pre>
           <pre v-if="runView.logs.length > 0" :class="['mt-2', 'text-xs', 'text-neutral-500', 'dark:text-neutral-400', 'overflow-x-auto']">{{ runView.logs.join('\n') }}</pre>
         </div>
+      </div>
+    </section>
+
+    <section :class="['rounded-xl', 'bg-neutral-50', 'p-4', 'dark:bg-[rgba(0,0,0,0.3)]']">
+      <div :class="['flex', 'flex-col', 'gap-4']">
+        <div>
+          <h2 :class="['text-lg', 'text-neutral-500', 'md:text-2xl', 'dark:text-neutral-400']">
+            {{ t('settings.pages.modules.coding.sections.approval-mode.title') }}
+          </h2>
+          <p :class="['text-sm', 'text-neutral-400', 'dark:text-neutral-500']">
+            {{ t('settings.pages.modules.coding.sections.approval-mode.description') }}
+          </p>
+        </div>
+
+        <div :class="['flex', 'flex-wrap', 'gap-2']">
+          <Button
+            v-for="mode in CODING_APPROVAL_MODES"
+            :key="mode"
+            :color="approvalMode === mode ? 'primary' : 'neutral'"
+            @click="coding.setApprovalMode(mode)"
+          >
+            {{ t(approvalKey(mode, '')) }}
+          </Button>
+        </div>
+        <p :class="['text-xs', 'text-neutral-400', 'dark:text-neutral-500']">
+          {{ t(approvalKey(approvalMode, '-description')) }}
+        </p>
       </div>
     </section>
   </div>

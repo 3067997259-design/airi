@@ -49,8 +49,14 @@ export interface SkillRevisionCandidate {
   failureSummary: string
 }
 
+export type SkillRuntimeProgramResult
+  = | { ok: true, value?: unknown, logs: string[] }
+    | { ok: false, failure: { kind: string, message: string, logs: string[] } }
+
 export interface SkillRuntimePort {
   runCommand: (params: { command: string, approvalRequired?: boolean }) => Promise<SkillRuntimeCommandResult>
+  /** Shared Code Mode sandbox, used by the generic reviewed-skill executor. */
+  runProgram?: (params: { program: string, timeoutMs?: number }) => Promise<SkillRuntimeProgramResult>
 }
 
 let skillRuntime: SkillRuntimePort | undefined
@@ -152,7 +158,11 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         description: entry.tool.description,
         parameters: structuredClone(toRaw(entry.tool.parameters)),
       },
-      defaultActive: false,
+      // Reviewed skills are default-active so they are callable without
+      // keyword activation; the review gate, not the prompt, is the trust
+      // boundary. prepareForPrompt still injects the skill's guidance when a
+      // keyword/pattern matches.
+      defaultActive: true,
       execute: input => executeSkill(entry, input),
     }))
     if (tools.length > 0)
@@ -189,10 +199,48 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   }
 
   async function executeSkill(entry: ReviewQueueEntry, input: unknown): Promise<unknown> {
-    if (entry.toolId !== OPENCODE_ADAPTER_SKELETON.toolId)
-      return `Skill "${entry.toolId}" has no registered runtime executor.`
     if (!skillRuntime)
       return `Skill "${entry.toolId}" is unavailable because the coding host is not installed.`
+
+    // Generic executor for submitted skills: run the reviewed source inside
+    // the shared Code Mode sandbox. The sandbox read is the provenance root —
+    // what executes is exactly the reviewed artifact on disk, not a copy.
+    if (entry.toolId !== OPENCODE_ADAPTER_SKELETON.toolId) {
+      if (!skillRuntime.runProgram)
+        return `Skill "${entry.toolId}" cannot run because the sandbox executor is not installed.`
+      const invocation = JSON.stringify(input ?? {})
+      const program = [
+        `const raw = (await bridge('readRaw', ['skills/${entry.toolId}/source.mjs'])).content`,
+        // Strip ESM export keywords so the source evaluates as a plain script
+        // (submitted sources are authored as `export function run(input)` or
+        // `export default function run(input)`).
+        `const code = raw.split('\\n').map(line => line.replace(/^export\\s+(default\\s+)?/, '')).join('\\n')`,
+        // The sandbox program needs `null` to be a valid `return` value, so
+        // wrap the source's entry lookup instead of returning null directly.
+        `const entry = new Function('bridge', 'input', code + '\\n;return (typeof run === \\'function\\') ? run(input) : (typeof main === \\'function\\' ? main(input) : { __missing_entry__: true })')`,
+        `const out = await entry(bridge, ${invocation})`,
+        `if (out && out.__missing_entry__ === true) throw new Error('skill source must define function run(input) — got entry-less source')`,
+        `return out`,
+      ].join('\n')
+      journalStore.appendActive({
+        type: 'tool/call',
+        toolName: entry.tool.name,
+        args: input,
+      })
+      const run = await skillRuntime.runProgram({ program })
+      const ok = run.ok
+      const summary = ok
+        ? `sandbox ok: ${JSON.stringify(run.value).slice(0, 200)}`
+        : `[${run.failure.kind}] ${run.failure.message.slice(0, 200)}`
+      journalStore.appendActive({
+        type: 'tool/result',
+        toolName: entry.tool.name,
+        ok,
+        summary,
+        provenance: 'reviewed_self_authored',
+      })
+      return ok ? (run.value ?? 'skill ran (no return value)') : `Skill "${entry.toolId}" failed in the sandbox: ${summary}`
+    }
 
     const taskInput = input && typeof input === 'object' ? input as Record<string, unknown> : {}
     const task = typeof taskInput.task === 'string' ? taskInput.task.trim() : ''
@@ -312,9 +360,10 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   /** Removes a rejected entry from the queue. */
   function reject(toolId: string): void {
     if (queue.value.some(item => item.toolId === toolId)) {
+      const reviewRequestId = reviewRequestIds.get(toolId) ?? `review:${toolId}`
       journalStore.appendActive({
         type: 'review/decided',
-        reviewRequestId: reviewRequestIds.get(toolId) ?? `review:${toolId}`,
+        reviewRequestId,
         toolId,
         decision: 'rejected',
         reviewer: 'you',
@@ -381,9 +430,10 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         proposedAt: Date.now(),
       }
       queue.value[index] = applyLifecycleAction(entry, 'propose_revision', { revision }) as ReviewQueueEntry
+      const reviewRequestId = `revision:${candidate.toolId}:${candidate.failureSeq}`
       journalStore.appendActive({
         type: 'review/asked',
-        reviewRequestId: `revision:${candidate.toolId}:${candidate.failureSeq}`,
+        reviewRequestId,
         toolId: candidate.toolId,
         contentHash: entry.contentHash,
         reason: `dreaming pass: ${candidate.failureSummary.slice(0, 180)}`,
@@ -409,6 +459,15 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     prepareForPrompt,
     syncRuntimeTools,
   }
+}, {
+  synced: {
+    // The review queue must be visible from every window: the submission runs
+    // in the leader (where skill_submit executes), while the review card and
+    // the skills settings page render in any window. All entries are plain
+    // data (structuredClone-safe). User decisions route to the leader.
+    state: true,
+    actions: ['submit', 'applyContentChange', 'approve', 'reject', 'quarantine', 'clearQuarantine', 'dreamRevisionBatch'],
+  },
 })
 
 function quoteCommandArgument(value: string): string {

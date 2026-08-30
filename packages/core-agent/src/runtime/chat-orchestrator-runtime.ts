@@ -49,6 +49,13 @@ function cloneStreamingMessage(message: StreamingAssistantMessage): StreamingAss
 }
 
 /**
+ * Origin of a chat round. `self-initiative` is a consideration turn
+ * (LIFE-PLAN §二.2): no user input exists, the round decides whether to
+ * speak, note privately, or stay silent.
+ */
+export type ChatSendSource = 'text' | 'voice' | 'self-initiative'
+
+/**
  * Options accepted by the chat orchestrator runtime for one user send.
  */
 export interface ChatOrchestratorSendOptions {
@@ -66,6 +73,8 @@ export interface ChatOrchestratorSendOptions {
   toolReferences?: ChatToolReference[]
   /** Original transport input metadata used by bridge/devtools observers. */
   input?: ChatStreamEventContext['input']
+  /** Round origin; defaults to the transport-derived text/voice source. */
+  source?: ChatSendSource
 }
 
 interface QueuedSend {
@@ -262,6 +271,14 @@ export interface ChatOrchestratorRuntimeDeps {
   /** Returns optional prompt text appended to the provider system message for this send. */
   getSystemPromptSupplement?: (model: string, chatProvider: ChatProvider) => string | undefined
   /**
+   * Returns the `## Self-Initiative` section for a consideration turn
+   * (LIFE-PLAN §二.2). Called only when the send source is
+   * `self-initiative`; `stimulus` is the structured journal-fact brief the
+   * caller placed in the user message. Omit to run consideration turns
+   * without the section (not recommended).
+   */
+  getSelfInitiativePrompt?: (stimulus: string) => string | undefined
+  /**
    * Returns optional reminder text (e.g. CCv3 post-history instructions) that
    * is appended to the final user message for this send, mirroring the
    * `[Context]` block so position-sensitive guidance survives deep history
@@ -299,20 +316,20 @@ export interface ChatOrchestratorRuntimeDeps {
   onTrackFirstMessage?: () => void
   /** Called for attempts made before the conversation has its first assistant response. */
   onChatActivationStarted?: (event: ChatRoundCorrelation & {
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
     provider: string
   }) => void
   /** Called when the conversation reaches its first successful assistant response. */
   onChatActivationSucceeded?: (event: ChatRoundCorrelation & {
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
     provider: string
     durationMs: number
   }) => void
   /** Called when a pre-activation attempt fails before assistant completion. */
   onChatActivationFailed?: (event: ChatRoundCorrelation & {
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
     provider: string
     failureStage: 'llm_response'
@@ -320,7 +337,7 @@ export interface ChatOrchestratorRuntimeDeps {
   }) => void
   /** Called when a user message send begins. */
   onMessageSendStarted?: (event: ChatRoundCorrelation & {
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
   }) => void
   /** Called immediately before the provider LLM request starts. */
@@ -360,7 +377,7 @@ export interface ChatOrchestratorRuntimeDeps {
   }) => void
   /** Called whenever a user-to-assistant round fails before completion. */
   onMessageRoundFailed?: (event: ChatRoundCorrelation & {
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
     provider: string
     failureStage: 'llm_response'
@@ -375,7 +392,7 @@ export interface ChatOrchestratorRuntimeDeps {
     sessionId: string
     message: Extract<ChatHistoryItem, { role: 'user' }> & { id: string }
     messageText: string
-    source: 'text' | 'voice'
+    source: ChatSendSource
     model: string
     provider: string
     roundId: string
@@ -810,6 +827,19 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     return transcript
   }
 
+  function appendSystemSupplement(newMessages: Array<Message | ErrorMessage>, text: string): void {
+    const systemMessage = newMessages.find(message => message.role === 'system')
+    if (systemMessage) {
+      systemMessage.content = `${systemMessage.content}\n\n${text}`
+    }
+    else {
+      newMessages.unshift({
+        role: 'system',
+        content: text,
+      })
+    }
+  }
+
   function buildProviderMessages(sessionId: string, sessionMessagesForSend: ChatHistoryItem[]): Array<Message | ErrorMessage> {
     const nowTs = now()
     const compaction = compactedSessions.get(sessionId)
@@ -931,7 +961,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     appendJournal(sessionId, { type: 'assistant/start' })
     const hasVoice = options.input?.type === 'input:voice'
       || options.input?.type === 'input:text:voice'
-    const sendSource = hasVoice ? 'voice' : 'text'
+    const sendSource: ChatSendSource = options.source ?? (hasVoice ? 'voice' : 'text')
     const activeProvider = deps.getActiveProvider?.() ?? ''
     // The user message is the durable start of a round, so its ID also serves
     // as the correlation key for every telemetry milestone emitted by it.
@@ -1121,17 +1151,15 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
       const newMessages = buildProviderMessages(sessionId, sessionMessagesForSend)
       const systemPromptSupplement = deps.getSystemPromptSupplement?.(options.model, options.chatProvider)?.trim()
-      if (systemPromptSupplement) {
-        const systemMessage = newMessages.find(message => message.role === 'system')
-        if (systemMessage) {
-          systemMessage.content = `${systemMessage.content}\n\n${systemPromptSupplement}`
-        }
-        else {
-          newMessages.unshift({
-            role: 'system',
-            content: systemPromptSupplement,
-          })
-        }
+      if (systemPromptSupplement)
+        appendSystemSupplement(newMessages, systemPromptSupplement)
+
+      // Consideration turns add the self-initiative contract; see the
+      // getSelfInitiativePrompt deps docs (LIFE-PLAN §二.2).
+      if (options.source === 'self-initiative') {
+        const selfInitiativeSection = deps.getSelfInitiativePrompt?.(sendingMessage)?.trim()
+        if (selfInitiativeSection)
+          appendSystemSupplement(newMessages, selfInitiativeSection)
       }
 
       const contextsSnapshot = deps.context.snapshot()

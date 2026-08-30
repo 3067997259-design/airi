@@ -11,6 +11,7 @@ import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { CODING_APPROVAL_MODES, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
@@ -26,7 +27,7 @@ import { useRouter } from 'vue-router'
 import JournalToolCallBlock from './chat-tool-renderers/journal-tool-call-block.vue'
 
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
-import { artistryToolReferences, widgetToolReferences } from '../stores/tools'
+import { artistryToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
@@ -65,6 +66,19 @@ const sendModeLabels = computed<Record<SendMode, string>>(() => ({
   'ctrl-enter': t('stage.send-mode.ctrl-enter'),
   'double-enter': t('stage.send-mode.double-enter'),
 }))
+const codingStore = useCodingToolsStore()
+const approvalMode = codingStore.approvalMode
+// Cycle the tri-state: require -> substitute -> full -> require.
+const APPROVAL_MODE_ICONS: Record<string, string> = {
+  require: 'i-solar:shield-warning-bold-duotone',
+  substitute: 'i-solar:shield-check-bold-duotone',
+  full: 'i-solar:shield-bold-duotone',
+}
+function cycleApprovalMode() {
+  const current = approvalMode.value
+  const next = CODING_APPROVAL_MODES[(CODING_APPROVAL_MODES.indexOf(current) + 1) % CODING_APPROVAL_MODES.length]
+  void codingStore.setApprovalMode(next)
+}
 const {
   trackChatMessageDeleted,
   trackChatMessageRetried,
@@ -108,7 +122,7 @@ async function handleSend() {
       sessionId: targetSessionId,
       text: textToSend,
       attachments: attachmentsToSend,
-      tools: artistryToolReferences,
+      tools: [...artistryToolReferences, ...skillAuthoringToolReferences],
     })
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
@@ -388,6 +402,24 @@ async function handleCleanupMessages() {
           </DropdownMenuContent>
         </DropdownMenuPortal>
       </DropdownMenuRoot>
+
+      <button
+        data-testid="approval-mode-button"
+        :class="[
+          'max-h-[10lh] min-h-[1lh]',
+          approvalMode !== 'substitute' ? 'bg-primary-100 dark:bg-primary-900/40' : '',
+        ]"
+        bg="neutral-100 dark:neutral-800"
+        text="lg neutral-500 dark:neutral-400"
+        hover:text="primary-500 dark:primary-400"
+        flex items-center justify-center rounded-md p-2 outline-none
+        transition-colors transition-transform active:scale-95
+        :title="t(`stage.approval-mode.${approvalMode}`)"
+        :aria-label="t(`stage.approval-mode.${approvalMode}`)"
+        @click="cycleApprovalMode"
+      >
+        <div :class="APPROVAL_MODE_ICONS[approvalMode]" />
+      </button>
 
       <button
         v-if="showStopSpeakingButton"

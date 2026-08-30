@@ -9,7 +9,8 @@
  */
 import type { createContext as createMainEventaContext } from '@moeru/eventa/adapters/electron/main'
 
-import type { CodingApprovalDecisionPayload } from '../../../../shared/eventa'
+import type { CodingApprovalDecisionPayload, CodingApprovalMode } from '../../../../shared/eventa'
+import type { EventaWindowBroadcast } from '../../../libs/electron/eventa-window-broadcast'
 
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -26,7 +27,9 @@ import {
   codingHostExecRun,
   codingHostFsRead,
   codingHostFsWrite,
+  codingHostGetApprovalMode,
   codingHostListTools,
+  codingHostSetApprovalMode,
 } from '../../../../shared/eventa'
 import { runBashCommand } from './policy'
 
@@ -37,6 +40,10 @@ export interface CodingHostOptions {
   /** Overrides the workspace root; default `~/AIRI-workspace` or `AIRI_WORKSPACE_ROOT`. */
   workspaceRoot?: string
   mediumBashApprovalRequired?: boolean
+  /** Initial approval policy; the renderer can switch it live. */
+  approvalMode?: CodingApprovalMode
+  /** Push channel for approval cards; the plain ipc context has no sender to echo to. */
+  broadcast?: EventaWindowBroadcast
 }
 
 export async function setupCodingHost(
@@ -47,6 +54,20 @@ export async function setupCodingHost(
   await mkdir(workspaceRoot, { recursive: true })
 
   const host = createNodeWorkspaceHost(workspaceRoot)
+
+  // Approval policy owns two knobs: whether medium-tier commands need
+  // approval (`substitute` mode lets them run), and whether even high-tier
+  // commands auto-approve (`full` mode). Policy object stays mutable so the
+  // live IPC setter and the tools' per-call reads agree.
+  const policy = {
+    // Mode map (CAPABILITY-PLAN §三 approval tri-state):
+    // - require:    medium + high both ask
+    // - substitute: medium runs, high asks (the pre-existing default)
+    // - full:       nothing asks (auto-approve even high)
+    mode: options.approvalMode ?? (options.mediumBashApprovalRequired ? 'require' : 'substitute') satisfies CodingApprovalMode,
+  }
+  const mediumRequired = () => policy.mode === 'require'
+  const autoApproveAll = () => policy.mode === 'full'
 
   let nextRequestId = 1
   const pendingApprovals = new Map<string, { resolve: (decision: CodingApprovalDecisionPayload['decision']) => void }>()
@@ -62,12 +83,14 @@ export async function setupCodingHost(
     pending.resolve(decision)
   })
 
-  /** Ask any renderer for approval; unanswered requests reject to denied. */
+  /** Ask every renderer for approval; unanswered requests reject to denied. */
   const approve = async (tier: 'read-only' | 'medium' | 'high', command: string): Promise<{ approved: boolean, requestId: string }> => {
+    if (autoApproveAll())
+      return { approved: true, requestId: `auto-approval-${nextRequestId++}` }
     const requestId = `coding-approval-${nextRequestId++}`
     const decision = await new Promise<CodingApprovalDecisionPayload['decision']>((resolve) => {
       pendingApprovals.set(requestId, { resolve })
-      context.emit(codingApprovalRequested, {
+      ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalRequested, {
         requestId,
         subject: command,
         reason: `Bash command requires approval (${tier} risk tier)`,
@@ -84,9 +107,15 @@ export async function setupCodingHost(
 
   const tools = createCodingTools(host, {
     approveBash: approve,
-    mediumBashApprovalRequired: options.mediumBashApprovalRequired,
+    mediumBashApprovalRequired: mediumRequired,
   })
   const codeRuntime = createCodeModeRuntime(tools)
+
+  defineInvokeHandler(context, codingHostSetApprovalMode, async ({ mode }) => {
+    policy.mode = mode
+  })
+
+  defineInvokeHandler(context, codingHostGetApprovalMode, () => ({ mode: policy.mode }))
 
   defineInvokeHandler(context, codingHostFsRead, async ({ path }) => host.readFile(path))
 
@@ -100,7 +129,7 @@ export async function setupCodingHost(
     return runBashCommand(command, {
       host,
       approve,
-      mediumApprovalRequired: mediumApprovalRequired ?? options.mediumBashApprovalRequired ?? false,
+      mediumApprovalRequired: mediumApprovalRequired ?? mediumRequired(),
       approvalRequired,
     })
   })

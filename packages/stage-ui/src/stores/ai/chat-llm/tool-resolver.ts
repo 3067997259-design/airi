@@ -4,7 +4,7 @@ import type { Tool } from '@xsai/shared-chat'
 
 import { uniqBy } from 'es-toolkit'
 
-import { createSparkCommandTool, createWebSearchTools, debug, mcp } from '../../../tools'
+import { createFetchTools, createSparkCommandTool, createWebSearchTools, debug, mcp } from '../../../tools'
 import { useModsServerChannelStore } from '../../mods/api/channel-server'
 import { useWebSearchStore } from '../../modules/web-search'
 import { useLlmToolsStore } from './tools'
@@ -45,6 +45,14 @@ export interface ResolveLlmToolsOptions {
    * @default gated on useWebSearchStore().configured
    */
   webSearchTools?: ToolSource
+  /**
+   * Page-fetch tools. Supplying this avoids creating the default port; by
+   * default the browser heuristic guard is used (the Electron shell installs
+   * the DNS-resolving main-process port through `installFetchTextPort`).
+   *
+   * @default createFetchTools()
+   */
+  fetchTools?: ToolSource
   /**
    * Request-scoped tools from {@link StreamOptions.tools}. These are ordered
    * before active runtime tools so runtime registrations can intentionally
@@ -148,12 +156,14 @@ export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Pro
     debugTools,
     sparkCommandTools,
     webSearchTools,
+    fetchTools,
     customTools,
   ] = await Promise.all([
     resolveToolSource(options.builtInTools ?? (hasNativeMcpTools ? [] : mcp)),
     resolveToolSource(options.debugTools ?? debug),
     resolveSparkCommandTools(options.sparkCommandTools),
     resolveWebSearchTools(options.webSearchTools),
+    resolveToolSource(options.fetchTools ?? createFetchTools),
     resolveCustomTools(options.customTools),
   ])
 
@@ -163,6 +173,7 @@ export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Pro
       ...debugTools,
       ...sparkCommandTools,
       ...webSearchTools,
+      ...fetchTools,
       ...customTools,
       ...activeTools,
     ].toReversed(),

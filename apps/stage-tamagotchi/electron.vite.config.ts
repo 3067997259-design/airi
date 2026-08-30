@@ -44,6 +44,11 @@ export default defineConfig({
           '@proj-airi/core-agent',
           '@proj-airi/memory-core',
           '@proj-airi/memory-pgvector',
+          // The web-fetch main service imports the fetch tool surface. Exclude
+          // entries match whole package names only, so the entry must be the
+          // bare scope package; the resolve.alias below still narrows the
+          // actual bundling to the two tool files.
+          '@proj-airi/stage-ui',
         ],
         include: [
           // Native modules that have `__dirname` usages. Externalize to avoid bundling
@@ -104,6 +109,8 @@ export default defineConfig({
         // carries a standalone-client side effect (void main()).
         '@proj-airi/memory-pgvector/repository': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-pgvector', 'src', 'repository.ts')),
         '@proj-airi/memory-core': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-core', 'src', 'index.ts')),
+        '@proj-airi/stage-ui/tools/fetch': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'tools', 'fetch.ts')),
+        '@proj-airi/stage-ui/tools/fetch-ssrf': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'tools', 'fetch-ssrf.ts')),
         '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),
         '@proj-airi/server-runtime/server': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'server', 'index.ts')),
         '@proj-airi/server-runtime': resolve(join(import.meta.dirname, '..', '..', 'packages', 'server-runtime', 'src', 'index.ts')),

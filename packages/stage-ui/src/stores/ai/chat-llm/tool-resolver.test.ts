@@ -54,6 +54,7 @@ describe('resolveLlmTools', () => {
       debugTools: [],
       sparkCommandTools: [],
       webSearchTools: [],
+      fetchTools: [],
       activeTools: [runtimeTool],
     })
 
@@ -71,6 +72,7 @@ describe('resolveLlmTools', () => {
       debugTools: [],
       sparkCommandTools: [],
       webSearchTools: [],
+      fetchTools: [],
       customTools: [customTool],
       activeTools: [runtimeTool],
     })
@@ -87,6 +89,7 @@ describe('resolveLlmTools', () => {
       debugTools: [],
       sparkCommandTools: [],
       webSearchTools: [webSearchTool],
+      fetchTools: [],
       activeTools: [],
     })
 
@@ -109,6 +112,7 @@ describe('resolveLlmTools', () => {
         builtInTools: [builtInTool],
         debugTools: [],
         sparkCommandTools: [],
+        fetchTools: [],
         activeTools: [],
       })
 
@@ -128,11 +132,28 @@ describe('resolveLlmTools', () => {
         builtInTools: [builtInTool],
         debugTools: [],
         sparkCommandTools: [],
+        fetchTools: [],
         activeTools: [],
       })
 
       expect(createWebSearchToolsMock).toHaveBeenCalledWith({ apiKey: 'tvly-key' })
       expect(tools).toEqual([builtInTool, webSearchTool])
+    })
+
+    it('mounts the fetch tool by default without any configuration', async () => {
+      const builtInTool = createTool('built_in_tool')
+
+      const tools = await resolveLlmTools({
+        builtInTools: [builtInTool],
+        debugTools: [],
+        sparkCommandTools: [],
+        webSearchTools: [],
+        activeTools: [],
+      })
+
+      const names = tools.map(tool => toolNameFrom(tool))
+      expect(names).toContain('fetch')
+      expect(names[0]).toBe('built_in_tool')
     })
 
     it('suppresses the default mcp proxy tools once native mcp_* runtime tools are active', async () => {

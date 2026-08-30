@@ -24,6 +24,8 @@ export const JOURNAL_EVENT_TYPES = [
   'review/decided',
   'fork/point',
   'archived/pointer',
+  'appearance/changed',
+  'life/tick',
 ] as const
 
 export type JournalEventType = (typeof JOURNAL_EVENT_TYPES)[number]
@@ -127,6 +129,8 @@ export interface ApprovalAskedEvent {
   stepId?: string
   riskLevel?: 'low' | 'medium' | 'high'
   reason: string
+  /** The concrete thing awaiting approval (e.g. the bash command line). */
+  subject?: string
 }
 
 export interface ApprovalDecidedEvent {
@@ -172,6 +176,39 @@ export interface ArchivePointerEvent {
   byteLength: number
 }
 
+/**
+ * One visual change the character made (LIFE-PLAN M2). The journal becomes
+ * her narratable life: "the coat went on Wednesday, hair changed twice last
+ * week" replays from these events.
+ */
+export interface AppearanceChangedEvent {
+  type: 'appearance/changed'
+  seq: number
+  source: 'parameter' | 'expression' | 'expression-reset'
+  /** Parameter id or expression name; '*' for full resets. */
+  target: string
+  value?: number
+  enabled?: boolean
+  timestamp: number
+}
+
+/**
+ * One heartbeat of the autonomous tick (LIFE-PLAN M3). Records that a
+ * consideration round ran and what it decided, including silence — the
+ * journal is the black box of her inner life.
+ */
+export interface LifeTickEvent {
+  type: 'life/tick'
+  seq: number
+  tickId: string
+  outcome: 'considered-silent' | 'spoke' | 'noted' | 'gated'
+  /** Cheap-gate that suppressed this tick before any round, when applicable. */
+  gate?: 'quiet-hours' | 'budget' | 'cooldown' | 'busy' | 'respond'
+  /** Why the tick fired; a short structured stimulus summary. */
+  stimulus?: string
+  timestamp: number
+}
+
 export type JournalEvent
   = | SessionHeaderEvent
     | UserMessageEvent
@@ -190,6 +227,8 @@ export type JournalEvent
     | ReviewDecidedEvent
     | ForkPointEvent
     | ArchivePointerEvent
+    | AppearanceChangedEvent
+    | LifeTickEvent
 
 /** Everything that identifies an event except the store-assigned sequence. */
 export type JournalEventInput = DistributiveOmit<JournalEvent, 'seq'>

@@ -28,6 +28,7 @@
     "./stores/custom-parameters": "./src/stores/custom-parameters.ts",
     "./tools/expression-tools": "./src/tools/expression-tools.ts",
     "./tools/parameter-tools": "./src/tools/parameter-tools.ts",
+    "./tools/mirror-tools": "./src/tools/mirror-tools.ts",
     "./utils/eye-motions": "./src/utils/eye-motions.ts",
     "./utils/live2d-preview": "./src/utils/live2d-preview.ts",
     "./utils/live2d-zip-loader": "./src/utils/live2d-zip-loader.ts",

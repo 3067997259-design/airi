@@ -1932,6 +1932,9 @@ importers:
       '@proj-airi/server-sdk':
         specifier: workspace:*
         version: link:../../packages/server-sdk
+      '@proj-airi/skill-forge':
+        specifier: workspace:^
+        version: link:../../packages/skill-forge
       '@proj-airi/stage-layouts':
         specifier: workspace:^
         version: link:../../packages/stage-layouts

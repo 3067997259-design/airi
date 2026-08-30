@@ -15,6 +15,13 @@ export const CODING_TOOL_META = {
       path: 'Path inside the workspace, relative or absolute.',
     },
   },
+  readRaw: {
+    name: 'readRaw',
+    description: 'Read a text file inside the workspace and return its exact bytes unchanged. Use this when content is going to be parsed or executed (no line signatures).',
+    parameterDescriptions: {
+      path: 'Path inside the workspace, relative or absolute.',
+    },
+  },
   write: {
     name: 'write',
     description: 'Replace a whole text file inside the workspace with new content.',

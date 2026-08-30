@@ -5,21 +5,35 @@ import type { Tool } from '@xsai/shared-chat'
 import { useLive2DCustomParameters } from '@proj-airi/stage-ui-live2d/stores/custom-parameters'
 import { useExpressionStore } from '@proj-airi/stage-ui-live2d/stores/expression-store'
 import { expressionTools } from '@proj-airi/stage-ui-live2d/tools/expression-tools'
+import { mirrorTools } from '@proj-airi/stage-ui-live2d/tools/mirror-tools'
 import { live2dParameterTools } from '@proj-airi/stage-ui-live2d/tools/parameter-tools'
 import { useLlmToolsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/toolset-prompts'
+import { useLifeModeStore } from '@proj-airi/stage-ui/stores/modules/life-mode'
+import { useMemoryStore } from '@proj-airi/stage-ui/stores/modules/memory'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
-import { defineStore } from 'pinia'
+import { createSelfTools } from '@proj-airi/stage-ui/tools/life/self-tools'
+import { defineStore, storeToRefs } from 'pinia'
+import { watch } from 'vue'
 
 import { createCodingHostClient } from '../../bridges/coding-host'
 import { codingTools } from './builtin/coding'
 import { imageJournalTools } from './builtin/image-journal'
 import { planTools } from './builtin/plan'
+import { skillSubmitTools } from './builtin/skill-submit'
 import { weatherTools } from './builtin/weather'
 import { widgetsTools } from './builtin/widgets'
 
 export const planToolReferences = [
   { name: 'plan_update' },
+] satisfies ChatToolReference[]
+
+/**
+ * Self-authored tool loop entry (CAPABILITY-PLAN §五): the submission key.
+ * Always mounted on chat sends so SHE can hand in a tool at any time.
+ */
+export const skillAuthoringToolReferences = [
+  { name: 'skill_submit' },
 ] satisfies ChatToolReference[]
 
 export const widgetToolReferences = [
@@ -47,6 +61,7 @@ export const codingReferences = [...codingToolReferences] satisfies ChatToolRefe
  * setting, so registering them is safe even when the user opted out.
  */
 export const live2dAppearanceToolReferences = [
+  { name: 'mirror' },
   { name: 'expression_set' },
   { name: 'expression_get' },
   { name: 'expression_toggle' },
@@ -67,7 +82,15 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
   const llmToolsetPromptsStore = useLlmToolsetPromptsStore()
   const expressionStore = useExpressionStore()
   const skillsStore = useSkillsReviewStore()
+  const lifeModeStore = useLifeModeStore()
   const toolIdPrefix = 'tamagotchi:'
+
+  // Consideration-turn tools appear when life mode is anything but `off`
+  // (LIFE-PLAN §二.2); re-registering on a mode switch keeps the toolset in
+  // sync with the user's choice without a restart.
+  watch(() => lifeModeStore.config.mode, () => {
+    void refresh()
+  })
 
   function registeredToolIds() {
     return llmToolsStore.tools
@@ -122,6 +145,10 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       ].join('\n'))
     }
 
+    if (sections.length > 0) {
+      sections.push('mirror returns your current appearance snapshot (expressions, held parameters, mood) — call it before changing how you look.')
+    }
+
     llmToolsetPromptsStore.registerToolsetPrompts('live2d-appearance', [{
       id: 'live2d-appearance-overview',
       title: 'Live2D Appearance',
@@ -133,6 +160,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
     registerLive2dToolsetPrompt()
     registerCodingToolsetPrompt()
     registerPlanningToolsetPrompt()
+    registerSkillSubmitToolsetPrompt()
     skillsStore.syncRuntimeTools()
 
     // The coding host bridge can be transiently unavailable (main process
@@ -149,13 +177,28 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       coding = []
     }
 
+    const selfTools = lifeModeStore.config.mode === 'off'
+      ? []
+      : await createSelfTools()
+
     const tools = (await Promise.all([
       imageJournalTools(),
       widgetsTools(),
       weatherTools(),
       expressionTools(),
       live2dParameterTools(),
+      // LIFE-PLAN M1: the mirror reads the memory store's mood through the
+      // port (stage-ui-live2d does not depend on stage-ui). Pinia unwraps
+      // setup-store refs on store access, so the ref is reached via storeToRefs.
+      mirrorTools({
+        getMood: () => {
+          const { currentMood } = storeToRefs(useMemoryStore())
+          return currentMood.value
+        },
+      }),
       planTools(),
+      skillSubmitTools(),
+      Promise.resolve(selfTools),
     ])).flat()
 
     llmToolsStore.removeToolsByIds(...registeredToolIds())
@@ -201,6 +244,22 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'For multi-step tasks, create a plan first with plan_update (action "start"): a goal plus small ordered steps, each declaring its allowed tools and expected evidence.',
         'Call plan_update (action "focus") whenever you begin a new step, so tool results attach to that step as evidence.',
         'A step is completed only when its evidence exists — an allowed tool result, a verification, or a user approval. Saying "done" does not complete a step; the plan card tracks real evidence.',
+      ].join('\n\n'),
+    }])
+  }
+
+  /**
+   * Tells the model how the self-authored tool loop works and that submitted
+   * skills stay inert until the user reviews them.
+   */
+  function registerSkillSubmitToolsetPrompt() {
+    llmToolsetPromptsStore.registerToolsetPrompts('skill-authoring', [{
+      id: 'skill-authoring-overview',
+      title: 'Authoring your own tools',
+      content: [
+        'skill_submit hands a self-contained JavaScript capability to the review queue: it is statically analyzed, persisted under workspace skills/<toolId>/, optionally self-tested in the sandbox, and only becomes callable after the user reviews it.',
+        'Declare what the tool touches honestly — the analysis checks your declaration against the source, and any contradiction rejects the submission.',
+        'While a skill is in probation or review, never call it. Call it only after the user approved it.',
       ].join('\n\n'),
     }])
   }
