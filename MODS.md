@@ -369,6 +369,10 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   两份已审定的前端设计计划已落档：`LIFE-PLAN.md`（Neuro 式自主节拍——考量回合 + 生命模式矩阵 + mirror 工具 + 外观 journal 化）
   与 `CAPABILITY-PLAN.md`（能力扩展——fetch/SSRF、审批模式三档、dsh 插件兼容通道、自造工具闭环 skill_submit/沙箱自测/审阅通知）。
   注意 M3（babysitter）在 LIFE-PLAN 里与自主节拍 tick 合流，不再独立。
+  另：`COMMAND-PLAN.md`（/plan 与 /goal 指令面板 · @文件引用 · 计划持久化
+  复用休眠的 memory_long_term_goals 表——基座已实现；2026-08-31 增补真机
+  诊断与 Phase A–E 执行计划：证据三档归位 / user_ask / 回合内续跑 /
+  会话边界 / babysitter 对内面）。
   另：`MIRROR-PLAN.md`（让模型真正"看到"自己——vision 读图 + livespace；真机确诊 mirror 生成像素但图不进对话输入）。
 
 ## 第三轮实施（2026-08-29）：CAPABILITY-PLAN + LIFE-PLAN 落地
