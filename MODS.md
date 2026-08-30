@@ -373,6 +373,31 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   复用休眠的 memory_long_term_goals 表——基座已实现；2026-08-31 增补真机
   诊断与 Phase A–E 执行计划：证据三档归位 / user_ask / 回合内续跑 /
   会话边界 / babysitter 对内面）。
+
+## COMMAND-PLAN 落地（2026-08-31）：Phase A–E
+
+- 提交：7b5658fac（基座：触发面板泛化、@引用展开、/plan /goal 拦截、
+  horizon、DuckDB 持久化）；eef7b4d23（Phase A：证据三档 + 审批桥）；
+  b4faf6ff8（Phase B/C/D：user_ask、回合内续跑、会话边界）。
+- Phase A 解开真机死局：focus 审批步骤阻塞式发审批卡（决策经 coding-host
+  重广播进各窗口 journal，planId 贯通），`complete` 动作未验证完成（卡片
+  黄档），start 拒绝 human_approval×非审批幽灵组合，projection/prompt 明示
+  "聊天文本不是批准"；gate 语义精化：零工具签核步骤批准即完成，带工具
+  步骤仍需变异证明。
+- Phase B：`user_ask` 工具 + `runtime-user-ask` 同步 store 问题卡（跨窗口
+  渲染、answer 路由回 leader、关闭即"无答案继续"降级），journal 记
+  user/asked + user/answered。
+- Phase C：回合内续跑——回合结束仍有可执行计划步骤时自动续跑（每条用户
+  消息上限 2 轮，用户发送重置，审批/受阻步骤不调度）。
+- Phase D：session 计划绑定创建会话（DuckDB `session_id` 列 + 卡片/投影
+  按当前会话过滤），long goal 全局滚动不变。
+- Phase E：确认另一路已实现 life tick → long goal 工具轮 + blocker 上报 +
+  stall 检测，无需增补。
+- 测试：core-agent 179、stage-ui 837、tamagotchi tools 66 全绿；typecheck
+  三包干净；真机 sanity：user_ask/plan_update 注册、/plan 面板列命令、
+  计划与 user_ask store 就位、新会话无残留。
+- 教训重申：core-agent（exports→dist）修改后必须 `pnpm -F @proj-airi/core-agent
+  build` 再跑 tamagotchi 跨包测试，否则测的是旧产物。
   另：`MIRROR-PLAN.md`（让模型真正"看到"自己——vision 读图 + livespace；真机确诊 mirror 生成像素但图不进对话输入）。
 
 ## 第三轮实施（2026-08-29）：CAPABILITY-PLAN + LIFE-PLAN 落地
