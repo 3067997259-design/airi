@@ -431,10 +431,14 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   life-mode gates 9、built-in 3。
 - tamagotchi 生产构建：electron-vite 主进程/preload/renderer 输出 + typecheck
   全绿（web-fetch 与 life-mode 主服务打包路径验证）。
-- **遗留/后置**：dsh 内容插件适配器（样本插件解剖需先拍板，GitHub 直连限制）；
-  @文件引用与 skill 上拉栏 UI；M4 阶梯（L0 观测→L1 闯入记忆分享→L2 作息在场→
-  L3 世界泡，与 babysitter 合流）；生命周期预算/冷却的 UI 提示位；
-  skills 队列持久化仍为内存态（产物已落盘，队列状态跨重启靠重提）。
+- **遗留/后置（2026-08-30 更新）**：dsh 内容插件适配器**已放弃**（拍板：dsh 插件
+  与 AIRI 架构不同源，兼容面收敛为自有技能格式）；@文件引用（skill 上拉栏已于
+  当日完成）；**babysitter/长程 goal 后台推进未实现**——计划只能在她人在场时
+  沿对话推进（`getActivePlanStep` 喂当前步），心跳考量回合只挂 self_speak/
+  self_note、不能执行计划工具，"同一 tick 两面"的对内面缺失；M4 阶梯（L0 观测
+  →L1 闯入记忆分享→L2 作息在场→L3 世界泡，babysitter 是其合流点）；生命周期
+  预算/冷却的 UI 提示位；skills 队列持久化仍为内存态（产物已落盘，队列状态跨
+  重启靠重提）。
 
 ## 第三轮验收（含 agent-browser 真机走查，2026-08-30）
 

@@ -26,6 +26,7 @@
 ### goal / babysitting
 - plan 系统大半已在（plan_update + 证据门 + 任务泳道）。缺的是**后台 babysitter**：定时唤醒她、推进计划下一步、超时上报。
 - **与 LIFE-PLAN 的 M3 tick 合流**：同一个心跳两面——对内推进任务、对外开口分享。
+- **（2026-08-30 核查：未实现。）** 现状 = 计划只能在她人在场时沿对话推进（chat store `getActivePlanStep` 把当前步 + allowedTools 喂给编排器）；心跳考量回合只挂 `self_speak`/`self_note`，不能执行计划工具——"对内推进"这一面缺失。
 - plan 文件化（workspace 开 `plans/` 文件夹）：**缓做**。journal + devtools 控制台已能查计划，文件化边际价值不高，待真实使用确需"翻旧计划"再做。
 
 ## 三、极简 UI 按键组
@@ -41,6 +42,7 @@
 
 ### skill 上拉栏
 - 依赖自造闭环 + skill 目录成型。**后置。**
+- **（2026-08-30 完成。）** 见 MODS.md"Codex 风 skill 上拉栏"：`/name` 唤起 → 过滤 → 回填 → 发送时 `prepareForPrompt` 按名称激活。
 
 ## 四、插件兼容
 
@@ -50,6 +52,7 @@
 ### 三条通道
 1. **skill 导入器**：纯文本 skill → skill-forge 契约（draft→probation→reviewed）+ toolset prompt 注入。**容易。**
 2. **dsh 内容类插件适配器**：dsh bundle 的 `dsh.bundle.patch` / `dsh.client.inject` 元数据 → `registerTools` 映射。**中等。**
+   **（2026-08-30 拍板：放弃。）** dsh 插件与 AIRI 架构不同源、外部改动五花八门，适配性价比低；兼容面收敛为 AIRI 自有技能格式（与 skill_submit 产物天然一致），外部作者按我们的格式发布，而不是适配别人的运行时。
 3. **UI/外观类插件**：跳过并在导入时报告。**不碰。**
 
 ### 安全红线（必须）
