@@ -369,6 +369,7 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   两份已审定的前端设计计划已落档：`LIFE-PLAN.md`（Neuro 式自主节拍——考量回合 + 生命模式矩阵 + mirror 工具 + 外观 journal 化）
   与 `CAPABILITY-PLAN.md`（能力扩展——fetch/SSRF、审批模式三档、dsh 插件兼容通道、自造工具闭环 skill_submit/沙箱自测/审阅通知）。
   注意 M3（babysitter）在 LIFE-PLAN 里与自主节拍 tick 合流，不再独立。
+  另：`MIRROR-PLAN.md`（让模型真正"看到"自己——vision 读图 + livespace；真机确诊 mirror 生成像素但图不进对话输入）。
 
 ## 第三轮实施（2026-08-29）：CAPABILITY-PLAN + LIFE-PLAN 落地
 
@@ -529,3 +530,77 @@ leader 渲染进程）。API key 解禁、余额充足。**真机走查逼出 7 
 
 后续可做：把 mirror 自拍作为共享媒体暴露给模型主动引用（backgroundStore
 `selfie` 条目已可被 image_journal apply 检索），以及 M4 阶梯里"镜子"进阶。
+
+## 第四轮梳理（2026-08-30）：记忆层 / life-mode / 上拉栏 状态核查
+
+- 修复：
+  1. life-mode i18n：`life-mode.vue` 模式键误写为 `life-mode.modes.${mode}`，
+     locale 实际在 `sections.mode.*`（en/zh-Hans 源本就齐全）→ 改为
+     `sections.mode.${mode}`。症状即"标题描述正常、三个模式名显示原始键"。
+  2. i18n dist 未重建：上一轮 mirror-visual 键只改了 src，dist 里没有 →
+     `pnpm -F @proj-airi/i18n build` 重建（教训重申：渲染层吃 dist）。
+  3. OPFS 单写者结构性加固：`useDuckDb.getDb` 自己检查 `resolveMemoryWriteAccess`，
+     follower 直接抛错——守卫不再只靠 memory store 自觉；`Stage.vue` 移除
+     `await getDb() // stub for future update`（每挂一个 Stage 就无条件开一次库，
+     白白扩大锁冲突窗口）。
+  4. `memory-long-term.vue` 类型错误：Callout theme 传 `'red'` 不存在 →
+     `packages/ui` Callout 补 `red` 变体 + ui-components 文档同步。
+- 诊断结论：
+  - `createSyncAccessHandle` = OPFS 同文件第二个同步句柄冲突。当前代码只有
+    主窗口（leader）会开库（WidgetStage 仅 index.vue 挂载，chat 窗口不挂
+    Stage；其余窗口全被守卫拦住），嫌疑指向**另一个同源渲染进程持有文件**：
+    双开应用实例 / 僵尸进程（dev 模式 HMR 重求值 use-duck-db 也会留旧 worker
+    句柄）。复现时的处置：杀干净全部实例再点初始化。
+  - 短期与长期记忆在存储层零关系：短期=DuckDB-WASM OPFS（渲染进程本地），
+    长期=Postgres/pgvector（主进程 eventa 桥，需 docker pgvector 栈在跑）。
+    唯一连接点是 `promoteEligible` 晋升后镜像进长期库。
+  - 梦境整理"没作用"= 同一失败链：`dream()` 需 master `enabled` +
+    `dreamingEnabled` + DB 初始化成功；DB 失败时静默返回 `[]`，且失败无
+    toast（错误只显示在压缩区状态行）。
+  - 短期抽提为零 = `captureEnabled` 默认 false + `captureTurn` 同样先过
+    DB 初始化 + extractor 的 provider/model 缺省回落当前聊天 provider。
+- 核对设计文档未完成项（确认重申）：CAPABILITY-PLAN 的 @文件引用与 skill
+  上拉栏 UI（当时即标"后置"）、dsh 适配器（需样本插件解剖）；LIFE-PLAN 的
+  M4 阶梯（L0-L3）与预算/冷却 UI 提示位；skills 队列内存态持久化缺口；
+  毕业考（真实小工具全流程）未跑。
+- 验证：stage-ui / stage-pages / ui typecheck 全过；eslint changed 文件干净；
+  i18n dist 重建后 en/zh-Hans 均含 mirror-visual。
+
+### 真机验收（2026-08-30）：记忆链修复复验 + 途中五连修
+
+环境：杀干净残留实例（1 主 + 8 子 electron，即 OPFS 句柄持有者）→ build +
+`electron-vite preview` + CDP 9250 raw eval 直连 leader 渲染进程。
+
+复验途中发现并修复（每项先复现后修）：
+1. **NaN 拼进 SQL**（抽提为零真凶之一）：`local-memory.ts insert()` 把
+   `Math.max(-1, Math.min(1, input.valence))` 原样拼进 INSERT，抽取缺心情
+   字段时 DuckDB 报 `Referenced column "NaN" not found`。修：`numberValue()`
+   边界归一化（importance 缺省 5、valence/arousal 缺省 0），SQL 与返回值
+   共用归一化结果。
+2. **抽取 prompt 缺 schema**（抽提为零主因）：`extractMemoryTurn` 的 system
+   prompt 没要求模型返回 importance/valence/arousal/tags，而过滤器硬性要求
+   它们是 number → 模型输出全被静默过滤。修：prompt 补全字段 schema；过滤
+   放宽为结构校验，数值与 tags 在 map 时归一化兜底。
+3. **tags 不可迭代**：`insert()` 的 `for (const tag of input.tags)` 对缺
+   tags 输入在主行已入库后抛错——调用方收到错误但碎片实际已持久化。修：
+   `input.tags ?? []`。
+4. **use-duck-db 守卫误伤**：单写者守卫初版在 Node/测试上下文（无 location）
+   误判 follower。修：仅浏览器上下文强制；新增 follower 拒绝测试
+   （vi.stubGlobal location）。
+5. **llm.test.ts 陈旧 mock**：fetch 上线时没把 `createFetchTools` 加进 tools
+   barrel 的 vi.mock → 全量 6 失败（第三轮只跑了定向测试的欠账）。修：mock
+   补导出。
+
+真机复验结果：
+- `initialize()` → `databaseStatus: 'ready'`，createSyncAccessHandle 消失。
+- 缺 mood/tags 的抽取完整入库、返回正确、待审阅区可见；`dream()` 产出
+  ideas 且去重正常。
+- life-mode 页三模式渲染"关闭/只回应/自主"；意识页 mirror-visual 正常。
+- 长期记忆：docker daemon 未运行 → 启动 Docker Desktop → 启动
+  `proj-airi-backend-db-1`（vchord-postgres pg18，127.0.0.1:5435）→
+  `configureRemoteHost` 后 status 'ready'。两个注意点：容器 restart 策略
+  原为 no（已改 `unless-stopped`，与 memory-host 注释对齐）；主进程缓存的
+  连接失败要靠 configure 触发重连，getStatus 不做活探测。
+- stage-ui 全量 818/818 绿；typecheck / lint 干净。
+
+

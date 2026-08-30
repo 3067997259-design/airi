@@ -133,4 +133,54 @@ describe('createDuckDbMemoryRepository', () => {
     expect(execute.mock.calls.some(([query]) => query.includes('INSERT INTO memory_short_term_ideas'))).toBe(true)
     expect((await repository.listDreamIdeas())[0]?.content).toBe('Try a smaller build loop')
   })
+
+  // ROOT CAUSE:
+  //
+  // Extraction inputs are model-authored JSON. insert() interpolated
+  // Math.max(-1, Math.min(1, input.valence)) verbatim, and with a missing or
+  // non-finite mood/importance value Math.min(1, undefined) is NaN, so DuckDB
+  // received a literal `NaN, NaN` column reference:
+  // "Binder Error: Referenced column "NaN" not found in FROM clause!".
+  // Every capture whose extraction lacked readable mood numbers died here,
+  // which kept the pending-review list permanently empty. Found by the
+  // real-machine smoke run. We fixed this by normalizing numerics with
+  // numberValue() at the SQL boundary; neutral defaults match what
+  // rowToFragment reads back.
+  it('defaults non-finite mood and importance values instead of interpolating NaN into SQL', async () => {
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (_query: string) => [])
+    const repository = createDuckDbMemoryRepository({ execute })
+
+    const fragment = await repository.insert({
+      content: 'A fact without readable mood',
+      category: 'chat',
+      memoryType: 'short_term',
+      importance: Number.NaN,
+      valence: Number.NaN,
+      arousal: Number.NaN,
+      tags: [],
+      embedding: EMBEDDING,
+      now: 1,
+    })
+
+    const insertQuery = execute.mock.calls.find(([query]) => query.includes('INSERT INTO memory_fragments'))?.[0]
+    expect(insertQuery).toBeDefined()
+    expect(insertQuery).not.toContain('NaN')
+    expect(fragment.importance).toBe(5)
+    expect(fragment.valence).toBe(0)
+    expect(fragment.arousal).toBe(0)
+
+    // Same class of producer gap: a missing tags array must not fail the
+    // insert after the fragment row is already persisted.
+    const withoutTags = await repository.insert({
+      content: 'A fact without tags',
+      category: 'chat',
+      memoryType: 'short_term',
+      importance: 5,
+      valence: 0,
+      arousal: 0,
+      embedding: EMBEDDING,
+      now: 1,
+    } as unknown as Parameters<typeof repository.insert>[0])
+    expect(withoutTags.content).toBe('A fact without tags')
+  })
 })

@@ -12,7 +12,7 @@ const MODES = ['off', 'respond', 'autonomous'] as const
 type Mode = (typeof MODES)[number]
 
 function modeKey(mode: Mode): string {
-  return `settings.pages.modules.life-mode.modes.${mode}`
+  return `settings.pages.modules.life-mode.sections.mode.${mode}`
 }
 </script>
 

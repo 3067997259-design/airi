@@ -50,9 +50,11 @@ vi.mock('../../../tools', () => ({
   mcp: mcpMock,
   debug: debugMock,
   createSparkCommandTool: createSparkCommandToolMock,
-  // NOTICE: the resolver imports `createWebSearchTools` from the tools barrel, so
-  // the mock must expose it or module loading fails with a missing-export error.
+  // NOTICE: the resolver imports `createWebSearchTools` and `createFetchTools`
+  // from the tools barrel, so the mock must expose them or module loading
+  // fails with a missing-export error.
   createWebSearchTools: vi.fn(async (): Promise<Tool[]> => []),
+  createFetchTools: vi.fn(async (): Promise<Tool[]> => []),
 }))
 
 const provider = {

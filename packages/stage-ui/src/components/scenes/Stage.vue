@@ -32,7 +32,6 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } fr
 import StageRenderError from './stage-render-error.vue'
 
 import { useSettingsLive2d } from '../../../../stage-ui-live2d/src/composables/live2d/live2d'
-import { useDuckDb } from '../../composables/use-duck-db'
 import { useIOTraceBridge } from '../../composables/use-io-trace-bridge'
 import { initIOTracer } from '../../composables/use-io-tracer'
 import { Emotion, EMOTION_EmotionMotionName_value, EMOTION_VRMExpressionName_value, EmotionThinkMotionName } from '../../constants/emotions'
@@ -66,7 +65,6 @@ const props = withDefaults(defineProps<{
 
 const componentState = defineModel<'pending' | 'loading' | 'mounted'>('state', { default: 'pending' })
 
-const { getDb } = useDuckDb()
 // const transformersProvider = createTransformers({ embedWorkerURL })
 
 const vrmViewerRef = ref<InstanceType<typeof ThreeScene>>()
@@ -903,7 +901,6 @@ if (typeof window !== 'undefined') {
 }
 
 onMounted(async () => {
-  await getDb() // stub for future update
   // Mirror "see yourself": expose the current character frame to the
   // capture port so the `mirror` tool (leader renderer store) can grab it.
   installStageCapture(captureFrame)

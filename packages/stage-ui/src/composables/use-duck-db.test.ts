@@ -28,6 +28,7 @@ describe('useDuckDB (Singleton)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('should return the same instance on multiple calls', async () => {
@@ -104,5 +105,17 @@ describe('useDuckDB (Singleton)', () => {
     expect(vi.mocked(drizzle).mock.calls.length).toBe(2)
 
     await closeDb()
+  })
+
+  // Single-writer contract: a follower renderer must never open the OPFS
+  // database, or it strips the leader's exclusive access handle.
+  it('refuses to open the database in a follower renderer window', async () => {
+    vi.stubGlobal('location', new URL('http://localhost/?synced-leader=false'))
+    const { getDb } = useDuckDb()
+
+    await expect(getDb()).rejects.toThrow('read-write only in the leader window')
+    expect(vi.mocked(drizzle)).not.toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
   })
 })

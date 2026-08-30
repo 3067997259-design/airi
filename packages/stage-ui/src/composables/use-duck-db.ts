@@ -5,6 +5,8 @@ import { getImportUrlBundles } from '@proj-airi/drizzle-duckdb-wasm/bundles/impo
 import { Mutex } from 'async-mutex'
 import { shallowRef } from 'vue'
 
+import { resolveMemoryWriteAccess } from '../services/memory/write-access'
+
 const db = shallowRef<DuckDBWasmDrizzleDatabase | null>(null)
 const mutex = new Mutex()
 const MEMORY_DATABASE_PATH = 'airi-memory.duckdb'
@@ -26,6 +28,17 @@ export function useDuckDb() {
     mutex.runExclusive(async () => {
       if (db.value)
         return db
+      // Single-writer contract (MEMORY-DESIGN §1.4): OPFS permits exactly one
+      // synchronous access handle per file, so the check must live at this —
+      // the only OPFS entry point — rather than in each caller. Without it,
+      // any window that opens the database directly (e.g. a component mounted
+      // in a follower window) strips the leader's exclusive handle and its
+      // next open fails with a createSyncAccessHandle conflict. Non-browser
+      // contexts (Node consumers, unit tests) have no OPFS at all and keep
+      // the unconditional open.
+      const locationSearch = globalThis.location?.search
+      if (locationSearch != null && resolveMemoryWriteAccess(locationSearch) === 'follower')
+        throw new Error('Memory database is read-write only in the leader window (?synced-leader=true); this window must not open it.')
       let dbInstance
       try {
         // Omitting storage creates an in-memory database. OPFS keeps memory

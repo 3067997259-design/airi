@@ -165,6 +165,13 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): MemoryReposi
     const now = input.now ?? Date.now()
     const id = createId()
     const triggerPattern = input.triggerPattern ?? null
+    // Extraction inputs are model-authored JSON; a missing or non-finite mood
+    // or importance value would otherwise interpolate a literal `NaN` into
+    // the SQL and fail DuckDB's binder. numberValue defaults them to the same
+    // neutral values rowToFragment reads back.
+    const importance = Math.max(1, Math.min(10, numberValue(input.importance, 5)))
+    const valence = Math.max(-1, Math.min(1, numberValue(input.valence)))
+    const arousal = Math.max(0, Math.min(1, numberValue(input.arousal)))
     await db.execute(`
       INSERT INTO memory_fragments (
         id, content, memory_type, category, importance, emotional_impact,
@@ -172,14 +179,18 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): MemoryReposi
         created_at, last_accessed, access_count, review_status, content_vector_768, source_context_json
       ) VALUES (
         ${quote(id)}, ${quote(input.content.trim())}, ${quote(input.memoryType)},
-        ${quote(input.category)}, ${Math.max(1, Math.min(10, input.importance))}, 0,
-        ${Math.max(-1, Math.min(1, input.valence))}, ${Math.max(0, Math.min(1, input.arousal))},
+        ${quote(input.category)}, ${importance}, 0,
+        ${valence}, ${arousal},
         ${input.memoryType === 'muscle' ? 1e9 : input.halfLifeHours ?? 24}, ${jsonLiteral(input.sessionId ? [input.sessionId] : [])},
         ${triggerPattern == null ? 'NULL' : quote(triggerPattern)},
         ${now}, ${now}, 1, ${quote(input.reviewStatus ?? 'pending')}, ${vectorLiteral(input.embedding)}, ${jsonLiteral(input.sourceContext ?? {})}
       )
     `)
-    for (const tag of input.tags) {
+    // Tags are required on the MemoryExtraction contract but model-authored
+    // producers may omit them; the fragment row is already inserted at this
+    // point, so failing here would leave the caller reporting an error for a
+    // fragment that is actually persisted.
+    for (const tag of input.tags ?? []) {
       await db.execute(`
         INSERT INTO memory_tags (id, memory_id, tag, created_at)
         VALUES (${quote(createId())}, ${quote(id)}, ${quote(tag)}, ${now})
@@ -200,13 +211,13 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): MemoryReposi
       content: input.content.trim(),
       memoryType: input.memoryType,
       category: input.category,
-      importance: Math.max(1, Math.min(10, input.importance)),
+      importance,
       emotionalImpact: 0,
       createdAt: now,
       lastAccessed: now,
       accessCount: 1,
-      valence: Math.max(-1, Math.min(1, input.valence)),
-      arousal: Math.max(0, Math.min(1, input.arousal)),
+      valence,
+      arousal,
       halfLifeHours: input.memoryType === 'muscle' ? 1e9 : input.halfLifeHours ?? 24,
       sessionIds: input.sessionId ? [input.sessionId] : [],
       triggerPattern,
