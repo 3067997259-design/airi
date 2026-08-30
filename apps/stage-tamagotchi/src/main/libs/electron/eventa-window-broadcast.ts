@@ -26,12 +26,16 @@ export function createEventaWindowBroadcast(): EventaWindowBroadcast {
   const contexts = new Map<number, MainEventaContext>()
 
   function attach(window: BrowserWindow): void {
-    if (contexts.has(window.webContents.id))
+    // webContents.id is volatile: by the time 'closed' fires the webContents
+    // is already destroyed, so read the id once here and only touch the
+    // cached value in the cleanup callback.
+    const webContentsId = window.webContents.id
+    if (contexts.has(webContentsId))
       return
     const { context } = createWindowEventaContext(ipcMain, window)
-    contexts.set(window.webContents.id, context)
+    contexts.set(webContentsId, context)
     window.once('closed', () => {
-      contexts.delete(window.webContents.id)
+      contexts.delete(webContentsId)
     })
   }
 
