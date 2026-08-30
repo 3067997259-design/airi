@@ -138,6 +138,13 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   const probationCount = computed(() => queue.value.filter(entry => entry.trust === 'probation').length)
   const canSubmitMore = computed(() => canEnterProbation(queue.value))
 
+  /** Projects reviewed, non-quarantined skills for the chat input skill shelf. */
+  const reviewedSkills = computed(() => activeEntries().map(entry => ({
+    toolId: entry.toolId,
+    name: entry.name,
+    description: entry.description,
+  })))
+
   function activeEntries() {
     return queue.value.filter(entry => entry.trust === 'reviewed' && !entry.quarantine)
   }
@@ -174,6 +181,11 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   function activatedEntries(text: string) {
     const normalized = text.toLocaleLowerCase()
     return activeEntries().filter((entry) => {
+      // The chat input shelf inserts the skill's canonical name as a /name
+      // token; matching name and toolId keeps that insertion reliable even
+      // when the author's activation keyword list omits them.
+      const nameHit = normalized.includes(entry.name.toLocaleLowerCase())
+        || normalized.includes(entry.toolId.toLocaleLowerCase())
       const keywordHit = entry.activation.keywords.some(keyword => normalized.includes(keyword.toLocaleLowerCase()))
       const patternHit = entry.activation.patterns.some((pattern) => {
         try {
@@ -183,7 +195,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
           return false
         }
       })
-      return keywordHit || patternHit
+      return nameHit || keywordHit || patternHit
     })
   }
 
@@ -449,6 +461,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     revisionBatch,
     probationCount,
     canSubmitMore,
+    reviewedSkills,
     submit,
     applyContentChange,
     approve,

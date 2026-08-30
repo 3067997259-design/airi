@@ -603,4 +603,23 @@ leader 渲染进程）。API key 解禁、余额充足。**真机走查逼出 7 
   连接失败要靠 configure 触发重连，getStatus 不做活探测。
 - stage-ui 全量 818/818 绿；typecheck / lint 干净。
 
+### Codex 风 skill 上拉栏（2026-08-30）
+
+- 构成：`use-skill-shelf` composable（状态机：尾随 `/token` 开栏 → 输入过滤
+  → 选择回填规范化名）+ `SkillShelf.vue`（展示面板：名/描述/提示条/空态）+
+  `InteractiveArea` 接线（`submit-on-enter=false` 下 Enter 由面板优先消费）。
+  store 侧 `activatedEntries` 增加 name/toolId 匹配——插入 `/name` 必然激活；
+  新增 `reviewedSkills` 投影；i18n `stage.skill-shelf.*`（en/zh-Hans + dist）。
+- 设计要点：上拉栏只做"选择 → 插入"这层 UX，激活与注入完全复用既有
+  `prepareForPrompt`（发送时按名称/关键词命中 → toolset prompt 注入）。
+  `ShelfKeyEvent` 结构化接口让 composable 保持 DOM-free，node 测试项目可直接
+  跑（KeyboardEvent 在 node 项目不存在，浏览器模式才可用）。
+- 测试：use-skill-shelf 7 例；skills store 12 例（含 name-token 激活与
+  reviewedSkills 投影）。
+- 真机验收：chat 窗口输入 `/open` → 面板渲染 opencode_delegate（名 + 描述 +
+  中文提示），Enter 消费并回填 `/opencode_delegate `、面板关闭；截图确认暗色
+  主题风格一致。坑：skills-review 是 synced store，follower（chat 窗口）本地
+  变更会被 leader 快照覆盖——造 reviewed 数据必须在主窗口（leader）做。
+
+
 

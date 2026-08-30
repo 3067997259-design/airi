@@ -15,6 +15,7 @@ import { CODING_APPROVAL_MODES, useCodingToolsStore } from '@proj-airi/stage-ui/
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
+import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { BasicTextarea } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
@@ -25,13 +26,28 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import JournalToolCallBlock from './chat-tool-renderers/journal-tool-call-block.vue'
+import SkillShelf from './SkillShelf.vue'
 
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
+import { useSkillShelf } from '../composables/use-skill-shelf'
 import { artistryToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
 useHearingInputChannel(messageInput)
+
+// Codex-style skill shelf: a trailing `/name` token in the input opens the
+// shelf; inserting a skill rewrites the token so the review store matches it
+// at send time (prepareForPrompt).
+const skillsReviewStore = useSkillsReviewStore()
+const {
+  filteredSkills: shelfSkills,
+  isOpen: isSkillShelfOpen,
+  onInput: onInputSkillShelf,
+  onKeyDown: onKeyDownSkillShelf,
+  select: selectSkillFromShelf,
+  selectedIndex: shelfSelectedIndex,
+} = useSkillShelf(messageInput, () => skillsReviewStore.reviewedSkills)
 const lastEnterTime = ref(0)
 const attachments = ref<{ type: 'image', data: string, mimeType: string, url: string }[]>([])
 
@@ -164,7 +180,13 @@ function handleFileSelect(event: Event) {
 }
 
 function handleMessageInputKeydown(event: KeyboardEvent) {
-  if (isComposing.value || event.key !== 'Enter')
+  if (isComposing.value)
+    return
+
+  if (onKeyDownSkillShelf(event))
+    return
+
+  if (event.key !== 'Enter')
     return
 
   const hasControl = event.ctrlKey || event.metaKey
@@ -489,22 +511,31 @@ async function handleCleanupMessages() {
         @change="handleFileSelect"
       >
     </div>
-    <BasicTextarea
-      v-model="messageInput"
-      :submit-on-enter="false"
-      :placeholder="t('stage.message')"
-      class="ph-no-capture [scrollbar-gutter:stable]"
-      text="primary-600 dark:primary-100  placeholder:primary-500 dark:placeholder:primary-200"
-      border="solid 2 primary-200/20 dark:primary-400/20"
-      bg="primary-100/50 dark:primary-900/70"
-      max-h="[10lh]" min-h="[1lh]"
-      w-full shrink-0 resize-none overflow-y-auto rounded-xl p-2 font-medium outline-none
-      transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
-      @compositionstart="isComposing = true"
-      @compositionend="isComposing = false"
-      @keydown="handleMessageInputKeydown"
-      @paste-file="handleFilePaste"
-    />
+    <div class="relative w-full">
+      <SkillShelf
+        v-if="isSkillShelfOpen"
+        :skills="shelfSkills"
+        :selected-index="shelfSelectedIndex"
+        @select="selectSkillFromShelf"
+      />
+      <BasicTextarea
+        v-model="messageInput"
+        :submit-on-enter="false"
+        :placeholder="t('stage.message')"
+        class="ph-no-capture [scrollbar-gutter:stable]"
+        text="primary-600 dark:primary-100  placeholder:primary-500 dark:placeholder:primary-200"
+        border="solid 2 primary-200/20 dark:primary-400/20"
+        bg="primary-100/50 dark:primary-900/70"
+        max-h="[10lh]" min-h="[1lh]"
+        w-full shrink-0 resize-none overflow-y-auto rounded-xl p-2 font-medium outline-none
+        transition="all duration-250 ease-in-out placeholder:all placeholder:duration-250 placeholder:ease-in-out"
+        @compositionstart="isComposing = true"
+        @compositionend="isComposing = false"
+        @input="onInputSkillShelf"
+        @keydown="handleMessageInputKeydown"
+        @paste-file="handleFilePaste"
+      />
+    </div>
 
     <!-- Shared Preview Modal -->
     <JournalPreviewModal />

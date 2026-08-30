@@ -69,6 +69,9 @@ send-mode:
   enter: Enter
   ctrl-enter: Ctrl + Enter
   double-enter: Double Enter
+skill-shelf:
+  empty: No reviewed skills yet — she can author one with skill_submit.
+  hint: Type to filter · Enter to insert · Esc to close
 speech-output:
   mute: Mute voice
   unmute: Unmute voice

@@ -69,6 +69,9 @@ send-mode:
   enter: Enter
   ctrl-enter: Ctrl + Enter
   double-enter: 双击Enter
+skill-shelf:
+  empty: 还没有审阅通过的技能——她可以用 skill_submit 自己写一个。
+  hint: 输入以筛选 · Enter 插入 · Esc 关闭
 speech-output:
   mute: 静音语音
   unmute: 恢复语音

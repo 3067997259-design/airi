@@ -100,6 +100,20 @@ describe('skills review store', () => {
     expect(tools.tools.map(tool => tool.function.name)).toEqual(['opencode_delegate'])
   })
 
+  // The chat input shelf inserts the skill's canonical name as a /name token.
+  // Activation must key off that name (and toolId) so the shelf insertion is
+  // reliable even when the author's keyword list omits it.
+  it('activates a reviewed skill from its name token and projects shelf entries', () => {
+    const store = useSkillsReviewStore()
+    store.submit({ ...OPENCODE_ADAPTER_SKELETON, toolId: 'flip-text', name: 'flip_text' })
+    store.approve('flip-text')
+
+    expect(store.prepareForPrompt('use /flip_text on this draft')).toEqual(['opencode_delegate'])
+    expect(store.reviewedSkills).toEqual([
+      { toolId: 'flip-text', name: 'flip_text', description: OPENCODE_ADAPTER_SKELETON.description },
+    ])
+  })
+
   it('quarantines an activated skill when its compatibility probe fails', async () => {
     installSkillRuntime({
       runCommand: async () => ({
