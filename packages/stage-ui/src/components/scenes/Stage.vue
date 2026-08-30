@@ -53,6 +53,7 @@ import { useProviderStore } from '../../stores/providers/provider'
 import { useSettings } from '../../stores/settings'
 import { useSpeechOutputControlStore } from '../../stores/speech-output-control'
 import { useSpeechRuntimeStore } from '../../stores/speech-runtime'
+import { installStageCapture } from '../../stores/stage-capture'
 
 const props = withDefaults(defineProps<{
   cursorPosition?: { x: number, y: number }
@@ -903,6 +904,9 @@ if (typeof window !== 'undefined') {
 
 onMounted(async () => {
   await getDb() // stub for future update
+  // Mirror "see yourself": expose the current character frame to the
+  // capture port so the `mirror` tool (leader renderer store) can grab it.
+  installStageCapture(captureFrame)
 })
 
 watch([stageModelRenderer, () => props.paused], ([renderer]) => {
@@ -1004,6 +1008,7 @@ async function captureFrame() {
 }
 
 onUnmounted(() => {
+  installStageCapture(undefined)
   disposePlaybackStateHandler()
   resetLive2dLipSync()
   chatHookCleanups.forEach(dispose => dispose?.())

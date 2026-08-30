@@ -9,6 +9,7 @@ import { mirrorTools } from '@proj-airi/stage-ui-live2d/tools/mirror-tools'
 import { live2dParameterTools } from '@proj-airi/stage-ui-live2d/tools/parameter-tools'
 import { useLlmToolsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/toolset-prompts'
+import { captureMirrorSnapshot } from '@proj-airi/stage-ui/stores/mirror-snapshot'
 import { useLifeModeStore } from '@proj-airi/stage-ui/stores/modules/life-mode'
 import { useMemoryStore } from '@proj-airi/stage-ui/stores/modules/memory'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
@@ -195,6 +196,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
           const { currentMood } = storeToRefs(useMemoryStore())
           return currentMood.value
         },
+        getSnapshot: () => captureMirrorSnapshot(),
       }),
       planTools(),
       skillSubmitTools(),

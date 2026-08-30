@@ -1,6 +1,26 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment jsdom
 
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it } from 'vitest'
+
+import { useLive2DCustomParameters } from '../stores/custom-parameters'
 import { buildMirrorSnapshot, mirrorTools } from './mirror-tools'
+
+function loadModel() {
+  const store = useLive2DCustomParameters()
+  store.registerDiscovered('model-a', {
+    parameters: [
+      { id: 'HairBList', name: '后发发型切换', groupId: 'Group1', min: 0, max: 3, default: 0 },
+    ],
+    groups: [{ id: 'Group1', name: '发型' }],
+  })
+  return store
+}
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+  loadModel()
+})
 
 const PARAMETERS = [
   { id: 'HairFront', name: 'Hair (front loose)', group: null, min: 0, max: 1, default: 0, value: 1, active: true },
@@ -63,5 +83,29 @@ describe('mirrorTools', () => {
     expect(mirror.function.name).toBe('mirror')
     const parameters = mirror.function.parameters as { properties: Record<string, unknown> }
     expect(Object.keys(parameters.properties)).toHaveLength(0)
+  })
+
+  it('returns a content array with the image part when a snapshot is available', async () => {
+    const [mirror] = await mirrorTools({
+      getSnapshot: async () => ({
+        imageDataUrl: 'data:image/png;base64,AAAA',
+        capturedAt: 1,
+      }),
+    })
+    const out = await mirror.execute?.({}, { abortSignal: undefined } as never)
+    expect(Array.isArray(out)).toBe(true)
+    if (Array.isArray(out)) {
+      const parts = out as Array<{ type: string, text?: string, image_url?: { url: string } }>
+      expect(parts.some(part => part.type === 'text')).toBe(true)
+      const imagePart = parts.find(part => part.type === 'image_url')
+      expect(imagePart?.image_url?.url).toBe('data:image/png;base64,AAAA')
+    }
+  })
+
+  it('returns plain text when no snapshot is available', async () => {
+    const [mirror] = await mirrorTools()
+    const out = await mirror.execute?.({}, { abortSignal: undefined } as never)
+    expect(typeof out).toBe('string')
+    expect(String(out)).toContain('Model on stage:')
   })
 })

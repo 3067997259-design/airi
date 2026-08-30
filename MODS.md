@@ -490,3 +490,42 @@ leader 渲染进程）。API key 解禁、余额充足。**真机走查逼出 7 
 
 额外发现并确认：LLM provider 在真机下偶发 `Failed to fetch`（网络抖动），文本回
 踢 + 错误条机制正常（此前修复的失败发送提示在真机复现并兜底）。
+
+## 第四轮：mirror 增强为"真·照镜子"（图进对话）
+
+需求确认：用户面前就是实时 Live2D 皮套，不需要工具看图；真实需求是**让对话
+模型真正看到当前外观**（B 路径）。经调查确认关键架构事实：
+
+- **mirror 工具与 Live2D 画布在同一渲染进程**（main 窗口 `synced-leader:true`、
+  `stage-runtime:full`），不存在跨窗口取帧问题。
+- 对话多模态通道已存在：`ChatSendPayload.attachments` → orchestrator 组
+  `image_url` content part → `sanitizeMessages` 对支持 content array 的 provider
+  保留（视觉模型看到，非视觉模型降级丢图留文本）。
+- **工具结果不会自动变下一轮多模态输入**——需在 chat store 加"工具图→attachments"
+  注入。
+
+实现（两案并行，均走端口注入、不破坏 `stage-ui-live2d` → `stage-ui` 边界）：
+
+1. **Stage capture 端口**（`stores/stage-capture.ts`）：Stage.vue onMounted 注册
+   `captureFrame`，onUnmounted 注销；mirror 工具经端口取帧（与
+   `installLifeModePort`/`installFetchTextPort` 同模式）。
+2. **mirror 工具增强**：取帧后返回 **content 数组** `[{type:text},{type:image_url}]`
+   （方案 A 尽力而为，视觉 provider 透传）；同时把帧存为 backgroundStore
+   `selfie` 条目（`BackgroundEntry.type` 本就预留了 `'selfie'`）。
+3. **方案 B 列队注入**：`mirror-snapshot.ts` 存 `lastMirrorAttachment` 暂存；
+   chat store `onChatTurnComplete` 检测本轮调 mirror → `takeLastMirrorAttachment`
+   入 `pendingSelfieAttachments` → 下轮 `executeSend` 合并进 `attachments`。
+4. **方案 A**：镜拍后返回数组 content，当前 tool loop 内视觉模型尽力而为看到图，
+   可靠兜底交给方案 B。非视觉模型由 `sanitizeMessages` 自动降级（留 `text` part）。
+
+验收：
+- typecheck 全过（stage-ui / stage-ui-live2d / stage-tamagotchi）；build 全过。
+- mirror-tools.test.ts 新增 2 例：有帧返回 content 数组（含 image_url）、无帧
+  返回纯文本 → 7/7 全绿。
+- stage-ui 回归 34/34（tool-resolver / history.browser / fetch）、lint 干净（eslint
+  在 Git Bash 下偶发 segfault，非代码问题，复跑确认 clean）。
+- 遗留：方案 A 的"tool result 内 image_url 是否被视觉 provider 当真"取决于 provider
+  实现，AIRI 侧无法保证——因此以方案 B（下轮 attachments）作为可靠兜底。
+
+后续可做：把 mirror 自拍作为共享媒体暴露给模型主动引用（backgroundStore
+`selfie` 条目已可被 image_journal apply 检索），以及 M4 阶梯里"镜子"进阶。

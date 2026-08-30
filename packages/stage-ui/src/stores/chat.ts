@@ -42,6 +42,7 @@ import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useContextObservabilityStore } from './devtools/context-observability'
 import { useJournalStore } from './journal'
+import { takeLastMirrorAttachment } from './mirror-snapshot'
 import { useAiriCardStore } from './modules/airi-card'
 import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
@@ -357,6 +358,10 @@ export const useChatStore = defineStore('chat', () => {
   const activeStreamingMessage = shallowRef<StreamingAssistantMessage>()
   const pendingQueuedSendCount = shallowRef(0)
   const compactions = shallowRef<Record<string, ChatOrchestratorCompactionSnapshot>>({})
+  // "See yourself" (mirror) queue: frames captured by the mirror tool that
+  // should ride onto the NEXT user send as image attachments. Scoped per
+  // session so a mirror selfie does not leak across conversations.
+  const pendingSelfieAttachments = shallowRef<Record<string, ChatSendPayload['attachments']>>({})
   let ownedActiveTurnSpan: typeof activeTurnSpan.value
   const analyticsHooks = createChatAnalyticsHooks({
     getSessionMessages: sessionId => chatSession.getSessionMessages(sessionId),
@@ -587,6 +592,10 @@ export const useChatStore = defineStore('chat', () => {
       if (!userText)
         return
 
+      // 方案 B (mirror "see yourself"): if this round called mirror and it
+      // captured a frame, queue that frame for the next user send.
+      queueMirrorSelfie(sessionId, chat.output.tool_results)
+
       void memoryStore.captureTurn({
         sessionId,
         userText,
@@ -710,6 +719,29 @@ export const useChatStore = defineStore('chat', () => {
     return names
   }
 
+  /**
+   * 方案 B (mirror "see yourself"): when this round called the mirror tool and
+   * it captured a frame, queue that frame for the next user send on the same
+   * session so the model sees the captured appearance. The frame is read from
+   * the stage-ui mirror snapshot store rather than parsed out of a string.
+   */
+  function queueMirrorSelfie(sessionId: string, toolResults: Array<{ result?: unknown }>): void {
+    const usedMirror = toolResults.some(item => item.result !== undefined
+      && typeof item.result === 'string'
+      && item.result.includes('imageDataUrl'))
+    if (!usedMirror)
+      return
+
+    const attachment = takeLastMirrorAttachment()
+    if (!attachment)
+      return
+
+    pendingSelfieAttachments.value = {
+      ...pendingSelfieAttachments.value,
+      [sessionId]: attachment,
+    }
+  }
+
   async function executeSend(payload: ChatSendPayload): Promise<ChatSendResult> {
     const providerId = activeProvider.value
     const modelId = activeModel.value
@@ -725,10 +757,21 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error(`Failed to resolve chat provider "${providerId}"`)
 
     const activatedSkillNames = skillsStore.prepareForPrompt(payload.text)
+    // 方案 B (mirror "see yourself"): a frame captured earlier by the mirror
+    // tool rides onto the next user send so the model actually sees the
+    // current appearance. Merge with any user-supplied attachments.
+    const queuedSelfie = pendingSelfieAttachments.value[payload.sessionId]
+    const mergedAttachments = queuedSelfie
+      ? [...(payload.attachments ?? []), ...queuedSelfie]
+      : payload.attachments
+    // Consume the queue for this turn so the frame is not re-injected forever.
+    if (queuedSelfie)
+      delete pendingSelfieAttachments.value[payload.sessionId]
+
     await runtime.ingest(payload.text, {
       model: modelId,
       chatProvider,
-      attachments: payload.attachments,
+      attachments: mergedAttachments,
       input: payload.input,
       toolReferences: payload.tools,
       source: payload.source,

@@ -11,6 +11,27 @@ import { useExpressionStore } from '../stores/expression-store'
  */
 export type MirrorMoodPort = () => { valence: number, arousal?: number } | undefined
 
+/**
+ * A captured "selfie" frame of the current stage, plus the textual snapshot
+ * that mirrors it. Produced by the registering app (stage-ui) because the
+ * stage model renderers and the background store live there; the live2d
+ * mirror tool only relays it.
+ */
+export interface MirrorSnapshotResult {
+  /** Base64 image data URL of the captured character frame, or null if none. */
+  imageDataUrl?: string
+  /** Persisted background entry id, when the frame was stored. */
+  entryId?: string
+  capturedAt: number
+}
+
+/**
+ * Captures the current stage frame as a selfie and returns the combined
+ * snapshot. Injected by the registering app; returns null when no stage
+ * frame is available.
+ */
+export type MirrorSnapshotPort = () => Promise<MirrorSnapshotResult | null>
+
 export interface MirrorParameterView {
   id: string
   name: string
@@ -110,9 +131,14 @@ function activeModelId(store: ReturnType<typeof useLive2DCustomParameters>): str
  * Builds the `mirror` LLM tool: a natural-language appearance snapshot so SHE
  * can see herself the way the user sees her — held parameters, active named
  * expressions, and the current mood. `options.getMood` is injected by the app
- * shell (the memory store lives in stage-ui).
+ * shell (the memory store lives in stage-ui). `options.getSnapshot` is the
+ * "see yourself" selfie port: when provided and a stage frame is available,
+ * the tool also returns the captured frame (and its persisted entry id).
  */
-export async function mirrorTools(options: { getMood?: MirrorMoodPort } = {}) {
+export async function mirrorTools(options: {
+  getMood?: MirrorMoodPort
+  getSnapshot?: MirrorSnapshotPort
+} = {}) {
   return Promise.all([
     tool({
       name: 'mirror',
@@ -120,7 +146,7 @@ export async function mirrorTools(options: { getMood?: MirrorMoodPort } = {}) {
         'Read your own current appearance: which named expressions are active, which model parameters you are holding (hairstyle, ears, accessories), and your current mood.',
         'Call this before changing your look or when the user asks how you appear.',
       ].join(' '),
-      execute: () => {
+      execute: async () => {
         const parameterStore = useLive2DCustomParameters()
         const expressionStore = useExpressionStore()
         const modelId = activeModelId(parameterStore)
@@ -153,7 +179,7 @@ export async function mirrorTools(options: { getMood?: MirrorMoodPort } = {}) {
           .filter(expression => expression.currentValue !== expression.defaultValue && expression.currentValue > 0)
           .map(expression => ({ name: expression.name, value: expression.currentValue }))
 
-        return buildMirrorSnapshot({
+        const text = buildMirrorSnapshot({
           modelId,
           activeExpressions,
           groups,
@@ -165,6 +191,23 @@ export async function mirrorTools(options: { getMood?: MirrorMoodPort } = {}) {
               })()
             : {}),
         })
+
+        // "See yourself" (方案 A, best-effort): when a stage frame is
+        // available, return a content ARRAY so a vision-capable provider
+        // receives both the textual snapshot and the image_url part. The
+        // frame is also hardened by 方案 B (the app stores the attachment and
+        // rides it onto the next user send), independent of provider support.
+        if (options.getSnapshot) {
+          const snapshot = await options.getSnapshot()
+          if (snapshot?.imageDataUrl) {
+            return [
+              { type: 'text', text },
+              { type: 'image_url', image_url: { url: snapshot.imageDataUrl } },
+            ]
+          }
+        }
+
+        return text
       },
       parameters: z.object({}),
     }),
