@@ -68,10 +68,10 @@ function projectPendingApprovals(events: JournalEvent[]) {
         </p>
 
         <div :class="['mt-3', 'flex', 'gap-2']">
-          <Button size="sm" variant="primary" @click="approvals.approve(request.requestId)">
+          <Button size="sm" variant="primary" @click="approvals.approve(request.requestId, request.planId)">
             {{ t('stage.chat.approval-card.approve') }}
           </Button>
-          <Button size="sm" variant="secondary" @click="approvals.reject(request.requestId)">
+          <Button size="sm" variant="secondary" @click="approvals.reject(request.requestId, request.planId)">
             {{ t('stage.chat.approval-card.reject') }}
           </Button>
           <Button size="sm" variant="secondary" @click="approvals.handOver(request.requestId)">

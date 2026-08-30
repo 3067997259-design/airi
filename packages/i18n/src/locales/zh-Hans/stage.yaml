@@ -31,6 +31,7 @@ chat:
     blockers: 卡在
     evidence: 证据
     deadline: 截止日期
+    unverified: 未验证
   approval-card:
     title: 需要批准
     expected-evidence: 预期证据

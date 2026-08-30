@@ -31,6 +31,7 @@ import {
   codingHostGetApprovalMode,
   codingHostListTools,
   codingHostSetApprovalMode,
+  planApprovalAsk,
 } from '../../../../shared/eventa'
 import { runBashCommand } from './policy'
 
@@ -71,7 +72,7 @@ export async function setupCodingHost(
   const autoApproveAll = () => policy.mode === 'full'
 
   let nextRequestId = 1
-  const pendingApprovals = new Map<string, { resolve: (decision: CodingApprovalDecisionPayload['decision']) => void }>()
+  const pendingApprovals = new Map<string, { resolve: (decision: CodingApprovalDecisionPayload['decision']) => void, planId?: string }>()
 
   context.on(codingApprovalDecided, (event) => {
     if (!event.body)
@@ -82,6 +83,10 @@ export async function setupCodingHost(
       return
     pendingApprovals.delete(requestId)
     pending.resolve(decision)
+    // Re-broadcast so every window's journal records the decision (the plan
+    // evidence gate reads the leader window's journal, the click may happen
+    // in any window). Journal dedupe keeps single-window appends singular.
+    ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalDecided, { ...event.body, planId: pending.planId })
   })
 
   /** Ask every renderer for approval; unanswered requests reject to denied. */
@@ -114,6 +119,26 @@ export async function setupCodingHost(
 
   defineInvokeHandler(context, codingHostSetApprovalMode, async ({ mode }) => {
     policy.mode = mode
+  })
+
+  // Plan-step approval: same card broadcast as bash, but no timeout — the
+  // step may legitimately wait for the user far longer than a command run.
+  // The decision broadcast loops back through every window's approvals
+  // bridge, which journals approval/asked + approval/decided for the gate.
+  defineInvokeHandler(context, planApprovalAsk, async ({ requestId, planId, stepId, subject, reason, riskLevel }) => {
+    const decision = await new Promise<CodingApprovalDecisionPayload['decision']>((resolve) => {
+      pendingApprovals.set(requestId, { resolve, planId })
+      ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalRequested, {
+        requestId,
+        subject,
+        reason,
+        riskLevel,
+        expectedEvidence: 'human_approval (plan step)',
+        planId,
+        stepId,
+      })
+    })
+    return { requestId, decision, planId }
   })
 
   defineInvokeHandler(context, codingHostGetApprovalMode, () => ({ mode: policy.mode }))

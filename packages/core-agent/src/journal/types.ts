@@ -93,6 +93,12 @@ export interface PlanUpdateEvent {
   stepId?: string
   status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked'
   reason?: string
+  /**
+   * Set on model-declared completions that the evidence gate did not verify.
+   * The projection surfaces these as unverified (amber) instead of blocking,
+   * and `human_approval` steps can never carry it.
+   */
+  unverified?: boolean
 }
 
 export interface TaskUpdateEvent {
@@ -127,6 +133,7 @@ export interface ApprovalAskedEvent {
   seq: number
   requestId: string
   stepId?: string
+  planId?: string
   riskLevel?: 'low' | 'medium' | 'high'
   reason: string
   /** The concrete thing awaiting approval (e.g. the bash command line). */
@@ -137,6 +144,7 @@ export interface ApprovalDecidedEvent {
   type: 'approval/decided'
   seq: number
   requestId: string
+  planId?: string
   decision: 'allowed-once' | 'rejected' | 'cancelled'
 }
 

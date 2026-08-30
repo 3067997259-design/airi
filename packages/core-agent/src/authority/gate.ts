@@ -18,6 +18,8 @@ export interface VerificationGateInput {
     riskLevel: 'low' | 'medium' | 'high'
     approvalRequired: boolean
     expectedEvidence: PlanExpectedEvidence[]
+    /** Steps with no declared tools cannot act; a decided approval is their whole work. */
+    allowedTools: string[]
   }
   refs: GateRef[]
 }
@@ -47,11 +49,18 @@ export function stepHasSideEffects(step: VerificationGateInput['step']): boolean
   return step.riskLevel !== 'low' || step.approvalRequired
 }
 
+/** Whether the step can act at all: a tool-less step is pure conversation/sign-off. */
+export function stepCanAct(step: VerificationGateInput['step']): boolean {
+  return step.allowedTools.length > 0
+}
+
 /**
  * Evaluates the verification gate for one step. A matching ref with the
  * wrong source (e.g. a `runtime_trace` where `tool_result` was announced)
  * counts as missing with `wrong_source`, so the caller can show exactly why
- * the step is stuck.
+ * the step is stuck. A tool-less sign-off step cannot act at all, so a
+ * decided approval card is its whole work and completes without tool
+ * provenance; steps that declare tools still need mutation-provable evidence.
  */
 export function evaluateVerificationGate(input: VerificationGateInput): VerificationGateVerdict {
   const stepRefs = input.refs.filter(ref => ref.stepId === input.step.id)
@@ -75,6 +84,7 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
 
   if (
     stepHasSideEffects(input.step)
+    && stepCanAct(input.step)
     && satisfied.length > 0
     && !satisfied.some(({ ref }) => ref.provenance.maySatisfyMutationProof)
   ) {

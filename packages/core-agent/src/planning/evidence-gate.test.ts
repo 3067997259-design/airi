@@ -22,6 +22,7 @@ function step(overrides: Partial<StepGateSpec> = {}): StepGateSpec {
     id: 'step-1',
     riskLevel: 'medium',
     approvalRequired: false,
+    allowedTools: ['edit'],
     expectedEvidence: [{ source: 'tool_result', description: 'edit applied' }],
     ...overrides,
   }

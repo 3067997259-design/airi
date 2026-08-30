@@ -9,6 +9,7 @@ function makeStep(overrides: Partial<VerificationGateInput['step']> = {}): Verif
     id: 'write-adapter',
     riskLevel: 'medium',
     approvalRequired: false,
+    allowedTools: ['bash'],
     expectedEvidence: [{ source: 'tool_result', description: 'adapter written' }],
     ...overrides,
   }
@@ -140,6 +141,31 @@ describe('verification gate', () => {
 
     expect(verdict.passed).toBe(false)
     expect(verdict.missing[0]?.reason).toBe('not_mutation_proof')
+  })
+
+  // A tool-less sign-off step cannot act; the decided approval card IS the
+  // whole work, so it completes without tool provenance.
+  it('lets a decided approval complete a tool-less sign-off step', () => {
+    const step = makeStep({
+      riskLevel: 'low',
+      approvalRequired: true,
+      allowedTools: [],
+      expectedEvidence: [{ source: 'human_approval', description: 'user approves' }],
+    })
+    const approval = makeRef({
+      source: 'human_approval',
+      provenance: {
+        source: 'approval_safety_policy',
+        precedence: 20,
+        label: 'Approval/safety policy',
+        maySatisfyVerificationGate: false,
+        maySatisfyMutationProof: false,
+      },
+    })
+
+    const verdict = evaluateVerificationGate({ step, refs: [approval] })
+
+    expect(verdict.passed).toBe(true)
   })
 
   it('does not demand mutation proof for read-only steps', () => {

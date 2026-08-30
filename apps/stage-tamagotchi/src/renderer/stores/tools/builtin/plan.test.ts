@@ -1,8 +1,9 @@
+import { useJournalStore } from '@proj-airi/stage-ui/stores/journal'
 import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { executePlanUpdate } from './plan'
+import { executePlanUpdate, installPlanApprovalInvoker } from './plan'
 
 function codingStep(id: string, intent: string) {
   return {
@@ -19,6 +20,7 @@ function codingStep(id: string, intent: string) {
 describe('plan_update executor', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    installPlanApprovalInvoker(undefined)
   })
 
   it('starts a plan and reports the focused step', async () => {
@@ -67,6 +69,114 @@ describe('plan_update executor', () => {
 
     const unknown = await executePlanUpdate({ action: 'focus', stepId: 'nope' })
     expect(unknown).toContain('Unknown stepId')
+  })
+
+  // ROOT CAUSE:
+  //
+  // The live test plan created a step whose only expected evidence was
+  // human_approval with approvalRequired false. Nothing in the app emits
+  // approval/asked for such a step, so it blocked forever on
+  // "missing human_approval evidence: no_ref" while the model narrated
+  // completion in chat. We fixed this in three layers: start rejects the
+  // ghost combination, focusing an approvalRequired step raises a real
+  // approval card whose decision satisfies the gate, and other steps can be
+  // self-completed with an unverified flag instead of blocking forever.
+  it('rejects ghost approval steps that can never complete', async () => {
+    const result = await executePlanUpdate({
+      action: 'start',
+      goal: 'Demo',
+      steps: [{
+        ...codingStep('s1', 'Nod once'),
+        expectedEvidence: [{ source: 'human_approval' as const, description: 'user agrees' }],
+      }],
+    })
+    expect(result).toContain('approvalRequired')
+  })
+
+  it('raises the approval card on focus and completes the step when approved', async () => {
+    const journal = useJournalStore()
+    installPlanApprovalInvoker(async (payload) => {
+      journal.appendActive({ type: 'approval/asked', requestId: payload.requestId, stepId: payload.stepId, planId: payload.planId, riskLevel: payload.riskLevel, reason: payload.subject, subject: payload.subject })
+      journal.appendActive({ type: 'approval/decided', requestId: payload.requestId, planId: payload.planId, decision: 'allowed-once' })
+      return { requestId: payload.requestId, decision: 'approved', planId: payload.planId }
+    })
+
+    await executePlanUpdate({
+      action: 'start',
+      goal: 'Sign-off flow',
+      steps: [{
+        id: 'sign',
+        lane: 'conversation',
+        intent: 'Get user sign-off',
+        allowedTools: [],
+        expectedEvidence: [{ source: 'human_approval' as const, description: 'user approves' }],
+        riskLevel: 'low',
+        approvalRequired: true,
+      }],
+    })
+    const result = await executePlanUpdate({ action: 'focus', stepId: 'sign' })
+
+    expect(result).toContain('Approval granted')
+    const view = usePlanStore().planViews.find(candidate => candidate.spec.goal === 'Sign-off flow')
+    expect(view?.state.completedSteps).toContain('sign')
+    expect(view?.state.blockers).toHaveLength(0)
+  })
+
+  it('keeps the step blocked when approval is rejected', async () => {
+    installPlanApprovalInvoker(async payload => ({ requestId: payload.requestId, decision: 'rejected' }))
+
+    await executePlanUpdate({
+      action: 'start',
+      goal: 'Sign-off flow',
+      steps: [{
+        id: 'sign',
+        lane: 'conversation',
+        intent: 'Get user sign-off',
+        allowedTools: [],
+        expectedEvidence: [{ source: 'human_approval' as const, description: 'user approves' }],
+        riskLevel: 'low',
+        approvalRequired: true,
+      }],
+    })
+    const result = await executePlanUpdate({ action: 'focus', stepId: 'sign' })
+
+    expect(result).toContain('not granted')
+    const view = usePlanStore().activePlan
+    expect(view?.state.completedSteps).not.toContain('sign')
+    expect(view?.status).toBe('blocked')
+  })
+
+  it('flags self-completed steps as unverified instead of blocking forever', async () => {
+    await executePlanUpdate({ action: 'start', goal: 'Goal', steps: [codingStep('step-1', 'Only step')] })
+
+    const result = await executePlanUpdate({ action: 'complete', stepId: 'step-1', rationale: 'checked by hand' })
+
+    expect(result).toContain('unverified')
+    const view = usePlanStore().planViews.find(candidate => candidate.spec.goal === 'Goal')
+    expect(view?.state.unverifiedSteps).toContain('step-1')
+    expect(view?.state.completedSteps).toContain('step-1')
+    expect(view?.status).toBe('completed')
+  })
+
+  it('refuses to self-complete human_approval steps', async () => {
+    await executePlanUpdate({
+      action: 'start',
+      goal: 'Sign-off flow',
+      steps: [{
+        id: 'sign',
+        lane: 'conversation',
+        intent: 'Get user sign-off',
+        allowedTools: [],
+        expectedEvidence: [{ source: 'human_approval' as const, description: 'user approves' }],
+        riskLevel: 'low',
+        approvalRequired: true,
+      }],
+    })
+
+    const result = await executePlanUpdate({ action: 'complete', stepId: 'sign' })
+
+    expect(result).toContain('approval card')
+    expect(usePlanStore().activePlan?.state.completedSteps).not.toContain('sign')
   })
 
   it('cancels the active plan and refuses to act without one', async () => {

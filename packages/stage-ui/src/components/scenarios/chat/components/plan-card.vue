@@ -93,8 +93,27 @@ const statusIcon = computed(() => {
       </div>
       <div class="flex flex-col gap-1">
         <div v-for="step in plan.spec.steps" :key="step.id" class="flex items-center gap-2">
-          <span :class="plan.state.completedSteps.includes(step.id) ? 'i-solar:check-circle-bold-duotone text-emerald-500' : 'i-solar:minus-circle-bold-duotone text-neutral-400'" aria-hidden="true" />
+          <span
+            :class="[
+              plan.state.completedSteps.includes(step.id)
+                ? (plan.state.unverifiedSteps?.includes(step.id)
+                  ? 'i-solar:warning-circle-bold-duotone text-amber-500'
+                  : 'i-solar:check-circle-bold-duotone text-emerald-500')
+                : 'i-solar:minus-circle-bold-duotone text-neutral-400',
+            ]"
+            :title="plan.state.unverifiedSteps?.includes(step.id) ? t('stage.chat.plan.unverified') : undefined"
+            aria-hidden="true"
+          />
           <span class="truncate">{{ step.id }} · {{ step.intent }}</span>
+          <span
+            v-if="plan.state.unverifiedSteps?.includes(step.id)"
+            :class="[
+              'shrink-0 rounded px-1 py-0.5 text-[10px] font-medium',
+              'bg-amber-100 text-amber-700 dark:bg-amber-900/70 dark:text-amber-200',
+            ]"
+          >
+            {{ t('stage.chat.plan.unverified') }}
+          </span>
         </div>
       </div>
       <div v-if="plan.state.evidenceRefs.length" class="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700">

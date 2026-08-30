@@ -586,12 +586,26 @@ export interface CodingApprovalRequestPayload {
   /** The command (or plan step) that needs approval. */
   subject: string
   reason: string
-  riskLevel: 'high' | 'medium'
+  riskLevel: 'high' | 'medium' | 'low'
   expectedEvidence?: string
+  /** Set for plan-step approvals so windows can journal the plan linkage. */
+  planId?: string
+  stepId?: string
 }
 export interface CodingApprovalDecisionPayload {
   requestId: string
   decision: 'approved' | 'rejected' | 'hand-over'
+  planId?: string
+}
+export interface PlanApprovalAskPayload {
+  planId: string
+  stepId: string
+  requestId: string
+  /** The step intent, shown on the approval card. */
+  subject: string
+  /** Why the approval is needed; rendered under the subject. */
+  reason: string
+  riskLevel: 'high' | 'medium' | 'low'
 }
 
 export const codingHostFsRead = defineInvokeEventa<CodingFsReadResult, CodingFsReadParams>('eventa:invoke:electron:coding-host:fs:read')
@@ -610,6 +624,13 @@ export const codingHostSetApprovalMode = defineInvokeEventa<void, { mode: Coding
 export const codingHostGetApprovalMode = defineInvokeEventa<{ mode: CodingApprovalMode }, void>('eventa:invoke:electron:coding-host:approval-mode:get')
 export const codingApprovalRequested = defineEventa<CodingApprovalRequestPayload>('eventa:event:electron:coding-host:approval:requested')
 export const codingApprovalDecided = defineEventa<CodingApprovalDecisionPayload>('eventa:event:electron:coding-host:approval:decided')
+
+// Plan-step approval: same card channel as bash approvals, but without a
+// timeout — a plan step may legitimately wait for the user indefinitely.
+// Focusing an `approvalRequired` step raises the card; the decision lands in
+// every window's journal as approval/asked + approval/decided, which is what
+// the plan evidence gate requires for `human_approval`.
+export const planApprovalAsk = defineInvokeEventa<CodingApprovalDecisionPayload, PlanApprovalAskPayload>('eventa:invoke:electron:coding-host:plan-approval:ask')
 
 // -- Memory host (long-term Postgres/pgvector store, MAINTENANCE-PLAN P2.4) --
 // The main process owns the Postgres connection; renderers ship embeddings

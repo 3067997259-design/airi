@@ -35,6 +35,7 @@ function emptyPlanState(): PlanState {
     skippedSteps: [],
     evidenceRefs: [],
     blockers: [],
+    unverifiedSteps: [],
   }
 }
 
@@ -59,6 +60,7 @@ function clonePlanState(state: PlanState): PlanState {
     skippedSteps: [...state.skippedSteps],
     evidenceRefs: state.evidenceRefs.map(evidence => ({ ...evidence })),
     blockers: [...state.blockers],
+    ...(state.unverifiedSteps ? { unverifiedSteps: [...state.unverifiedSteps] } : {}),
     ...(state.lastReplanReason ? { lastReplanReason: state.lastReplanReason } : {}),
   }
 }
@@ -68,6 +70,8 @@ function createPlanId(): string {
 }
 
 function eventMatchesPlan(event: JournalEvent, planId: string): boolean {
+  if (event.type === 'approval/asked' || event.type === 'approval/decided')
+    return event.planId === planId
   return (event.type === 'plan/update' || event.type === 'tool/call' || event.type === 'tool/result')
     ? event.planId === planId
     : false
@@ -107,13 +111,23 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
   const gateSnapshot = projectStepGateStates(planEvents, plan.spec.steps)
   const completedFromJournal = plan.spec.steps.filter(step => gateSnapshot.steps[step.id]?.status === 'completed').map(step => step.id)
   const failedFromJournal = plan.spec.steps.filter(step => gateSnapshot.steps[step.id]?.status === 'failed').map(step => step.id)
-  const completedSteps = uniqueStrings(plan.stateSnapshot.completedSteps, completedFromJournal)
+  // Model-declared completions (plan_update action "complete") land here
+  // without gate evidence; they count as finished but stay flagged as
+  // unverified so the plan card can render them amber.
+  const modelCompletedFromJournal = [...new Set(planEvents.flatMap((event) => {
+    if (event.type !== 'plan/update' || event.status !== 'completed' || !event.stepId)
+      return []
+    return [event.stepId]
+  }))]
+  const completedSteps = uniqueStrings(plan.stateSnapshot.completedSteps, completedFromJournal, modelCompletedFromJournal)
+  const unverifiedSteps = [...new Set([...(plan.stateSnapshot.unverifiedSteps ?? []), ...modelCompletedFromJournal])]
+    .filter(stepId => !completedFromJournal.includes(stepId))
   const failedSteps = uniqueStrings(plan.stateSnapshot.failedSteps, failedFromJournal)
     .filter(stepId => !completedSteps.includes(stepId))
   const blockers = plan.spec.steps
-    .map(step => gateSnapshot.steps[step.id])
-    .filter(state => state?.status === 'blocked' && state.reason)
-    .map(state => state!.reason!)
+    .map(step => ({ stepId: step.id, state: gateSnapshot.steps[step.id] }))
+    .filter(({ stepId, state }) => state?.status === 'blocked' && state.reason && !completedSteps.includes(stepId))
+    .map(({ state }) => state!.reason!)
   const currentFromJournal = plan.spec.steps.find((step) => {
     const status = gateSnapshot.steps[step.id]?.status
     return status === 'in_progress' || status === 'blocked'
@@ -136,6 +150,7 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
     skippedSteps: [...plan.stateSnapshot.skippedSteps],
     evidenceRefs: uniqueEvidence(plan.stateSnapshot.evidenceRefs, evidenceFromJournal),
     blockers,
+    unverifiedSteps,
     ...(plan.stateSnapshot.lastReplanReason ? { lastReplanReason: plan.stateSnapshot.lastReplanReason } : {}),
   }
 }
@@ -294,6 +309,48 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     await persistPlan(planId)
   }
 
+  /** Focuses a step and returns it, so the caller can raise the approval card for `approvalRequired` steps. */
+  async function focusStep(planId: string, stepId: string) {
+    const plan = plans.value.find(candidate => candidate.id === planId)
+    const step = plan?.spec.steps.find(candidate => candidate.id === stepId)
+    if (!step)
+      return undefined
+    await updateStep(planId, stepId, 'in_progress')
+    return step
+  }
+
+  /**
+   * Model-declared completion (plan_update action "complete"). Steps whose
+   * declared evidence is not in the journal still complete, flagged as
+   * unverified — except `human_approval` steps, which can only complete
+   * through a decided approval card and are refused here.
+   */
+  async function completeStep(planId: string, stepId: string, rationale?: string): Promise<string> {
+    const plan = plans.value.find(candidate => candidate.id === planId)
+    const step = plan?.spec.steps.find(candidate => candidate.id === stepId)
+    if (!plan || !step)
+      return `Unknown step "${stepId}".`
+
+    const view = planViews.value.find(candidate => candidate.id === planId)
+    if (view?.state.completedSteps.includes(stepId))
+      return `Step "${stepId}" is already complete.`
+
+    if (step.expectedEvidence.some(evidence => evidence.source === 'human_approval')) {
+      return `Step "${stepId}" expects human approval — it completes only after the approval card is decided. Chat text does not count as approval.`
+    }
+
+    journal.appendActive({
+      type: 'plan/update',
+      planId,
+      stepId,
+      status: 'completed',
+      unverified: true,
+      ...(rationale ? { reason: rationale } : {}),
+    })
+    await persistPlan(planId)
+    return `Step "${stepId}" marked complete (unverified — the declared evidence was not satisfied in the journal). The plan card flags it amber.`
+  }
+
   async function recordToolResult(input: { planId: string, stepId: string, toolName: string, ok: boolean, summary: string, provenance?: ToolEvidenceAuthor }): Promise<void> {
     journal.appendActive({
       type: 'tool/result',
@@ -342,6 +399,8 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     persistPlan,
     start,
     updateStep,
+    focusStep,
+    completeStep,
     recordToolResult,
     softDeletePlan,
     promptProjection,
@@ -349,7 +408,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
   }
 }, {
   synced: {
-    actions: ['initialize', 'persistPlan', 'start', 'updateStep', 'recordToolResult', 'softDeletePlan'],
+    actions: ['initialize', 'persistPlan', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'softDeletePlan'],
     state: true,
   },
 })

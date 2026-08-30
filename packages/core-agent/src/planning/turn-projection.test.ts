@@ -3,6 +3,38 @@ import { describe, expect, it } from 'vitest'
 import { buildTurnProjection } from './turn-projection'
 
 describe('buildTurnProjection', () => {
+  // The live plan run had the model treat a plain chat reply as the
+  // human_approval evidence its step was waiting for. The projection now
+  // states the approval and completion rules next to the step itself.
+  it('states that chat text never satisfies approval and how completion works', () => {
+    const result = buildTurnProjection({
+      plan: {
+        goal: 'Sign-off flow',
+        horizon: 'session',
+        steps: [{
+          id: 'sign',
+          lane: 'conversation',
+          intent: 'Get user sign-off',
+          allowedTools: [],
+          expectedEvidence: [{ source: 'human_approval', description: 'user approves' }],
+          riskLevel: 'low',
+          approvalRequired: true,
+        }],
+      },
+      state: {
+        currentStepId: 'sign',
+        completedSteps: [],
+        failedSteps: [],
+        skippedSteps: [],
+        blockers: [],
+        evidenceRefs: [],
+      },
+    })
+
+    expect(result.text).toContain('chat text never satisfies human approval')
+    expect(result.text).toContain('never announce completion in words alone')
+  })
+
   it('keeps one turn bounded to the current step and recent evidence', () => {
     const result = buildTurnProjection({
       plan: {

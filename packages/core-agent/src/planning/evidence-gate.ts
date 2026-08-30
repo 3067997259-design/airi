@@ -23,6 +23,7 @@ export interface StepGateSpec {
   riskLevel: PlanRiskLevel
   approvalRequired: boolean
   expectedEvidence: PlanExpectedEvidence[]
+  allowedTools: string[]
 }
 
 export type StepGateStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed'

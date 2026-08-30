@@ -67,6 +67,12 @@ export interface PlanState {
   evidenceRefs: PlanEvidenceRef[]
   blockers: string[]
   lastReplanReason?: string
+  /**
+   * Steps the model declared complete without the declared evidence in the
+   * journal. They count as finished but render amber (`unverified`) on the
+   * plan card; `human_approval` steps can never land here.
+   */
+  unverifiedSteps?: string[]
 }
 
 export interface PlanReconcilerDecisionRecord {

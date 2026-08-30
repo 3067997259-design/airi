@@ -245,8 +245,10 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       title: 'Planning',
       content: [
         'For multi-step tasks, create a plan first with plan_update (action "start"): a goal plus small ordered steps, each declaring its allowed tools and expected evidence.',
-        'Call plan_update (action "focus") whenever you begin a new step, so tool results attach to that step as evidence.',
-        'A step is completed only when its evidence exists — an allowed tool result, a verification, or a user approval. Saying "done" does not complete a step; the plan card tracks real evidence.',
+        'Call plan_update (action "focus") whenever you begin a new step, so tool results attach to that step as evidence. Focusing an approval-required step raises an approval card and waits for the decision.',
+        'Keep executing within the turn: after a step completes, immediately focus and run the next one. Only end the turn when you are waiting for an approval card, waiting for a user answer, or every step is resolved.',
+        'Never create confirmation-only steps ("wait for the user to agree"). If you need information or a decision mid-plan, ask directly in your reply — conversational confirmation is not plan evidence.',
+        'A step with hard evidence completes automatically. Steps finished without their evidence must be marked with plan_update (action "complete") and show as unverified on the plan card; human_approval steps can only complete through a decided approval card. Saying "done" does not complete a step.',
       ].join('\n\n'),
     }])
   }

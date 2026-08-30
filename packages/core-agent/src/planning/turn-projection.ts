@@ -63,6 +63,12 @@ export function buildTurnProjection(input: TurnProjectionInput): TurnProjection 
       `- allowedTools: ${currentStep.allowedTools.map(sanitizePlanProjectionText).join(', ') || 'none'}`,
       `- expectedEvidence: ${currentStep.expectedEvidence.map(evidenceRef => `${evidenceRef.source} (${sanitizePlanProjectionText(evidenceRef.description)})`).join('; ') || 'none'}`,
     )
+    if (currentStep.expectedEvidence.some(evidenceRef => evidenceRef.source === 'human_approval')) {
+      lines.push('- approval: wait for the approval card decision; chat text never satisfies human approval.')
+    }
+    lines.push(
+      '- completion: steps complete through evidence, or via plan_update action "complete" which flags them unverified; never announce completion in words alone.',
+    )
   }
 
   if (evidence.length > 0) {
