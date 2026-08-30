@@ -1,5 +1,5 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { CommonContentPart, CompletionToolCall, CompletionToolResult, Message, Tool, ToolChoice } from '@xsai/shared-chat'
+import type { CommonContentPart, CompletionToolCall, CompletionToolResult, Message, PostToolCall, PrepareStep, Tool, ToolChoice } from '@xsai/shared-chat'
 
 /** Describes whether generation usage came from the provider or a local fallback. */
 export type LlmUsageSource = 'reported' | 'estimated' | 'unavailable'
@@ -40,6 +40,10 @@ export interface StreamOptions {
   /** Provider tool-selection directive for one request. */
   toolChoice?: ToolChoice
   tools?: Tool[] | (() => Promise<Tool[] | undefined>)
+  /** Transforms a completed tool result before it enters the next provider step. */
+  postToolCall?: PostToolCall
+  /** Adjusts the provider input for each step without changing persisted messages. */
+  prepareStep?: PrepareStep
   /**
    * Per-model runtime cache of whether the provider accepts content-part arrays
    * (e.g. `[{type:'text',...},{type:'image_url',...}]`) for `messages[].content`.

@@ -20,8 +20,6 @@ export type MirrorMoodPort = () => { valence: number, arousal?: number } | undef
 export interface MirrorSnapshotResult {
   /** Base64 image data URL of the captured character frame, or null if none. */
   imageDataUrl?: string
-  /** Persisted background entry id, when the frame was stored. */
-  entryId?: string
   capturedAt: number
 }
 
@@ -132,8 +130,8 @@ function activeModelId(store: ReturnType<typeof useLive2DCustomParameters>): str
  * can see herself the way the user sees her — held parameters, active named
  * expressions, and the current mood. `options.getMood` is injected by the app
  * shell (the memory store lives in stage-ui). `options.getSnapshot` is the
- * "see yourself" selfie port: when provided and a stage frame is available,
- * the tool also returns the captured frame (and its persisted entry id).
+ * "see yourself" frame port: when provided and a stage frame is available,
+ * the tool also returns the captured frame as a transient content part.
  */
 export async function mirrorTools(options: {
   getMood?: MirrorMoodPort
@@ -192,11 +190,9 @@ export async function mirrorTools(options: {
             : {}),
         })
 
-        // "See yourself" (方案 A, best-effort): when a stage frame is
-        // available, return a content ARRAY so a vision-capable provider
-        // receives both the textual snapshot and the image_url part. The
-        // frame is also hardened by 方案 B (the app stores the attachment and
-        // rides it onto the next user send), independent of provider support.
+        // Return the frame as an intermediate content array. The stage chat
+        // adapter strips the image from durable tool messages and injects it
+        // into the next same-model provider step when image input is declared.
         if (options.getSnapshot) {
           const snapshot = await options.getSnapshot()
           if (snapshot?.imageDataUrl) {

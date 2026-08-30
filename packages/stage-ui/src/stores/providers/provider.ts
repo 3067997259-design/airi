@@ -504,6 +504,7 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   function normalizeProviderModels(providerId: string, models: Array<{
+    capabilities?: string[]
     context_length?: number
     contextLength?: number
     deprecated?: boolean
@@ -517,6 +518,7 @@ export const useProviderStore = defineStore('provider', () => {
       name: model.name ?? model.display_name ?? model.id,
       provider: providerId,
       description: model.description ?? '',
+      capabilities: model.capabilities,
       contextLength: model.contextLength ?? model.context_length ?? 0,
       deprecated: model.deprecated ?? false,
     }))
@@ -626,6 +628,7 @@ export const useProviderStore = defineStore('provider', () => {
           id: model.id,
           name: model.name,
           description: model.description,
+          capabilities: model.capabilities,
           contextLength: model.contextLength,
           deprecated: model.deprecated,
           provider: providerId,

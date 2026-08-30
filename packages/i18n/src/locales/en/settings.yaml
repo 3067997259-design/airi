@@ -659,6 +659,13 @@ pages:
             title: Model options
             thinking:
               label: Thinking
+            mirror-visual:
+              label: Mirror image input
+              description: Choose whether this model may receive the temporary mirror image in the same chat turn.
+              options:
+                auto: Automatic from provider or model metadata
+                image-input: Allow image input (I confirmed this model can read images)
+                text-only: Text only (do not send images)
       title: Consciousness
     description: Thinking, vision, speech synthesis, gaming, etc.
     attention:

@@ -240,6 +240,8 @@ export interface ProviderDefinition<TConfig extends any = any> {
   capabilities?: {
     chat?: {
       reasoning?: ChatReasoningCapability
+      /** Whether the provider definition accepts image content in chat messages. */
+      imageInput?: boolean
     }
     transcription?: {
       protocol: 'websocket' | 'http' | 'native'

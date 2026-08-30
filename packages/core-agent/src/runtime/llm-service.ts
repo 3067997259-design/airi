@@ -201,6 +201,8 @@ export async function streamFrom({
         stopWhen: stepCountAtLeast(10),
         tools,
         toolChoice: options?.toolChoice,
+        postToolCall: options?.postToolCall,
+        prepareStep: options?.prepareStep,
         onEvent,
       })
 

@@ -6,6 +6,7 @@ import type { Message } from '@xsai/shared-chat'
 import type {} from 'pinia-plugin-synced'
 
 import type { ChatHistoryItem, ChatToolReference, StreamingAssistantMessage } from '../types/chat'
+import type { MirrorVisualCapabilitySetting } from './mirror-visual'
 import type { ToolCallRerunPayload } from './tool-call-rerun'
 
 import { errorMessageFrom } from '@moeru/std'
@@ -42,10 +43,12 @@ import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useContextObservabilityStore } from './devtools/context-observability'
 import { useJournalStore } from './journal'
-import { takeLastMirrorAttachment } from './mirror-snapshot'
+import { withMirrorRequestDiagnostics } from './mirror-diagnostics'
+import { createMirrorVisualAdapter, resolveMirrorVisualCapability } from './mirror-visual'
 import { useAiriCardStore } from './modules/airi-card'
 import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
+import { useConsciousnessSettingsStore } from './modules/consciousness-settings'
 import { useFetchModuleStore } from './modules/fetch'
 import { useMemoryStore } from './modules/memory'
 import { useWebSearchStore } from './modules/web-search'
@@ -252,7 +255,10 @@ export const useChatStore = defineStore('chat', () => {
     ].join('\n')
   }
 
-  function isMemoryExtraction(value: unknown): value is Omit<MemoryExtraction, 'sessionId'> {
+  // Models authored the JSON, so only the structural fields are required
+  // here; mood numbers and tags are normalized after the filter instead of
+  // dropping the whole extraction when the model omits them.
+  function isMemoryExtraction(value: unknown): value is Pick<MemoryExtraction, 'content' | 'category' | 'memoryType'> & Partial<Pick<MemoryExtraction, 'importance' | 'valence' | 'arousal' | 'tags'>> {
     if (typeof value !== 'object' || value === null)
       return false
 
@@ -261,11 +267,11 @@ export const useChatStore = defineStore('chat', () => {
       && record.content.trim().length > 0
       && typeof record.category === 'string'
       && (record.memoryType === 'short_term' || record.memoryType === 'muscle')
-      && typeof record.importance === 'number'
-      && typeof record.valence === 'number'
-      && typeof record.arousal === 'number'
-      && Array.isArray(record.tags)
-      && record.tags.every(tag => typeof tag === 'string')
+  }
+
+  function toFiniteNumber(value: unknown, fallback: number): number {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric) ? numeric : fallback
   }
 
   async function extractMemoryTurn(input: { sessionId: string, userText: string, assistantText: string, mood?: MemoryMood }): Promise<MemoryExtraction[]> {
@@ -283,7 +289,11 @@ export const useChatStore = defineStore('chat', () => {
       await llmStore.stream(model, chatProvider, [
         {
           role: 'system',
-          content: 'Extract durable facts from one chat turn. Return only a JSON array. Use memoryType short_term or muscle. Return an empty array when no fact is durable.',
+          content: [
+            'Extract durable facts from one chat turn.',
+            'Return only a JSON array; return an empty array when no fact is durable.',
+            'Each item must be: {"content": string, "category": string, "memoryType": "short_term" | "muscle", "importance": number 1-10, "valence": number -1 to 1, "arousal": number 0 to 1, "tags": string[]}.',
+          ].join(' '),
         },
         {
           role: 'user',
@@ -309,6 +319,10 @@ export const useChatStore = defineStore('chat', () => {
 
       return parsed.filter(isMemoryExtraction).map(extraction => ({
         ...extraction,
+        importance: Math.min(10, Math.max(1, toFiniteNumber(extraction.importance, 5))),
+        valence: Math.min(1, Math.max(-1, toFiniteNumber(extraction.valence, 0))),
+        arousal: Math.min(1, Math.max(0, toFiniteNumber(extraction.arousal, 0))),
+        tags: Array.isArray(extraction.tags) ? extraction.tags : [],
         sessionId: input.sessionId,
       }))
     }
@@ -358,10 +372,6 @@ export const useChatStore = defineStore('chat', () => {
   const activeStreamingMessage = shallowRef<StreamingAssistantMessage>()
   const pendingQueuedSendCount = shallowRef(0)
   const compactions = shallowRef<Record<string, ChatOrchestratorCompactionSnapshot>>({})
-  // "See yourself" (mirror) queue: frames captured by the mirror tool that
-  // should ride onto the NEXT user send as image attachments. Scoped per
-  // session so a mirror selfie does not leak across conversations.
-  const pendingSelfieAttachments = shallowRef<Record<string, ChatSendPayload['attachments']>>({})
   let ownedActiveTurnSpan: typeof activeTurnSpan.value
   const analyticsHooks = createChatAnalyticsHooks({
     getSessionMessages: sessionId => chatSession.getSessionMessages(sessionId),
@@ -400,11 +410,38 @@ export const useChatStore = defineStore('chat', () => {
     llmSpan.setAttribute(IOAttributes.LLMInputMessageRoles, messages.map(message => message.role))
     const llmRequestTs = performance.now()
     let llmFirstTokenEmitted = false
-
+    let providerImageInput: boolean | undefined
+    let modelCapabilities: readonly string[] | undefined
+    let mirrorVisualSetting: MirrorVisualCapabilitySetting = 'auto'
+    // Provider/model capability metadata is browser-owned. Core and Node
+    // consumers can still use the same stream adapter without constructing
+    // Pinia Colada's browser query context.
+    if (typeof document !== 'undefined') {
+      const providerStore = useProviderStore()
+      providerImageInput = providerStore.findProviderDefinition(activeProvider.value)?.capabilities?.chat?.imageInput
+      modelCapabilities = providerStore.getModelsForProvider(activeProvider.value)
+        .find(candidate => candidate.id === model)
+        ?.capabilities
+      mirrorVisualSetting = useConsciousnessSettingsStore().getMirrorVisualCapability(activeProvider.value, model)
+    }
+    const contentArraysSupported = options?.supportsContentArray
+      ?? options?.contentArrayCompatibility?.get(modelKey(model, chatProvider)) !== false
+    const mirrorVisual = createMirrorVisualAdapter({
+      capability: contentArraysSupported
+        ? resolveMirrorVisualCapability(providerImageInput, modelCapabilities, mirrorVisualSetting)
+        : 'text-only',
+      postToolCall: options?.postToolCall,
+      prepareStep: options?.prepareStep,
+    })
+    const requestProvider = withMirrorRequestDiagnostics(chatProvider, {
+      roundId: options?.requestCorrelation?.roundId,
+    })
     try {
-      await llmStore.stream(model, chatProvider, messages, {
+      await llmStore.stream(model, requestProvider, messages, {
         ...options,
         headers,
+        postToolCall: mirrorVisual.postToolCall,
+        prepareStep: mirrorVisual.prepareStep,
         onStreamEvent: async (event: StreamEvent) => {
           if (isTextDelta(event)) {
             llmOutputChunkCount += 1
@@ -423,6 +460,7 @@ export const useChatStore = defineStore('chat', () => {
       })
     }
     finally {
+      mirrorVisual.dispose()
       llmSpan.setAttribute(IOAttributes.LLMOutputChunkCount, llmOutputChunkCount)
       llmSpan.setAttribute(IOAttributes.LLMOutputChunkLengths, llmOutputChunkLengths)
       llmSpan.setAttribute(IOAttributes.LLMTextLength, llmTextLength)
@@ -592,10 +630,6 @@ export const useChatStore = defineStore('chat', () => {
       if (!userText)
         return
 
-      // 方案 B (mirror "see yourself"): if this round called mirror and it
-      // captured a frame, queue that frame for the next user send.
-      queueMirrorSelfie(sessionId, chat.output.tool_results)
-
       void memoryStore.captureTurn({
         sessionId,
         userText,
@@ -719,29 +753,6 @@ export const useChatStore = defineStore('chat', () => {
     return names
   }
 
-  /**
-   * 方案 B (mirror "see yourself"): when this round called the mirror tool and
-   * it captured a frame, queue that frame for the next user send on the same
-   * session so the model sees the captured appearance. The frame is read from
-   * the stage-ui mirror snapshot store rather than parsed out of a string.
-   */
-  function queueMirrorSelfie(sessionId: string, toolResults: Array<{ result?: unknown }>): void {
-    const usedMirror = toolResults.some(item => item.result !== undefined
-      && typeof item.result === 'string'
-      && item.result.includes('imageDataUrl'))
-    if (!usedMirror)
-      return
-
-    const attachment = takeLastMirrorAttachment()
-    if (!attachment)
-      return
-
-    pendingSelfieAttachments.value = {
-      ...pendingSelfieAttachments.value,
-      [sessionId]: attachment,
-    }
-  }
-
   async function executeSend(payload: ChatSendPayload): Promise<ChatSendResult> {
     const providerId = activeProvider.value
     const modelId = activeModel.value
@@ -757,21 +768,10 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error(`Failed to resolve chat provider "${providerId}"`)
 
     const activatedSkillNames = skillsStore.prepareForPrompt(payload.text)
-    // 方案 B (mirror "see yourself"): a frame captured earlier by the mirror
-    // tool rides onto the next user send so the model actually sees the
-    // current appearance. Merge with any user-supplied attachments.
-    const queuedSelfie = pendingSelfieAttachments.value[payload.sessionId]
-    const mergedAttachments = queuedSelfie
-      ? [...(payload.attachments ?? []), ...queuedSelfie]
-      : payload.attachments
-    // Consume the queue for this turn so the frame is not re-injected forever.
-    if (queuedSelfie)
-      delete pendingSelfieAttachments.value[payload.sessionId]
-
     await runtime.ingest(payload.text, {
       model: modelId,
       chatProvider,
-      attachments: mergedAttachments,
+      attachments: payload.attachments,
       input: payload.input,
       toolReferences: payload.tools,
       source: payload.source,

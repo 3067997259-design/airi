@@ -6,9 +6,9 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useConsciousnessSettingsStore } from '@proj-airi/stage-ui/stores/modules/consciousness-settings'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
-import { FieldCheckbox } from '@proj-airi/ui'
+import { FieldCheckbox, FieldCombobox } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 
@@ -67,6 +67,13 @@ function handleDeleteProvider(providerId: string) {
 async function updateReasoning(value: boolean) {
   await consciousnessSettingsStore.setReasoning(value)
 }
+
+const mirrorVisualCapability = computed({
+  get: () => consciousnessSettingsStore.getMirrorVisualCapability(activeProvider.value, activeModel.value),
+  set: (value: 'auto' | 'image-input' | 'text-only') => {
+    void consciousnessSettingsStore.setMirrorVisualCapability(activeProvider.value, activeModel.value, value)
+  },
+})
 </script>
 
 <template>
@@ -300,6 +307,17 @@ async function updateReasoning(value: boolean) {
         :model-value="reasoning"
         :label="t('settings.pages.modules.consciousness.sections.section.model-options.thinking.label')"
         @update:model-value="updateReasoning"
+      />
+
+      <FieldCombobox
+        v-model="mirrorVisualCapability"
+        :label="t('settings.pages.modules.consciousness.sections.section.model-options.mirror-visual.label')"
+        :description="t('settings.pages.modules.consciousness.sections.section.model-options.mirror-visual.description')"
+        :options="[
+          { label: t('settings.pages.modules.consciousness.sections.section.model-options.mirror-visual.options.auto'), value: 'auto' },
+          { label: t('settings.pages.modules.consciousness.sections.section.model-options.mirror-visual.options.image-input'), value: 'image-input' },
+          { label: t('settings.pages.modules.consciousness.sections.section.model-options.mirror-visual.options.text-only'), value: 'text-only' },
+        ]"
       />
     </section>
   </div>

@@ -1,13 +1,13 @@
 import { shallowRef } from 'vue'
 
 /**
- * Stage capture port (mirror "see yourself" — B path).
+ * Stage capture port for the transient mirror frame.
  *
  * The Live2D/VRM/Spine/MMD character frame lives in the Stage component, but
  * the `mirror` tool runs in the leader renderer store and cannot reach the
  * component's `defineExpose` ref. This module-level port bridges the two: the
- * Stage registers its `captureFrame` on mount, and the tool (or any consumer)
- * resolves the current frame through it.
+ * Stage registers its `captureFrame` on mount, and the tool resolves the
+ * current frame through it.
  *
  * Kept in stage-ui because it depends on the stage model renderers; the
  * stage-ui-live2d mirror tool consumes it via an injected port to avoid a

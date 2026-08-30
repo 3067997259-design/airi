@@ -26,7 +26,12 @@ export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>
   description: 'ai.google.dev',
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.google-generative-ai.description'),
   tasks: ['chat'],
-  capabilities: { chat: { reasoning: { modes: ['enabled', 'disabled'] } } },
+  capabilities: {
+    chat: {
+      reasoning: { modes: ['enabled', 'disabled'] },
+      imageInput: true,
+    },
+  },
   icon: 'i-lobe-icons:gemini',
   iconColor: 'i-lobe-icons:gemini-color',
 

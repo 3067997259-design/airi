@@ -140,6 +140,24 @@ describe('streamFrom tool errors', () => {
     })
   })
 
+  it('forwards per-step tool and input hooks to xsAI', async () => {
+    const postToolCall = vi.fn()
+    const prepareStep = vi.fn()
+    streamTextMock.mockReturnValueOnce(createMockStreamResult())
+
+    await streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'hello' }] as Message[],
+      options: { postToolCall, prepareStep },
+    })
+
+    expect(streamTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      postToolCall,
+      prepareStep,
+    }))
+  })
+
   it('marks usage unavailable when the provider omits the final usage chunk', async () => {
     const onUsage = vi.fn()
     streamTextMock.mockReturnValueOnce(createMockStreamResult())

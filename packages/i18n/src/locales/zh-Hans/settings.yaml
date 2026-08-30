@@ -630,6 +630,13 @@ pages:
             title: 模型选项
             thinking:
               label: 思考
+            mirror-visual:
+              label: 镜像图片输入
+              description: 选择此模型是否可以在同一轮对话中接收临时镜像图片。
+              options:
+                auto: 根据服务来源或模型元数据自动判断
+                image-input: 允许图片输入（我已确认此模型可以读图）
+                text-only: 仅文本（不要发送图片）
       title: 意识
     description: 思维，视觉，言语综合，游戏等
     attention:
