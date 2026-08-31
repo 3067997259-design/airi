@@ -69,6 +69,12 @@ render-error:
     模型 ID：{modelId}
     错误：{error}
 message: 说点什么...
+turn:
+  send: 发送消息
+  stop: 停止当前回合
+  steer-hint: Enter 插话 · Shift + Enter 排队 · Esc 停止
+  queued: 已排队
+  cancel-queued: 取消排队消息
 approval-mode:
   title: Bash 审批模式
   require: 需要审核（中危与高危命令都等待）

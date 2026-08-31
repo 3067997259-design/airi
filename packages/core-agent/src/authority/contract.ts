@@ -20,7 +20,7 @@ export type PlanLane = 'coding' | 'desktop' | 'browser_dom' | 'terminal' | 'huma
 
 export type PlanRiskLevel = 'low' | 'medium' | 'high'
 
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked'
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused'
 
 export type PlanReconcilerDecision
   = | 'continue'
@@ -61,6 +61,8 @@ export interface PlanEvidenceRef {
 
 export interface PlanState {
   currentStepId?: string
+  /** User-owned pause. Paused plans stay visible but cannot auto-run. */
+  paused?: boolean
   completedSteps: string[]
   failedSteps: string[]
   skippedSteps: string[]

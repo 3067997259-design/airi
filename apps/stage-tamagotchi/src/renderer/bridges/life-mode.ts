@@ -3,7 +3,8 @@ import type { LifeModeConfig, LifeModePort, LifeTickPayload } from '@proj-airi/s
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 
-import { lifeModeGetConfig, lifeModeSetConfig, lifeTickEmitted } from '../../shared/eventa'
+import { lifeModeConsumeTick, lifeModeGetConfig, lifeModeSetConfig, lifeTickEmitted } from '../../shared/eventa'
+import { resolveRendererWindowContext } from '../window-context'
 
 /**
  * Renderer-side life mode client (LIFE-PLAN M3).
@@ -16,10 +17,13 @@ export function createLifeModeClient(): LifeModePort {
   const context = getElectronEventaContext()
   const getConfig = defineInvoke(context, lifeModeGetConfig)
   const setConfig = defineInvoke(context, lifeModeSetConfig)
+  const consumeTick = defineInvoke(context, lifeModeConsumeTick)
 
   return {
     getConfig: async () => (await getConfig()) as unknown as LifeModeConfig,
     setConfig: async config => (await setConfig(config as never)) as unknown as LifeModeConfig,
+    consumeTick: async tickId => consumeTick({ tickId }),
+    isTickConsumer: () => resolveRendererWindowContext().leadership === 'leader-only',
     onTick(listener) {
       const off = context.on(lifeTickEmitted, (event) => {
         if (event.body)

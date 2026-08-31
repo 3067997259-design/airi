@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatSessionStore } from '../chat/session-store'
 import { useJournalStore } from '../journal'
 import { usePlanStore } from '../plans'
-import { advanceLongGoalStallState, buildStimulusBrief, useLifeModeStore } from './life-mode'
+import type { LifeModePort, LifeTickPayload } from './life-mode'
+import { advanceLongGoalStallState, buildStimulusBrief, installLifeModePort, useLifeModeStore } from './life-mode'
 
 const chat = vi.hoisted(() => ({
   sending: false,
@@ -25,6 +26,7 @@ vi.mock('../modules/memory', () => ({
 }))
 
 beforeEach(() => {
+  installLifeModePort(undefined)
   setActivePinia(createPinia())
   chat.sending = false
   chat.send.mockReset().mockResolvedValue({ sessionId: 'session-1', messages: [] })
@@ -174,5 +176,34 @@ describe('life-mode long-term goal ticks', () => {
       tools: [{ name: 'self_speak' }],
     }))
     expect(chat.send.mock.calls[3]?.[0]).not.toHaveProperty('planId')
+  })
+
+  it('does not consume a tick from a follower renderer', async () => {
+    let deliver: ((payload: LifeTickPayload) => void) | undefined
+    const port: LifeModePort = {
+      getConfig: async () => ({
+        mode: 'autonomous',
+        intervalMinutes: 15,
+        quietHoursStart: 0,
+        quietHoursEnd: 0,
+        dailyBudget: 24,
+        cooldownMinutes: 30,
+      }),
+      setConfig: async config => config,
+      consumeTick: vi.fn(async () => {}),
+      isTickConsumer: () => false,
+      onTick: (listener) => {
+        deliver = listener
+        return () => {}
+      },
+    }
+
+    installLifeModePort(port)
+    await Promise.resolve()
+    deliver?.({ tickId: 'follower-tick', reason: 'heartbeat', timestamp: 1 })
+    await Promise.resolve()
+
+    expect(chat.send).not.toHaveBeenCalled()
+    expect(port.consumeTick).not.toHaveBeenCalled()
   })
 })

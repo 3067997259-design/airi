@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path'
 
 import { defineInvokeHandler } from '@moeru/eventa'
 
-import { lifeModeGetConfig, lifeModeSetConfig, lifeTickEmitted } from '../../../../shared/eventa'
+import { lifeModeConsumeTick, lifeModeGetConfig, lifeModeSetConfig, lifeTickEmitted } from '../../../../shared/eventa'
 import { evaluateLifeTickGate, localDayKeyForNow } from './gates'
 
 const PERSISTED_FILE_NAME = 'life-mode.json'
@@ -94,6 +94,7 @@ export async function setupLifeMode(
   let budgetDateKey = persisted?.budgetDateKey ?? ''
   let lastTickAt = persisted?.lastTickAt
   let timer: NodeJS.Timeout | undefined
+  const pendingTickIds = new Set<string>()
 
   async function persist(): Promise<void> {
     await writePersistedLifeMode(persistencePath, { config, budgetUsed, budgetDateKey, ...(lastTickAt != null ? { lastTickAt } : {}) })
@@ -102,6 +103,10 @@ export async function setupLifeMode(
   function restartTimer(): void {
     if (timer)
       clearInterval(timer)
+    timer = undefined
+    if (config.mode === 'off')
+      return
+
     const intervalMs = Math.max(MIN_INTERVAL_MS, config.intervalMinutes * 60_000)
     timer = setInterval(() => void tick(), intervalMs)
     timer.unref?.()
@@ -112,24 +117,17 @@ export async function setupLifeMode(
   async function tick(): Promise<void> {
     const timestamp = now()
 
-    // `respond` mode records every heartbeat in the journal without spending
-    // model tokens, so it skips the economic gates; only `autonomous` runs
-    // quiet-hours/budget/cooldown before a consideration round may start.
-    if (config.mode !== 'respond') {
-      const decision = evaluateLifeTickGate(config, {
-        now: timestamp,
-        lastTickAt,
-        budgetUsed,
-        budgetDateKey,
-      })
-      if (!decision.pass)
-        return
-    }
+    const decision = evaluateLifeTickGate(config, {
+      now: timestamp,
+      lastTickAt,
+      budgetUsed,
+      budgetDateKey,
+    })
+    if (!decision.pass)
+      return
 
     if (config.mode !== 'respond') {
       lastTickAt = timestamp
-      budgetUsed += 1
-      budgetDateKey = localDayKeyForNow(timestamp)
       await persist()
     }
 
@@ -137,6 +135,12 @@ export async function setupLifeMode(
       tickId: `life-tick-${nextTickId++}`,
       reason: config.mode === 'respond' ? 'schedule heartbeat (respond — journal only)' : 'schedule heartbeat',
       timestamp,
+    }
+    pendingTickIds.add(payload.tickId)
+    if (pendingTickIds.size > 128) {
+      const oldestTickId = pendingTickIds.values().next().value
+      if (oldestTickId)
+        pendingTickIds.delete(oldestTickId)
     }
     ;(options.broadcast?.broadcast ?? context.emit)(lifeTickEmitted, payload)
   }
@@ -148,6 +152,27 @@ export async function setupLifeMode(
     restartTimer()
     await persist()
     return { ...config }
+  })
+
+  defineInvokeHandler(context, lifeModeConsumeTick, async ({ tickId }) => {
+    if (!pendingTickIds.delete(tickId))
+      return
+
+    if (config.mode !== 'autonomous')
+      return
+
+    const timestamp = now()
+    const today = localDayKeyForNow(timestamp)
+    if (budgetDateKey !== today) {
+      budgetDateKey = today
+      budgetUsed = 0
+    }
+    if (config.dailyBudget > 0 && budgetUsed >= config.dailyBudget)
+      return
+
+    budgetUsed += 1
+    budgetDateKey = today
+    await persist()
   })
 
   restartTimer()

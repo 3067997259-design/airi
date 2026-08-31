@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ChatToolCallRendererRegistry } from '@proj-airi/stage-ui/components'
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
+import type { ChatSendDelivery } from '@proj-airi/core-agent'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
@@ -17,7 +18,7 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
-import { BasicTextarea } from '@proj-airi/ui'
+import { BasicTextarea, Button } from '@proj-airi/ui'
 import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
@@ -32,7 +33,7 @@ import { createSlashTriggerProvider } from '../composables/slash-trigger-provide
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
 import { useTriggerPanel } from '../composables/use-trigger-panel'
 import { createWorkspaceTriggerProvider } from '../composables/workspace-trigger-provider'
-import { artistryToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
+import { artistryToolReferences, githubReadToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
@@ -78,7 +79,7 @@ const airiCardStore = useAiriCardStore()
 
 const { activeSessionId, messages } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
-const { activeSendSessionId, activeStreamingMessage, compactions, sending } = storeToRefs(chatStore)
+const { activeSendSessionId, activeStreamingMessage, compactions, queuedSends, sending } = storeToRefs(chatStore)
 const { reactions } = storeToRefs(useCharacterStore())
 const { tasks } = storeToRefs(useTaskStore())
 const { planViews: allPlanViews } = storeToRefs(planStore)
@@ -137,7 +138,7 @@ function navigateToImageJournal() {
   router.push(`/settings/airi-card?cardId=${activeCardId.value}&tab=gallery`)
 }
 
-async function handleSend() {
+async function handleSend(delivery: ChatSendDelivery = 'next-step') {
   if (isComposing.value) {
     return
   }
@@ -163,7 +164,8 @@ async function handleSend() {
       sessionId: targetSessionId,
       text: textToSend,
       attachments: attachmentsToSend,
-      tools: [...artistryToolReferences, ...skillAuthoringToolReferences],
+      delivery,
+      tools: [...artistryToolReferences, ...githubReadToolReferences, ...skillAuthoringToolReferences],
     })
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
@@ -173,6 +175,7 @@ async function handleSend() {
     const wasCancelledForDeletedSession
       = errorMessage.includes('Chat session was reset before send could start')
         || errorMessage.includes('Chat session was removed before send completed')
+        || errorMessage.includes('Queued chat send was cancelled')
     if (!wasCancelledForDeletedSession && chatSession.activeSessionId === targetSessionId) {
       const currentDraft = messageInput.value
       messageInput.value = currentDraft ? `${textToSend}\n${currentDraft}` : textToSend
@@ -186,9 +189,13 @@ async function handleSend() {
   }
 }
 
-function sendFromKeyboard() {
+function sendFromKeyboard(delivery: ChatSendDelivery = 'next-step') {
   messageInput.value = messageInput.value.replace(TRAILING_NEWLINES_REGEX, '')
-  void handleSend()
+  void handleSend(delivery)
+}
+
+function handleAbort() {
+  void chatStore.abortActiveSend(activeSessionId.value)
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -208,6 +215,12 @@ function handleMessageInputKeydown(event: KeyboardEvent) {
   if (isComposing.value)
     return
 
+  if (event.key === 'Escape' && isActiveSessionSending.value) {
+    event.preventDefault()
+    handleAbort()
+    return
+  }
+
   if (onWorkspaceKeyDown(event) || onSlashKeyDown(event))
     return
 
@@ -216,6 +229,12 @@ function handleMessageInputKeydown(event: KeyboardEvent) {
 
   const hasControl = event.ctrlKey || event.metaKey
   const hasShift = event.shiftKey
+
+  if (isActiveSessionSending.value && !hasControl) {
+    event.preventDefault()
+    sendFromKeyboard(hasShift ? 'next-turn' : 'next-step')
+    return
+  }
 
   switch (sendMode.value) {
     case 'enter':
@@ -288,6 +307,11 @@ const visibleStreamingMessage = computed(() => activeSendSessionId.value === act
   ? activeStreamingMessage.value
   : streamingMessage.value)
 const activeCompaction = computed(() => compactions.value[activeSessionId.value])
+const activeQueuedSends = computed(() => queuedSends.value.filter(send => send.sessionId === activeSessionId.value))
+
+function cancelQueuedSend(id: string) {
+  chatStore.cancelQueuedSend(id)
+}
 
 async function handleDeleteMessage(index: number) {
   const message = messages.value[index]
@@ -543,6 +567,33 @@ async function handleCleanupMessages() {
     </div>
     <ChatQuestionCard />
     <div class="relative w-full">
+      <div
+        v-if="activeQueuedSends.length > 0"
+        :class="[
+          'mb-1 flex flex-col gap-1 rounded-lg p-2',
+          'bg-neutral-100/80 dark:bg-neutral-900/80',
+        ]"
+        data-testid="chat-queue-dock"
+      >
+        <div
+          v-for="queued in activeQueuedSends"
+          :key="queued.id"
+          :class="['flex min-w-0 items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400']"
+        >
+          <span class="shrink-0 font-medium">{{ t('stage.turn.queued') }}</span>
+          <span class="min-w-0 flex-1 truncate">{{ queued.messagePreview }}</span>
+          <Button
+            size="unset"
+            variant="secondary"
+            color="neutral"
+            :class="['h-6 w-6 shrink-0 p-0']"
+            :aria-label="t('stage.turn.cancel-queued')"
+            @click="cancelQueuedSend(queued.id)"
+          >
+            <span class="i-solar:close-circle-bold text-sm" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
       <TriggerPanel
         v-if="isSlashPanelOpen"
         :sections="slashSections"
@@ -563,7 +614,10 @@ async function handleCleanupMessages() {
         v-model="messageInput"
         :submit-on-enter="false"
         :placeholder="t('stage.message')"
-        class="ph-no-capture [scrollbar-gutter:stable]"
+        :class="[
+          'ph-no-capture [scrollbar-gutter:stable]',
+          'pr-12',
+        ]"
         text="primary-600 dark:primary-100  placeholder:primary-500 dark:placeholder:primary-200"
         border="solid 2 primary-200/20 dark:primary-400/20"
         bg="primary-100/50 dark:primary-900/70"
@@ -576,6 +630,29 @@ async function handleCleanupMessages() {
         @keydown="handleMessageInputKeydown"
         @paste-file="handleFilePaste"
       />
+      <Button
+        data-testid="turn-control-button"
+        size="unset"
+        shape="circle"
+        :color="isActiveSessionSending ? 'red' : 'primary'"
+        variant="primary"
+        :class="[
+          'absolute bottom-2 right-2 h-8 w-8 p-0',
+        ]"
+        :aria-label="t(isActiveSessionSending ? 'stage.turn.stop' : 'stage.turn.send')"
+        @click="isActiveSessionSending ? handleAbort() : handleSend('next-step')"
+      >
+        <span
+          :class="isActiveSessionSending ? 'i-solar:stop-bold' : 'i-solar:arrow-up-bold'"
+          aria-hidden="true"
+        />
+      </Button>
+      <p
+        v-if="isActiveSessionSending"
+        :class="['mt-1 px-1 text-[10px] text-neutral-400 dark:text-neutral-500']"
+      >
+        {{ t('stage.turn.steer-hint') }}
+      </p>
     </div>
 
     <!-- Shared Preview Modal -->

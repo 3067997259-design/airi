@@ -1,9 +1,9 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { CommonContentPart, Message, ToolMessage } from '@xsai/shared-chat'
+import type { CommonContentPart, Message, PrepareStep, ToolMessage } from '@xsai/shared-chat'
 
 import type { AgentContextPort } from '../contracts/context-port'
 import type { AgentForegroundStreamPort } from '../contracts/stream-port'
-import type { JournalEventInput } from '../journal/types'
+import type { JournalEventInput, TurnEndReason } from '../journal/types'
 import type { HistoryItem, Message as StructuredMessage } from '../messages/types'
 import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatStreamEventContext, ChatToolReference, ContextMessage, ErrorMessage, StreamingAssistantMessage } from '../types/chat'
 import type { LlmUsage, StreamEvent, StreamOptions } from '../types/llm'
@@ -53,7 +53,10 @@ function cloneStreamingMessage(message: StreamingAssistantMessage): StreamingAss
  * (LIFE-PLAN §二.2): no user input exists, the round decides whether to
  * speak, note privately, or stay silent.
  */
-export type ChatSendSource = 'text' | 'voice' | 'self-initiative'
+export type ChatSendSource = 'text' | 'voice' | 'self-initiative' | 'btw'
+
+/** Delivery lane for a send that arrives while another turn is active. */
+export type ChatSendDelivery = 'next-step' | 'next-turn'
 
 /** A UI command that was intercepted before the user text reached the model. */
 export interface ChatCommandDirective {
@@ -87,13 +90,19 @@ export interface ChatOrchestratorSendOptions {
   planId?: string
   /** Selects the self-initiative contract for autonomous task or blocker rounds. */
   selfInitiativeMode?: 'social' | 'task' | 'blocker'
+  /** Step budget for this turn. @default 10 */
+  maxSteps?: number
+  /** `next-step` steers the active turn at its next provider step boundary. */
+  delivery?: ChatSendDelivery
 }
 
 interface QueuedSend {
+  id: string
   sendingMessage: string
   options: ChatOrchestratorSendOptions
   generation: number
   sessionId: string
+  delivery: ChatSendDelivery
   cancelled?: boolean
   deferred: {
     resolve: () => void
@@ -105,12 +114,16 @@ interface QueuedSend {
  * Serializable view of a queued send waiting to be processed.
  */
 export interface QueuedSendSnapshot {
+  /** Stable queue item identifier used for per-item cancellation. */
+  id: string
   /** Session that owns the queued send. */
   sessionId: string
   /** Session generation captured when the send was enqueued. */
   generation: number
   /** Whether the queued send has been rejected before execution. */
   cancelled: boolean
+  /** Whether this item steers at the next step or waits for the next turn. */
+  delivery: ChatSendDelivery
   /** First 120 characters of the pending user message. */
   messagePreview: string
   /** Whether the queued send carries image attachments. */
@@ -250,6 +263,8 @@ export interface ChatOrchestratorRuntimeState {
   activeStreamingMessage?: StreamingAssistantMessage
   /** Number of sends waiting behind the active one. */
   pendingQueuedSendCount: number
+  /** Serializable pending sends for queue UI. */
+  queuedSends: QueuedSendSnapshot[]
   /** Compaction snapshots keyed by session ID for history UI and diagnostics. */
   compactions: Record<string, ChatOrchestratorCompactionSnapshot>
 }
@@ -424,6 +439,8 @@ export interface ChatOrchestratorRuntimeDeps {
   /** Called after assistant streaming and hook finalization. */
   onChatTurnComplete?: (event: {
     sessionId: string
+    /** Send options that selected this turn's plan, source, and profile. */
+    options: ChatOrchestratorSendOptions
     /** Durable user message that anchors memory source context. */
     userMessageId: string
     /** Current append-only session snapshot after the assistant response. */
@@ -451,6 +468,10 @@ export interface ChatOrchestratorRuntime {
   ingest: (sendingMessage: string, options: ChatOrchestratorSendOptions, targetSessionId?: string) => Promise<void>
   /** Rejects queued sends that have not started yet. */
   cancelPendingSends: (sessionId?: string) => void
+  /** Rejects one queued send by its stable queue id. */
+  cancelQueuedSend: (id: string) => boolean
+  /** Stops the active provider turn. Returns false when no matching turn exists. */
+  abortActiveSend: (sessionId?: string) => boolean
   /** Returns serializable snapshots of currently queued sends. */
   getPendingQueuedSendSnapshot: () => QueuedSendSnapshot[]
   /** Returns the current queued send count. */
@@ -549,6 +570,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
   let activeSendSessionId: string | undefined
   let activeStreamingMessage: StreamingAssistantMessage | undefined
   let pendingQueuedSends: QueuedSend[] = []
+  let nextQueuedSendId = 1
+  let activeTurn: {
+    controller: AbortController
+    reason?: Extract<TurnEndReason, 'aborted' | 'steered'>
+    sessionId: string
+    steerRequested: boolean
+  } | undefined
   const compactedSessions = new Map<string, CompactedSessionProjection>()
   const compactionTasks = new Map<string, Promise<void>>()
   const compactionGenerations = new Map<string, number>()
@@ -578,6 +606,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       activeSendSessionId,
       activeStreamingMessage,
       pendingQueuedSendCount: pendingQueuedSends.length,
+      queuedSends: getPendingQueuedSendSnapshot(),
       compactions: Object.fromEntries(compactedSessions),
     })
   }
@@ -929,6 +958,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     ingestRuntimeContexts(sessionId)
 
     const sendingCreatedAt = now()
+    const isSelfInitiative = options.source === 'self-initiative'
 
     // TODO: Expire or prune stale runtime contexts from disconnected services before composing.
     // Allocate the three per-round ids in their historical order so callers
@@ -943,7 +973,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         content: sendingMessage,
         createdAt: sendingCreatedAt,
         id: streamContextMessageId,
-        ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
+        ...(isSelfInitiative ? { hiddenFromHistory: true } : {}),
       },
       contexts: deps.context.snapshot(),
       composedMessage: [],
@@ -960,7 +990,14 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     })
 
     const isStaleGeneration = () => deps.session.getSessionGeneration(sessionId) !== generation
-    const shouldAbort = () => isStaleGeneration()
+    const turnController = new AbortController()
+    const ownedTurn: NonNullable<typeof activeTurn> = {
+      controller: turnController,
+      sessionId,
+      steerRequested: false,
+    }
+    activeTurn = ownedTurn
+    const shouldAbort = () => isStaleGeneration() || turnController.signal.aborted
     if (shouldAbort())
       return
 
@@ -971,12 +1008,26 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       tool_results: [],
       createdAt: now(),
       id: assistantMessageId,
-      ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
+      ...(isSelfInitiative ? { hiddenFromHistory: true } : {}),
     }
     // Declared at function scope so the catch path can persist whatever tool
     // transcript was captured before a mid-stream failure.
     let providerTranscript: Message[] | undefined
+    const toolCallNames = new Map<string, string>()
+    const settledToolCallIds = new Set<string>()
+    const maxSteps = Math.max(1, Math.floor(options.maxSteps ?? 10))
+    let reachedMaxSteps = false
+    let turnEndReason: TurnEndReason = 'error'
+    let turnError: string | undefined
     beginStream(sessionId, buildingMessage)
+    appendJournal(sessionId, {
+      type: 'turn/start',
+      turnId: roundId,
+      source: options.source ?? (options.input?.type === 'input:voice' || options.input?.type === 'input:text:voice' ? 'voice' : 'text'),
+      timestamp: sendingCreatedAt,
+      ...(options.planId ? { planId: options.planId } : {}),
+      maxSteps,
+    })
     appendJournal(sessionId, { type: 'assistant/start' })
     const hasVoice = options.input?.type === 'input:voice'
       || options.input?.type === 'input:text:voice'
@@ -1042,7 +1093,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         createdAt: sendingCreatedAt,
         id: roundId,
         ...(options.toolReferences?.length ? { tools: options.toolReferences } : {}),
-        ...(options.source === 'self-initiative' && options.planId ? { hiddenFromHistory: true } : {}),
+        ...(isSelfInitiative ? { hiddenFromHistory: true } : {}),
       }
       deps.session.appendSessionMessage(sessionId, userMessage)
       appendJournal(sessionId, {
@@ -1130,7 +1181,6 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
       // Tool results carry only the provider call id. Keep the name from
       // the matching call so the journal records a useful tool identity.
-      const toolCallNames = new Map<string, string>()
       const toolCallQueue = createQueue<ChatSlices>({
         handlers: [
           async (ctx) => {
@@ -1153,6 +1203,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
             }
 
             if (ctx.data.type === 'tool-call-result') {
+              settledToolCallIds.add(ctx.data.id)
               buildingMessage.tool_results.push(ctx.data)
               const resultToolName = toolCallNames.get(ctx.data.id) ?? ctx.data.id
               const resultLink = planLinkFor(resultToolName, options)
@@ -1266,14 +1317,40 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         hasVoice,
       })
 
+      const prepareStep: PrepareStep = async (stepOptions) => {
+        if (ownedTurn.steerRequested) {
+          ownedTurn.reason = 'steered'
+          turnController.abort(new Error('Turn steered at the next step boundary'))
+          throw turnController.signal.reason
+        }
+
+        if (stepOptions.stepNumber >= maxSteps - 1)
+          reachedMaxSteps = true
+        if (maxSteps < 2 || stepOptions.stepNumber !== maxSteps - 2)
+          return {}
+
+        return {
+          input: [
+            ...stepOptions.input,
+            {
+              role: 'system',
+              content: `The turn step budget is almost exhausted (${maxSteps} steps). Summarize verified progress, stop starting new work, and finish or state the blocker now.`,
+            },
+          ],
+        }
+      }
+
       await deps.llm.stream(options.model, options.chatProvider, newMessages as Message[], {
+        abortSignal: turnController.signal,
         headers,
+        maxSteps,
         requestCorrelation: {
           conversationId: correlation.conversationId,
           roundId: correlation.roundId,
         },
         tools: options.tools,
         waitForTools: true,
+        prepareStep,
         onMessages: (messages) => {
           const currentTurnMessages = messages.slice(providerInputMessageCount)
           const hasToolRound = currentTurnMessages.some(message =>
@@ -1318,6 +1395,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               break
             case 'tool-result':
               sawToolActivity = true
+              settledToolCallIds.add(event.toolCallId)
               toolCallQueue.enqueue({
                 type: 'tool-call-result',
                 id: event.toolCallId,
@@ -1327,6 +1405,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               break
             case 'tool-error':
               sawToolActivity = true
+              settledToolCallIds.add(event.toolCallId)
               toolCallQueue.enqueue({
                 type: 'tool-call-result',
                 id: event.toolCallId,
@@ -1425,6 +1504,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         return
       void Promise.resolve(deps.onChatTurnComplete?.({
         sessionId,
+        options,
         userMessageId: roundId,
         sessionMessages: deps.session.getSessionMessages(sessionId),
         chat: {
@@ -1449,6 +1529,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         sessionMessages: sessionMessagesForSend,
       })
 
+      turnEndReason = reachedMaxSteps ? 'max-steps' : 'completed'
       resetForegroundStream(sessionId)
       const durationMs = Math.round(monotonicNow() - roundStartedAt)
       deps.onMessageRound?.({
@@ -1472,9 +1553,39 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       }
     }
     catch (error) {
+      if (turnController.signal.aborted || isStaleGeneration()) {
+        turnEndReason = ownedTurn.reason ?? 'aborted'
+        for (const [toolCallId, toolName] of toolCallNames) {
+          if (settledToolCallIds.has(toolCallId))
+            continue
+
+          const result = 'Tool call did not complete because the turn was interrupted.'
+          buildingMessage.tool_results.push({
+            id: toolCallId,
+            isError: true,
+            result,
+          })
+          const link = planLinkFor(toolName, options)
+          appendJournal(sessionId, {
+            type: 'tool/result',
+            toolName,
+            ok: false,
+            summary: result,
+            ...(link.planId ? { planId: link.planId, stepId: link.stepId } : {}),
+          })
+        }
+        if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
+          buildingMessage.providerTranscript = providerTranscript ?? synthesizeToolTranscriptFromSlices(buildingMessage)
+          deps.session.appendSessionMessage(sessionId, buildingMessage)
+        }
+        resetForegroundStream(sessionId)
+        return
+      }
+
       if (isStaleGeneration())
         return
 
+      turnError = error instanceof Error ? error.message : String(error)
       console.error('Error sending message:', error)
       // A failed turn that already performed tool calls still carries context
       // the next turn needs. Persist the partial assistant message with its
@@ -1504,6 +1615,17 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       throw error
     }
     finally {
+      if (turnEndReason === 'error' && (turnController.signal.aborted || isStaleGeneration()))
+        turnEndReason = ownedTurn.reason ?? 'aborted'
+      appendJournal(sessionId, {
+        type: 'turn/end',
+        turnId: roundId,
+        reason: turnEndReason,
+        timestamp: now(),
+        ...(turnError ? { error: turnError } : {}),
+      })
+      if (activeTurn === ownedTurn)
+        activeTurn = undefined
       setSending(false)
       deps.onSendSettled?.({ sessionId })
     }
@@ -1550,16 +1672,41 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
   ) {
     const sessionId = targetSessionId || deps.getActiveSessionId()
     const generation = deps.session.getSessionGeneration(sessionId)
+    const delivery = options.delivery ?? 'next-turn'
+    const shouldSteer = delivery === 'next-step' && activeTurn?.sessionId === sessionId
 
     return new Promise<void>((resolve, reject) => {
       sendQueue.enqueue({
+        id: `queued-send-${nextQueuedSendId++}`,
         sendingMessage,
         options,
         generation,
         sessionId,
+        delivery,
         deferred: { resolve, reject },
       })
+      if (shouldSteer && activeTurn)
+        activeTurn.steerRequested = true
     })
+  }
+
+  function abortActiveSend(sessionId?: string): boolean {
+    if (!activeTurn || (sessionId && activeTurn.sessionId !== sessionId))
+      return false
+    activeTurn.reason = 'aborted'
+    activeTurn.controller.abort(new Error('Turn aborted by the user'))
+    return true
+  }
+
+  function cancelQueuedSend(id: string): boolean {
+    const queued = pendingQueuedSends.find(item => item.id === id)
+    if (!queued)
+      return false
+    queued.cancelled = true
+    queued.deferred.reject(new Error('Queued chat send was cancelled'))
+    pendingQueuedSends = pendingQueuedSends.filter(item => item.id !== id)
+    emitStateChange()
+    return true
   }
 
   function cancelPendingSends(sessionId?: string) {
@@ -1579,9 +1726,11 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
   function getPendingQueuedSendSnapshot() {
     return pendingQueuedSends.map(queued => ({
+      id: queued.id,
       sessionId: queued.sessionId,
       generation: queued.generation,
       cancelled: !!queued.cancelled,
+      delivery: queued.delivery,
       messagePreview: queued.sendingMessage.slice(0, 120),
       hasAttachments: !!queued.options.attachments?.length,
       inputType: queued.options.input?.type,
@@ -1590,6 +1739,8 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
   return {
     ingest,
+    abortActiveSend,
+    cancelQueuedSend,
     cancelPendingSends,
     getPendingQueuedSendSnapshot,
     getPendingQueuedSendCount: () => pendingQueuedSends.length,

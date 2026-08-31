@@ -81,6 +81,35 @@ async function submitDraft(screen: Awaited<ReturnType<typeof renderArea>>['scree
 }
 
 describe('interactive area synchronized state', () => {
+  it('shows a stop control for the active session and routes it to the leader action', async () => {
+    const { chat, screen } = await renderArea()
+    const abort = vi.spyOn(chat, 'abortActiveSend').mockResolvedValueOnce(true)
+    chat.$patch({ activeSendSessionId: 'session-b', sending: true })
+    await nextTick()
+
+    await userEvent.click(screen.getByTestId('turn-control-button'))
+
+    expect(abort).toHaveBeenCalledWith('session-b')
+  })
+
+  it('uses Shift + Enter to queue a message while the active session is sending', async () => {
+    const { chat, screen } = await renderArea()
+    const send = vi.spyOn(chat, 'send').mockResolvedValueOnce({ messages: [], sessionId: 'session-b' })
+    chat.$patch({ activeSendSessionId: 'session-b', sending: true })
+    await nextTick()
+
+    const input = screen.getByRole('textbox')
+    await userEvent.fill(input, 'wait for the next turn')
+    await userEvent.click(input)
+    await userEvent.keyboard('{Shift>}{Enter}{/Shift}')
+
+    await vi.waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 'session-b',
+      text: 'wait for the next turn',
+      delivery: 'next-turn',
+    })))
+  })
+
   // https://github.com/moeru-ai/airi/pull/2086#discussion_r3743121861
   it('renders the active synchronized stream through the real chat history for Issue #2085', async () => {
     // ROOT CAUSE:
@@ -211,6 +240,21 @@ describe('interactive area synchronized state', () => {
       sessionId: 'session-b',
       text: 'web follower message',
     }))
+  })
+
+  // https://github.com/3067997259-design/airi/issues/1
+  it('includes the GitHub watch tools in the chat request for Issue #1', async () => {
+    const { chat, screen } = await renderArea()
+    const send = vi.spyOn(chat, 'send').mockResolvedValueOnce({ messages: [], sessionId: 'session-b' })
+
+    await submitDraft(screen, 'read the GitHub task inbox')
+
+    await vi.waitFor(() => expect(send).toHaveBeenCalled())
+    const payload = send.mock.calls[0]?.[0]
+    const toolNames = payload?.tools?.map(tool => tool.name) ?? []
+    expect(toolNames).toContain('github_list_task_issues')
+    expect(toolNames).toContain('github_get_pr')
+    expect(toolNames).not.toContain('github_post_pr_comment')
   })
 
   it('routes a mobile send through the synchronized chat action', async () => {

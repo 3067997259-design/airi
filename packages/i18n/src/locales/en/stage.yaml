@@ -69,6 +69,12 @@ render-error:
     Model ID: {modelId}
     Error: {error}
 message: Say something...
+turn:
+  send: Send message
+  stop: Stop the active turn
+  steer-hint: Enter steers · Shift + Enter queues · Esc stops
+  queued: Queued
+  cancel-queued: Cancel queued message
 approval-mode:
   title: Bash approval mode
   require: Require approval (medium and high-risk commands wait)

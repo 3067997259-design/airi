@@ -1,5 +1,6 @@
 export {
   artistryToolReferences,
+  githubReadToolReferences,
   live2dAppearanceToolReferences,
   skillAuthoringToolReferences,
   useTamagotchiBuiltinToolsStore,

@@ -60,6 +60,19 @@ export const codingToolReferences = [
 export const codingReferences = [...codingToolReferences] satisfies ChatToolReference[]
 
 /**
+ * Read-only GitHub watch tools available to normal chat turns.
+ *
+ * Posting a review comment remains outside this default set. A plan step can
+ * opt into `github_post_pr_comment` through its explicit tool allowlist.
+ */
+export const githubReadToolReferences = [
+  { name: 'github_list_task_issues' },
+  { name: 'github_list_open_prs' },
+  { name: 'github_get_pr' },
+  { name: 'github_get_pr_checks' },
+] satisfies ChatToolReference[]
+
+/**
  * Live2D appearance controls, referenced when a turn should be able to change
  * how the character looks. Both stores gate these on the user's exposure
  * setting, so registering them is safe even when the user opted out.

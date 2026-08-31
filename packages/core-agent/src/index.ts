@@ -132,6 +132,7 @@ export type {
   ChatOrchestratorRuntimeState,
   ChatOrchestratorSendOptions,
   ChatOrchestratorSessionPort,
+  ChatSendDelivery,
   ChatSendSource,
   QueuedSendSnapshot,
 } from './runtime/chat-orchestrator-runtime'

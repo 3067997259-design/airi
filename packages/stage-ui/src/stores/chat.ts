@@ -1,11 +1,11 @@
-import type { AttentionMode, ChatOrchestratorCompactionSnapshot, ChatOrchestratorCompactionSummaryInput, ChatOrchestratorRuntimeState, ChatOrchestratorSendOptions, ChatSendSource, StreamEvent, StreamOptions } from '@proj-airi/core-agent'
+import type { AttentionMode, ChatOrchestratorCompactionSnapshot, ChatOrchestratorCompactionSummaryInput, ChatOrchestratorRuntimeState, ChatOrchestratorSendOptions, ChatSendDelivery, ChatSendSource, QueuedSendSnapshot, StreamEvent, StreamOptions } from '@proj-airi/core-agent'
 import type { MemoryExtraction, MemoryMood, MemorySourceContext } from '@proj-airi/memory-core'
 import type { WebSocketEventInputs } from '@proj-airi/server-sdk'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { Message } from '@xsai/shared-chat'
 import type {} from 'pinia-plugin-synced'
 
-import type { ChatHistoryItem, ChatToolReference, StreamingAssistantMessage } from '../types/chat'
+import type { ChatAssistantMessage, ChatHistoryItem, ChatToolReference, StreamingAssistantMessage } from '../types/chat'
 import type { ChatCommand } from './chat/chat-command'
 import type { MirrorVisualCapabilitySetting } from './mirror-visual'
 import type { PlanView } from './plans'
@@ -90,6 +90,8 @@ export interface ChatSendPayload {
   planId?: string
   /** Self-initiative behavior selected by the life-mode scheduler. */
   selfInitiativeMode?: 'social' | 'task' | 'blocker'
+  /** Steer at the next provider step or wait for the next complete turn. */
+  delivery?: ChatSendDelivery
 }
 
 /** The durable messages appended while one chat request executes. */
@@ -167,6 +169,17 @@ function retrySourceIndexFrom(messages: ChatHistoryItem[], index: number): numbe
 
 const MEMORY_NEIGHBOR_MESSAGE_LIMIT = 4
 const MEMORY_NEIGHBOR_CHARACTER_LIMIT = 600
+
+const STOP_INTENT = /^(?:先\s*)?(?:停(?:一下|下来)?|停止|暂停|别(?:再)?做(?:了)?|不要继续|stop|pause|cancel)(?:[吧啊呀。.!！]?)+$/i
+const RESUME_INTENT = /^(?:继续|接着(?:做|来)?|恢复|resume|continue)(?:[吧啊呀。.!！]?)+$/i
+
+function isStopIntent(text: string): boolean {
+  return STOP_INTENT.test(text)
+}
+
+function isResumeIntent(text: string): boolean {
+  return RESUME_INTENT.test(text)
+}
 
 function createMemorySourceContext(sessionId: string, userMessageId: string, messages: ChatHistoryItem[]): MemorySourceContext {
   const sourceIndex = messages.findIndex(message => message.id === userMessageId)
@@ -425,6 +438,7 @@ export const useChatStore = defineStore('chat', () => {
   const activeSendSessionId = shallowRef<string>()
   const activeStreamingMessage = shallowRef<StreamingAssistantMessage>()
   const pendingQueuedSendCount = shallowRef(0)
+  const queuedSends = shallowRef<QueuedSendSnapshot[]>([])
   const compactions = shallowRef<Record<string, ChatOrchestratorCompactionSnapshot>>({})
   let ownedActiveTurnSpan: typeof activeTurnSpan.value
   const analyticsHooks = createChatAnalyticsHooks({
@@ -527,6 +541,7 @@ export const useChatStore = defineStore('chat', () => {
     activeSendSessionId.value = state.activeSendSessionId
     activeStreamingMessage.value = state.activeStreamingMessage
     pendingQueuedSendCount.value = state.pendingQueuedSendCount
+    queuedSends.value = state.queuedSends
     compactions.value = state.compactions
   }
 
@@ -540,17 +555,14 @@ export const useChatStore = defineStore('chat', () => {
     ownedActiveTurnSpan = undefined
   }
 
-  // Plan continuation (COMMAND-PLAN §3.3): a turn that leaves a runnable
-  // plan step is followed by up to N automatic tool rounds, so one user
-  // message can carry a plan to completion instead of advancing one step.
-  // User-originated sends reset the budget; blocked/approval steps never
-  // schedule.
-  const MAX_PLAN_CONTINUATIONS_PER_SEND = 2
+  // Plan continuation belongs to the plan, not to arbitrary user messages.
+  // A user interruption never replenishes this budget.
+  const MAX_PLAN_CONTINUATIONS_PER_PLAN = 2
   const PLAN_CONTINUATION_COOLDOWN_MS = 600
   const planContinuations = new Map<string, number>()
 
-  function runnablePlanStep() {
-    const plan = planStore.activePlan
+  function runnablePlanStep(planId: string, sessionId: string) {
+    const plan = planStore.scopedActivePlans(sessionId).find(candidate => candidate.id === planId)
     if (!plan)
       return undefined
     const stepId = plan.state.currentStepId
@@ -562,22 +574,26 @@ export const useChatStore = defineStore('chat', () => {
     return step
   }
 
-  function schedulePlanContinuation(sessionId: string) {
-    const step = runnablePlanStep()
+  function schedulePlanContinuation(planId: string, sessionId: string) {
+    const step = runnablePlanStep(planId, sessionId)
     if (!step) {
-      planContinuations.delete(sessionId)
+      planContinuations.delete(planId)
       return
     }
-    const count = planContinuations.get(sessionId) ?? 0
-    if (count >= MAX_PLAN_CONTINUATIONS_PER_SEND)
+    const count = planContinuations.get(planId) ?? 0
+    if (count >= MAX_PLAN_CONTINUATIONS_PER_PLAN)
       return
-    planContinuations.set(sessionId, count + 1)
+    planContinuations.set(planId, count + 1)
     setTimeout(() => {
+      const currentStep = runnablePlanStep(planId, sessionId)
+      if (!currentStep)
+        return
       void send({
         sessionId,
-        text: `Plan continuation (${count + 1}/${MAX_PLAN_CONTINUATIONS_PER_SEND}): step "${step.id}" (${step.intent}) is still runnable. Focus it and execute it now with its allowed tools; do not stop until it completes or blocks.`,
+        text: `Plan continuation (${count + 1}/${MAX_PLAN_CONTINUATIONS_PER_PLAN}): continue step "${currentStep.id}" (${currentStep.intent}). Stop when it completes, needs approval, or has a concrete blocker.`,
         source: 'self-initiative',
-        tools: [...step.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
+        planId,
+        tools: [...currentStep.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
       }).catch(() => {})
     }, PLAN_CONTINUATION_COOLDOWN_MS)
   }
@@ -745,12 +761,20 @@ export const useChatStore = defineStore('chat', () => {
       if (autonomousTarget === 'user')
         void artistryAutonomousStore.runArtistTask(messageText, toProviderHistory(sessionMessages))
     },
-    onChatTurnComplete: ({ sessionId, chat, context, userMessageId, sessionMessages }) => {
-      if (context.message.hiddenFromHistory)
-        return
+    onChatTurnComplete: ({ sessionId, options, chat, context, userMessageId, sessionMessages }) => {
       const userText = extractTextFromContent(context.message.content).trim()
       if (!userText)
         return
+
+      journalSelfRoundOutcome(userMessageId, sessionMessages, userText, chat.output)
+
+      if (options.planId)
+        schedulePlanContinuation(options.planId, sessionId)
+
+      if (context.message.hiddenFromHistory) {
+        appendSelfInitiativeMessages(sessionId, userMessageId, sessionMessages, chat.output)
+        return
+      }
 
       void memoryStore.captureTurn({
         sessionId,
@@ -759,9 +783,6 @@ export const useChatStore = defineStore('chat', () => {
         sourceContext: createMemorySourceContext(sessionId, userMessageId, sessionMessages),
       }, extractMemoryTurn)
 
-      journalSelfRoundOutcome(userMessageId, sessionMessages, userText)
-
-      schedulePlanContinuation(sessionId)
     },
     onAssistantTurnReady: ({ messageText, sessionMessages }) => {
       const artistry = cardStore.activeCard?.extensions?.airi?.modules?.artistry
@@ -831,22 +852,103 @@ export const useChatStore = defineStore('chat', () => {
    * carrying only the self tools; the actual decision comes from the tool
    * calls the model made.
    */
+  interface SelfInitiativeToolInputs {
+    spoke: string[]
+    notes: string[]
+  }
+
+  function parseSelfInitiativeText(args: string): string | undefined {
+    try {
+      const value: unknown = JSON.parse(args)
+      if (typeof value !== 'object' || value === null || Array.isArray(value))
+        return undefined
+
+      const text = (value as { text?: unknown }).text
+      return typeof text === 'string' && text.trim().length > 0 ? text.trim() : undefined
+    }
+    catch {
+      return undefined
+    }
+  }
+
+  function selfInitiativeToolInputs(message: ChatAssistantMessage): SelfInitiativeToolInputs {
+    const results = new Map(message.tool_results.map(result => [result.id, result]))
+    const inputs: SelfInitiativeToolInputs = { spoke: [], notes: [] }
+
+    for (const slice of message.slices) {
+      if (slice.type !== 'tool-call')
+        continue
+
+      const toolName = slice.toolCall.toolName
+      if (toolName !== 'self_speak' && toolName !== 'self_note')
+        continue
+
+      const result = slice.toolCall.toolCallId ? results.get(slice.toolCall.toolCallId) : undefined
+      if (result?.isError)
+        continue
+
+      const text = parseSelfInitiativeText(slice.toolCall.args ?? '')
+      if (!text)
+        continue
+
+      if (toolName === 'self_speak')
+        inputs.spoke.push(text)
+      else
+        inputs.notes.push(text)
+    }
+
+    return inputs
+  }
+
+  function isSelfInitiativeRound(sessionMessages: ChatHistoryItem[], userMessageId: string): boolean {
+    const userMessage = sessionMessages.find(message => message.role === 'user' && message.id === userMessageId)
+    const roundTools = userMessage?.tools ?? []
+    return roundTools.length > 0
+      && roundTools.every(tool => tool.name === 'self_speak' || tool.name === 'self_note')
+  }
+
+  function appendSelfInitiativeMessages(
+    sessionId: string,
+    userMessageId: string,
+    sessionMessages: ChatHistoryItem[],
+    assistantMessage: ChatAssistantMessage,
+  ) {
+    if (!isSelfInitiativeRound(sessionMessages, userMessageId))
+      return
+
+    for (const text of selfInitiativeToolInputs(assistantMessage).spoke) {
+      const message: StreamingAssistantMessage = {
+        role: 'assistant',
+        content: text,
+        slices: [{ type: 'text', text }],
+        tool_results: [],
+        createdAt: Date.now(),
+        id: nanoid(),
+      }
+      chatSession.appendSessionMessage(sessionId, message)
+      if (message.id && isCloudSyncableMessage(message)) {
+        void chatSession.pushMessageToCloud(sessionId, {
+          id: message.id,
+          role: 'assistant',
+          content: text,
+        })
+      }
+    }
+  }
+
   function journalSelfRoundOutcome(
     userMessageId: string,
     sessionMessages: ChatHistoryItem[],
     stimulus: string,
+    assistantMessage: ChatAssistantMessage,
   ) {
-    const userMessage = sessionMessages.find(message => message.role === 'user' && message.id === userMessageId)
-    const roundTools = userMessage?.tools ?? []
-    const isSelfRound = roundTools.length > 0
-      && roundTools.every(tool => tool.name === 'self_speak' || tool.name === 'self_note')
-    if (!isSelfRound)
+    if (!isSelfInitiativeRound(sessionMessages, userMessageId))
       return
 
-    const calledNames = new Set(toolCallsIn(sessionMessages, userMessageId))
-    const outcome = calledNames.has('self_speak')
+    const inputs = selfInitiativeToolInputs(assistantMessage)
+    const outcome = inputs.spoke.length > 0
       ? 'spoke'
-      : calledNames.has('self_note')
+      : inputs.notes.length > 0
         ? 'noted'
         : 'considered-silent'
     journalStore.appendActive({
@@ -854,27 +956,9 @@ export const useChatStore = defineStore('chat', () => {
       tickId: `self-round:${userMessageId}`,
       outcome,
       stimulus: stimulus.slice(0, 300),
+      ...(inputs.notes[0] ? { note: inputs.notes[0].slice(0, 2000) } : {}),
       timestamp: Date.now(),
     })
-  }
-
-  /** Tool names the model called during one round (from the persisted transcript). */
-  function toolCallsIn(sessionMessages: ChatHistoryItem[], userMessageId: string): string[] {
-    const userIndex = sessionMessages.findIndex(message => message.role === 'user' && message.id === userMessageId)
-    const tail = sessionMessages.slice(userIndex + 1)
-    const names: string[] = []
-    for (const message of tail) {
-      if (message.role === 'user')
-        break
-      if (message.role !== 'assistant')
-        continue
-      const assistant = message as StreamingAssistantMessage
-      for (const slice of assistant.slices ?? []) {
-        if (slice.type === 'tool-call')
-          names.push(slice.toolCall.toolName ?? '')
-      }
-    }
-    return names
   }
 
   async function executeSend(payload: ChatSendPayload): Promise<ChatSendResult> {
@@ -908,6 +992,7 @@ export const useChatStore = defineStore('chat', () => {
       await runtime.ingest(sendingText, {
         model: modelId,
         chatProvider,
+        maxSteps: payload.planId ? 50 : 10,
         attachments: payload.attachments,
         input: payload.input,
         toolReferences: selectedTools,
@@ -915,6 +1000,7 @@ export const useChatStore = defineStore('chat', () => {
         command,
         planId: payload.planId,
         selfInitiativeMode: payload.selfInitiativeMode,
+        delivery: payload.delivery ?? (payload.source === 'self-initiative' || payload.source === 'btw' ? 'next-turn' : 'next-step'),
         // Social consideration mounts only self tools. Task rounds receive
         // the selected long-goal step tools from the life-mode scheduler.
         tools: async () => {
@@ -955,8 +1041,19 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Sends one serializable chat request through the elected leader. */
   async function send(payload: ChatSendPayload): Promise<ChatSendResult> {
-    if (payload.source !== 'self-initiative')
-      planContinuations.delete(payload.sessionId)
+    if (payload.source !== 'self-initiative' && payload.source !== 'btw') {
+      const text = payload.text.trim()
+      if (isStopIntent(text)) {
+        const plan = planStore.scopedActivePlans(payload.sessionId).at(-1)
+        if (plan)
+          await planStore.pausePlan(plan.id)
+      }
+      else if (isResumeIntent(text)) {
+        const plan = planStore.scopedPausedPlans(payload.sessionId).at(-1)
+        if (plan)
+          await planStore.resumePlan(plan.id)
+      }
+    }
     try {
       return await executeSend(payload)
     }
@@ -1014,6 +1111,7 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Clears one session and stops runtime work that still belongs to it. */
   function cleanup(sessionId: string) {
+    runtime.abortActiveSend(sessionId)
     chatSession.cleanupMessages(sessionId)
     chatContext.resetContexts()
     runtime.clearCompaction(sessionId)
@@ -1023,6 +1121,7 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Cancels queued work before permanently removing its owning session. */
   function deleteSession(sessionId: string): Promise<void> {
+    runtime.abortActiveSend(sessionId)
     runtime.cancelPendingSends(sessionId)
     runtime.clearCompaction(sessionId)
     return chatSession.deleteSession(sessionId)
@@ -1050,6 +1149,22 @@ export const useChatStore = defineStore('chat', () => {
     runtime.cancelPendingSends(sessionId)
   }
 
+  async function abortActiveSend(sessionId?: string): Promise<boolean> {
+    const targetSessionId = sessionId ?? activeSendSessionId.value
+    const aborted = runtime.abortActiveSend(targetSessionId)
+    if (!aborted || !targetSessionId)
+      return aborted
+
+    const plan = planStore.scopedActivePlans(targetSessionId).at(-1)
+    if (plan)
+      await planStore.pausePlan(plan.id)
+    return true
+  }
+
+  function cancelQueuedSend(id: string): boolean {
+    return runtime.cancelQueuedSend(id)
+  }
+
   function getPendingQueuedSendSnapshot() {
     return runtime.getPendingQueuedSendSnapshot()
   }
@@ -1059,6 +1174,7 @@ export const useChatStore = defineStore('chat', () => {
     activeSendSessionId,
     activeStreamingMessage,
     pendingQueuedSendCount,
+    queuedSends,
     compactions,
 
     cleanup,
@@ -1070,6 +1186,8 @@ export const useChatStore = defineStore('chat', () => {
     retry,
     send,
     cancelPendingSends,
+    abortActiveSend,
+    cancelQueuedSend,
     getPendingQueuedSendSnapshot,
 
     clearHooks: runtime.hooks.clearHooks,
@@ -1098,7 +1216,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 }, {
   synced: {
-    actions: ['cleanup', 'deleteSession', 'rerunToolCall', 'retry', 'send', 'compactActiveSession'],
+    actions: ['cleanup', 'deleteSession', 'rerunToolCall', 'retry', 'send', 'compactActiveSession', 'abortActiveSend', 'cancelQueuedSend'],
     state: true,
   },
 })

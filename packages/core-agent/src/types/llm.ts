@@ -23,6 +23,8 @@ export type StreamEvent
 
 export interface StreamOptions {
   abortSignal?: AbortSignal
+  /** Maximum provider steps for this stream. @default 10 */
+  maxSteps?: number
   headers?: Record<string, string>
   onStreamEvent?: (event: StreamEvent) => void | Promise<void>
   /** Called once with the final xsAI message list after all tool rounds finish. */

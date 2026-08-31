@@ -150,6 +150,7 @@ export async function streamFrom({
   options,
   builtinToolsResolver,
 }: StreamFromOptions) {
+  const maxSteps = Math.max(1, Math.floor(options?.maxSteps ?? 10))
   const chatConfig = chatProvider.chat(model)
   const supportsContentArray = streamOptionsContentArrayCompatibilityOk(model, chatProvider, options)
   const sanitized = sanitizeMessages(messages as unknown[], supportsContentArray)
@@ -198,7 +199,7 @@ export async function streamFrom({
         messages: sanitized,
         headers: options?.headers,
         streamOptions: { includeUsage: true },
-        stopWhen: stepCountAtLeast(10),
+        stopWhen: stepCountAtLeast(maxSteps),
         tools,
         toolChoice: options?.toolChoice,
         postToolCall: options?.postToolCall,

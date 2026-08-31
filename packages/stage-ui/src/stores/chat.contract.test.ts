@@ -16,6 +16,8 @@ import {
 } from '../libs/analytics-headers'
 import { useChatStore } from './chat'
 import { useConsciousnessSettingsStore } from './modules/consciousness-settings'
+import { useJournalStore } from './journal'
+import { usePlanStore } from './plans'
 
 vi.hoisted(() => {
   ;(globalThis as any).window = {
@@ -311,6 +313,34 @@ describe('chat store contract', () => {
     ])
   })
 
+  it('pauses an active plan on a stop instruction and resumes only on an explicit continue instruction', async () => {
+    const planStore = usePlanStore()
+    await planStore.start({
+      goal: 'Change the workspace',
+      horizon: 'session',
+      steps: [{
+        id: 'edit',
+        lane: 'coding',
+        intent: 'Edit one file',
+        allowedTools: ['edit'],
+        expectedEvidence: [{ source: 'tool_result', description: 'edit result' }],
+        riskLevel: 'low',
+        approvalRequired: false,
+      }],
+    }, 'plan-stop', { sessionId: 'session-1' })
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'acknowledged' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const store = useChatStore()
+    await store.send({ sessionId: 'session-1', text: '先停一下' })
+    expect(planStore.planViews.find(plan => plan.id === 'plan-stop')?.state.paused).toBe(true)
+
+    await store.send({ sessionId: 'session-1', text: '继续' })
+    expect(planStore.planViews.find(plan => plan.id === 'plan-stop')?.state.paused).toBe(false)
+  })
+
   it('intercepts /goal, mounts plan_update, and injects the long-goal command contract', async () => {
     let composedMessages: Message[] = []
     let toolNames: string[] = []
@@ -336,6 +366,64 @@ describe('chat store contract', () => {
     expect(userText).toContain('Keep the workspace healthy')
     expect(userText).not.toContain('/goal')
     expect(toolNames).toContain('plan_update')
+  })
+
+  it('turns a successful self_speak call into a visible assistant message', async () => {
+    llmStreamMock.mockImplementationOnce(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({
+        type: 'tool-call',
+        toolCallId: 'call-speak',
+        toolName: 'self_speak',
+        args: JSON.stringify({ text: 'A proactive message.' }),
+      })
+      await options.onStreamEvent({ type: 'tool-result', toolCallId: 'call-speak', result: 'Noted.' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    await useChatStore().send({
+      sessionId: 'session-1',
+      text: '[Stimulus brief]',
+      source: 'self-initiative',
+      tools: [{ name: 'self_speak' }, { name: 'self_note' }],
+    })
+
+    const messages = sessionMessages['session-1'] ?? []
+    expect(messages.filter(message => message.hiddenFromHistory)).toHaveLength(2)
+    expect(messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'A proactive message.',
+    })
+    expect(messages.at(-1)?.hiddenFromHistory).toBeUndefined()
+  })
+
+  it('records self_note content without adding a visible assistant message', async () => {
+    llmStreamMock.mockImplementationOnce(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({
+        type: 'tool-call',
+        toolCallId: 'call-note',
+        toolName: 'self_note',
+        args: JSON.stringify({ text: 'Keep this private.', topic: 'observation' }),
+      })
+      await options.onStreamEvent({ type: 'tool-result', toolCallId: 'call-note', result: 'Noted privately.' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+      await new Promise(resolve => setTimeout(resolve, 0))
+    })
+
+    await useChatStore().send({
+      sessionId: 'session-1',
+      text: '[Stimulus brief]',
+      source: 'self-initiative',
+      tools: [{ name: 'self_speak' }, { name: 'self_note' }],
+    })
+
+    const messages = sessionMessages['session-1'] ?? []
+    expect(messages.filter(message => message.role === 'assistant' && !message.hiddenFromHistory)).toHaveLength(0)
+    expect(useJournalStore().events).toContainEqual(expect.objectContaining({
+      type: 'life/tick',
+      outcome: 'noted',
+      note: 'Keep this private.',
+    }))
   })
 
   it('passes the current consciousness reasoning option to the chat provider', async () => {
@@ -1008,9 +1096,11 @@ describe('chat store contract', () => {
 
     expect(store.getPendingQueuedSendSnapshot()).toEqual([
       {
+        id: 'queued-send-2',
         sessionId: 'session-1',
         generation: 1,
         cancelled: false,
+        delivery: 'next-turn',
         messagePreview: queuedMessage.slice(0, 120),
         hasAttachments: true,
         inputType: 'input:text',

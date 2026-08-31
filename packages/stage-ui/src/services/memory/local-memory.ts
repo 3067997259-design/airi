@@ -135,7 +135,7 @@ export interface PlanPersistenceRepository {
 
 export type DuckDbMemoryRepository = MemoryRepository & PlanPersistenceRepository
 
-const PLAN_STATUSES = new Set<PlanStepStatus>(['pending', 'in_progress', 'completed', 'failed', 'skipped', 'blocked'])
+const PLAN_STATUSES = new Set<PlanStepStatus>(['pending', 'in_progress', 'completed', 'failed', 'skipped', 'blocked', 'paused'])
 const PLAN_LANES = new Set(['coding', 'desktop', 'browser_dom', 'terminal', 'human', 'mcp', 'websocket', 'conversation'])
 const PLAN_EVIDENCE_SOURCES = new Set(['tool_result', 'verification_gate', 'human_approval'])
 const PLAN_STATE_EVIDENCE_SOURCES = new Set(['tool_result', 'verification_gate', 'human_approval', 'runtime_trace'])

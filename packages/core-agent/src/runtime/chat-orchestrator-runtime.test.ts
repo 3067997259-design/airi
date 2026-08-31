@@ -182,6 +182,89 @@ function createHarness(options: {
 }
 
 describe('createChatOrchestratorRuntime', () => {
+  it('aborts the active turn through the provider signal and records the turn reason', async () => {
+    const harness = createHarness()
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await new Promise<void>((resolve, reject) => {
+        options?.abortSignal?.addEventListener('abort', () => reject(options.abortSignal?.reason), { once: true })
+      })
+    })
+
+    const pending = harness.runtime.ingest('keep working', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+    await vi.waitFor(() => expect(harness.stream).toHaveBeenCalledTimes(1))
+
+    expect(harness.runtime.abortActiveSend('session-1')).toBe(true)
+    await pending
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'turn/start',
+    }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'turn/end',
+      reason: 'aborted',
+    }))
+  })
+
+  it('ends the active turn at the next step boundary when a steer send arrives', async () => {
+    const harness = createHarness()
+    let continueFirstStep: (() => void) | undefined
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await new Promise<void>((resolve) => {
+        continueFirstStep = resolve
+      })
+      await options?.prepareStep?.({ input: [], model: 'gpt-test', stepNumber: 1, steps: [] })
+    })
+
+    const first = harness.runtime.ingest('first task', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+    await vi.waitFor(() => expect(harness.stream).toHaveBeenCalledTimes(1))
+    const steer = harness.runtime.ingest('change direction', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      delivery: 'next-step',
+    })
+    continueFirstStep?.()
+
+    await first
+    await steer
+
+    expect(harness.stream).toHaveBeenCalledTimes(2)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'turn/end',
+      reason: 'steered',
+    }))
+  })
+
+  it('warns before a configured step budget and records max-steps', async () => {
+    const harness = createHarness()
+    let preparedInput: Message[] = []
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      const warning = await options?.prepareStep?.({ input: [], model: 'gpt-test', stepNumber: 48, steps: [] })
+      preparedInput = warning?.input ?? []
+      await options?.prepareStep?.({ input: [], model: 'gpt-test', stepNumber: 49, steps: [] })
+    })
+
+    await harness.runtime.ingest('long task', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      maxSteps: 50,
+    })
+
+    expect(preparedInput).toContainEqual(expect.objectContaining({
+      role: 'system',
+      content: expect.stringContaining('step budget'),
+    }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'turn/end',
+      reason: 'max-steps',
+    }))
+  })
+
   it('retrieves memory into a replace-self background context bucket', async () => {
     const harness = createHarness({ withMemory: true })
 
@@ -638,6 +721,21 @@ describe('createChatOrchestratorRuntime', () => {
     const taskMessages = harness.sessionMessages['session-1']?.slice(1)
     expect(taskMessages).toHaveLength(2)
     expect(taskMessages?.every(message => message.hiddenFromHistory)).toBe(true)
+  })
+
+  it('hides social consideration transcripts so only a self_speak result becomes visible', async () => {
+    const harness = createHarness()
+    harness.selfInitiativePrompt.mockReturnValue('## Self-Initiative')
+
+    await harness.runtime.ingest('real journal stimulus', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      source: 'self-initiative',
+    })
+
+    const considerationMessages = harness.sessionMessages['session-1']?.slice(1)
+    expect(considerationMessages).toHaveLength(2)
+    expect(considerationMessages?.every(message => message.hiddenFromHistory)).toBe(true)
   })
 
   it('links task tool evidence to the plan selected by the send', async () => {
@@ -1252,6 +1350,7 @@ describe('createChatOrchestratorRuntime', () => {
       activeStreamingMessage: undefined,
       sending: true,
       pendingQueuedSendCount: 0,
+      queuedSends: [],
       compactions: {},
     })
 
@@ -1262,6 +1361,7 @@ describe('createChatOrchestratorRuntime', () => {
       activeStreamingMessage: undefined,
       sending: false,
       pendingQueuedSendCount: 0,
+      queuedSends: [],
       compactions: {},
     })
   })
@@ -1316,6 +1416,7 @@ describe('createChatOrchestratorRuntime', () => {
       activeStreamingMessage: undefined,
       sending: false,
       pendingQueuedSendCount: 0,
+      queuedSends: [],
       compactions: {},
     })
   })
@@ -1361,9 +1462,11 @@ describe('createChatOrchestratorRuntime', () => {
 
     expect(harness.runtime.getPendingQueuedSendSnapshot()).toEqual([
       {
+        id: 'queued-send-2',
         sessionId: 'session-1',
         generation: 1,
         cancelled: false,
+        delivery: 'next-turn',
         messagePreview: queuedMessage.slice(0, 120),
         hasAttachments: true,
         inputType: 'input:text',

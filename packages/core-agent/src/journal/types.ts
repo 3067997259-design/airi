@@ -8,6 +8,8 @@
  */
 export const JOURNAL_EVENT_TYPES = [
   'session/header',
+  'turn/start',
+  'turn/end',
   'user/message',
   'assistant/start',
   'assistant/chunk',
@@ -31,6 +33,27 @@ export const JOURNAL_EVENT_TYPES = [
 ] as const
 
 export type JournalEventType = (typeof JOURNAL_EVENT_TYPES)[number]
+
+export type TurnEndReason = 'completed' | 'aborted' | 'steered' | 'max-steps' | 'error'
+
+export interface TurnStartEvent {
+  type: 'turn/start'
+  seq: number
+  turnId: string
+  source: 'text' | 'voice' | 'self-initiative' | 'btw'
+  timestamp: number
+  planId?: string
+  maxSteps: number
+}
+
+export interface TurnEndEvent {
+  type: 'turn/end'
+  seq: number
+  turnId: string
+  reason: TurnEndReason
+  timestamp: number
+  error?: string
+}
 
 export interface SessionHeaderEvent {
   type: 'session/header'
@@ -93,7 +116,7 @@ export interface PlanUpdateEvent {
   seq: number
   planId?: string
   stepId?: string
-  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked'
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused'
   reason?: string
   /**
    * Set on model-declared completions that the evidence gate did not verify.
@@ -232,11 +255,15 @@ export interface LifeTickEvent {
   gate?: 'quiet-hours' | 'budget' | 'cooldown' | 'busy' | 'respond'
   /** Why the tick fired; a short structured stimulus summary. */
   stimulus?: string
+  /** Private text recorded by a `self_note` consideration tool call. */
+  note?: string
   timestamp: number
 }
 
 export type JournalEvent
   = | SessionHeaderEvent
+    | TurnStartEvent
+    | TurnEndEvent
     | UserMessageEvent
     | AssistantStartEvent
     | AssistantChunkEvent

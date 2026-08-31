@@ -49,6 +49,19 @@ describe('plan store', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps a paused plan visible but removes it from runnable session plans', async () => {
+    const store = usePlanStore()
+    await store.start(SPEC, 'plan-paused', { sessionId: 'session-1' })
+
+    await store.pausePlan('plan-paused')
+
+    expect(store.planViews.find(plan => plan.id === 'plan-paused')?.state.paused).toBe(true)
+    expect(store.scopedActivePlans('session-1').map(plan => plan.id)).not.toContain('plan-paused')
+
+    await store.resumePlan('plan-paused')
+    expect(store.scopedActivePlans('session-1').map(plan => plan.id)).toContain('plan-paused')
+  })
+
   it('keeps a plan blocked until trusted tool evidence completes its gate', async () => {
     const store = usePlanStore()
     const id = await store.start(SPEC, 'plan-1')

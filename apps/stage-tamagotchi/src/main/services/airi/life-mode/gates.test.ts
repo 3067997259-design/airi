@@ -25,6 +25,17 @@ function state(overrides: Partial<{ now: number, lastTickAt?: number, budgetUsed
 }
 
 describe('evaluateLifeTickGate', () => {
+  it('blocks off mode before any other gate', () => {
+    expect(evaluateLifeTickGate({ ...BASE_CONFIG, mode: 'off' }, state({ budgetUsed: 5 }))).toEqual({
+      pass: false,
+      gate: 'mode',
+    })
+  })
+
+  it('passes respond mode without spending economic gates', () => {
+    expect(evaluateLifeTickGate({ ...BASE_CONFIG, mode: 'respond' }, state({ budgetUsed: 5 }))).toEqual({ pass: true })
+  })
+
   it('allows a tick when every gate passes', () => {
     expect(evaluateLifeTickGate(BASE_CONFIG, state())).toEqual({ pass: true })
   })
@@ -51,6 +62,16 @@ describe('evaluateLifeTickGate', () => {
 
     const midDay = evaluateLifeTickGate(nightConfig, state({ now: new Date(2026, 7, 29, 12).getTime() }))
     expect(midDay).toEqual({ pass: true })
+  })
+
+  it('applies quiet hours before the budget gate', () => {
+    const nightConfig = { ...BASE_CONFIG, quietHoursStart: 0, quietHoursEnd: 6 }
+    const gated = evaluateLifeTickGate(nightConfig, state({
+      now: new Date(2026, 7, 29, 3).getTime(),
+      budgetUsed: BASE_CONFIG.dailyBudget,
+      budgetDateKey: '2026-08-29',
+    }))
+    expect(gated).toEqual({ pass: false, gate: 'quiet-hours' })
   })
 
   it('treats equal quiet-hour bounds as disabled', () => {

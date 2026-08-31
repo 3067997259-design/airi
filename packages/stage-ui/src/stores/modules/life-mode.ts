@@ -49,11 +49,16 @@ export interface LifeTickPayload {
 export interface LifeModePort {
   getConfig: () => Promise<LifeModeConfig>
   setConfig: (config: LifeModeConfig) => Promise<LifeModeConfig>
+  /** Commits one emitted autonomous tick to the main-process budget. */
+  consumeTick: (tickId: string) => Promise<void>
+  /** Returns whether this renderer owns autonomous tick consumption. */
+  isTickConsumer?: () => boolean
   onTick: (listener: (payload: LifeTickPayload) => void) => () => void
 }
 
 let port: LifeModePort | undefined
 let disposeTickListener: (() => void) | undefined
+let considerationInFlight = false
 
 export type LifeTickOutcome = 'gated' | 'considered-silent' | 'spoke' | 'noted'
 
@@ -135,9 +140,8 @@ function journalEventToFact(event: JournalEvent): string | undefined {
 
 /**
  * Life-mode store: mirrors the main-process config, receives ticks, and runs
- * consideration turns through the chat store. The tick listener is installed
- * per renderer; `send` is a synced leader action, so follower windows fail
- * safely (their send is rejected before any stream starts).
+ * consideration turns through the chat store. Only the tick consumer commits
+ * the emitted tick to the main-process budget and starts a model round.
  */
 function toPlainConfig(config: LifeModeConfig): LifeModeConfig {
   return {
@@ -210,10 +214,9 @@ export const useLifeModeStore = defineStore('life-mode', () => {
   }
 
   /**
-   * Accepts a main-process tick. The main process already applied
-   * quiet-hours / budget / cooldown; gates only the renderer can see run
-   * here (active stream). `respond` mode journals the tick as gated instead
-   * of initiating; `off` ignores it entirely (LIFE-PLAN §三).
+   * Accepts a main-process tick. The main process applies mode, quiet-hours,
+   * budget, and cooldown gates. The renderer applies stream, session, and
+   * single-round ownership gates (LIFE-PLAN §三).
    */
   async function onLifeTick(payload: LifeTickPayload): Promise<void> {
     lastTick.value = payload
@@ -245,6 +248,19 @@ export const useLifeModeStore = defineStore('life-mode', () => {
       return
     }
 
+    if (considerationInFlight) {
+      recordOutcome('gated')
+      journalStore.appendActive({
+        type: 'life/tick',
+        tickId: payload.tickId,
+        outcome: 'gated',
+        gate: 'busy',
+        stimulus: 'another consideration round is running — nothing initiated',
+        timestamp: payload.timestamp,
+      })
+      return
+    }
+
     const sessionId = useChatSessionStore().activeSessionId
     if (!sessionId) {
       recordOutcome('gated')
@@ -259,70 +275,78 @@ export const useLifeModeStore = defineStore('life-mode', () => {
       return
     }
 
-    const planStore = usePlanStore()
-    const activeLongPlan = planStore.activeLongPlan
-    const currentLongStep = activeLongPlan?.spec.steps.find(step => step.id === activeLongPlan.state.currentStepId)
-    if (activeLongPlan && currentLongStep) {
-      const stimulus = buildLongGoalStimulus(activeLongPlan)
-      if (longGoalStall.value.reportBlocker) {
+    considerationInFlight = true
+    try {
+      await port?.consumeTick(payload.tickId)
+
+      const planStore = usePlanStore()
+      const activeLongPlan = planStore.activeLongPlan
+      const currentLongStep = activeLongPlan?.spec.steps.find(step => step.id === activeLongPlan.state.currentStepId)
+      if (activeLongPlan && currentLongStep) {
+        const stimulus = buildLongGoalStimulus(activeLongPlan)
+        if (longGoalStall.value.reportBlocker) {
+          await useChatStore().send({
+            sessionId,
+            text: `${stimulus}\nBlocker: no new verified evidence was recorded across ${longGoalStall.value.stalledTicks} autonomous task ticks.`,
+            source: 'self-initiative',
+            selfInitiativeMode: 'blocker',
+            tools: [{ name: 'self_speak' }],
+          })
+          longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
+          return
+        }
+
+        const beforeProgress = longGoalProgressSignature(activeLongPlan)
+        const progressKey = `${activeLongPlan.id}:${currentLongStep.id}`
         await useChatStore().send({
           sessionId,
-          text: `${stimulus}\nBlocker: no new verified evidence was recorded across ${longGoalStall.value.stalledTicks} autonomous task ticks.`,
+          text: stimulus,
           source: 'self-initiative',
-          selfInitiativeMode: 'blocker',
-          tools: [{ name: 'self_speak' }],
+          selfInitiativeMode: 'task',
+          planId: activeLongPlan.id,
+          tools: [...currentLongStep.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
         })
-        longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
+        await planStore.persistPlan(activeLongPlan.id)
+        const nextPlan = planStore.planViews.find(plan => plan.id === activeLongPlan.id)
+        longGoalStall.value = advanceLongGoalStallState({
+          previous: longGoalStall.value,
+          progressKey,
+          progressed: beforeProgress !== longGoalProgressSignature(nextPlan),
+        })
+        recordOutcome('noted')
+        journalStore.appendActive({
+          type: 'life/tick',
+          tickId: payload.tickId,
+          outcome: 'noted',
+          stimulus: stimulus.slice(0, 300),
+          timestamp: payload.timestamp,
+        })
         return
       }
 
-      const beforeProgress = longGoalProgressSignature(activeLongPlan)
-      const progressKey = `${activeLongPlan.id}:${currentLongStep.id}`
+      longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
+
+      const snapshot = journalStore.events
+      const mood = useMemoryStore().currentMood
+      const stimulus = buildStimulusBrief({
+        ...(mood?.valence !== undefined ? { mood } : {}),
+        spotlight: spotlightFrom(snapshot),
+        recentEvents: snapshot
+          .map(journalEventToFact)
+          .filter((fact): fact is string => !!fact)
+          .slice(-4),
+      })
+
       await useChatStore().send({
         sessionId,
         text: stimulus,
         source: 'self-initiative',
-        selfInitiativeMode: 'task',
-        planId: activeLongPlan.id,
-        tools: [...currentLongStep.allowedTools.map(name => ({ name })), { name: 'plan_update' }],
+        tools: [{ name: 'self_speak' }, { name: 'self_note' }],
       })
-      await planStore.persistPlan(activeLongPlan.id)
-      const nextPlan = planStore.planViews.find(plan => plan.id === activeLongPlan.id)
-      longGoalStall.value = advanceLongGoalStallState({
-        previous: longGoalStall.value,
-        progressKey,
-        progressed: beforeProgress !== longGoalProgressSignature(nextPlan),
-      })
-      recordOutcome('noted')
-      journalStore.appendActive({
-        type: 'life/tick',
-        tickId: payload.tickId,
-        outcome: 'noted',
-        stimulus: stimulus.slice(0, 300),
-        timestamp: payload.timestamp,
-      })
-      return
     }
-
-    longGoalStall.value = { stalledTicks: 0, reportBlocker: false }
-
-    const snapshot = journalStore.events
-    const mood = useMemoryStore().currentMood
-    const stimulus = buildStimulusBrief({
-      ...(mood?.valence !== undefined ? { mood } : {}),
-      spotlight: spotlightFrom(snapshot),
-      recentEvents: snapshot
-        .map(journalEventToFact)
-        .filter((fact): fact is string => !!fact)
-        .slice(-4),
-    })
-
-    await useChatStore().send({
-      sessionId,
-      text: stimulus,
-      source: 'self-initiative',
-      tools: [{ name: 'self_speak' }, { name: 'self_note' }],
-    })
+    finally {
+      considerationInFlight = false
+    }
   }
 
   return {
@@ -358,6 +382,11 @@ export function installLifeModePort(next: LifeModePort | undefined): void {
     useLifeModeStore().syncConfig()
   })
   disposeTickListener = next.onTick((payload) => {
-    void useLifeModeStore().onLifeTick(payload)
+    if (next.isTickConsumer && !next.isTickConsumer())
+      return
+
+    void useLifeModeStore().onLifeTick(payload).catch((error) => {
+      console.warn('[LifeMode] Tick handling failed.', error)
+    })
   })
 }

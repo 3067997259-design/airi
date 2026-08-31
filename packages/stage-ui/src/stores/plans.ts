@@ -59,6 +59,7 @@ function clonePlanSpec(spec: PlanSpec): PlanSpec {
 function clonePlanState(state: PlanState): PlanState {
   return {
     ...(state.currentStepId ? { currentStepId: state.currentStepId } : {}),
+    ...(state.paused !== undefined ? { paused: state.paused } : {}),
     completedSteps: [...state.completedSteps],
     failedSteps: [...state.failedSteps],
     skippedSteps: [...state.skippedSteps],
@@ -82,6 +83,8 @@ function eventMatchesPlan(event: JournalEvent, planId: string): boolean {
 }
 
 function latestPlanStatus(view: PlanView): PlanStepStatus {
+  if (view.state.paused)
+    return 'paused'
   if (view.state.blockers.length > 0)
     return 'blocked'
   if (view.state.failedSteps.length > 0)
@@ -149,6 +152,7 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
 
   return {
     ...(currentCandidate && !completedSteps.includes(currentCandidate) ? { currentStepId: currentCandidate } : {}),
+    ...(plan.stateSnapshot.paused !== undefined ? { paused: plan.stateSnapshot.paused } : {}),
     completedSteps,
     failedSteps,
     skippedSteps: [...plan.stateSnapshot.skippedSteps],
@@ -190,8 +194,8 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     })
   })
   const activePlans = computed(() => planViews.value.filter(plan => plan.status !== 'completed' && plan.status !== 'failed'))
-  const activeSessionPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'session').at(-1))
-  const activeLongPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'long').at(-1))
+  const activeSessionPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'session' && !plan.state.paused).at(-1))
+  const activeLongPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'long' && !plan.state.paused).at(-1))
   const activePlan = computed(() => activeSessionPlan.value ?? activeLongPlan.value)
 
   /**
@@ -200,9 +204,18 @@ export const usePlanStore = defineStore('runtime-plans', () => {
    */
   function scopedActivePlans(sessionId?: string) {
     return activePlans.value.filter(plan =>
-      plan.spec.horizon === 'long'
-      || !plan.sessionId
-      || plan.sessionId === sessionId)
+      !plan.state.paused
+      && (plan.spec.horizon === 'long'
+        || !plan.sessionId
+        || plan.sessionId === sessionId))
+  }
+
+  function scopedPausedPlans(sessionId?: string) {
+    return activePlans.value.filter(plan =>
+      plan.state.paused
+      && (plan.spec.horizon === 'long'
+        || !plan.sessionId
+        || plan.sessionId === sessionId))
   }
 
   async function initialize(): Promise<void> {
@@ -394,6 +407,24 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     await persistPlan(input.planId)
   }
 
+  async function setPaused(planId: string, paused: boolean): Promise<void> {
+    const record = plans.value.find(plan => plan.id === planId)
+    if (!record)
+      return
+    plans.value = plans.value.map(plan => plan.id === planId
+      ? { ...plan, stateSnapshot: { ...clonePlanState(plan.stateSnapshot), paused }, updatedAt: Date.now() }
+      : plan)
+    await persistPlan(planId)
+  }
+
+  async function pausePlan(planId: string): Promise<void> {
+    await setPaused(planId, true)
+  }
+
+  async function resumePlan(planId: string): Promise<void> {
+    await setPaused(planId, false)
+  }
+
   async function softDeletePlan(planId: string): Promise<void> {
     await initialize()
     if (!plans.value.some(plan => plan.id === planId))
@@ -426,6 +457,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     activeLongPlan,
     activePlan,
     scopedActivePlans,
+    scopedPausedPlans,
     initialize,
     persistPlan,
     start,
@@ -433,13 +465,15 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     focusStep,
     completeStep,
     recordToolResult,
+    pausePlan,
+    resumePlan,
     softDeletePlan,
     promptProjection,
     reset,
   }
 }, {
   synced: {
-    actions: ['initialize', 'persistPlan', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'softDeletePlan'],
+    actions: ['initialize', 'persistPlan', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'pausePlan', 'resumePlan', 'softDeletePlan'],
     state: true,
   },
 })

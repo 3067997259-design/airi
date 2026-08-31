@@ -31,5 +31,8 @@ export type {
   TaskUpdateEvent,
   ToolCallEvent,
   ToolResultEvent,
+  TurnEndEvent,
+  TurnEndReason,
+  TurnStartEvent,
   UserMessageEvent,
 } from './types'
