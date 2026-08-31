@@ -19,6 +19,7 @@ import { watch } from 'vue'
 
 import { createCodingHostClient } from '../../bridges/coding-host'
 import { codingTools } from './builtin/coding'
+import { githubTools } from './builtin/github'
 import { imageJournalTools } from './builtin/image-journal'
 import { planTools } from './builtin/plan'
 import { skillSubmitTools } from './builtin/skill-submit'
@@ -163,6 +164,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
     registerLive2dToolsetPrompt()
     registerCodingToolsetPrompt()
     registerPlanningToolsetPrompt()
+    registerGithubWatchToolsetPrompt()
     registerSkillSubmitToolsetPrompt()
     skillsStore.syncRuntimeTools()
 
@@ -200,6 +202,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         },
         getSnapshot: () => captureMirrorSnapshot(),
       }),
+      githubTools(),
       planTools(),
       skillSubmitTools(),
       userAskTools(),
@@ -251,6 +254,22 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'Keep executing within the turn: after a step completes, immediately focus and run the next one. Only end the turn when you are waiting for an approval card, waiting for a user answer, or every step is resolved.',
         'Never create confirmation-only steps ("wait for the user to agree"). If you need information or a decision mid-plan, ask directly in your reply — conversational confirmation is not plan evidence.',
         'A step with hard evidence completes automatically. Steps finished without their evidence must be marked with plan_update (action "complete") and show as unverified on the plan card; human_approval steps can only complete through a decided approval card. Saying "done" does not complete a step.',
+      ].join('\n\n'),
+    }])
+  }
+
+  /**
+   * Tells the model how the GitHub watch loop works: the doorbell issue is
+   * the inbox, reviews quote concrete changes, and one comment per review.
+   */
+  function registerGithubWatchToolsetPrompt() {
+    llmToolsetPromptsStore.registerToolsetPrompts('github-watch', [{
+      id: 'github-watch-overview',
+      title: 'GitHub Watch',
+      content: [
+        'The github_* tools read and answer events in the watched repository. Start from github_list_task_issues: its airi-task issue is the doorbell inbox.',
+        'For each PR event: read the diff with github_get_pr and CI with github_get_pr_checks before judging; then post ONE review comment with github_post_pr_comment quoting concrete files and lines.',
+        'Be specific and kind: say what is good, what blocks merge, and what would unblock it. Never post more than one comment per review pass.',
       ].join('\n\n'),
     }])
   }

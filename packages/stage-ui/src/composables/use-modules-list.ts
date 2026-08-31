@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import factorioIcon from '../assets/factorio-simple.png'
 
 import { hasCodingHostClient } from '../stores/coding'
+import { useGithubConfigStore } from '../stores/github-config'
 import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useDiscordStore } from '../stores/modules/discord'
@@ -43,6 +44,7 @@ export function useModulesList() {
   const visionStore = useVisionStore()
   const discordStore = useDiscordStore()
   const twitterStore = useTwitterStore()
+  const githubStore = useGithubConfigStore()
   const webSearchStore = useWebSearchStore()
   const minecraftStore = useMinecraftStore()
   const factorioStore = useFactorioStore()
@@ -180,6 +182,15 @@ export function useModulesList() {
       icon: 'i-simple-icons:x',
       to: '/settings/modules/x',
       configured: twitterStore.configured,
+      category: 'messaging',
+    },
+    {
+      id: 'github',
+      name: t('settings.pages.modules.github.title'),
+      description: t('settings.pages.modules.github.description'),
+      icon: 'i-simple-icons:github',
+      to: '/settings/modules/github',
+      configured: githubStore.configured,
       category: 'messaging',
     },
     {

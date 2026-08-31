@@ -1,0 +1,52 @@
+# AIRI doorbell (COMMAND-PLAN follow-up: repo watch).
+# Forwards PR events into the airi-task inbox issue. The in-app GitHub tools
+# (github_list_task_issues) read that inbox; no public webhook endpoint is
+# needed on the home machine.
+name: AIRI doorbell
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  ring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request
+            const marker = 'PR inbox'
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'airi-task',
+              state: 'open',
+            })
+            let inbox = issues.find(i => i.title.includes(marker))
+            if (!inbox) {
+              inbox = (await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `PR inbox (${marker})`,
+                body: 'Automation-forwarded PR events. AIRI reads this issue through github_list_task_issues.',
+                labels: ['airi-task'],
+              })).data
+            }
+            const event = pr.head.sha === context.payload.pull_request.base.sha
+              ? 'opened'
+              : 'updated'
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: inbox.number,
+              body: [
+                `PR #${pr.number} ${event}: ${pr.title}`,
+                pr.html_url,
+                `author: ${pr.user?.login ?? 'unknown'} · head: ${pr.head.sha.slice(0, 7)}`,
+              ].join('\n'),
+            })

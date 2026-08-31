@@ -983,6 +983,17 @@ pages:
       access-token-secret: 访问令牌密文
       access-token-secret-description: 您的X / Twitter访问令牌密文
       access-token-secret-placeholder: 输入您的X / Twitter访问令牌密文
+    github:
+      title: GitHub 值守
+      description: 让她盯住拉取请求并就地留下评审意见。
+      repo: 仓库（owner/name）
+      repo-description: 她值守并评论的仓库。
+      pat: 个人访问令牌
+      pat-description: 公开仓库可留空（只读）。带 Issues 写权限的令牌让她能发表评审评论。
+      rate-hint: 不填令牌时工具保持只读，受 GitHub 匿名速率限制（60 次/小时）。
+      connection:
+        title: 连接
+        description: GitHub 工具使用的仓库与凭据。
       configured: X / Twitter已正确配置！
     web-search:
       title: 网络搜索

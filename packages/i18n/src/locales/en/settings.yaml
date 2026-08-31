@@ -1025,6 +1025,17 @@ pages:
       access-token-secret-description: Your X / Twitter access token secret
       access-token-secret-placeholder: Enter your X / Twitter access token secret
       configured: X / Twitter is properly configured!
+    github:
+      title: GitHub Watch
+      description: Let her watch pull requests and review them in place.
+      repo: Repository (owner/name)
+      repo-description: The repository she watches and comments on.
+      pat: Personal access token
+      pat-description: Optional for public repos (read-only). A token with Issues write lets her post review comments.
+      rate-hint: Without a token the tools stay read-only at GitHub's unauthenticated rate limit (60 requests/hour).
+      connection:
+        title: Connection
+        description: Repository and credentials the GitHub tools use.
     web-search:
       title: Web Search
       description: Let AIRI search the web for current information
