@@ -2,7 +2,7 @@
  * Planning authority contract, extracted from
  * `services/computer-use-mcp/src/planning-orchestration/contract.ts` with its
  * contract kept verbatim (dual-source period; converge later, per
- * `WORKSPACE-DESIGN.md` §7.2).
+ * `docs/fork/WORKSPACE-DESIGN.md` §7.2).
  *
  * Additions over the original (both pure additions, no existing row changed):
  *

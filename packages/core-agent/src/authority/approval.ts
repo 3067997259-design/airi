@@ -72,7 +72,7 @@ const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
  *
  * Test / typecheck / lint / query commands fall through to the read-only
  * default; anything not explicitly matched stays read-only by rule
- * (`CODING-HARNESS-DESIGN.md` §11.5), with the sandbox as the real fence.
+ * (`docs/fork/CODING-HARNESS-DESIGN.md` §11.5), with the sandbox as the real fence.
  */
 export function classifyBashCommand(command: string): BashRiskTier {
   const normalized = command.replace(/\s+/g, ' ').trim()

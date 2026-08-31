@@ -12,7 +12,7 @@ Root-caused and fixed 2026-08-29 during the maintenance-batch cold-start smoke.
 
 On hosts where the channel server cannot bind (`listen ENOTSUP` on
 `127.0.0.1:6121` — suspected TUN/proxy adapter breaking loopback binds,
-previously misread as "non-fatal" in MODS.md), a cold start floods the log
+previously misread as "non-fatal" in docs/fork/MODS.md), a cold start floods the log
 with bind errors (~13/second, 6908 lines in 3 minutes), burns 500+ CPU
 seconds, and makes **every renderer intermittently unresponsive** — even
 raw CDP `Runtime.evaluate` times out, and `agent-browser` reports

@@ -53,6 +53,14 @@ pgvector 环境走查和 Hashline 基准。每条都有对应文档章节与当�
 - [ ] **真机冒烟**：构建后验证聊天模型调用 4 工具、审批卡弹出、Code Mode 试运行。
   当前仍需在原生 settings/chat 窗口中完成审批卡走查；本机受限环境的
   `SERVER_CHANNEL_PORT=6121` 返回 `ENOTSUP`，且没有配置模型凭据。
+  （2026-08-30 后续：真机 4 工具 + 审批三档 + Code Mode 已在 MODS 第三轮验收走查通过。）
+
+**⚠ 本节标题的「四工具」已不代表目标形态（2026-08-31 勘探）**：接入本身完成，
+但四工具**不足以支撑日常循环**——缺检索原语，`read` 无分页，`edit` 只能整行替换，
+`write` 无陈旧校验，win32 上 shell 实为 cmd.exe 而描述未声明，CRLF 往返破坏行尾，
+工作区根目录写死且无 setter。七项诊断与修法见 `HARNESS-PLAN.md` §3.5（批次一·五），
+判据变更见 `DESIGN-PRINCIPLES.md` 原则七修订块。**本节不再新增条目**，
+后续工作在 HARNESS-PLAN 批次一·五下跟踪。
 
 ## 3. 权威链接入运行时（CODING-HARNESS §4 第四期 / WORKSPACE-DESIGN）— 部分完成
 

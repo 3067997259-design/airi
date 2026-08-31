@@ -103,7 +103,7 @@ export interface MemoryScoreWeights {
   moodCongruence: number
 }
 
-/** Default exploratory weights from MEMORY-DESIGN.md. */
+/** Default exploratory weights from docs/fork/MEMORY-DESIGN.md. */
 export const DEFAULT_MEMORY_SCORE_WEIGHTS: Readonly<MemoryScoreWeights> = Object.freeze({
   similarity: 1.2,
   timeRelevance: 0.2,

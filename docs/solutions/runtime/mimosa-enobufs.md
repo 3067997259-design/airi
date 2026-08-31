@@ -26,7 +26,7 @@ RAM host.
 
 Rerun the audit with the machine idle. The same deep scan completed in ~28 s
 once Electron instances and builds were stopped (7.4 GB free). Results of
-that sealed run are recorded in `MAINTENANCE-PLAN.md`
+that sealed run are recorded in `docs/fork/MAINTENANCE-PLAN.md`
 (seal `sha256:4953f1f4...`).
 
 ## Rule of thumb

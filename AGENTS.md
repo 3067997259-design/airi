@@ -66,6 +66,7 @@ Concise but detailed reference for contributors working across the `moeru-ai/air
 - Styles: `uno.config.ts` (UnoCSS), `apps/stage-web/src/styles` (animations/reference).
 - Build pipeline refs: `.github/workflows`; lint rules in `eslint.config.js`.
 - Documented solutions: `docs/solutions/` records past fixes and workflow learnings, organized by category with YAML frontmatter (`module`, `tags`, `problem_type`); relevant when implementing, debugging, or verifying in documented areas.
+- Fork design documents: `docs/fork/` holds the `mods`-fork design documents, implementation plans, and the mod ledger (`docs/fork/MODS.md` is the master changelog of the fork). Write every new fork design or plan document here, in its matching spot — never at the repository root; update `docs/fork/MODS.md` with a batch note after each landed batch.
 - Tailwind/UnoCSS: prefer UnoCSS; if standardizing styles, add shortcuts/rules/plugins in `uno.config.ts`.
 
 ## Commands (pnpm with filters)
