@@ -130,4 +130,18 @@ describe('plan store', () => {
     expect(persistence.loadPlans).not.toHaveBeenCalled()
     expect(persistence.savePlan).not.toHaveBeenCalled()
   })
+
+  // pinia-plugin-synced structuredClones every synchronized action result;
+  // focusStep used to return the reactive step proxy, which threw "could not
+  // be cloned" in the live app (plan_update focus failed on Window). The
+  // returned snapshot must stay clone-safe.
+  it('returns a structuredClone-safe snapshot from focusStep', async () => {
+    const store = usePlanStore()
+    await store.start(SPEC, 'plan-1')
+
+    const step = await store.focusStep('plan-1', 'verify')
+
+    expect(step?.id).toBe('verify')
+    expect(() => structuredClone(step)).not.toThrow()
+  })
 })

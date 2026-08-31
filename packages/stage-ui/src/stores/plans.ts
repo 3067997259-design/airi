@@ -4,7 +4,7 @@ import type { PlanPersistenceRepository } from '../services/memory/local-memory'
 
 import { buildTurnProjection, projectStepGateStates } from '@proj-airi/core-agent'
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, toRaw } from 'vue'
 
 import { resolveMemoryWriteAccess } from '../services/memory/write-access'
 import { useJournalStore } from './journal'
@@ -335,7 +335,18 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     if (!step)
       return undefined
     await updateStep(planId, stepId, 'in_progress')
-    return step
+    // The step element is a reactive proxy, and pinia-plugin-synced
+    // structuredClones every synchronized action result — a proxy throws
+    // "could not be cloned". Return a plain snapshot with what the caller
+    // (plan_update focus → approval card) actually needs.
+    const raw = toRaw(step)
+    return {
+      id: raw.id,
+      intent: raw.intent,
+      allowedTools: [...raw.allowedTools],
+      riskLevel: raw.riskLevel,
+      approvalRequired: raw.approvalRequired,
+    }
   }
 
   /**
