@@ -69,7 +69,11 @@ export const useMemoryStore = defineStore('memory', () => {
   const databaseStatus = shallowRef<'idle' | 'ready' | 'error' | 'follower'>('idle')
   const databaseError = shallowRef<string>()
   const currentMood = shallowRef<MemoryMood>({ valence: 0, arousal: 0 })
-  const writeAccess = shallowRef(resolveMemoryWriteAccess())
+  // Per-window identity: NEVER part of synced state. When writeAccess was a
+  // returned ref, the leader broadcast its 'leader' value into follower
+  // windows, whose live location check then correctly refused the open —
+  // surfacing the guard error in every memory layer of every window.
+  const isLeader = computed(() => resolveMemoryWriteAccess() === 'leader')
 
   const enabled = useLocalStorageManualReset('settings/memory/enabled', false, { listenToStorageChanges: false })
   const captureEnabled = useLocalStorageManualReset('settings/memory/capture-enabled', false, { listenToStorageChanges: false })
@@ -108,7 +112,7 @@ export const useMemoryStore = defineStore('memory', () => {
     // synchronous access handle per file. Follower renderers must not open
     // the database read-write, or the leader's handle fails with
     // createSyncAccessHandle conflicts (MEMORY-DESIGN §1.4 fix).
-    if (writeAccess.value === 'follower') {
+    if (!isLeader.value) {
       databaseStatus.value = 'follower'
       databaseError.value = undefined
       return undefined
@@ -570,7 +574,7 @@ export const useMemoryStore = defineStore('memory', () => {
     databaseStatus,
     databaseError,
     currentMood,
-    writeAccess,
+    isLeader,
     initialize,
     getScoreWeights,
     retrieve,

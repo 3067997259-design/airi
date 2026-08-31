@@ -56,6 +56,28 @@ pinia.use(synced.pinia)
 if (import.meta.env.DEV)
   pinia.use(piniaPluginTracing)
 
+// Leader-boot auto-initialization (COMMAND-PLAN §3.4 follow-up): the local
+// memory database and the plan store hydrate without a manual settings-page
+// click. Follower windows no-op through the same guards inside the stores.
+if (resolveRendererWindowContext().leadership === 'leader-only') {
+  void (async () => {
+    const { useMemoryStore } = await import('@proj-airi/stage-ui/stores/modules/memory')
+    const { usePlanStore } = await import('@proj-airi/stage-ui/stores/plans')
+    try {
+      await usePlanStore().initialize()
+    }
+    catch (error) {
+      console.warn('[Boot] Plan store hydration failed.', error)
+    }
+    try {
+      await useMemoryStore().initialize()
+    }
+    catch (error) {
+      console.warn('[Boot] Memory database initialization failed.', error)
+    }
+  })()
+}
+
 // Every renderer process installs the coding host bridge (main process
 // Eventa contracts); the stage-ui store consumes it from any window.
 installCodingHostBridge()
