@@ -398,6 +398,10 @@ npx electron-builder --win nsis --publish never --config.electronDist='D:\.airi-
   计划与 user_ask store 就位、新会话无残留。
 - 教训重申：core-agent（exports→dist）修改后必须 `pnpm -F @proj-airi/core-agent
   build` 再跑 tamagotchi 跨包测试，否则测的是旧产物。
+- 教训新增：CDP eval 注入非 ASCII 表达式时，`eval(atob(b64))` 会把 UTF-8
+  字节按 Latin-1 解析成乱码（信息可逆，模型能自行还原但不可靠）。正确姿势：
+  `eval(new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))))`，
+  助手脚本 `.zcode/tmp/cdp-eval-utf8.sh`。
   另：`MIRROR-PLAN.md`（让模型真正"看到"自己——vision 读图 + livespace；真机确诊 mirror 生成像素但图不进对话输入）。
 
 ## 第三轮实施（2026-08-29）：CAPABILITY-PLAN + LIFE-PLAN 落地
