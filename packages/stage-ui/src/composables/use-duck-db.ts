@@ -147,6 +147,10 @@ export function useDuckDb() {
           ADD COLUMN IF NOT EXISTS horizon VARCHAR
         `)
         await dbInstance.execute(`
+          ALTER TABLE memory_long_term_goals
+          ADD COLUMN IF NOT EXISTS session_id VARCHAR
+        `)
+        await dbInstance.execute(`
           CREATE TABLE IF NOT EXISTS memory_short_term_ideas (
             id VARCHAR PRIMARY KEY,
             content VARCHAR NOT NULL,

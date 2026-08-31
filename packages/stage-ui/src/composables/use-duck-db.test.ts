@@ -83,6 +83,11 @@ describe('useDuckDB (Singleton)', () => {
     expect(statements).toContain('ADD COLUMN IF NOT EXISTS spec_json VARCHAR')
     expect(statements).toContain('ADD COLUMN IF NOT EXISTS state_json VARCHAR')
     expect(statements).toContain('ADD COLUMN IF NOT EXISTS horizon VARCHAR')
+    // ROOT CAUSE: session_id was only added to the CREATE TABLE skeleton, so
+    // databases created before plan persistence never grew the column and
+    // every savePlan failed with "Referenced column session_id not found".
+    // Legacy tables migrate through the same idempotent ALTER.
+    expect(statements).toContain('ADD COLUMN IF NOT EXISTS session_id VARCHAR')
     expect(statements).not.toMatch(/ADD COLUMN IF NOT EXISTS [^\n]+ NOT NULL/)
     expect(statements).toContain('SET review_status = \'approved\'')
 
