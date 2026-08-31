@@ -529,6 +529,13 @@ export interface CodingFsWriteParams {
 export interface CodingFsWriteResult {
   ok: true
 }
+export interface CodingFsWriteGuardedParams extends CodingFsWriteParams {
+  /** Whole-file hash from read, or null when the file must not exist. */
+  baseHash: string | null
+}
+export type CodingFsWriteGuardedResult
+  = | { status: 'written', baseHash: string }
+    | { status: 'state_changed', currentHash: string | null }
 
 export type CodingBashRiskTier = 'read-only' | 'medium' | 'high'
 export interface CodingExecRunParams {
@@ -611,6 +618,7 @@ export interface PlanApprovalAskPayload {
 export const codingHostFsRead = defineInvokeEventa<CodingFsReadResult, CodingFsReadParams>('eventa:invoke:electron:coding-host:fs:read')
 export const codingHostFsList = defineInvokeEventa<CodingFsListResult, CodingFsListParams>('eventa:invoke:electron:coding-host:fs:list')
 export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
+export const codingHostFsWriteGuarded = defineInvokeEventa<CodingFsWriteGuardedResult, CodingFsWriteGuardedParams>('eventa:invoke:electron:coding-host:fs:write-guarded')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
 export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')
@@ -735,8 +743,14 @@ export interface LifeTickEventPayload {
   timestamp: number
 }
 
+export interface LifeTickConsumePayload {
+  /** Identifies the emitted tick that started one autonomous round. */
+  tickId: string
+}
+
 export const lifeModeGetConfig = defineInvokeEventa<LifeModeConfigContract, void>('eventa:invoke:electron:life-mode:config:get')
 export const lifeModeSetConfig = defineInvokeEventa<LifeModeConfigContract, LifeModeConfigContract>('eventa:invoke:electron:life-mode:config:set')
+export const lifeModeConsumeTick = defineInvokeEventa<void, LifeTickConsumePayload>('eventa:invoke:electron:life-mode:tick:consume')
 export const lifeTickEmitted = defineEventa<LifeTickEventPayload>('eventa:event:electron:life-mode:tick')
 
 export { electron } from '@proj-airi/electron-eventa'

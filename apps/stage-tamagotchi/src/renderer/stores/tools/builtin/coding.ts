@@ -2,8 +2,9 @@ import type { Tool } from '@xsai/shared-chat'
 
 import type { CodingHostClient } from '../../../bridges/coding-host'
 
-import { applyHashlineEdit } from '@proj-airi/coding-harness/hashline/edit'
+import { applyHashlineEdit, applyHashlineInsertAfter } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
+import { joinTextFile, parseTextFile } from '@proj-airi/coding-harness/hashline/text'
 import { CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
@@ -19,6 +20,8 @@ import { createCodingHostClient } from '../../../bridges/coding-host'
 
 const readParams = z.object({
   path: z.string().describe(CODING_TOOL_META.read.parameterDescriptions.path),
+  offset: z.number().int().min(0).optional().describe(CODING_TOOL_META.read.parameterDescriptions.offset),
+  limit: z.number().int().min(1).max(2_000).optional().describe(CODING_TOOL_META.read.parameterDescriptions.limit),
 })
 
 const listParams = z.object({
@@ -30,41 +33,58 @@ async function executeList(input: { path: string }): Promise<string> {
   return JSON.stringify({ path: input.path, entries: result.entries })
 }
 
-async function executeRead(input: { path: string }): Promise<string> {
+async function executeRead(input: { path: string, offset?: number, limit?: number }): Promise<string> {
   const file = await createCodingHostClient().readFile({ path: input.path })
+  const snapshot = parseTextFile(file.content)
   return formatSignedFileProjection({
     path: input.path,
-    lines: file.content.split('\n'),
+    lines: snapshot.lines,
     mtime: file.mtime ? file.mtime.slice(0, 16) : undefined,
-  })
+    baseHash: snapshot.baseHash,
+    lineEnding: snapshot.lineEnding,
+    mixedLineEndings: snapshot.mixedLineEndings,
+  }, { offset: input.offset, limit: input.limit })
 }
 
 const writeParams = z.object({
   path: z.string().describe(CODING_TOOL_META.write.parameterDescriptions.path),
   content: z.string().describe(CODING_TOOL_META.write.parameterDescriptions.content),
+  baseHash: z.string().nullable().describe(CODING_TOOL_META.write.parameterDescriptions.baseHash),
 })
 
-async function executeWrite(input: { path: string, content: string }): Promise<string> {
-  await createCodingHostClient().writeFile({ path: input.path, content: input.content })
-  return `wrote ${input.path}`
+async function executeWrite(input: { path: string, content: string, baseHash: string | null }): Promise<string> {
+  const result = await createCodingHostClient().writeFileIfUnchanged(input)
+  return JSON.stringify({ path: input.path, ...result })
 }
 
 const editParams = z.object({
   path: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.path),
-  signature: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.signature),
+  operation: z.enum(['replace', 'insertAfter']).describe(CODING_TOOL_META.edit.parameterDescriptions.operation),
+  startSignature: z.string().optional().describe(CODING_TOOL_META.edit.parameterDescriptions.startSignature),
+  endSignature: z.string().optional().describe(CODING_TOOL_META.edit.parameterDescriptions.endSignature),
+  afterSignature: z.string().optional().describe(CODING_TOOL_META.edit.parameterDescriptions.afterSignature),
   expectedPrefix: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.expectedPrefix),
-  newLineContent: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.newLineContent),
+  newContent: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.newContent),
 })
 
-async function executeEdit(input: { path: string, signature: string, expectedPrefix: string, newLineContent: string }): Promise<string> {
+async function executeEdit(input: { path: string, operation: 'replace' | 'insertAfter', startSignature?: string, endSignature?: string, afterSignature?: string, expectedPrefix: string, newContent: string }): Promise<string> {
   const client = createCodingHostClient()
   const file = await client.readFile({ path: input.path })
-  const outcome = applyHashlineEdit({
-    lines: file.content.split('\n'),
-    signature: input.signature,
-    expectedPrefix: input.expectedPrefix,
-    newLineContent: input.newLineContent,
-  })
+  const snapshot = parseTextFile(file.content)
+  const outcome = input.operation === 'replace'
+    ? applyHashlineEdit({
+        lines: snapshot.lines,
+        startSignature: requiredSignature(input.startSignature, 'startSignature'),
+        endSignature: input.endSignature,
+        expectedPrefix: input.expectedPrefix,
+        newContent: input.newContent,
+      })
+    : applyHashlineInsertAfter({
+        lines: snapshot.lines,
+        afterSignature: requiredSignature(input.afterSignature, 'afterSignature'),
+        expectedPrefix: input.expectedPrefix,
+        newContent: input.newContent,
+      })
 
   if (outcome.result.status !== 'applied') {
     // Rejections are mechanical verdicts, not failures: the model re-reads .
@@ -72,8 +92,20 @@ async function executeEdit(input: { path: string, signature: string, expectedPre
     return `edit rejected: ${JSON.stringify(outcome.result)}`
   }
 
-  await client.writeFile({ path: input.path, content: outcome.lines.join('\n') })
-  return JSON.stringify(outcome.result)
+  const write = await client.writeFileIfUnchanged({
+    path: input.path,
+    content: joinTextFile(outcome.lines, snapshot.lineEnding),
+    baseHash: snapshot.baseHash,
+  })
+  if (write.status === 'state_changed')
+    return `edit rejected: ${JSON.stringify(write)}`
+  return JSON.stringify({ ...outcome.result, ...(snapshot.mixedLineEndings ? { lineEndingNormalized: true } : {}) })
+}
+
+function requiredSignature(value: string | undefined, name: string): string {
+  if (!value)
+    throw new Error(`${name} is required for this edit operation`)
+  return value
 }
 
 const bashParams = z.object({

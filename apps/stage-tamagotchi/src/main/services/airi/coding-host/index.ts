@@ -28,6 +28,7 @@ import {
   codingHostFsList,
   codingHostFsRead,
   codingHostFsWrite,
+  codingHostFsWriteGuarded,
   codingHostGetApprovalMode,
   codingHostListTools,
   codingHostSetApprovalMode,
@@ -151,6 +152,9 @@ export async function setupCodingHost(
     await host.writeFile(path, content)
     return { ok: true }
   })
+
+  defineInvokeHandler(context, codingHostFsWriteGuarded, async ({ path, content, baseHash }) =>
+    host.writeFileIfUnchanged(path, content, baseHash))
 
   defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, timeoutMs }) => {
     void timeoutMs

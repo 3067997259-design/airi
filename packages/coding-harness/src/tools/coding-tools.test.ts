@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createCodeModeRuntime } from '../ptc/code-mode'
+import { parseTextFile } from '../hashline/text'
 import { createCodingTools } from './coding-tools'
 import { createNodeWorkspaceHost } from './workspace-host'
 
@@ -56,14 +57,15 @@ describe('coding tools over the node host', () => {
     expect(result).toEqual(expect.objectContaining({ ok: true }))
     if (result.ok) {
       const read = result.value as { projection: string }
-      expect(read.projection).toContain('adapter.ts  (1 行')
+      expect(read.projection).toContain('adapter.ts  (1 lines')
+      expect(read.projection).toMatch(/baseHash [0-9a-f]{8}/)
       expect(read.projection).toMatch(/\n\s+1 {2}.. {2}export const MODE = "read" as const/)
     }
   })
 
   it('writes a whole file', async () => {
     const result = await runtime.run(`
-      await bridge('write', ['fresh.ts', 'export const fresh = 1\\n'])
+      await bridge('write', ['fresh.ts', 'export const fresh = 1\\n', null])
       return await bridge('read', ['fresh.ts'])
     `)
     expect(result).toEqual(expect.objectContaining({ ok: true }))
@@ -75,7 +77,7 @@ describe('coding tools over the node host', () => {
       const lines = read.projection.split('\\n')
       const target = lines[1]
       const signature = target.trim().split('  ')[1]
-      return await bridge('edit', ['adapter.ts', signature, 'export const MODE', 'export const MODE = "write" as const'])
+      return await bridge('edit', ['adapter.ts', 'replace', signature, 'export const MODE', 'export const MODE = "write" as const'])
     `)
     expect(result).toEqual(expect.objectContaining({ ok: true }))
     if (result.ok) {
@@ -88,7 +90,7 @@ describe('coding tools over the node host', () => {
   })
 
   it('rejects an edit when the signature no longer matches (state_changed)', async () => {
-    const result = await runtime.run(`return await bridge('edit', ['adapter.ts', 'zz', 'nope', 'x'])`)
+    const result = await runtime.run(`return await bridge('edit', ['adapter.ts', 'replace', 'zz', 'nope', 'x'])`)
     expect(result).toEqual(expect.objectContaining({ ok: true }))
     if (result.ok) {
       const edit = result.value as { result: { status: string } }
@@ -175,5 +177,26 @@ describe('workspace path containment', () => {
     await expect(host.readFile('linked-outside/secret.txt')).rejects.toThrow(/escapes workspace/)
     await expect(host.writeFile('linked-outside/new.txt', 'outside')).rejects.toThrow(/escapes workspace/)
     await expect(host.listDir('linked-outside')).rejects.toThrow(/escapes workspace/)
+  })
+})
+
+describe('guarded workspace writes', () => {
+  it('accepts matching hashes and rejects stale or false-new-file expectations', async () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    const original = await host.readFile('adapter.ts')
+    const originalHash = parseTextFile(original.content).baseHash
+
+    const matching = await host.writeFileIfUnchanged('adapter.ts', 'matching content\n', originalHash)
+    expect(matching.status).toBe('written')
+
+    const stale = await host.writeFileIfUnchanged('adapter.ts', 'stale overwrite\n', originalHash)
+    expect(stale).toEqual(expect.objectContaining({ status: 'state_changed' }))
+    expect((await host.readFile('adapter.ts')).content).toBe('matching content\n')
+
+    const falseNewFile = await host.writeFileIfUnchanged('adapter.ts', 'unexpected overwrite\n', null)
+    expect(falseNewFile).toEqual(expect.objectContaining({ status: 'state_changed' }))
+
+    const newFile = await host.writeFileIfUnchanged('guarded-new.ts', 'new file\n', null)
+    expect(newFile.status).toBe('written')
   })
 })

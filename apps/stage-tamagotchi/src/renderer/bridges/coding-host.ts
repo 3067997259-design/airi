@@ -12,6 +12,8 @@ import type {
   CodingFsReadResult,
   CodingFsWriteParams,
   CodingFsWriteResult,
+  CodingFsWriteGuardedParams,
+  CodingFsWriteGuardedResult,
   CodingToolsStatusResult,
 } from '../../shared/eventa'
 
@@ -34,6 +36,7 @@ import {
   codingHostFsList,
   codingHostFsRead,
   codingHostFsWrite,
+  codingHostFsWriteGuarded,
   codingHostListTools,
   codingHostSetApprovalMode,
 } from '../../shared/eventa'
@@ -42,6 +45,7 @@ export interface CodingHostClient {
   listDir: (params: CodingFsListParams) => Promise<CodingFsListResult>
   readFile: (params: CodingFsReadParams) => Promise<CodingFsReadResult>
   writeFile: (params: CodingFsWriteParams) => Promise<CodingFsWriteResult>
+  writeFileIfUnchanged: (params: CodingFsWriteGuardedParams) => Promise<CodingFsWriteGuardedResult>
   runCommand: (params: CodingExecRunParams) => Promise<CodingExecRunResult>
   runProgram: (params: CodingCodeRunParams) => Promise<CodingCodeRunResult>
   listTools: () => Promise<CodingToolsStatusResult>
@@ -65,6 +69,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const readFile = defineInvoke(context, codingHostFsRead)
   const listDir = defineInvoke(context, codingHostFsList)
   const writeFile = defineInvoke(context, codingHostFsWrite)
+  const writeFileIfUnchanged = defineInvoke(context, codingHostFsWriteGuarded)
   const runCommand = defineInvoke(context, codingHostExecRun)
   const runProgram = defineInvoke(context, codingHostCodeRun)
   const listTools = defineInvoke(context, codingHostListTools)
@@ -74,6 +79,7 @@ function createCodingHostClientInner(): CodingHostClient {
     listDir,
     readFile,
     writeFile,
+    writeFileIfUnchanged,
     runCommand,
     runProgram,
     listTools,

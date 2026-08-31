@@ -1,33 +1,38 @@
 /**
- * Hashline edit application (CODING-HARNESS-DESIGN §2.4).
+ * Hashline range editing (CODING-HARNESS-DESIGN §2.4).
  *
- * All decisions are mechanical — none rely on model discipline:
- *
- * 1. No line matches the signature          → `state_changed`, with current
- *    candidate signatures so the model re-reads instead of guessing.
- * 2. Signature matches but the expected
- *    content prefix does not                → `prefix_mismatch` — the signed
- *    line still exists but its content no longer starts as the model saw.
- * 3. More than one line matches             → `ambiguous`; never pick one
- *    silently, an auto-pick hides ambiguity from the model.
- * 4. Exactly one match and prefix is fine   → apply, whole-line replace.
+ * Every boundary is resolved mechanically from content signatures. A missing,
+ * ambiguous, or prefix-mismatched boundary leaves the input unchanged.
  */
 import { lineSignature } from './signature'
 
 export const MIN_EXPECTED_PREFIX_LENGTH = 1
 
+type HashlineBoundary = 'start' | 'end' | 'after'
+
 export type HashlineEditResult
-  = | { status: 'applied', lineNumber: number, signature: string }
-    | { status: 'state_changed', candidates: { lineNumber: number, signature: string }[] }
-    | { status: 'ambiguous', lineNumbers: number[] }
-    | { status: 'prefix_mismatch', lineNumber: number, currentSignature: string }
+  = | { status: 'applied', lineNumber: number, endLineNumber?: number, signature: string, insertedLineCount?: number }
+    | { status: 'state_changed', boundary?: HashlineBoundary, candidates: { lineNumber: number, signature: string }[] }
+    | { status: 'ambiguous', boundary?: HashlineBoundary, lineNumbers: number[] }
+    | { status: 'prefix_mismatch', boundary?: HashlineBoundary, lineNumber: number, currentSignature: string }
 
 export interface HashlineEditParams {
   lines: string[]
-  signature: string
-  /** Leading characters of the line the model saw (16-32 in practice). */
+  startSignature: string
+  endSignature?: string
+  /** Leading characters of the start line the model saw. */
   expectedPrefix: string
-  newLineContent: string
+  /** Replacement content. Multiple lines replace the range; an empty string deletes it. */
+  newContent: string
+}
+
+export interface HashlineInsertAfterParams {
+  lines: string[]
+  afterSignature: string
+  /** Leading characters of the anchor line the model saw. */
+  expectedPrefix: string
+  /** One or more lines inserted after the anchor. */
+  newContent: string
 }
 
 export interface HashlineEditOutcome {
@@ -36,60 +41,127 @@ export interface HashlineEditOutcome {
   lines: string[]
 }
 
-/**
- * Applies one signed line edit. On success the returned `lines` is a new
- * array with only the target line replaced; on any rejection the input
- * array is returned untouched.
- */
-export function applyHashlineEdit(params: HashlineEditParams): HashlineEditOutcome {
-  if (params.expectedPrefix.length < MIN_EXPECTED_PREFIX_LENGTH)
-    throw new Error('hashline: expectedPrefix is required (minimum one character)')
+interface SignatureMatch {
+  content: string
+  lineNumber: number
+  signature: string
+}
 
-  const lineCount = params.lines.length
-  const matches: { lineNumber: number, signature: string, content: string }[] = []
+function candidatesFor(lines: readonly string[]): { lineNumber: number, signature: string }[] {
+  const lineCount = lines.length
+  return lines.map((content, index) => ({
+    lineNumber: index + 1,
+    signature: lineSignature(content, { lineCount }),
+  }))
+}
 
-  for (let i = 0; i < lineCount; i++) {
-    const content = params.lines[i]!
-    if (lineSignature(content, { lineCount }) === params.signature)
-      matches.push({ lineNumber: i + 1, signature: params.signature, content })
+function locateBoundary(lines: readonly string[], signature: string, boundary?: HashlineBoundary): SignatureMatch | HashlineEditResult {
+  const lineCount = lines.length
+  const matches: SignatureMatch[] = []
+  for (let index = 0; index < lineCount; index++) {
+    const content = lines[index]!
+    if (lineSignature(content, { lineCount }) === signature)
+      matches.push({ content, lineNumber: index + 1, signature })
   }
 
   if (matches.length === 0) {
     return {
-      result: {
-        status: 'state_changed',
-        candidates: params.lines.map((content, index) => ({
-          lineNumber: index + 1,
-          signature: lineSignature(content, { lineCount }),
-        })),
-      },
-      lines: params.lines,
+      status: 'state_changed',
+      ...(boundary ? { boundary } : {}),
+      candidates: candidatesFor(lines),
     }
   }
-
   if (matches.length > 1) {
     return {
-      result: { status: 'ambiguous', lineNumbers: matches.map(match => match.lineNumber) },
-      lines: params.lines,
+      status: 'ambiguous',
+      ...(boundary ? { boundary } : {}),
+      lineNumbers: matches.map(match => match.lineNumber),
     }
   }
+  return matches[0]!
+}
 
-  const match = matches[0]!
-  if (!match.content.startsWith(params.expectedPrefix)) {
-    return {
-      result: {
-        status: 'prefix_mismatch',
-        lineNumber: match.lineNumber,
-        currentSignature: match.signature,
-      },
-      lines: params.lines,
-    }
-  }
+function isEditResult(value: SignatureMatch | HashlineEditResult): value is HashlineEditResult {
+  return 'status' in value
+}
 
-  const next = [...params.lines]
-  next[match.lineNumber - 1] = params.newLineContent
+function validatePrefix(match: SignatureMatch, expectedPrefix: string, boundary?: HashlineBoundary): HashlineEditResult | undefined {
+  if (match.content.startsWith(expectedPrefix))
+    return undefined
   return {
-    result: { status: 'applied', lineNumber: match.lineNumber, signature: match.signature },
+    status: 'prefix_mismatch',
+    ...(boundary ? { boundary } : {}),
+    lineNumber: match.lineNumber,
+    currentSignature: match.signature,
+  }
+}
+
+function replacementLines(content: string): string[] {
+  return content === '' ? [] : content.split(/\r?\n/)
+}
+
+/** Applies a signed single-line or closed-range replacement. */
+export function applyHashlineEdit(params: HashlineEditParams): HashlineEditOutcome {
+  if (params.expectedPrefix.length < MIN_EXPECTED_PREFIX_LENGTH)
+    throw new Error('hashline: expectedPrefix is required (minimum one character)')
+
+  const start = locateBoundary(params.lines, params.startSignature)
+  if (isEditResult(start))
+    return { result: start, lines: params.lines }
+
+  const prefixFailure = validatePrefix(start, params.expectedPrefix)
+  if (prefixFailure)
+    return { result: prefixFailure, lines: params.lines }
+
+  let end = start
+  if (params.endSignature !== undefined && params.endSignature !== params.startSignature) {
+    const locatedEnd = locateBoundary(params.lines, params.endSignature, 'end')
+    if (isEditResult(locatedEnd))
+      return { result: locatedEnd, lines: params.lines }
+    end = locatedEnd
+  }
+
+  if (end.lineNumber < start.lineNumber)
+    throw new Error('hashline: endSignature must resolve at or after startSignature')
+
+  const replacement = replacementLines(params.newContent)
+  const next = [...params.lines]
+  next.splice(start.lineNumber - 1, end.lineNumber - start.lineNumber + 1, ...replacement)
+  return {
+    result: {
+      status: 'applied',
+      lineNumber: start.lineNumber,
+      ...(end.lineNumber !== start.lineNumber ? { endLineNumber: end.lineNumber } : {}),
+      signature: start.signature,
+    },
+    lines: next,
+  }
+}
+
+/** Inserts one or more lines after a signed anchor without replacing it. */
+export function applyHashlineInsertAfter(params: HashlineInsertAfterParams): HashlineEditOutcome {
+  if (params.expectedPrefix.length < MIN_EXPECTED_PREFIX_LENGTH)
+    throw new Error('hashline: expectedPrefix is required (minimum one character)')
+  if (params.newContent.length === 0)
+    throw new Error('hashline: newContent is required for insertAfter')
+
+  const anchor = locateBoundary(params.lines, params.afterSignature, 'after')
+  if (isEditResult(anchor))
+    return { result: anchor, lines: params.lines }
+  const prefixFailure = validatePrefix(anchor, params.expectedPrefix, 'after')
+  if (prefixFailure)
+    return { result: prefixFailure, lines: params.lines }
+
+  const inserted = replacementLines(params.newContent)
+  const next = [...params.lines]
+  next.splice(anchor.lineNumber, 0, ...inserted)
+  return {
+    result: {
+      status: 'applied',
+      lineNumber: anchor.lineNumber + 1,
+      signature: anchor.signature,
+      insertedLineCount: inserted.length,
+    },
     lines: next,
   }
 }

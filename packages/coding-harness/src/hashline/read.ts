@@ -8,6 +8,7 @@
 import { lineSignature } from './signature'
 
 export const DEFAULT_MAX_LINE_CONTENT_LENGTH = 200
+export const DEFAULT_READ_LINE_LIMIT = 400
 
 export interface SignedLine {
   lineNumber: number
@@ -19,6 +20,10 @@ export interface SignedLine {
 export interface SignedFileProjectionOptions {
   /** Lines longer than this are truncated with an ellipsis; the leading chars stay intact for prefix confirmation. */
   maxLineContentLength?: number
+  /** Zero-based first line index. @default 0 */
+  offset?: number
+  /** Maximum lines in this projection. @default 400 */
+  limit?: number
 }
 
 /**
@@ -32,11 +37,13 @@ export function buildSignedFileProjection(
 ): SignedLine[] {
   const maxLength = options.maxLineContentLength ?? DEFAULT_MAX_LINE_CONTENT_LENGTH
   const lineCount = lines.length
+  const offset = Math.min(lineCount, Math.max(0, Math.floor(options.offset ?? 0)))
+  const limit = Math.max(1, Math.floor(options.limit ?? DEFAULT_READ_LINE_LIMIT))
 
-  return lines.map((content, index) => {
+  return lines.slice(offset, offset + limit).map((content, index) => {
     const truncated = content.length > maxLength
     return {
-      lineNumber: index + 1,
+      lineNumber: offset + index + 1,
       signature: lineSignature(content, { lineCount }),
       content: truncated ? `${content.slice(0, maxLength)}…` : content,
       truncated,
@@ -49,6 +56,12 @@ export interface FormatSignedFileProjectionInput {
   lines: string[]
   /** Displayed as-is; the caller formats timestamps (e.g. ISO without seconds). */
   mtime?: string
+  /** Whole-file hash required by the write tool. */
+  baseHash?: string
+  /** Detected file line ending. */
+  lineEnding?: '\n' | '\r\n'
+  /** Whether the input used more than one line-ending style. */
+  mixedLineEndings?: boolean
 }
 
 /**
@@ -64,9 +77,21 @@ export interface FormatSignedFileProjectionInput {
  * })
  * // => 'src/adapters/opencode.ts  (2 行 · mtime 2026-08-28T10:12)\n   1  m2  export async function run() {\n   2  xx  }'
  */
-export function formatSignedFileProjection(input: FormatSignedFileProjectionInput): string {
-  const header = `${input.path}  (${input.lines.length} 行${input.mtime ? ` · mtime ${input.mtime}` : ''})`
-  const rows = buildSignedFileProjection(input.lines).map((line) => {
+export function formatSignedFileProjection(input: FormatSignedFileProjectionInput, options: SignedFileProjectionOptions = {}): string {
+  const lines = buildSignedFileProjection(input.lines, options)
+  const first = lines[0]?.lineNumber ?? 0
+  const last = lines.at(-1)?.lineNumber ?? 0
+  const hasMore = last < input.lines.length
+  const ending = input.lineEnding === '\r\n' ? 'CRLF' : input.lineEnding === '\n' ? 'LF' : undefined
+  const header = [
+    `${input.path}  (${input.lines.length} lines`,
+    `showing ${first}-${last}`,
+    `more ${hasMore ? 'yes' : 'no'}`,
+    input.baseHash ? `baseHash ${input.baseHash}` : undefined,
+    input.mtime ? `mtime ${input.mtime}` : undefined,
+    ending ? `lineEnding ${ending}${input.mixedLineEndings ? ' (mixed input normalized on edit)' : ''}` : undefined,
+  ].filter(Boolean).join(' · ') + ')'
+  const rows = lines.map((line) => {
     const lineNumber = String(line.lineNumber).padStart(4)
     return `  ${lineNumber}  ${line.signature}  ${line.content}`
   })

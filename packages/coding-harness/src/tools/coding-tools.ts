@@ -11,8 +11,9 @@ import type { WorkspaceHost } from './workspace-host'
 
 import { classifyBashCommand } from '@proj-airi/core-agent'
 
-import { applyHashlineEdit } from '../hashline/edit'
+import { applyHashlineEdit, applyHashlineInsertAfter } from '../hashline/edit'
 import { formatSignedFileProjection } from '../hashline/read'
+import { joinTextFile, parseTextFile } from '../hashline/text'
 import { CODING_TOOL_META } from './coding-tool-meta'
 
 export { CODING_TOOL_META } from './coding-tool-meta'
@@ -45,6 +46,31 @@ function requireString(args: ToolArgs, index: number, name: string): string {
   return value
 }
 
+function optionalString(args: ToolArgs, index: number, name: string): string | undefined {
+  const value = args[index]
+  if (value === undefined)
+    return undefined
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error(`tool argument "${name}" must be a non-empty string when provided`)
+  return value
+}
+
+function optionalNonNegativeInteger(args: ToolArgs, index: number, name: string): number | undefined {
+  const value = args[index]
+  if (value === undefined)
+    return undefined
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0)
+    throw new Error(`tool argument "${name}" must be a non-negative integer when provided`)
+  return value
+}
+
+function requireBaseHash(args: ToolArgs, index: number): string | null {
+  const value = args[index]
+  if (value === null || (typeof value === 'string' && value.length > 0))
+    return value
+  throw new Error('tool argument "baseHash" must be a non-empty string or null')
+}
+
 export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptions = {}): CodeModeTool[] {
   const approve = options.approveBash
     ?? (() => false)
@@ -66,12 +92,19 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
         const file = await host.readFile(path)
+        const snapshot = parseTextFile(file.content)
         return {
           path,
           projection: formatSignedFileProjection({
             path: String(path),
-            lines: file.content.split('\n'),
+            lines: snapshot.lines,
             mtime: file.mtime ? file.mtime.slice(0, 16) : undefined,
+            baseHash: snapshot.baseHash,
+            lineEnding: snapshot.lineEnding,
+            mixedLineEndings: snapshot.mixedLineEndings,
+          }, {
+            offset: optionalNonNegativeInteger(toolArgs, 1, 'offset'),
+            limit: optionalNonNegativeInteger(toolArgs, 2, 'limit'),
           }),
         }
       },
@@ -93,8 +126,8 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
         const content = requireString(toolArgs, 1, 'content')
-        await host.writeFile(path, content)
-        return { status: 'written', path }
+        const baseHash = requireBaseHash(toolArgs, 2)
+        return { path, ...await host.writeFileIfUnchanged(path, content, baseHash) }
       },
     },
     {
@@ -103,23 +136,44 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
       async run(args) {
         const toolArgs = args as ToolArgs
         const path = requireString(toolArgs, 0, 'path')
-        const signature = requireString(toolArgs, 1, 'signature')
-        const expectedPrefix = requireString(toolArgs, 2, 'expectedPrefix')
-        const newLineContent = requireString(toolArgs, 3, 'newLineContent')
+        const operation = requireString(toolArgs, 1, 'operation')
+        const signature = requireString(toolArgs, 2, operation === 'replace' ? 'startSignature' : 'afterSignature')
+        const expectedPrefix = requireString(toolArgs, 3, 'expectedPrefix')
+        const newContent = toolArgs[4]
+        if (typeof newContent !== 'string')
+          throw new Error('tool argument "newContent" must be a string')
         const file = await host.readFile(path)
-        const outcome = applyHashlineEdit({
-          lines: file.content.split('\n'),
-          signature,
-          expectedPrefix,
-          newLineContent,
-        })
+        const snapshot = parseTextFile(file.content)
+        const outcome = operation === 'replace'
+          ? applyHashlineEdit({
+              lines: snapshot.lines,
+              startSignature: signature,
+              endSignature: optionalString(toolArgs, 5, 'endSignature'),
+              expectedPrefix,
+              newContent,
+            })
+          : operation === 'insertAfter'
+            ? applyHashlineInsertAfter({
+                lines: snapshot.lines,
+                afterSignature: signature,
+                expectedPrefix,
+                newContent,
+              })
+            : (() => { throw new Error('tool argument "operation" must be "replace" or "insertAfter"') })()
 
         // Rejections carry the mechanical verdict; the model re-reads instead
         // of guessing. Only `applied` mutates the file.
-        if (outcome.result.status === 'applied')
-          await host.writeFile(path, outcome.lines.join('\n'))
+        if (outcome.result.status === 'applied') {
+          const write = await host.writeFileIfUnchanged(path, joinTextFile(outcome.lines, snapshot.lineEnding), snapshot.baseHash)
+          if (write.status === 'state_changed')
+            return { path, result: write }
+        }
 
-        return { path, result: outcome.result }
+        return {
+          path,
+          result: outcome.result,
+          ...(snapshot.mixedLineEndings && outcome.result.status === 'applied' ? { lineEndingNormalized: true } : {}),
+        }
       },
     },
     {

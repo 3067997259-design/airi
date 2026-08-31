@@ -20,6 +20,8 @@ export const CODING_TOOL_META = {
     description: 'Read a text file inside the workspace. Every line carries a short content signature; use signatures (not copied lines) for edit.',
     parameterDescriptions: {
       path: 'Path inside the workspace, relative or absolute.',
+      offset: 'Zero-based first line to read. Default 0.',
+      limit: 'Maximum lines to return. Default 400.',
     },
   },
   readRaw: {
@@ -31,20 +33,24 @@ export const CODING_TOOL_META = {
   },
   write: {
     name: 'write',
-    description: 'Replace a whole text file inside the workspace with new content.',
+    description: 'Replace a whole text file only when baseHash still matches the latest read. Use null only when you expect a new file.',
     parameterDescriptions: {
       path: 'Path inside the workspace, relative or absolute.',
       content: 'Full new file content.',
+      baseHash: 'Whole-file baseHash from read, or null only when the file must not exist.',
     },
   },
   edit: {
     name: 'edit',
-    description: 'Line-level edit gated by Hashline: pass the target line\'s signature from read plus its expected prefix. Rejection means the file changed — re-read first.',
+    description: 'Replace a signed line range, delete it with empty newContent, or insert after one signed line. A rejection means the file changed; read it again.',
     parameterDescriptions: {
       path: 'Path inside the workspace, relative or absolute.',
-      signature: 'The 2-4 character content signature of the target line from the read projection.',
-      expectedPrefix: 'Leading characters of the line as shown by read (16-32 chars).',
-      newLineContent: 'The full replacement line content.',
+      operation: 'Use replace for a line or closed range. Use insertAfter to add content after an unchanged anchor.',
+      startSignature: 'Start-line signature for replace.',
+      endSignature: 'Optional end-line signature for a closed replace range.',
+      afterSignature: 'Anchor-line signature for insertAfter.',
+      expectedPrefix: 'Leading characters of the start or anchor line as shown by read (16-32 chars).',
+      newContent: 'Replacement or inserted content. Multiple lines are allowed. Empty content deletes a replace range.',
     },
   },
   bash: {

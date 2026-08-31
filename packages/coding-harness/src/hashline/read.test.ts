@@ -34,6 +34,16 @@ describe('hashline read projection', () => {
     expect(projection[0]?.signature).toHaveLength(3)
   })
 
+  it('keeps one line signature stable across different pages', () => {
+    const lines = Array.from({ length: 600 }, (_, i) => `line ${i}`)
+    const firstPage = buildSignedFileProjection(lines, { offset: 0, limit: 400 })
+    const secondPage = buildSignedFileProjection(lines, { offset: 399, limit: 200 })
+
+    expect(firstPage.at(-1)?.lineNumber).toBe(400)
+    expect(secondPage[0]?.lineNumber).toBe(400)
+    expect(secondPage[0]?.signature).toBe(firstPage.at(-1)?.signature)
+  })
+
   it('formats the flat model-facing projection', () => {
     const text = formatSignedFileProjection({
       path: 'src/adapters/opencode.ts',
@@ -41,7 +51,7 @@ describe('hashline read projection', () => {
       mtime: '2026-08-28T10:12',
     })
     const rows = text.split('\n')
-    expect(rows[0]).toBe('src/adapters/opencode.ts  (4 行 · mtime 2026-08-28T10:12)')
+    expect(rows[0]).toBe('src/adapters/opencode.ts  (4 lines · showing 1-4 · more no · mtime 2026-08-28T10:12)')
     expect(rows[1]).toMatch(/^ {5}1 {2}.. {2}export async function run/)
     expect(rows[4]).toMatch(/^ {5}4 {2}.. {2}\}/)
     // No wrapper-tag markup anywhere (issue #1539 constraint: flat bullets

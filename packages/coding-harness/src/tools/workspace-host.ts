@@ -16,6 +16,8 @@ import { realpathSync } from 'node:fs'
 import { mkdir, readdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
+import { contentHash } from '../hashline/text'
+
 export interface WorkspaceReadResult {
   content: string
   mtime?: string
@@ -33,10 +35,15 @@ export interface CommandResult {
   exitCode: number
 }
 
+export type WorkspaceWriteResult
+  = | { status: 'written', baseHash: string }
+    | { status: 'state_changed', currentHash: string | null }
+
 export interface WorkspaceHost {
   listDir: (path: string) => Promise<WorkspaceDirectoryEntry[]>
   readFile: (path: string) => Promise<WorkspaceReadResult>
   writeFile: (path: string, content: string) => Promise<void>
+  writeFileIfUnchanged: (path: string, content: string, baseHash: string | null) => Promise<WorkspaceWriteResult>
   runCommand: (command: string) => Promise<CommandResult>
 }
 
@@ -109,6 +116,26 @@ export function createNodeWorkspaceHost(root: string): WorkspaceHost {
       await mkdir(dirname(lexicalPath), { recursive: true })
       const resolved = await ensureWritableInside(path)
       await writeFileAsync(resolved, content, 'utf8')
+    },
+    async writeFileIfUnchanged(path, content, baseHash) {
+      const lexicalPath = resolveInsideWorkspace(canonicalRoot, path)
+      let currentHash: string | null = null
+      try {
+        const resolved = await ensureExistingInside(path)
+        currentHash = contentHash(await readFile(resolved, 'utf8'))
+      }
+      catch (error) {
+        if (!isNodeErrorWithCode(error, 'ENOENT'))
+          throw error
+      }
+
+      if (currentHash !== baseHash)
+        return { status: 'state_changed', currentHash }
+
+      await mkdir(dirname(lexicalPath), { recursive: true })
+      const resolved = await ensureWritableInside(path)
+      await writeFileAsync(resolved, content, 'utf8')
+      return { status: 'written', baseHash: contentHash(content) }
     },
     runCommand(command) {
       // NOTICE:

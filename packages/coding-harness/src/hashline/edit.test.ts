@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { applyHashlineEdit } from './edit'
+import { applyHashlineEdit, applyHashlineInsertAfter } from './edit'
 import { lineSignature } from './signature'
 
 function fixture(lines: string[]): { lines: string[], signature: (line: string) => string } {
@@ -18,9 +18,9 @@ describe('hashline edit', () => {
     const target = lines[1]!
     const outcome = applyHashlineEdit({
       lines,
-      signature: signature(target),
+      startSignature: signature(target),
       expectedPrefix: '  const flags',
-      newLineContent: '  const flags = parseArgs(rawArgs, { strict: false })',
+      newContent: '  const flags = parseArgs(rawArgs, { strict: false })',
     })
     expect(outcome.result).toEqual({ status: 'applied', lineNumber: 2, signature: signature(target) })
     expect(outcome.lines[1]).toBe('  const flags = parseArgs(rawArgs, { strict: false })')
@@ -40,9 +40,9 @@ describe('hashline edit', () => {
 
     const result = applyHashlineEdit({
       lines: before,
-      signature: signBefore(before[2]!),
+      startSignature: signBefore(before[2]!),
       expectedPrefix: '  if (flags.help)',
-      newLineContent: '  if (flags.help) return printHelp(true)',
+      newContent: '  if (flags.help) return printHelp(true)',
     })
     expect(result.result.status).toBe('applied')
 
@@ -62,9 +62,9 @@ describe('hashline edit', () => {
     ])
     const outcome = applyHashlineEdit({
       lines,
-      signature: 'zz',
+      startSignature: 'zz',
       expectedPrefix: '  const flags',
-      newLineContent: 'x',
+      newContent: 'x',
     })
     expect(outcome.result.status).toBe('state_changed')
     if (outcome.result.status === 'state_changed') {
@@ -82,9 +82,9 @@ describe('hashline edit', () => {
     const { signature } = fixture(duplicated)
     const outcome = applyHashlineEdit({
       lines: duplicated,
-      signature: signature(duplicated[0]!),
+      startSignature: signature(duplicated[0]!),
       expectedPrefix: '  repeat',
-      newLineContent: '  repeat = false',
+      newContent: '  repeat = false',
     })
     expect(outcome.result).toEqual({ status: 'ambiguous', lineNumbers: [1, 2] })
     expect(outcome.lines).toBe(duplicated)
@@ -99,9 +99,9 @@ describe('hashline edit', () => {
     const target = lines[1]!
     const outcome = applyHashlineEdit({
       lines,
-      signature: signature(target),
+      startSignature: signature(target),
       expectedPrefix: '  const FLAGS', // the signed line exists but no longer starts like this
-      newLineContent: 'x',
+      newContent: 'x',
     })
     expect(outcome.result).toEqual({
       status: 'prefix_mismatch',
@@ -115,9 +115,9 @@ describe('hashline edit', () => {
     const { lines, signature } = fixture(['seed'])
     const outcome = applyHashlineEdit({
       lines,
-      signature: signature('seed'),
+      startSignature: signature('seed'),
       expectedPrefix: 'SEED',
-      newLineContent: 'changed',
+      newContent: 'changed',
     })
     expect(outcome.result.status).toBe('prefix_mismatch')
   })
@@ -126,9 +126,9 @@ describe('hashline edit', () => {
     const { lines, signature } = fixture(['seed'])
     expect(() => applyHashlineEdit({
       lines,
-      signature: signature('seed'),
+      startSignature: signature('seed'),
       expectedPrefix: '',
-      newLineContent: 'changed',
+      newContent: 'changed',
     })).toThrow(/expectedPrefix/)
   })
 
@@ -136,11 +136,45 @@ describe('hashline edit', () => {
     const { lines, signature } = fixture(['参数：云吞', '其它'])
     const outcome = applyHashlineEdit({
       lines,
-      signature: signature(lines[0]!),
+      startSignature: signature(lines[0]!),
       expectedPrefix: '参数',
-      newLineContent: '参数：云吞（已修复）',
+      newContent: '参数：云吞（已修复）',
     })
     expect(outcome.result.status).toBe('applied')
     expect(outcome.lines[0]).toBe('参数：云吞（已修复）')
+  })
+
+  it('replaces and deletes a signed range', () => {
+    const lines = ['one', 'two', 'three', 'four']
+    const sign = (line: string) => lineSignature(line, { lineCount: lines.length })
+    const replaced = applyHashlineEdit({
+      lines,
+      startSignature: sign('two'),
+      endSignature: sign('three'),
+      expectedPrefix: 'two',
+      newContent: 'second\nthird',
+    })
+    expect(replaced.lines).toEqual(['one', 'second', 'third', 'four'])
+
+    const deleted = applyHashlineEdit({
+      lines,
+      startSignature: sign('two'),
+      endSignature: sign('three'),
+      expectedPrefix: 'two',
+      newContent: '',
+    })
+    expect(deleted.lines).toEqual(['one', 'four'])
+  })
+
+  it('inserts content after one signed line without repeating that line', () => {
+    const lines = ['one', 'three']
+    const outcome = applyHashlineInsertAfter({
+      lines,
+      afterSignature: lineSignature('one', { lineCount: lines.length }),
+      expectedPrefix: 'one',
+      newContent: 'two-a\ntwo-b',
+    })
+
+    expect(outcome.lines).toEqual(['one', 'two-a', 'two-b', 'three'])
   })
 })

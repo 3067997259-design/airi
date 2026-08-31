@@ -3,6 +3,8 @@ export type { HashlineEditOutcome, HashlineEditParams, HashlineEditResult } from
 
 export { buildSignedFileProjection, DEFAULT_MAX_LINE_CONTENT_LENGTH, formatSignedFileProjection } from './hashline/read'
 export type { FormatSignedFileProjectionInput, SignedFileProjectionOptions, SignedLine } from './hashline/read'
+export { contentHash, joinTextFile, parseTextFile } from './hashline/text'
+export type { TextFileSnapshot, TextLineEnding } from './hashline/text'
 
 export { base32Encode, fnv1a32, lineSignature, signatureLengthForLineCount } from './hashline/signature'
 export type { LineSignatureOptions } from './hashline/signature'
@@ -27,7 +29,7 @@ export { CODING_TOOL_META, createCodingTools } from './tools/coding-tools'
 export type { ApprovalOutcome, CodingToolName, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
 
 export { createNodeWorkspaceHost, resolveInsideWorkspace } from './tools/workspace-host'
-export type { CommandResult, WorkspaceDirectoryEntry, WorkspaceHost, WorkspaceReadResult } from './tools/workspace-host'
+export type { CommandResult, WorkspaceDirectoryEntry, WorkspaceHost, WorkspaceReadResult, WorkspaceWriteResult } from './tools/workspace-host'
 
 export { bashApprovalRequired, classifyBashCommand } from '@proj-airi/core-agent'
 export type { BashRiskTier } from '@proj-airi/core-agent'
