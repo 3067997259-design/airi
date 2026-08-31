@@ -25,6 +25,7 @@ const {
   dreamingEnabled,
   dreamIdeas,
   dreaming,
+  isLeader,
 } = storeToRefs(memoryStore)
 const compacting = shallowRef(false)
 
@@ -227,8 +228,8 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
             {{ t('settings.pages.modules.memory-short-term.compact-now') }}
           </Button>
           <Button
+            v-if="isLeader"
             icon="i-solar:database-bold-duotone"
-            :disabled="databaseStatus === 'follower'"
             @click="initializeMemory"
           >
             {{ t('settings.pages.modules.memory-short-term.initialize') }}
@@ -237,10 +238,6 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
             {{ t(`settings.pages.modules.memory-short-term.database-status.${databaseStatus}`) }}
             <template v-if="databaseError">: {{ databaseError }}</template>
           </span>
-        </div>
-
-        <div v-if="databaseStatus === 'follower'" :class="['rounded-lg', 'bg-amber-50', 'p-3', 'text-sm', 'text-amber-700', 'dark:bg-amber-500/10', 'dark:text-amber-400']">
-          {{ t('settings.pages.modules.memory-short-term.follower-hint') }}
         </div>
       </div>
     </section>

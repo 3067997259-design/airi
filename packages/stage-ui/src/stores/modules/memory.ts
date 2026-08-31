@@ -596,5 +596,25 @@ export const useMemoryStore = defineStore('memory', () => {
 }, {
   synced: {
     state: true,
+    // Settings windows are followers: their review/browse/dream UI must
+    // operate on the leader's database, so these actions are leader-routed.
+    // capture/retrieve stay local — the chat runtime calls them in the
+    // leader itself on every turn.
+    // NOTE: "initialize" intentionally stays out — it returns the repository
+    // object (functions are not cloneable), and it must run per-window anyway:
+    // the leader opens the database, followers no-op through the same guard.
+    actions: [
+      'list',
+      'listPending',
+      'setReviewStatus',
+      'retrieve',
+      'refreshDreamIdeas',
+      'updateDreamIdea',
+      'dream',
+      'update',
+      'remove',
+      'configureRemoteHost',
+      'refreshRemoteHostStatus',
+    ],
   },
 })
