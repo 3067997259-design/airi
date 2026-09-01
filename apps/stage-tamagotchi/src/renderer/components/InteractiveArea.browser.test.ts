@@ -81,13 +81,15 @@ async function submitDraft(screen: Awaited<ReturnType<typeof renderArea>>['scree
 }
 
 describe('interactive area synchronized state', () => {
-  it('shows a stop control for the active session and routes it to the leader action', async () => {
+  it('interrupts the active turn with Escape and routes it to the leader action', async () => {
     const { chat, screen } = await renderArea()
     const abort = vi.spyOn(chat, 'abortActiveSend').mockResolvedValueOnce(true)
     chat.$patch({ activeSendSessionId: 'session-b', sending: true })
     await nextTick()
 
-    await userEvent.click(screen.getByTestId('turn-control-button'))
+    const input = screen.getByRole('textbox', { name: 'stage.message' })
+    await userEvent.click(input)
+    await userEvent.keyboard('{Escape}')
 
     expect(abort).toHaveBeenCalledWith('session-b')
   })
@@ -98,7 +100,9 @@ describe('interactive area synchronized state', () => {
     chat.$patch({ activeSendSessionId: 'session-b', sending: true })
     await nextTick()
 
-    const input = screen.getByRole('textbox')
+    // The btw side card renders its own textarea while a turn is sending;
+    // scope to the main composer.
+    const input = screen.getByRole('textbox', { name: 'stage.message' })
     await userEvent.fill(input, 'wait for the next turn')
     await userEvent.click(input)
     await userEvent.keyboard('{Shift>}{Enter}{/Shift}')

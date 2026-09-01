@@ -81,7 +81,7 @@ message: Say something...
 turn:
   send: Send message
   stop: Stop the active turn
-  steer-hint: Enter steers · Shift + Enter queues · Esc stops
+  steer-hint: Esc interrupts · Enter steers · Shift + Enter queues
   queued: Queued
   cancel-queued: Cancel queued message
 approval-mode:

@@ -620,7 +620,6 @@ async function handleCleanupMessages() {
         :placeholder="t('stage.message')"
         :class="[
           'ph-no-capture [scrollbar-gutter:stable]',
-          'pr-12',
         ]"
         text="primary-600 dark:primary-100  placeholder:primary-500 dark:placeholder:primary-200"
         border="solid 2 primary-200/20 dark:primary-400/20"
@@ -634,23 +633,6 @@ async function handleCleanupMessages() {
         @keydown="handleMessageInputKeydown"
         @paste-file="handleFilePaste"
       />
-      <Button
-        data-testid="turn-control-button"
-        size="unset"
-        shape="circle"
-        :color="isActiveSessionSending ? 'red' : 'primary'"
-        variant="primary"
-        :class="[
-          'absolute bottom-2 right-2 h-8 w-8 p-0',
-        ]"
-        :aria-label="t(isActiveSessionSending ? 'stage.turn.stop' : 'stage.turn.send')"
-        @click="isActiveSessionSending ? handleAbort() : handleSend('next-step')"
-      >
-        <span
-          :class="isActiveSessionSending ? 'i-solar:stop-bold' : 'i-solar:arrow-up-bold'"
-          aria-hidden="true"
-        />
-      </Button>
       <p
         v-if="isActiveSessionSending"
         :class="['mt-1 px-1 text-[10px] text-neutral-400 dark:text-neutral-500']"
