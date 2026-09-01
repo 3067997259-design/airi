@@ -4,9 +4,27 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { runBashCommand } from './policy'
 
+function fakeJobs() {
+  return {
+    start: vi.fn((command: string) => ({
+      jobId: 'job-1',
+      command,
+      status: 'running' as const,
+      output: '',
+      truncated: false,
+      startedAt: 0,
+    })),
+    read: vi.fn(() => undefined),
+    kill: vi.fn(() => 'unknown' as const),
+    list: vi.fn(() => []),
+    disposeAll: vi.fn(),
+  }
+}
+
 function fakeHost(exitCode = 0, stdout = 'out', stderr = '') {
   return {
     runCommand: vi.fn(async () => ({ stdout, stderr, exitCode, shell: 'git-bash' as const })),
+    jobs: fakeJobs(),
   }
 }
 
@@ -62,6 +80,22 @@ describe('coding host bash policy', () => {
     const executed = await runBashCommand('npm install', lax)
     expect(executed.status).toBe('ok')
     expect(lax.approve).not.toHaveBeenCalled()
+  })
+
+  it('starts a background job only after the approval gate allows it', async () => {
+    const denied = depsWith({ runInBackground: true, approve: vi.fn(async () => false) })
+    const rejected = await runBashCommand('rm -rf dist', denied)
+
+    expect(rejected.status).toBe('denied')
+    expect(denied.host.jobs.start).not.toHaveBeenCalled()
+
+    const allowed = depsWith({ runInBackground: true })
+    const started = await runBashCommand('pnpm dev', allowed)
+
+    expect(started).toMatchObject({ status: 'started', jobId: 'job-1' })
+    expect(allowed.host.jobs.start).toHaveBeenCalledWith('pnpm dev')
+    // A background start must not also run the command in the foreground.
+    expect(allowed.host.runCommand).not.toHaveBeenCalled()
   })
 
   it('reports nonzero exits as error and bounds stdout/stderr', async () => {

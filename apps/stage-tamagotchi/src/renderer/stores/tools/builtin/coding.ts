@@ -126,14 +126,42 @@ function requiredSignature(value: string | undefined, name: string): string {
 const bashParams = z.object({
   command: z.string().describe(CODING_TOOL_META.bash.parameterDescriptions.command),
   mediumApprovalRequired: z.boolean().optional().describe(CODING_TOOL_META.bash.parameterDescriptions.mediumApprovalRequired),
+  runInBackground: z.boolean().optional().describe(CODING_TOOL_META.bash.parameterDescriptions.runInBackground),
 })
 
-async function executeBash(input: { command: string, mediumApprovalRequired?: boolean }): Promise<string> {
+const jobOutputParams = z.object({
+  jobId: z.string().describe(CODING_TOOL_META.jobOutput.parameterDescriptions.jobId),
+  tail: z.number().int().min(1).max(8_000).optional().describe(CODING_TOOL_META.jobOutput.parameterDescriptions.tail),
+})
+
+const jobKillParams = z.object({
+  jobId: z.string().describe(CODING_TOOL_META.jobKill.parameterDescriptions.jobId),
+})
+
+async function executeJobOutput(input: { jobId: string, tail?: number }): Promise<string> {
+  const job = await createCodingHostClient().jobOutput(input)
+  if (job.status === 'unknown')
+    return `job ${input.jobId} is unknown; it may have been started before a workspace root switch.`
+
+  const header = `job ${job.jobId} ${job.status}${job.exitCode != null ? ` (exit ${job.exitCode})` : ''}${job.truncated ? ' · earlier output dropped' : ''}`
+  return job.output ? `${header}\n${job.output}` : header
+}
+
+async function executeJobKill(input: { jobId: string }): Promise<string> {
+  const result = await createCodingHostClient().jobKill(input)
+  return `job ${result.jobId} ${result.outcome}`
+}
+
+async function executeBash(input: { command: string, mediumApprovalRequired?: boolean, runInBackground?: boolean }): Promise<string> {
   const result = await createCodingHostClient().runCommand({
     command: input.command,
     mediumApprovalRequired: input.mediumApprovalRequired,
+    ...(input.runInBackground ? { runInBackground: true } : {}),
   })
 
+  if (result.status === 'started') {
+    return `bash started in the background as ${result.jobId ?? 'an unknown job'} (${result.tier} tier). Read it with job_output, stop it with job_kill.`
+  }
   if (result.status === 'denied') {
     return `bash denied: ${result.tier}-tier command requires approval (requestId ${result.requestId ?? 'n/a'}). Ask the user to approve, or use a lower-risk command.`
   }
@@ -227,6 +255,18 @@ function createCodingToolDeclarations(shell: CodingShellDescriptor): Promise<Too
       description: bashDescriptionFor(shell),
       execute: executeBash,
       parameters: bashParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.jobOutput.name,
+      description: CODING_TOOL_META.jobOutput.description,
+      execute: executeJobOutput,
+      parameters: jobOutputParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.jobKill.name,
+      description: CODING_TOOL_META.jobKill.description,
+      execute: executeJobKill,
+      parameters: jobKillParams,
     }),
     tool({
       name: 'code_mode',

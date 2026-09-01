@@ -42,6 +42,9 @@ export type { RipgrepHit, WorkspaceGrepMatch, WorkspaceGrepQuery, WorkspaceGrepR
 export { resolveRipgrepPath, searchWorkspace } from './tools/grep-search'
 export type { WorkspaceSearchOptions, WorkspaceSearchOutcome } from './tools/grep-search'
 
+export { createCommandJobs, DEFAULT_JOB_BUFFER_CHARS } from './tools/jobs'
+export type { CommandJobs, CommandJobSnapshot, CommandJobsOptions, CommandJobStatus } from './tools/jobs'
+
 export { gitBashShell, POSIX_SHELL, powershellShell, selectWorkspaceShell, WINDOWS_POWERSHELL_FALLBACK } from './tools/shell'
 export type { WorkspaceShell, WorkspaceShellKind, WorkspaceShellProbe, WorkspaceShellSyntax } from './tools/shell'
 

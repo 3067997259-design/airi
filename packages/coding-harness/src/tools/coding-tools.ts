@@ -223,6 +223,13 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
             return { tier, status: 'denied', reason: 'approval_required', requestId: outcome.requestId }
         }
 
+        // A background start hands back the job id instead of output: the
+        // command is expected to outlive the turn.
+        if (toolArgs[1] === true) {
+          const job = host.jobs.start(line)
+          return { tier, status: 'started', shell: host.shell.kind, jobId: job.jobId }
+        }
+
         const result = await host.runCommand(line)
         return {
           tier,
@@ -232,6 +239,25 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
           stdout: result.stdout.slice(0, 8_000),
           stderr: result.stderr.slice(0, 2_000),
         }
+      },
+    },
+    {
+      name: CODING_TOOL_META.jobOutput.name,
+      description: CODING_TOOL_META.jobOutput.description,
+      async run(args) {
+        const toolArgs = args as ToolArgs
+        const jobId = requireString(toolArgs, 0, 'jobId')
+        const tail = optionalNonNegativeInteger(toolArgs, 1, 'tail')
+        return host.jobs.read(jobId, tail != null ? { tail } : undefined) ?? { jobId, status: 'unknown' }
+      },
+    },
+    {
+      name: CODING_TOOL_META.jobKill.name,
+      description: CODING_TOOL_META.jobKill.description,
+      async run(args) {
+        const toolArgs = args as ToolArgs
+        const jobId = requireString(toolArgs, 0, 'jobId')
+        return { jobId, outcome: host.jobs.kill(jobId) }
       },
     },
   ]

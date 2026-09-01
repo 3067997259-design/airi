@@ -66,12 +66,28 @@ export const CODING_TOOL_META = {
       newContent: 'Replacement or inserted content. Multiple lines are allowed. Empty content deletes a replace range.',
     },
   },
+  jobOutput: {
+    name: 'job_output',
+    description: 'Read the output of a background command started by bash with runInBackground. Reports whether the job still runs, and its exit code once it stops.',
+    parameterDescriptions: {
+      jobId: 'Job id returned by bash when it started in the background.',
+      tail: 'Return only the last N characters of output.',
+    },
+  },
+  jobKill: {
+    name: 'job_kill',
+    description: 'Stop a background command and everything it started.',
+    parameterDescriptions: {
+      jobId: 'Job id returned by bash when it started in the background.',
+    },
+  },
   bash: {
     name: 'bash',
-    description: 'Run a shell command inside the workspace. Read-only/tests run freely; high-risk commands (push, delete, network, production) require user approval.',
+    description: 'Run a shell command inside the workspace and wait for it. Read-only/tests run freely; high-risk commands (push, delete, network, production) require user approval. For a command that does not exit on its own, set runInBackground.',
     parameterDescriptions: {
       command: 'Shell command to run inside the workspace. High-risk commands require approval.',
       mediumApprovalRequired: 'Force approval for medium-tier commands (default false).',
+      runInBackground: 'Start a long-lived command (a server, a watch) and return a job id at once instead of waiting. Read it with job_output, stop it with job_kill.',
     },
   },
 } as const

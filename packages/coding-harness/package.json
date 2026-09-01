@@ -36,6 +36,10 @@
       "types": "./src/tools/coding-tool-meta.ts",
       "default": "./src/tools/coding-tool-meta.ts"
     },
+    "./tools/jobs": {
+      "types": "./src/tools/jobs.ts",
+      "default": "./src/tools/jobs.ts"
+    },
     "./tools/grep": {
       "types": "./src/tools/grep.ts",
       "default": "./src/tools/grep.ts"

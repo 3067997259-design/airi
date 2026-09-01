@@ -13,11 +13,13 @@ import type { CodingBashRiskTier, CodingExecRunResult } from '../../../../shared
 import { classifyBashCommand } from '@proj-airi/core-agent'
 
 export interface CodingHostDeps {
-  host: Pick<WorkspaceHost, 'runCommand'>
+  host: Pick<WorkspaceHost, 'runCommand' | 'jobs'>
   /** Returns true only when the human approved the exact request. */
   approve: (tier: CodingBashRiskTier, command: string) => Promise<boolean | { approved: boolean, requestId?: string }>
   mediumApprovalRequired: boolean
   approvalRequired?: boolean
+  /** Starts the command as a background job instead of waiting for it. */
+  runInBackground?: boolean
 }
 
 export const MAX_COMMAND_STDOUT_CHARS = 8_000
@@ -45,6 +47,19 @@ export async function runBashCommand(command: string, deps: CodingHostDeps): Pro
         ...(outcome.requestId ? { requestId: outcome.requestId } : {}),
         reason: 'approval_required',
       }
+    }
+  }
+
+  // The approval gate runs first either way: a background start is still an
+  // execution, and a denied command must never reach a spawn.
+  if (deps.runInBackground) {
+    const job = deps.host.jobs.start(command)
+    return {
+      tier,
+      status: 'started',
+      jobId: job.jobId,
+      stdout: '',
+      stderr: '',
     }
   }
 

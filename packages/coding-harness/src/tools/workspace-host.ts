@@ -12,6 +12,7 @@
  * assumed safe against a hostile program.
  */
 import type { WorkspaceGrepMatch, WorkspaceGrepQuery, WorkspaceGrepResult } from './grep'
+import type { CommandJobs } from './jobs'
 import type { WorkspaceShell, WorkspaceShellKind } from './shell'
 
 import process from 'node:process'
@@ -25,6 +26,7 @@ import { lineSignature } from '../hashline/signature'
 import { contentHash, parseTextFile } from '../hashline/text'
 import { truncateGrepContent } from './grep'
 import { searchWorkspace } from './grep-search'
+import { createCommandJobs } from './jobs'
 import { probeWorkspaceShell } from './shell-probe'
 
 export interface WorkspaceReadResult {
@@ -68,6 +70,14 @@ export interface WorkspaceHost {
   writeFile: (path: string, content: string) => Promise<void>
   writeFileIfUnchanged: (path: string, content: string, baseHash: string | null) => Promise<WorkspaceWriteResult>
   runCommand: (command: string) => Promise<CommandResult>
+  /**
+   * Background command jobs.
+   *
+   * A long-lived command (a server, a watch) never returns, so running it in
+   * the foreground burns the whole turn on a timeout. Jobs hand back an id at
+   * once and keep bounded output for later reads.
+   */
+  readonly jobs: CommandJobs
 }
 
 /** Resolves a tool-supplied path inside the workspace root or throws. */
@@ -96,6 +106,7 @@ export interface NodeWorkspaceHostOptions {
 export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHostOptions = {}): WorkspaceHost {
   const canonicalRoot = realpathSync(root)
   const shell = options.shell ?? probeWorkspaceShell()
+  const jobs = createCommandJobs({ shell, cwd: canonicalRoot })
 
   const ensureExistingInside = async (path: string): Promise<string> => {
     const lexicalPath = resolveInsideWorkspace(canonicalRoot, path)
@@ -118,6 +129,7 @@ export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHost
 
   return {
     shell,
+    jobs,
     async listDir(path) {
       const resolved = await ensureExistingInside(path)
       const entries = await readdir(resolved, { withFileTypes: true })

@@ -36,7 +36,9 @@ export interface CodingHostClientPort {
   listTools: () => Promise<CodingToolsStatusSnapshot>
   runCommand: (params: { command: string, mediumApprovalRequired?: boolean, approvalRequired?: boolean, timeoutMs?: number }) => Promise<{
     tier: 'read-only' | 'medium' | 'high'
-    status: 'ok' | 'error' | 'denied' | 'timeout'
+    /** `started` reports a background job; its output arrives through job reads. */
+    status: 'ok' | 'error' | 'denied' | 'timeout' | 'started'
+    jobId?: string
     stdout: string
     stderr: string
     exitCode?: number

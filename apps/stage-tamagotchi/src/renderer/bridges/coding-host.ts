@@ -16,6 +16,10 @@ import type {
   CodingFsWriteResult,
   CodingGrepParams,
   CodingGrepResult,
+  CodingJobKillParams,
+  CodingJobKillResult,
+  CodingJobOutputParams,
+  CodingJobOutputResult,
   CodingToolsStatusResult,
   CodingWorkspaceRootChangedPayload,
   CodingWorkspaceRootParams,
@@ -43,6 +47,8 @@ import {
   codingHostFsRead,
   codingHostFsWrite,
   codingHostFsWriteGuarded,
+  codingHostJobKill,
+  codingHostJobOutput,
   codingHostListTools,
   codingHostSetApprovalMode,
   codingHostSetWorkspaceRoot,
@@ -57,6 +63,8 @@ export interface CodingHostClient {
   writeFileIfUnchanged: (params: CodingFsWriteGuardedParams) => Promise<CodingFsWriteGuardedResult>
   runCommand: (params: CodingExecRunParams) => Promise<CodingExecRunResult>
   runProgram: (params: CodingCodeRunParams) => Promise<CodingCodeRunResult>
+  jobOutput: (params: CodingJobOutputParams) => Promise<CodingJobOutputResult>
+  jobKill: (params: CodingJobKillParams) => Promise<CodingJobKillResult>
   listTools: () => Promise<CodingToolsStatusResult>
   setApprovalMode: (mode: CodingApprovalMode) => Promise<void>
   setWorkspaceRoot: (params: CodingWorkspaceRootParams) => Promise<CodingWorkspaceRootResult>
@@ -84,6 +92,8 @@ function createCodingHostClientInner(): CodingHostClient {
   const writeFileIfUnchanged = defineInvoke(context, codingHostFsWriteGuarded)
   const runCommand = defineInvoke(context, codingHostExecRun)
   const runProgram = defineInvoke(context, codingHostCodeRun)
+  const jobOutput = defineInvoke(context, codingHostJobOutput)
+  const jobKill = defineInvoke(context, codingHostJobKill)
   const listTools = defineInvoke(context, codingHostListTools)
   const setApprovalMode = defineInvoke(context, codingHostSetApprovalMode)
   const setWorkspaceRoot = defineInvoke(context, codingHostSetWorkspaceRoot)
@@ -96,6 +106,8 @@ function createCodingHostClientInner(): CodingHostClient {
     writeFileIfUnchanged,
     runCommand,
     runProgram,
+    jobOutput,
+    jobKill,
     listTools,
     setApprovalMode: async (mode) => {
       await setApprovalMode({ mode })

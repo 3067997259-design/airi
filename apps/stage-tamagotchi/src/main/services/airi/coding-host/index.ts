@@ -41,6 +41,8 @@ import {
   codingHostFsWrite,
   codingHostFsWriteGuarded,
   codingHostGetApprovalMode,
+  codingHostJobKill,
+  codingHostJobOutput,
   codingHostListTools,
   codingHostSetApprovalMode,
   codingHostSetWorkspaceRoot,
@@ -261,6 +263,9 @@ export async function setupCodingHost(
     if (!validation.ok)
       return { status: 'rejected', workspaceRoot: workspace.root, reason: validation.reason }
 
+    // Jobs belong to the root they started in; leaving them running after a
+    // switch would hide processes in a tree nothing points at any more.
+    workspace.host.jobs.disposeAll()
     workspace = await createWorkspace(target)
     await writePersistedWorkspaceRoot(persistencePath, workspace.root)
     // Switching the root is a session-level fact, not a silent setting: the
@@ -269,15 +274,24 @@ export async function setupCodingHost(
     return { status: 'switched', workspaceRoot: workspace.root }
   })
 
-  defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, timeoutMs }) => {
+  defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, runInBackground, timeoutMs }) => {
     void timeoutMs
     return runBashCommand(command, {
       host: workspace.host,
       approve,
       mediumApprovalRequired: mediumApprovalRequired ?? mediumRequired(),
       approvalRequired,
+      ...(runInBackground ? { runInBackground } : {}),
     })
   })
+
+  defineInvokeHandler(context, codingHostJobOutput, async ({ jobId, tail }) =>
+    workspace.host.jobs.read(jobId, tail != null ? { tail } : undefined) ?? { jobId, status: 'unknown' as const })
+
+  defineInvokeHandler(context, codingHostJobKill, async ({ jobId }) => ({
+    jobId,
+    outcome: workspace.host.jobs.kill(jobId),
+  }))
 
   defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs }) =>
     workspace.codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined))

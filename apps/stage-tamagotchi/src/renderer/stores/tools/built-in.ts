@@ -59,6 +59,8 @@ export const codingToolReferences = [
   { name: 'write' },
   { name: 'edit' },
   { name: 'bash' },
+  { name: 'job_output' },
+  { name: 'job_kill' },
 ] satisfies ChatToolReference[]
 
 export const codingReferences = [...codingToolReferences] satisfies ChatToolReference[]
@@ -272,6 +274,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',
         'For tasks needing several tool operations, prefer code_mode: write one program that bridges the tools and runs them in a sandbox; you get one result with a per-call trace.',
         'bash commands are tiered; high-risk commands (push, delete, network, production, publish) require user approval. Use read-only commands (tests, git status/diff, logs) freely.',
+        'A command that does not exit on its own (a server, a watch) must run with bash runInBackground: it answers with a job id at once. Read it with job_output and stop it with job_kill; never wait for such a command in the foreground.',
         'For work of more than two steps, keep todo_write current: send the whole list, mark one task in_progress while you work on it, and mark it completed as soon as it is done. It shows progress and never completes a plan step.',
       ].join('\n\n'),
     }])

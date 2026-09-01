@@ -1,5 +1,6 @@
 import type { Locale } from '@intlify/core'
 import type { WorkspaceGrepQuery, WorkspaceGrepResult } from '@proj-airi/coding-harness/tools/grep'
+import type { CommandJobSnapshot } from '@proj-airi/coding-harness/tools/jobs'
 import type { WorkspaceShell, WorkspaceShellKind } from '@proj-airi/coding-harness/tools/shell'
 import type {
   GameletIframeRequestPayload as GameletIframeInvokePayload,
@@ -550,11 +551,16 @@ export interface CodingExecRunParams {
   mediumApprovalRequired?: boolean
   /** Forces the approval gate for a high-impact tool wrapper. */
   approvalRequired?: boolean
+  /** Starts the command as a background job and answers with its id. */
+  runInBackground?: boolean
   timeoutMs?: number
 }
 export interface CodingExecRunResult {
   tier: CodingBashRiskTier
-  status: 'ok' | 'error' | 'denied' | 'timeout'
+  /** `started` means a background job was created; read it with job output. */
+  status: 'ok' | 'error' | 'denied' | 'timeout' | 'started'
+  /** Present when `status === 'started'`. */
+  jobId?: string
   stdout: string
   stderr: string
   /** Interpreter that ran the command; absent when nothing was executed. */
@@ -603,6 +609,26 @@ export interface CodingToolsStatusResult {
   workspaceRoot: string
   shell: CodingShellDescriptor
   tools: CodingToolAvailability[]
+}
+
+export interface CodingJobOutputParams {
+  jobId: string
+  /** Return only the last N characters of output. */
+  tail?: number
+}
+
+/** A background job, or the fact that no job carries that id. */
+export type CodingJobOutputResult
+  = | CommandJobSnapshot
+    | { jobId: string, status: 'unknown' }
+
+export interface CodingJobKillParams {
+  jobId: string
+}
+
+export interface CodingJobKillResult {
+  jobId: string
+  outcome: 'killed' | 'already-finished' | 'unknown'
 }
 
 export interface CodingWorkspaceRootParams {
@@ -657,6 +683,8 @@ export const codingHostFsList = defineInvokeEventa<CodingFsListResult, CodingFsL
 export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
 export const codingHostFsWriteGuarded = defineInvokeEventa<CodingFsWriteGuardedResult, CodingFsWriteGuardedParams>('eventa:invoke:electron:coding-host:fs:write-guarded')
 export const codingHostFsGrep = defineInvokeEventa<CodingGrepResult, CodingGrepParams>('eventa:invoke:electron:coding-host:fs:grep')
+export const codingHostJobOutput = defineInvokeEventa<CodingJobOutputResult, CodingJobOutputParams>('eventa:invoke:electron:coding-host:job:output')
+export const codingHostJobKill = defineInvokeEventa<CodingJobKillResult, CodingJobKillParams>('eventa:invoke:electron:coding-host:job:kill')
 export const codingHostSetWorkspaceRoot = defineInvokeEventa<CodingWorkspaceRootResult, CodingWorkspaceRootParams>('eventa:invoke:electron:coding-host:workspace-root:set')
 export const codingWorkspaceRootChanged = defineEventa<CodingWorkspaceRootChangedPayload>('eventa:event:electron:coding-host:workspace-root:changed')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')

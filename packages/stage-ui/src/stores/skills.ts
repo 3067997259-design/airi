@@ -35,7 +35,11 @@ export type ReviewQueueSubmission = Omit<ReviewQueueEntry, 'trust' | 'review' | 
 
 export interface SkillRuntimeCommandResult {
   tier: 'read-only' | 'medium' | 'high'
-  status: 'ok' | 'error' | 'denied' | 'timeout'
+  /**
+   * `started` only appears for a background job, which skill self-tests never
+   * request: a self-test that does not return output cannot prove anything.
+   */
+  status: 'ok' | 'error' | 'denied' | 'timeout' | 'started'
   stdout: string
   stderr: string
   exitCode?: number

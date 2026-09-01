@@ -109,7 +109,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     listCodingTools.mockResolvedValue({
       workspaceRoot: 'C:/AIRI-workspace',
       shell: { kind: 'powershell', label: 'Windows PowerShell', syntax: 'powershell' },
-      tools: ['list', 'grep', 'read', 'write', 'edit', 'bash', 'code_mode'].map(name => ({
+      tools: ['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'].map(name => ({
         name,
         description: `${name} tool`,
         available: true,
@@ -120,11 +120,11 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     const promptsStore = useLlmToolsetPromptsStore()
     await useTamagotchiBuiltinToolsStore().refresh()
 
-    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'code_mode'])
+    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'])
     // The declaration must name the interpreter the host resolved; a model told
     // "bash" on a PowerShell machine retries the same POSIX line forever.
     expect(toolsStore.getToolsByNames('bash')[0]?.function.description).toContain('Windows PowerShell')
     expect(promptsStore.activeToolsetPrompt).toContain('bash runs through Windows PowerShell')
-    expect(toolsStore.getToolsByNames('list', 'grep', 'read', 'write', 'edit', 'bash', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'code_mode'])
+    expect(toolsStore.getToolsByNames('list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'])
   })
 })
