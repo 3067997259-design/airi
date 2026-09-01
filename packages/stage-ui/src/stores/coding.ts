@@ -22,10 +22,18 @@ export interface CodingToolPortAvailability {
   available: boolean
 }
 
+/** Host status as the settings surface reads it. */
+export interface CodingToolsStatusSnapshot {
+  workspaceRoot: string
+  /** Interpreter the host spawns for bash; absent on an older host build. */
+  shell?: { kind: string, label: string, syntax: string }
+  tools: CodingToolPortAvailability[]
+}
+
 export interface CodingHostClientPort {
   listDir: (params: { path: string }) => Promise<{ entries: Array<{ name: string, kind: 'file' | 'dir' }> }>
   readFile: (params: { path: string }) => Promise<{ content: string, mtime?: string }>
-  listTools: () => Promise<{ workspaceRoot: string, tools: CodingToolPortAvailability[] }>
+  listTools: () => Promise<CodingToolsStatusSnapshot>
   runCommand: (params: { command: string, mediumApprovalRequired?: boolean, approvalRequired?: boolean, timeoutMs?: number }) => Promise<{
     tier: 'read-only' | 'medium' | 'high'
     status: 'ok' | 'error' | 'denied' | 'timeout'
@@ -45,11 +53,23 @@ export interface CodingHostClientPort {
   }>
   /** Applies the bash approval tri-state on the host. */
   setApprovalMode: (mode: CodingApprovalMode) => Promise<void>
+  /**
+   * Points the workspace tools at another directory.
+   *
+   * A rejection keeps the previous root: the host validates the directory
+   * before it rebuilds anything, so the caller renders `reason` instead of
+   * assuming the switch happened.
+   */
+  setWorkspaceRoot: (params: { root: string }) => Promise<CodingWorkspaceRootOutcome>
 }
+
+export type CodingWorkspaceRootOutcome
+  = | { status: 'switched', workspaceRoot: string }
+    | { status: 'rejected', workspaceRoot: string, reason: string }
 
 let client: CodingHostClientPort | undefined
 
-const statusSnapshot = shallowRef<{ workspaceRoot: string, tools: CodingToolPortAvailability[] }>()
+const statusSnapshot = shallowRef<CodingToolsStatusSnapshot>()
 
 /** Registers the main-process bridge client for this renderer. */
 export function installCodingHostClient(next: CodingHostClientPort): void {
@@ -103,6 +123,30 @@ export function useCodingToolsStore() {
     await client?.setApprovalMode(mode)
   }
 
+  /**
+   * Switches the workspace root and records the move in the journal.
+   *
+   * The journal entry is the point: the model keeps reading paths relative to
+   * a root it never chose, so a silent switch would make every earlier path in
+   * the conversation wrong without saying so.
+   */
+  async function setWorkspaceRoot(root: string): Promise<CodingWorkspaceRootOutcome> {
+    if (!client)
+      throw new Error('Coding host is not available in this window.')
+
+    const outcome = await client.setWorkspaceRoot({ root })
+    if (outcome.status === 'switched') {
+      journal.appendActive({
+        type: 'context/inject',
+        contextId: 'coding-workspace-root',
+        source: 'coding-host',
+        text: `Workspace root switched to ${outcome.workspaceRoot}. Paths in earlier turns refer to the previous root.`,
+      })
+      await refreshStatus()
+    }
+    return outcome
+  }
+
   async function runProgram(program: string, timeoutMs?: number) {
     if (!client) {
       runView.value = { running: false, logs: [], traces: [], error: 'Coding host is not available in this window.' }
@@ -139,5 +183,6 @@ export function useCodingToolsStore() {
     readFile,
     runProgram,
     setApprovalMode,
+    setWorkspaceRoot,
   }
 }

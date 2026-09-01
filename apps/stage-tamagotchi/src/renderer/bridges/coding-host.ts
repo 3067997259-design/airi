@@ -17,6 +17,9 @@ import type {
   CodingGrepParams,
   CodingGrepResult,
   CodingToolsStatusResult,
+  CodingWorkspaceRootChangedPayload,
+  CodingWorkspaceRootParams,
+  CodingWorkspaceRootResult,
 } from '../../shared/eventa'
 
 import { defineInvoke } from '@moeru/eventa'
@@ -42,6 +45,8 @@ import {
   codingHostFsWriteGuarded,
   codingHostListTools,
   codingHostSetApprovalMode,
+  codingHostSetWorkspaceRoot,
+  codingWorkspaceRootChanged,
 } from '../../shared/eventa'
 
 export interface CodingHostClient {
@@ -54,6 +59,8 @@ export interface CodingHostClient {
   runProgram: (params: CodingCodeRunParams) => Promise<CodingCodeRunResult>
   listTools: () => Promise<CodingToolsStatusResult>
   setApprovalMode: (mode: CodingApprovalMode) => Promise<void>
+  setWorkspaceRoot: (params: CodingWorkspaceRootParams) => Promise<CodingWorkspaceRootResult>
+  onWorkspaceRootChanged: (listener: (payload: CodingWorkspaceRootChangedPayload) => void) => () => void
   onApprovalRequested: (listener: (payload: CodingApprovalRequestPayload) => void) => () => void
   onApprovalDecided: (listener: (payload: CodingApprovalDecisionPayload) => void) => () => void
   decideApproval: (payload: CodingApprovalDecisionPayload) => void
@@ -79,6 +86,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const runProgram = defineInvoke(context, codingHostCodeRun)
   const listTools = defineInvoke(context, codingHostListTools)
   const setApprovalMode = defineInvoke(context, codingHostSetApprovalMode)
+  const setWorkspaceRoot = defineInvoke(context, codingHostSetWorkspaceRoot)
 
   return {
     listDir,
@@ -91,6 +99,14 @@ function createCodingHostClientInner(): CodingHostClient {
     listTools,
     setApprovalMode: async (mode) => {
       await setApprovalMode({ mode })
+    },
+    setWorkspaceRoot,
+    onWorkspaceRootChanged(listener) {
+      const off = context.on(codingWorkspaceRootChanged, (event) => {
+        if (event.body)
+          listener(event.body)
+      })
+      return () => off()
     },
     onApprovalRequested(listener) {
       const off = context.on(codingApprovalRequested, (event) => {

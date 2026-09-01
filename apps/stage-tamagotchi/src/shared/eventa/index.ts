@@ -605,6 +605,26 @@ export interface CodingToolsStatusResult {
   tools: CodingToolAvailability[]
 }
 
+export interface CodingWorkspaceRootParams {
+  /** Absolute directory the workspace tools should operate in. */
+  root: string
+}
+
+/**
+ * Outcome of a root switch.
+ *
+ * A rejection keeps the previous root running and carries the reason, so the
+ * settings page can show why the directory was refused instead of leaving the
+ * agent in a tree it cannot write.
+ */
+export type CodingWorkspaceRootResult
+  = | { status: 'switched', workspaceRoot: string }
+    | { status: 'rejected', workspaceRoot: string, reason: string }
+
+export interface CodingWorkspaceRootChangedPayload {
+  workspaceRoot: string
+}
+
 export interface CodingApprovalRequestPayload {
   requestId: string
   /** The command (or plan step) that needs approval. */
@@ -637,6 +657,8 @@ export const codingHostFsList = defineInvokeEventa<CodingFsListResult, CodingFsL
 export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
 export const codingHostFsWriteGuarded = defineInvokeEventa<CodingFsWriteGuardedResult, CodingFsWriteGuardedParams>('eventa:invoke:electron:coding-host:fs:write-guarded')
 export const codingHostFsGrep = defineInvokeEventa<CodingGrepResult, CodingGrepParams>('eventa:invoke:electron:coding-host:fs:grep')
+export const codingHostSetWorkspaceRoot = defineInvokeEventa<CodingWorkspaceRootResult, CodingWorkspaceRootParams>('eventa:invoke:electron:coding-host:workspace-root:set')
+export const codingWorkspaceRootChanged = defineEventa<CodingWorkspaceRootChangedPayload>('eventa:event:electron:coding-host:workspace-root:changed')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
 export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')

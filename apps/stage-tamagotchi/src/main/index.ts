@@ -245,7 +245,7 @@ app.whenReady().then(async () => {
   const codingHost = injeca.provide('modules:coding-host', {
     build: async () => {
       const { context } = createContext(ipcMain)
-      await setupCodingHost(context, { broadcast: eventaBroadcast })
+      await setupCodingHost(context, { broadcast: eventaBroadcast }, app.getPath('userData'))
     },
   })
 

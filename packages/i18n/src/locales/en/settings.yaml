@@ -817,9 +817,14 @@ pages:
       title: Coding
       sections:
         tools:
-          description: The four workspace tools (read / write / edit / bash) and where they run.
+          description: The workspace tools (grep / read / write / edit / bash) and where they run.
           title: Workspace tools
           root: Workspace root
+          shell: Shell
+          root-placeholder: Absolute path of the repository she should work in
+          root-switch: Switch root
+          root-switched: 'Workspace root switched to {root}.'
+          root-rejected: 'Root not switched: {reason}'
           unavailable: Coding host is not available in this window.
         code-mode:
           description: Run a small program in the sandboxed Code Mode runtime; bridge() dispatches the four tools.

@@ -779,9 +779,14 @@ pages:
       title: 编码
       sections:
         tools:
-          description: 四个工作区工具（read / write / edit / bash）及其运行位置。
+          description: 工作区工具（grep / read / write / edit / bash）及其运行位置。
           title: 工作区工具
           root: 工作区根目录
+          shell: Shell
+          root-placeholder: 她要工作的仓库绝对路径
+          root-switch: 切换根目录
+          root-switched: 工作区根目录已切换到 {root}。
+          root-rejected: 未切换根目录：{reason}
           unavailable: 当前窗口不可用编码宿主。
         code-mode:
           description: 在沙箱化的 Code Mode 运行时里运行一段小程序；bridge() 分发四个工具。

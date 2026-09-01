@@ -9,7 +9,7 @@ import { installExpressionJournalPort } from '@proj-airi/stage-ui-live2d/stores/
  * structurally — the shared Eventa contracts stay in the app shell.
  */
 import { installApprovalsBridge } from '@proj-airi/stage-ui/stores/approvals'
-import { installCodingHostClient } from '@proj-airi/stage-ui/stores/coding'
+import { installCodingHostClient, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { useJournalStore } from '@proj-airi/stage-ui/stores/journal'
 import { installLifeModePort } from '@proj-airi/stage-ui/stores/modules/life-mode'
 import { installMemoryHostPort } from '@proj-airi/stage-ui/stores/modules/memory'
@@ -30,6 +30,7 @@ export function installCodingHostBridge(): void {
     runCommand: params => client.runCommand(params),
     runProgram: params => client.runProgram(params),
     setApprovalMode: mode => client.setApprovalMode(mode),
+    setWorkspaceRoot: params => client.setWorkspaceRoot(params),
   })
   installSkillRuntime({
     runCommand: params => client.runCommand(params),
@@ -47,6 +48,12 @@ export function installCodingHostBridge(): void {
   })
   // The fetch LLM tool reads the web through the SSRF-hardened main-process
   // service (DNS re-check + redirect re-check), never the raw renderer fetch.
+  // A root switch reaches every window, not only the one that made it. The
+  // store is resolved inside the callback because the listener is registered
+  // before the app installs Pinia.
+  client.onWorkspaceRootChanged(() => {
+    void useCodingToolsStore().refreshStatus()
+  })
   installFetchTextPort(createWebFetchClient())
   installLifeModePort(createLifeModeClient())
   installAppearanceJournaling()

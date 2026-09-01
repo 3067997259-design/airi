@@ -6,15 +6,25 @@
  * `eventa:invoke:*:coding-host` contracts. Approval is mediated through
  * `codingApprovalRequested` / `codingApprovalDecided` events so any renderer
  * can host the approval card; unanswered requests time out to rejected.
+ *
+ * The workspace root is switchable at runtime (HARNESS-PLAN §3.5.3 C7). A
+ * coding agent is pointed at a repository, so the root is state, not a boot
+ * constant: `AIRI_WORKSPACE_ROOT` and the default only decide the first root,
+ * a later switch persists to `<userData>/coding-host.json` and wins from then
+ * on. Switching rebuilds the workspace host, the tool table and the Code Mode
+ * runtime together, because each of them closes over the canonical root, and
+ * rebuilding only the first would leave Code Mode running in the old tree.
  */
 import type { createContext as createMainEventaContext } from '@moeru/eventa/adapters/electron/main'
+import type { CodeModeRuntime, CodeModeTool, WorkspaceHost } from '@proj-airi/coding-harness'
 
-import type { CodingApprovalDecisionPayload, CodingApprovalMode } from '../../../../shared/eventa'
+import type { CodingApprovalDecisionPayload, CodingApprovalMode, CodingWorkspaceRootResult } from '../../../../shared/eventa'
 import type { EventaWindowBroadcast } from '../../../libs/electron/eventa-window-broadcast'
 
-import { mkdir } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { env } from 'node:process'
 
 import { defineInvokeHandler } from '@moeru/eventa'
@@ -33,12 +43,15 @@ import {
   codingHostGetApprovalMode,
   codingHostListTools,
   codingHostSetApprovalMode,
+  codingHostSetWorkspaceRoot,
+  codingWorkspaceRootChanged,
   planApprovalAsk,
 } from '../../../../shared/eventa'
 import { runBashCommand } from './policy'
 
 const APPROVAL_TIMEOUT_MS = 60_000
 const DEFAULT_WORKSPACE_ROOT = join(homedir(), 'AIRI-workspace')
+const PERSISTED_FILE_NAME = 'coding-host.json'
 
 export interface CodingHostOptions {
   /** Overrides the workspace root; default `~/AIRI-workspace` or `AIRI_WORKSPACE_ROOT`. */
@@ -48,16 +61,79 @@ export interface CodingHostOptions {
   approvalMode?: CodingApprovalMode
   /** Push channel for approval cards; the plain ipc context has no sender to echo to. */
   broadcast?: EventaWindowBroadcast
+  /** Overrides where the switched workspace root is remembered. */
+  persistencePath?: string
+}
+
+interface PersistedCodingHost {
+  workspaceRoot?: string
+}
+
+/** Reads the remembered workspace root, or nothing when none was stored. */
+async function readPersistedWorkspaceRoot(path: string): Promise<string | undefined> {
+  try {
+    const parsed = JSON.parse(await readFile(path, 'utf8')) as PersistedCodingHost
+    return typeof parsed.workspaceRoot === 'string' && parsed.workspaceRoot.length > 0 ? parsed.workspaceRoot : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+async function writePersistedWorkspaceRoot(path: string, workspaceRoot: string): Promise<void> {
+  try {
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, JSON.stringify({ workspaceRoot } satisfies PersistedCodingHost, null, 2), 'utf8')
+  }
+  catch {
+    // Remembering the root is a convenience: a failed write costs the switch
+    // on the next boot, never the running host.
+  }
+}
+
+/**
+ * Checks that a directory can host the workspace before anything is rebuilt.
+ *
+ * A rejected switch leaves the previous root running; the caller reports the
+ * reason instead of dropping the agent into a directory it cannot write.
+ */
+async function validateWorkspaceRoot(root: string): Promise<{ ok: true } | { ok: false, reason: string }> {
+  if (root.length === 0)
+    return { ok: false, reason: 'The workspace root cannot be empty.' }
+
+  try {
+    const stats = await stat(root)
+    if (!stats.isDirectory())
+      return { ok: false, reason: 'The workspace root must be a directory.' }
+  }
+  catch {
+    return { ok: false, reason: 'The workspace root does not exist.' }
+  }
+
+  try {
+    await access(root, constants.W_OK)
+  }
+  catch {
+    return { ok: false, reason: 'The workspace root is not writable.' }
+  }
+
+  return { ok: true }
 }
 
 export async function setupCodingHost(
   context: ReturnType<typeof createMainEventaContext>['context'],
   options: CodingHostOptions = {},
+  userDataDir = '',
 ): Promise<void> {
-  const workspaceRoot = options.workspaceRoot ?? (env.AIRI_WORKSPACE_ROOT?.trim() || DEFAULT_WORKSPACE_ROOT)
-  await mkdir(workspaceRoot, { recursive: true })
-
-  const host = createNodeWorkspaceHost(workspaceRoot)
+  const persistencePath = options.persistencePath ?? join(userDataDir, PERSISTED_FILE_NAME)
+  // Precedence: an explicit option (tests) beats a remembered switch, which
+  // beats the environment variable, which beats the default sandbox. The
+  // environment variable therefore seeds the first run and stops deciding once
+  // the user has pointed her at a repository.
+  const initialRoot = options.workspaceRoot
+    ?? await readPersistedWorkspaceRoot(persistencePath)
+    ?? env.AIRI_WORKSPACE_ROOT?.trim()
+    ?? DEFAULT_WORKSPACE_ROOT
 
   // Approval policy owns two knobs: whether medium-tier commands need
   // approval (`substitute` mode lets them run), and whether even high-tier
@@ -113,11 +189,31 @@ export async function setupCodingHost(
     return { approved: decision === 'approved', requestId }
   }
 
-  const tools = createCodingTools(host, {
-    approveBash: approve,
-    mediumBashApprovalRequired: mediumRequired,
-  })
-  const codeRuntime = createCodeModeRuntime(tools)
+  /**
+   * One workspace root and everything bound to it.
+   *
+   * The host, the tool table and the Code Mode runtime each capture the
+   * canonical root when they are created, so a switch replaces all three at
+   * once. Handlers read `workspace` per call rather than capturing it.
+   */
+  interface CodingWorkspace {
+    root: string
+    host: WorkspaceHost
+    tools: CodeModeTool[]
+    codeRuntime: CodeModeRuntime
+  }
+
+  async function createWorkspace(root: string): Promise<CodingWorkspace> {
+    await mkdir(root, { recursive: true })
+    const host = createNodeWorkspaceHost(root)
+    const tools = createCodingTools(host, {
+      approveBash: approve,
+      mediumBashApprovalRequired: mediumRequired,
+    })
+    return { root, host, tools, codeRuntime: createCodeModeRuntime(tools) }
+  }
+
+  let workspace = await createWorkspace(initialRoot)
 
   defineInvokeHandler(context, codingHostSetApprovalMode, async ({ mode }) => {
     policy.mode = mode
@@ -145,24 +241,38 @@ export async function setupCodingHost(
 
   defineInvokeHandler(context, codingHostGetApprovalMode, () => ({ mode: policy.mode }))
 
-  defineInvokeHandler(context, codingHostFsRead, async ({ path }) => host.readFile(path))
+  defineInvokeHandler(context, codingHostFsRead, async ({ path }) => workspace.host.readFile(path))
 
-  defineInvokeHandler(context, codingHostFsList, async ({ path }) => ({ entries: await host.listDir(path) }))
+  defineInvokeHandler(context, codingHostFsList, async ({ path }) => ({ entries: await workspace.host.listDir(path) }))
 
-  defineInvokeHandler(context, codingHostFsGrep, async query => host.grep(query))
+  defineInvokeHandler(context, codingHostFsGrep, async query => workspace.host.grep(query))
 
   defineInvokeHandler(context, codingHostFsWrite, async ({ path, content }) => {
-    await host.writeFile(path, content)
+    await workspace.host.writeFile(path, content)
     return { ok: true }
   })
 
   defineInvokeHandler(context, codingHostFsWriteGuarded, async ({ path, content, baseHash }) =>
-    host.writeFileIfUnchanged(path, content, baseHash))
+    workspace.host.writeFileIfUnchanged(path, content, baseHash))
+
+  defineInvokeHandler(context, codingHostSetWorkspaceRoot, async ({ root }): Promise<CodingWorkspaceRootResult> => {
+    const target = root.trim()
+    const validation = await validateWorkspaceRoot(target)
+    if (!validation.ok)
+      return { status: 'rejected', workspaceRoot: workspace.root, reason: validation.reason }
+
+    workspace = await createWorkspace(target)
+    await writePersistedWorkspaceRoot(persistencePath, workspace.root)
+    // Switching the root is a session-level fact, not a silent setting: the
+    // renderer journals it so the model learns the ground moved under it.
+    ;(options.broadcast?.broadcast ?? context.emit)(codingWorkspaceRootChanged, { workspaceRoot: workspace.root })
+    return { status: 'switched', workspaceRoot: workspace.root }
+  })
 
   defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, timeoutMs }) => {
     void timeoutMs
     return runBashCommand(command, {
-      host,
+      host: workspace.host,
       approve,
       mediumApprovalRequired: mediumApprovalRequired ?? mediumRequired(),
       approvalRequired,
@@ -170,15 +280,15 @@ export async function setupCodingHost(
   })
 
   defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs }) =>
-    codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined))
+    workspace.codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined))
 
   defineInvokeHandler(context, codingHostListTools, async () => ({
-    workspaceRoot,
+    workspaceRoot: workspace.root,
     // The renderer builds the model-facing bash description from this, so the
     // declared shell and the process that runs commands stay the same fact.
-    shell: { kind: host.shell.kind, label: host.shell.label, syntax: host.shell.syntax },
+    shell: { kind: workspace.host.shell.kind, label: workspace.host.shell.label, syntax: workspace.host.shell.syntax },
     tools: [
-      ...tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
+      ...workspace.tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
       // The PTC runtime is host-level rather than a bridge capability, so it
       // is listed separately; renderers gate registration on this entry.
       { name: 'code_mode', description: 'Run a sandboxed program that dispatches the coding tools through bridge().', available: true },

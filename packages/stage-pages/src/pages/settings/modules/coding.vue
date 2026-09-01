@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChatApprovalCard } from '@proj-airi/stage-ui/components'
 import { CODING_APPROVAL_MODES, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
-import { Button, FieldTextArea } from '@proj-airi/ui'
+import { Button, FieldInput, FieldTextArea } from '@proj-airi/ui'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -12,10 +12,28 @@ const program = ref(`// Try the Code Mode sandbox: bridge() dispatches the four
 // coding tools (read / write / edit / bash) against the workspace.
 const file = await bridge('read', ['README.txt'])\nreturn file`)
 const timeoutMs = ref(10_000)
+const workspaceRootDraft = ref('')
+const workspaceRootMessage = ref<{ tone: 'ok' | 'error', text: string }>()
 
-onMounted(() => {
-  void coding.refreshStatus()
+onMounted(async () => {
+  const snapshot = await coding.refreshStatus()
+  workspaceRootDraft.value = snapshot?.workspaceRoot ?? ''
 })
+
+/**
+ * Points the workspace tools at another directory.
+ *
+ * The host validates the directory and keeps the previous root when it
+ * refuses, so both outcomes are shown; the store journals a switch so the
+ * model learns that earlier paths belong to the old root.
+ */
+async function switchWorkspaceRoot() {
+  const outcome = await coding.setWorkspaceRoot(workspaceRootDraft.value)
+  workspaceRootMessage.value = outcome.status === 'switched'
+    ? { tone: 'ok', text: t('settings.pages.modules.coding.sections.tools.root-switched', { root: outcome.workspaceRoot }) }
+    : { tone: 'error', text: t('settings.pages.modules.coding.sections.tools.root-rejected', { reason: outcome.reason }) }
+  workspaceRootDraft.value = outcome.workspaceRoot
+}
 
 async function run() {
   await coding.runProgram(program.value, timeoutMs.value)
@@ -44,6 +62,28 @@ function approvalKey(mode: string, suffix: string): string {
         <div v-if="status" :class="['text-sm']">
           <span class="text-neutral-400">{{ t('settings.pages.modules.coding.sections.tools.root') }}:</span>
           <span class="font-mono">{{ status.workspaceRoot }}</span>
+        </div>
+        <div v-if="status?.shell" :class="['text-sm']">
+          <span class="text-neutral-400">{{ t('settings.pages.modules.coding.sections.tools.shell') }}:</span>
+          <span class="font-mono">{{ status.shell.label }}</span>
+        </div>
+        <div v-if="status" :class="['flex', 'flex-col', 'gap-2']">
+          <FieldInput
+            v-model="workspaceRootDraft"
+            :label="t('settings.pages.modules.coding.sections.tools.root')"
+            :placeholder="t('settings.pages.modules.coding.sections.tools.root-placeholder')"
+          />
+          <div :class="['flex', 'items-center', 'gap-3']">
+            <Button icon="i-solar:folder-path-connect-bold-duotone" color="primary" @click="switchWorkspaceRoot">
+              {{ t('settings.pages.modules.coding.sections.tools.root-switch') }}
+            </Button>
+            <span
+              v-if="workspaceRootMessage"
+              :class="['text-xs', workspaceRootMessage.tone === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400']"
+            >
+              {{ workspaceRootMessage.text }}
+            </span>
+          </div>
         </div>
         <div v-else :class="['text-sm', 'text-neutral-400']">
           {{ t('settings.pages.modules.coding.sections.tools.unavailable') }}
