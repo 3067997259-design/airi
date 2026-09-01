@@ -111,5 +111,11 @@ export const useLlmToolsStore = defineStore('llm-tools', () => {
 }, {
   synced: {
     state: true,
+    // Registration mutates the whole `tools` array, and the array is synced
+    // state: an unlisted mutation in any follower would ship that window's
+    // full (and possibly not-yet-populated) list as a state proposal and wipe
+    // the leader's registry - observed live as all 57 mcp_* tools vanishing
+    // mid-session. Route every mutation through the elected leader.
+    actions: ['addTools', 'removeToolById', 'removeToolsByIds'],
   },
 })
