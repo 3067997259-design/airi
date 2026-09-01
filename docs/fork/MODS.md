@@ -702,3 +702,86 @@ leader 渲染进程）。API key 解禁、余额充足。**真机走查逼出 7 
   一，均列表待拍板）；改 `classifyBashCommand` 分级正则属安全变更（漏一条即
   高危降级直跑）；`read` 分页后签名宽度仍按**文件总行数**计算（否则跨页失配，
   是本批唯一容易静默写错处）。
+
+### 批次一·五决策落定与前四项落地（2026-08-31 晚）
+
+**两处依赖决策已由用户拍板**（`AGENTS.md`「新依赖必须由用户选择」流程走完，
+对照表见对话记录，结论写进 `HARNESS-PLAN.md` §3.5.3 第 1 / 第 5 条）：
+
+- **C1 检索后端 = `@vscode/ripgrep`**（自带平台二进制）。判据是「任何用户机器上
+  行为一致」：只探测系统 `rg` 会让行为随机器变（本机实测 `rg` 不在 PATH，
+  即一直走慢回落），而"行为随环境不确定"正是原则一要消除的；纯 Node 遍历在
+  AIRI 这种体量的仓库上慢到影响循环。实施注意：`rgPath` 从包导出取不要硬编码；
+  `electron-builder.config.ts` 的 `asarUnpack` 要覆盖该二进制（现有只有 `**/*.node`），
+  否则打包后 spawn 直接 ENOENT；postinstall 代理只认小写 `https_proxy`；
+  保留 Node 遍历兜底但**降级必须可见**（M2 教训）。
+- **C5 shell = 探测 Git-Bash → 缺失回落 PowerShell → 两条路都动态声明当前 shell**。
+  选 Git-Bash 作首选的判据是**安全面不是便利**：`classifyBashCommand` 的分级正则
+  全是 POSIX 形态，Git-Bash 让它继续有效；换 PowerShell 等于重写整张分级表，
+  漏一条就是高危命令降级为 read-only 直跑、不弹审批卡。回落那条路仍须补正则，
+  且 PowerShell **别名**（`ri`/`iwr`/`sc`）是最容易漏的一类。
+
+**七项里四项已落地**（工作树未提交，定向测试 36/36 绿：`hashline/*` + `coding-tools`）：
+
+- **C2 `read` 分页**：`{ offset, limit }` + `DEFAULT_READ_LINE_LIMIT = 400`；
+  签名宽度仍按**文件总行数**算（切片前的 `lines.length`），跨页签名一致。
+- **C3 `edit` 范围化**：`endSignature?` + `operation: replace | insertAfter` +
+  `afterSignature`。`insertAfter` 是独立语义而非"替换成两行"——后者会迫使模型
+  复述它不打算改的那一行，正是 Hashline 要消除的东西。
+- **C4 `write` 陈旧校验**：`writeFileIfUnchanged(path, content, baseHash)` →
+  `written | state_changed{currentHash}`；`baseHash: null` 显式声明"预期不存在"，
+  文件已存在时该声明本身即失配（顺带堵掉"以为在建新文件其实覆盖了旧文件"）。
+  哈希用 `contentHash`（FNV-1a → 8 位十六进制），威胁模型是疏漏不是伪造。
+- **C6 CRLF 保真**：新增 `hashline/text.ts`——`parseTextFile` 按 `/\r?\n/` 切行
+  （**签名不含行尾符**）、探测主导行尾、报 `mixedLineEndings`；`joinTextFile` 按
+  探测到的行尾写回。修掉勘探期实测的行尾混合问题。
+
+**剩余三项建议顺序**：C5（她当前在 win32 上几乎发不出可用命令，且 C1 的
+"不要用 bash grep"正是为了不继承这个问题）→ C1（依赖打包配置）→ C7（切根，纯增量）。
+状态表见 `HARNESS-PLAN.md` §3.5.0。
+
+### 批次一 + 批次一·五落地收官（2026-09-01）
+
+两批全部实现并提交，定向测试与 typecheck 全绿。状态表见 `HARNESS-PLAN.md`
+§3.0 与 §3.5.0（那两张表是进度真相，本节只记结论与教训）。
+
+**批次一（回合语义）——四个提交里的两个**：`feat(coding-harness): page reads…`
+收编了工作树里 C2/C3/C4/C6 的在途改动，`feat(chat): interruptible turns with
+steer and queue lanes` 落地回合化本体：每回合一个 AbortController（中止时给
+未结算 tool call 补写合成失败结果，日志仍可回放）、`turn/start` /
+`turn/end{reason}`、双车道（Enter 插话 / Shift+Enter 排队、队列逐条撤销）、
+停止按钮与 Esc、`maxSteps` 参数化（计划轮 50）与预算将尽提示，
+续跑预算从「每用户消息」改为「每计划」且停止意图会把计划置 `paused`。
+顺带把 life-mode 的日预算改成「tick 被消费才计费」。
+
+**批次一·五剩余三项（C5 → C1 → C7）**：
+
+- **C5 shell 显式化**：`execFile(command, { shell: true })` 在 win32 上解析
+  ComSpec（=cmd.exe），是"她发 `grep -rn` 全部报错"的直接原因。现在探测
+  Git-Bash（`git --exec-path` → 程序目录 → PATH）→ 缺失回落 PowerShell，
+  显式传可执行文件 + 命令参数。**两处非显然坑**：Git-Bash 必须用 `-lc`
+  （非登录 shell 拿不到 `usr/bin`，`grep`/`ls` 都不在 PATH），而 `-l` 又必须
+  配 `CHERE_INVOKING=1`，否则 Git for Windows 的 profile 会把工作目录换成
+  `$HOME`——命令会"成功"地跑在错误目录里。分级正则补了 PowerShell cmdlet
+  与别名，每个别名（`ri`/`rd`/`del`/`iwr`/`irm`/`sc`/`ni`/`cpi`/`mi`/`rni`/`md`）
+  单列一条测试样本，并只在命令位（行首或 `;`/`|`/`&` 之后）匹配，
+  免得参数里的 "ri" 触发误判。
+- **C1 检索原语**：`@vscode/ripgrep@^1.18.0` 实测以平台子包直接分发 `rg.exe`
+  （`ripgrep 15.0.0`），没走 postinstall 下载，本次未触发小写 `https_proxy` 那条坑。
+  命中行签名按**文件总行数**计算（测试直接与同文件 `read` 投影比对），
+  所以 grep 的命中可以直接喂 `edit`。结果有界（50 命中 / 200 字符 / 20 秒）
+  且截断会明说；ripgrep 不可用时走 Node 兜底走查并在结果里声明降级。
+  **实测两处易错**：ripgrep 会回显搜索参数，所以整仓搜索的路径是 `./src/a.ts`
+  （已统一归一化为 `src/a.ts`）；`buildSignedFileProjection` 默认只投影 400 行，
+  拿它做跨页签名比对的断言必须显式传 `limit`。
+- **C7 切根**：`setWorkspaceRoot` 校验（存在 / 是目录 / 可写）后**同时重建**
+  host + tools + codeRuntime——只重建 host 会让 Code Mode 继续跑在旧树上，
+  这正是回归测试专门断言的一半。切换持久化到 `<userData>/coding-host.json`
+  并压过 `AIRI_WORKSPACE_ROOT`（环境变量只决定首跑），切根写 journal
+  `context/inject` 让她知道地面换了。
+
+**环境备注**：本机 4 个 `stage-tamagotchi:node` 用例常态失败，全部是
+`EPERM: operation not permitted, symlink`（Windows 未开开发者模式），
+与本批改动无关：`plugins/index.test.ts` 的两个 gamelet 用例、
+`http-server/static-assets/paths.test.ts` 的两个符号链接用例。
+

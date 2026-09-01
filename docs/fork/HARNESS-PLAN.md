@@ -1,6 +1,7 @@
 # HARNESS-PLAN：回合语义改造（turn / 中断 / 双车道 / 仓库交互 / 工作画像 / btw）
 
-**状态**：设计完成（2026-08-31），待实施。
+**状态**：批次一、批次一·五**已全部落地并提交**（2026-09-01）；批次二/三/四实施中。
+进度只看两张状态表：§3.0（批次一）与 §3.5.0（批次一·五）。
 **来源**：真机事故复盘（dsh-web 连接器开发任务）+ dsh（`D:\deepseek-harness`，即 MODS.md 中的 dsh / DeepSeek Harness）源码研究
 + 一次接手前的对照勘探（2026-08-31，对照 opencode 类开源 coding harness 的日常循环，产出 §3.5）。
 **总纲**：`DESIGN-PRINCIPLES.md` 七条全部适用（原则七于 2026-08-31 修订：判据从"工具数量"改为"循环形状"，
@@ -143,6 +144,20 @@ AIRI 的原语是「消息串行队列」。所有缺失的常识都是这一差
 **目标**：回合成为一等对象；用户获得真正的停止权与插话权；续跑不再违抗用户。
 顺带解掉 10 步硬上限。
 
+### 3.0 实施状态（2026-09-01：**六项全部落地并提交**）
+
+| 项 | 状态 | 落点 |
+|---|---|---|
+| 步数预算参数化 | ✅ | `StreamOptions.maxSteps` →`llm-service.ts` 的 `stepCountAtLeast(maxSteps)`；`chat.ts` 计划轮 50 / 普通轮 10；倒数第二步经 `prepareStep` 注入收束提示，命中记 `turn/end {reason:'max-steps'}` |
+| per-turn AbortController 全链穿透 | ✅ | 每次 `performSend` 建 controller 并传入 `deps.llm.stream`；新增 `abortActiveSend(sessionId?)`；中止时给未结算的 tool call 补写合成失败结果，日志仍可回放 |
+| journal 回合事件 | ✅ | `turn/start` + `turn/end {reason: completed \| aborted \| steered \| max-steps \| error}` |
+| 串行队列升级双车道 | ✅ | `ChatSendDelivery = 'next-step' \| 'next-turn'`；steer 在 `prepareStep` 边界优雅中止；`cancelQueuedSend(id)` 逐条撤销 |
+| UI 停止按钮 | ✅ | `InteractiveArea.vue`：`sending` 时发送键变停止键、Esc 同效、队列坞可撤销；Enter = 插话，Shift+Enter = 排队 |
+| 续跑调度重写（R2 根修） | ✅ | 续跑只在带 `planId` 的回合后调度；预算从「每用户消息」改为**每计划**；`runnablePlanStep` 走 `scopedActivePlans(sessionId)`；停止意图或停止键把计划置 `paused`，paused 计划零调度 |
+
+同期附带落地：life-mode 日预算改为「tick 被消费时才计费」（`lifeModeConsumeTick`），
+不再发出即扣费而回合根本没跑。
+
 ### 3.1 改动清单
 
 1. **步数预算参数化**
@@ -208,6 +223,28 @@ AIRI 的原语是「消息串行队列」。所有缺失的常识都是这一差
 工具面按「是否改变工作循环的形状」扩张。本批新增的每一项都改变形状；
 被同一修订明确排除的（第 N 个同形状只读工具）不在本批。
 
+### 3.5.0 实施状态（2026-09-01：**七项全部落地并提交**）
+
+**下面 §3.5.1 的诊断表保留原始现状描述**（它记录的是为什么要做，不是当前状态），
+实施进度只看本节：
+
+| # | 项 | 状态 | 落点 |
+|---|---|---|---|
+| C1 | 检索原语 `grep` | ✅ 已落地 | `tools/grep.ts`（纯：`--json` 解析、边界钳制、投影渲染）+ `tools/grep-search.ts`（ripgrep 进程 + Node 兜底走查）+ `workspace-host.grep`；签名按**文件总行数**算，与 `read` 投影逐字节一致（已断言）；工具面里 `grep` 排在 `read` 前 |
+| C2 | `read` 分页 | ✅ 已落地 | `hashline/read.ts`：`{ offset, limit }` + `DEFAULT_READ_LINE_LIMIT = 400`；签名仍按总行数算（`lineSignature(content, { lineCount })`，`lineCount` 取自切片前的 `lines.length`） |
+| C3 | `edit` 范围化 + `insertAfter` | ✅ 已落地 | `hashline/edit.ts`：`endSignature?` + `operation: replace \| insertAfter` + `afterSignature`；`coding-tool-meta.ts` 描述同步 |
+| C4 | `write` 陈旧校验 | ✅ 已落地 | `workspace-host.ts`：`writeFileIfUnchanged(path, content, baseHash)` → `written \| state_changed{currentHash}`；`baseHash: null` 表示"预期不存在"；哈希由 `hashline/text.ts` 的 `contentHash`（FNV-1a → 8 位十六进制）产出 |
+| C5 | shell 显式化 | ✅ 已落地 | `tools/shell.ts`（纯选择器）+ `tools/shell-probe.ts`（`git --exec-path` → 程序目录 → PATH → PowerShell）；`execFile` 显式传 shell（Git-Bash 用 `-lc` + `CHERE_INVOKING=1`，否则登录 profile 会把 cwd 换成 `$HOME`）；`bashDescriptionFor(shell)` 动态描述、结果头部带 shell；`classifyBashCommand` 补 PowerShell cmdlet 与别名 |
+| C6 | CRLF 保真 | ✅ 已落地 | 新增 `hashline/text.ts`：`parseTextFile`（按 `/\r?\n/` 切行、探测主导行尾、报 `mixedLineEndings`）+ `joinTextFile` |
+| C7 | 工作区根目录可切换 | ✅ 已落地 | `codingHostSetWorkspaceRoot` + `codingWorkspaceRootChanged`；主进程校验（存在 / 是目录 / 可写）后**一起重建** host + tools + codeRuntime；切换持久化到 `<userData>/coding-host.json` 并压过 `AIRI_WORKSPACE_ROOT`；切根写 journal `context/inject`；设置页「Coding」可切根并显示当前 shell |
+
+**实施顺序与实测补记（2026-09-01）**：按建议顺序 C5 → C1 → C7 执行。
+`@vscode/ripgrep@^1.18.0` 已装并登记进 catalog；本机实测该版本以平台子包
+（`@vscode/ripgrep-win32-x64`）直接分发 `rg.exe`（`ripgrep 15.0.0`），
+没有走 postinstall 下载，故 `MODS.md` 记的「只认小写 `https_proxy`」这一坑
+本次未触发——但结论不变，换平台或换版本时仍按那条处理。
+Node 兜底走查保留，且**降级在结果文本里明说**（M2 教训）。
+
 ### 3.5.1 诊断（全部已对到代码，行号为 2026-08-31 基线）
 
 | # | 缺口 | 现状 | 后果 |
@@ -256,13 +293,21 @@ AIRI 的原语是「消息串行队列」。所有缺失的常识都是这一差
 1. **检索原语（C1）**——新增 `grep` 工具，落在 coding-host（主进程持有工作区）：
    - 参数 `{ pattern, path?, glob?, maxMatches?, contextLines? }`；返回 `文件:行号: 内容` 扁平列表，
      **带每行签名**（与 `read` 投影同形状，命中行可直接喂 `edit`，省掉一次 read）。
-   - 实现优先探测系统 `rg`（`--json` 或 `--vimgrep`）；不可用则回落 Node 侧遍历
-     （复用 `resolveInsideWorkspace` 做包含性检查，`node_modules`/`.git`/`dist` 默认排除）。
-     **不要**用 `bash grep` 实现——那会把 C5 的平台问题继承进来，且 grep 输出要过审批分级。
+     签名宽度按**该文件总行数**算，与 `read` 一致（否则命中行签名喂不进 `edit`，见 §8 第 8 条）。
+   - **不要**用 `bash grep` 实现——那会把 C5 的平台问题继承进来，且 grep 输出要过审批分级。
    - 结果有界：默认 50 命中 / 每行截断至 200 字符，超出报总数与"请收窄 pattern"。
-   - **依赖决策待用户拍板**：是否引入 `@vscode/ripgrep`（自带二进制、跨平台）
-     还是只探测系统 `rg` + Node 回落。按 `AGENTS.md`「新依赖必须由用户选择」，
-     实施前列成对照表交用户判断，不要自行选定。
+   - **检索后端已定（2026-08-31 用户拍板）：引入 `@vscode/ripgrep`，自带平台二进制。**
+     判据是「任何用户机器上行为一致」——只探测系统 `rg` 会让行为随机器变
+     （本机实测 `rg` 不在 PATH，即一直走慢回落），而"行为随环境不确定"正是原则一要消除的；
+     纯 Node 遍历在 AIRI 这种体量的仓库上慢到影响循环。
+     具体要求：
+     - 二进制路径从包导出的 `rgPath` 取，**不要硬编码路径**；开发态与 asar 打包态的路径不同。
+     - 打包：`electron-builder.config.ts` 的 `asarUnpack` 需覆盖该二进制
+       （现有条目只有 `**/*.node`），否则打包后进程内拿到的是 asar 内路径、`spawn` 直接 ENOENT。
+       主进程 bundling 另按 §8 第 2 条双配置处理（`externalizeDeps.exclude` + `resolve.alias`，整包名）。
+     - postinstall 下载走代理时注意本仓已记载的坑：**只认小写 `https_proxy`**（`MODS.md` 构建配方节）。
+     - 仍保留一条 Node 遍历兜底路径，只在二进制缺失/spawn 失败时启用，并在结果里明说已降级
+       ——降级必须可见（M2 的教训：静默降级会让模型继续表演能力）。
 2. **`read` 分页（C2）**——`buildSignedFileProjection` 增加 `{ offset?, limit? }`
    （缺省 limit 建议 400 行，与现有 `DEFAULT_MAX_LINE_CONTENT_LENGTH` 并列声明）：
    - 投影头部补 `总行数 / 本次范围 / 是否还有后续`，让模型知道自己只看了一段
@@ -273,13 +318,33 @@ AIRI 的原语是「消息串行队列」。所有缺失的常识都是这一差
    `applyHashlineEdit` 的四种机械裁决（`state_changed` / `ambiguous` / `prefix_mismatch` / `applied`）
    语义不变，`ambiguous` 对 start/end 各自独立判定。
 4. **`write` 陈旧校验（C4）**——见 §3.5.2 第 2 条。
-5. **shell 显式化（C5）**——两件事，都不改变审批分级：
-   - `createNodeWorkspaceHost` 的 `runCommand` 在 win32 显式选 shell 并**在工具描述里声明当前 shell**
-     （`CODING_TOOL_META.bash.description` 动态附「当前 shell：PowerShell / sh」）。
-     选 PowerShell 还是随附 busybox/git-bash 属平台决策，**列表交用户拍板**。
-   - `classifyBashCommand`（`authority/approval.ts:43-68`）的分级正则目前只覆盖 POSIX 形态；
-     选定 shell 后按该 shell 的等价命令补齐（如 `Remove-Item` 对应 `rm`、`Invoke-WebRequest` 对应 `curl`）。
-     **这是安全项不是便利项**：分级表漏一条，高危命令就降级成 read-only 直接执行。
+5. **shell 显式化（C5）**——**方案已定（2026-08-31 用户拍板）：探测 Git-Bash →
+   缺失回落 PowerShell → 无论走哪条都在工具描述里动态声明当前 shell。**
+
+   选 Git-Bash 作首选的判据是**安全面**而非便利：`classifyBashCommand`
+   （`authority/approval.ts:43-68`）的分级正则全是 POSIX 形态，Git-Bash 让它继续有效；
+   换 PowerShell 等于要重写整张分级表，而漏一条就是高危命令降级为 read-only 直接执行、
+   不弹审批卡（§8 第 7 条）。用"补正则"这个安全任务换"模型少试错"不划算。
+
+   实现要点：
+   - **探测**：按序找 `git --exec-path` 推出的 `usr/bin/bash.exe`、
+     `%ProgramFiles%\Git\bin\bash.exe`、PATH 上的 `bash`。
+     本机实测两者都在（`C:\Program Files\Git\usr\bin` 下有 `grep.exe`，
+     PowerShell 在 `System32\WindowsPowerShell\v1.0`），但**不能假设用户机器有 Git**。
+     探测结果缓存在 host 上，不要每条命令重探。
+   - **`runCommand` 改造**：`execFile` 当前传 `{ shell: true }`，win32 上解析 `ComSpec`
+     （本机实测 = `cmd.exe`）。改为显式传选定的 shell 可执行文件 + 其命令参数
+     （bash 用 `-lc`、PowerShell 用 `-NoProfile -Command`），不再依赖 `shell: true` 的平台默认。
+   - **声明当前 shell**：`CODING_TOOL_META.bash.description` 需要能带运行时事实
+     （当前是纯静态常量）。做成 `bashDescriptionFor(shell)` 之类的纯函数，
+     由 coding-host 在 `listTools` / 工具注册时注入，**保持 meta 模块无副作用**
+     （该模块的现有约束：浏览器包要能只引元数据、不拉 Node 宿主）。
+   - **回落到 PowerShell 那条路仍须补分级正则**：`Remove-Item`/`ri`/`rd` 对应 `rm`、
+     `Invoke-WebRequest`/`iwr`/`curl` 别名对应网络出口、`Stop-Service`/`Restart-Service`
+     对应 `systemctl`、`Set-Content`/`Out-File`/`>>` 对应写入。
+     逐条加测试样本，不要批量正则改写（§8 第 7 条）。
+     PowerShell 的**别名**是这里最容易漏的一类（`ri`/`iwr`/`sc`）。
+   - 两条路都要在 journal / 工具结果里可辨认当前 shell，否则真机排查时无法判断她在哪种 shell 下失败。
 6. **CRLF 保真（C6）**——在 coding-host 的读写边界统一：
    - `read` 侧按 `/\r?\n/` 切行，**签名只对不含行尾符的内容计算**；
      同时探测文件主导行尾（首个 `\r\n` 或 `\n`）并随投影返回。
@@ -295,10 +360,21 @@ AIRI 的原语是「消息串行队列」。所有缺失的常识都是这一差
 
 ### 3.5.4 测试
 
-- coding-harness 纯函数：分页（含"签名按总行数计算"的跨页一致性）、范围 edit、insertAfter、
-  `write` 陈旧校验的三态（匹配 / 失配 / 新建声明失配）、CRLF 与混合行尾往返保真。
-- coding-host policy：grep 结果有界与路径包含性；win32 分级正则补齐后的新增高危样本。
-- 真机：T8、T9、T10（见 §7）。
+已落地部分（C2/C3/C4/C6）的测试面：`hashline/read.test.ts`、`hashline/edit.test.ts`、
+`hashline/text.test.ts`、`tools/coding-tools.test.ts`——覆盖分页（含"签名按总行数计算"的
+跨页一致性）、范围 edit、insertAfter、`write` 陈旧校验三态（匹配 / 失配 / 新建声明失配）、
+CRLF 与混合行尾往返保真。
+
+剩余三项要补的：
+
+- **C1 grep**：结果有界（命中数上限、行截断）、路径包含性（`resolveInsideWorkspace` 不可绕出根）、
+  命中行签名与同文件 `read` 投影**逐字节一致**（否则喂不进 `edit`——这是最容易漏的断言）、
+  二进制缺失时降级路径可见。
+- **C5 shell**：探测顺序（Git-Bash → PowerShell）的纯函数化选择器 + 缺失场景；
+  PowerShell 分级正则的新增高危样本，**别名必须单独列样本**（`ri` / `iwr` / `sc`）。
+- **C7 切根**：目标不存在 / 不可写时拒绝；切根后 `host` 与 `codeRuntime` 都指向新根
+  （断言 Code Mode 也换了根，这是最容易漏的一半）。
+- 真机：T8、T9、T10、T11（见 §7）。
 
 ---
 
@@ -461,16 +537,18 @@ T2/T3 在批次一合并前录制为常驻回归；T10 在批次一·五合并�
    碰 `chat.ts` / `life-mode.ts`——动手前先验证（定向测试 + typecheck）并提交入库。
 5. **提交纪律**：Conventional Commits，不使用 gitmoji；批次完成后按仓库体例在 `MODS.md`
    补批次小节（动机/改动/验证/遗留）。
-6. **新依赖必须由用户选择**（`AGENTS.md` 明文）：批次一·五有两处依赖决策——
-   grep 的 ripgrep 来源（`@vscode/ripgrep` 自带二进制 vs 只探测系统 `rg` + Node 回落）、
-   win32 的 shell 选择（PowerShell vs 随附 git-bash/busybox）。
-   **不要自行选定**：列成 Markdown 对照表交用户判断，然后再动手。
+6. **新依赖必须由用户选择**（`AGENTS.md` 明文）：批次一·五的两处依赖决策
+   **已于 2026-08-31 拍板**（`@vscode/ripgrep`；探测 Git-Bash → 回落 PowerShell），
+   见 §3.5.3 第 1 / 第 5 条。此后若还要引入新依赖（例如 glob 匹配库），
+   同样**不要自行选定**：列成 Markdown 对照表交用户判断，然后再动手。
 7. **改分级正则是安全变更**：`classifyBashCommand`（`authority/approval.ts:43-68`）漏一条
    高危模式，该命令就降级为 read-only 直接执行、不弹审批卡。补 win32 等价命令时
-   逐条加测试样本，不要批量正则改写。
-8. **签名宽度按文件总行数**：`read` 分页后 `signatureLengthForLineCount` 的入参仍必须是
-   **文件总行数**而非本页行数，否则同一行跨页签名不同、`edit` 必然失配。
-   这是批次一·五唯一容易静默写错的地方。
+   逐条加测试样本，不要批量正则改写。**PowerShell 别名**（`ri` / `iwr` / `sc`）
+   是最容易漏的一类，每个别名单独一条样本。
+8. **签名宽度按文件总行数**：`read` 分页与 `grep` 命中行的
+   `signatureLengthForLineCount` 入参必须是**文件总行数**而非本页/本次命中行数，
+   否则同一行在不同调用里签名不同、`edit` 必然失配。
+   这是批次一·五唯一容易静默写错的地方（C2 已按此实现，C1 实施时同样适用）。
 
 ## 9. 明确不在本计划范围
 
