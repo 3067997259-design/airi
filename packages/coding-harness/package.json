@@ -24,6 +24,10 @@
       "types": "./src/hashline/edit.ts",
       "default": "./src/hashline/edit.ts"
     },
+    "./hashline/diff": {
+      "types": "./src/hashline/diff.ts",
+      "default": "./src/hashline/diff.ts"
+    },
     "./hashline/read": {
       "types": "./src/hashline/read.ts",
       "default": "./src/hashline/read.ts"

@@ -3,6 +3,7 @@ import type { Tool } from '@xsai/shared-chat'
 import type { CodingShellDescriptor } from '../../../../shared/eventa'
 import type { CodingHostClient } from '../../../bridges/coding-host'
 
+import { summarizeLineDiff } from '@proj-airi/coding-harness/hashline/diff'
 import { applyHashlineEdit, applyHashlineInsertAfter } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
 import { joinTextFile, parseTextFile } from '@proj-airi/coding-harness/hashline/text'
@@ -68,8 +69,29 @@ const writeParams = z.object({
 })
 
 async function executeWrite(input: { path: string, content: string, baseHash: string | null }): Promise<string> {
-  const result = await createCodingHostClient().writeFileIfUnchanged(input)
-  return JSON.stringify({ path: input.path, ...result })
+  const client = createCodingHostClient()
+  // Read before writing so the result can show what changed. Whole-file writes
+  // are the path a model actually takes, and "wrote <path>" gave the user no
+  // way to review it (HARNESS-PLAN §9.1).
+  const before = input.baseHash === null ? [] : await readLinesOrEmpty(client, input.path)
+  const result = await client.writeFileIfUnchanged(input)
+  if (result.status === 'state_changed')
+    return JSON.stringify({ path: input.path, ...result })
+
+  const diff = summarizeLineDiff(before, parseTextFile(input.content).lines)
+  return diff.text
+    ? `${JSON.stringify({ path: input.path, ...result })}\n${diff.text}`
+    : JSON.stringify({ path: input.path, ...result })
+}
+
+/** Reads a file for diffing; a missing file simply has no previous content. */
+async function readLinesOrEmpty(client: CodingHostClient, path: string): Promise<string[]> {
+  try {
+    return parseTextFile((await client.readFile({ path })).content).lines
+  }
+  catch {
+    return []
+  }
 }
 
 const editParams = z.object({
@@ -114,7 +136,10 @@ async function executeEdit(input: { path: string, operation: 'replace' | 'insert
   })
   if (write.status === 'state_changed')
     return `edit rejected: ${JSON.stringify(write)}`
-  return JSON.stringify({ ...outcome.result, ...(snapshot.mixedLineEndings ? { lineEndingNormalized: true } : {}) })
+
+  const diff = summarizeLineDiff(snapshot.lines, outcome.lines)
+  const applied = JSON.stringify({ ...outcome.result, ...(snapshot.mixedLineEndings ? { lineEndingNormalized: true } : {}) })
+  return diff.text ? `${applied}\n${diff.text}` : applied
 }
 
 function requiredSignature(value: string | undefined, name: string): string {

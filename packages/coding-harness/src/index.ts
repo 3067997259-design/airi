@@ -1,3 +1,6 @@
+export { DEFAULT_DIFF_LINE_LIMIT, summarizeLineDiff } from './hashline/diff'
+export type { LineDiffOptions, LineDiffSummary } from './hashline/diff'
+
 export { applyHashlineEdit, MIN_EXPECTED_PREFIX_LENGTH } from './hashline/edit'
 export type { HashlineEditOutcome, HashlineEditParams, HashlineEditResult } from './hashline/edit'
 

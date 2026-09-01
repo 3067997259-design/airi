@@ -12,6 +12,7 @@ import type { WorkspaceHost } from './workspace-host'
 
 import { classifyBashCommand } from '@proj-airi/core-agent'
 
+import { summarizeLineDiff } from '../hashline/diff'
 import { applyHashlineEdit, applyHashlineInsertAfter } from '../hashline/edit'
 import { formatSignedFileProjection } from '../hashline/read'
 import { joinTextFile, parseTextFile } from '../hashline/text'
@@ -156,7 +157,13 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         const path = requireString(toolArgs, 0, 'path')
         const content = requireString(toolArgs, 1, 'content')
         const baseHash = requireBaseHash(toolArgs, 2)
-        return { path, ...await host.writeFileIfUnchanged(path, content, baseHash) }
+        // A whole-file write is unreviewable without the change it made; the
+        // result carries the line summary (HARNESS-PLAN §9.1).
+        const before = baseHash === null ? [] : parseTextFile((await host.readFile(path).catch(() => ({ content: '' }))).content).lines
+        const result = await host.writeFileIfUnchanged(path, content, baseHash)
+        if (result.status === 'state_changed')
+          return { path, ...result }
+        return { path, ...result, diff: summarizeLineDiff(before, parseTextFile(content).lines).text }
       },
     },
     {
@@ -201,6 +208,7 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         return {
           path,
           result: outcome.result,
+          ...(outcome.result.status === 'applied' ? { diff: summarizeLineDiff(snapshot.lines, outcome.lines).text } : {}),
           ...(snapshot.mixedLineEndings && outcome.result.status === 'applied' ? { lineEndingNormalized: true } : {}),
         }
       },
