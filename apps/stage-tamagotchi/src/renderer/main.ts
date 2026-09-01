@@ -12,7 +12,7 @@ import { piniaPluginTracing, setupSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { handleHotUpdate, routes } from 'vue-router/auto-routes'
 
@@ -66,10 +66,19 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
     const { useJournalStore } = await import('@proj-airi/stage-ui/stores/journal')
     const { useChatSessionStore } = await import('@proj-airi/stage-ui/stores/chat/session-store')
     try {
-      // Replay before the plan store hydrates: plan state is derived from the
-      // journal, so a restored plan needs its events back first
+      // Session selection restores asynchronously from its synced snapshot, so
+      // the active session id is still empty at this point. Replay whatever
+      // session becomes active, and again on every later switch, instead of
+      // once here with an id that cannot be known yet. Plans hydrate after
+      // this watcher is armed: plan state derives from journal events, and the
+      // journal store updates reactively when a replay lands
       // (HARNESS-PLAN §9.1).
-      await useJournalStore().hydrate(useChatSessionStore().activeSessionId)
+      const journalStore = useJournalStore()
+      const chatSessionStore = useChatSessionStore()
+      watch(() => chatSessionStore.activeSessionId, (sessionId) => {
+        if (sessionId)
+          void journalStore.hydrate(sessionId)
+      }, { immediate: true })
     }
     catch (error) {
       console.warn('[Boot] Journal replay failed.', error)
