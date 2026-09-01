@@ -1,6 +1,7 @@
 export { ChatActionMenu } from './components/action-menu'
 export { default as ChatApprovalCard } from './components/approval-card.vue'
 export { default as ChatAssistantItem } from './components/assistant-item.vue'
+export { default as ChatBtwCard } from './components/btw-card.vue'
 export { default as ChatErrorItem } from './components/error-item.vue'
 export { default as ChatHistory } from './components/history.vue'
 export { default as ChatQuestionCard } from './components/question-card.vue'

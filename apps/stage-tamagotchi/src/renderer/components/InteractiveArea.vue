@@ -5,7 +5,7 @@ import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
-import { ChatHistory, ChatQuestionCard, JournalPreviewModal } from '@proj-airi/stage-ui/components'
+import { ChatBtwCard, ChatHistory, ChatQuestionCard, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
@@ -568,6 +568,7 @@ async function handleCleanupMessages() {
         @change="handleFileSelect"
       >
     </div>
+    <ChatBtwCard :active="isActiveSessionSending" />
     <ChatQuestionCard />
     <div class="relative w-full">
       <div

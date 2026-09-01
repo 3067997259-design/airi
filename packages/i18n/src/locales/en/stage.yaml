@@ -37,6 +37,10 @@ chat:
       retry: Retry
   todo-card:
     title: Task list
+  btw-card:
+    title: Ask while she works
+    placeholder: Ask something; her work keeps running…
+    stop: Stop answering
   approval-card:
     title: Approval required
     expected-evidence: Expected evidence

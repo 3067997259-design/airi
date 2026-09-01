@@ -37,6 +37,10 @@ chat:
       retry: 重试
   todo-card:
     title: 任务清单
+  btw-card:
+    title: 干活时问一句
+    placeholder: 随便问，她的活照跑…
+    stop: 停止回答
   approval-card:
     title: 需要批准
     expected-evidence: 预期证据
