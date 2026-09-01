@@ -212,6 +212,7 @@ catalog:
   '@vishot/renderer-browser': ^0.2.0
   '@vishot/source-electron': ^0.2.0
   '@vitejs/plugin-vue': ^6.0.8
+  '@vscode/ripgrep': ^1.18.0
   '@vue-macros/volar': ^3.1.4
   '@vue/test-utils': ^2.4.11
   '@vue/tsconfig': ^0.9.1
