@@ -15,8 +15,8 @@ import {
   AIRI_CHAT_SESSION_ID_HEADER,
 } from '../libs/analytics-headers'
 import { useChatStore } from './chat'
-import { useConsciousnessSettingsStore } from './modules/consciousness-settings'
 import { useJournalStore } from './journal'
+import { useConsciousnessSettingsStore } from './modules/consciousness-settings'
 import { usePlanStore } from './plans'
 
 vi.hoisted(() => {

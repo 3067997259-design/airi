@@ -1,10 +1,11 @@
+import type { LifeModePort, LifeTickPayload } from './life-mode'
+
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useChatSessionStore } from '../chat/session-store'
 import { useJournalStore } from '../journal'
 import { usePlanStore } from '../plans'
-import type { LifeModePort, LifeTickPayload } from './life-mode'
 import { advanceLongGoalStallState, buildStimulusBrief, installLifeModePort, useLifeModeStore } from './life-mode'
 
 const chat = vi.hoisted(() => ({

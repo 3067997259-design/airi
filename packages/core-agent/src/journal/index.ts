@@ -24,6 +24,7 @@ export type {
   JournalEvent,
   JournalEventInput,
   JournalEventType,
+  PlanHintEvent,
   PlanUpdateEvent,
   ReviewAskedEvent,
   ReviewDecidedEvent,

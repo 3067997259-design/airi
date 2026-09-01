@@ -8,6 +8,7 @@ import type { HistoryItem, Message as StructuredMessage } from '../messages/type
 import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatStreamEventContext, ChatToolReference, ContextMessage, ErrorMessage, StreamingAssistantMessage } from '../types/chat'
 import type { LlmUsage, StreamEvent, StreamOptions } from '../types/llm'
 
+import { errorMessageFrom } from '@moeru/std'
 import { ContextUpdateStrategy } from '@proj-airi/server-shared/types'
 import { createQueue } from '@proj-airi/stream-kit'
 
@@ -54,6 +55,31 @@ function cloneStreamingMessage(message: StreamingAssistantMessage): StreamingAss
  * speak, note privately, or stay silent.
  */
 export type ChatSendSource = 'text' | 'voice' | 'self-initiative' | 'btw'
+
+/** One unresolved plan step a turn may attach tool evidence to. */
+export interface PlanStepCandidate {
+  planId: string
+  stepId: string
+  allowedTools: readonly string[]
+  /** Whether the plan currently points at this step. */
+  focused?: boolean
+}
+
+/**
+ * Where one tool event belongs in the plan.
+ *
+ * Either the identity of the step that accepts the tool, or a mismatch that
+ * says which tools the plan's open steps do accept.
+ */
+interface PlanLink {
+  planId?: string
+  stepId?: string
+  mismatch?: {
+    planId: string
+    focusedStepId?: string
+    allowedTools: string[]
+  }
+}
 
 /** Delivery lane for a send that arrives while another turn is active. */
 export type ChatSendDelivery = 'next-step' | 'next-turn'
@@ -321,12 +347,17 @@ export interface ChatOrchestratorRuntimeDeps {
   /** Optional journal sink for chat, tool, and context lifecycle events. */
   journal?: ChatOrchestratorJournalPort
   /**
-   * Returns the plan step the model is currently working on. Tool journal
-   * events are stamped with the step identity only when the tool is inside
-   * the step whitelist, so unrelated tool results can never satisfy a step's
-   * verification gate.
+   * Returns every unresolved step of the plan this turn belongs to.
+   *
+   * Tool journal events are stamped with a step identity only when that step
+   * accepts the tool, so unrelated results can never satisfy a verification
+   * gate. Candidates are not limited to the focused step: a model that works
+   * across steps in one turn would otherwise lose the evidence of every step
+   * except the focused one, and the plan could never complete
+   * (HARNESS-PLAN §0.2 R3). Order matters — the runtime prefers the focused
+   * candidate, then the first accepting step in plan order.
    */
-  getActivePlanStep?: (options: ChatOrchestratorSendOptions) => { planId: string, stepId: string, allowedTools: readonly string[] } | undefined
+  getPlanStepCandidates?: (options: ChatOrchestratorSendOptions) => readonly PlanStepCandidate[]
   /** Clock used for persisted message timestamps. @default Date.now */
   now?: () => number
   /** Monotonic clock used for elapsed telemetry in milliseconds. @default performance.now */
@@ -592,12 +623,34 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     }
   }
 
-  /** Plan identity stamped onto tool events, or nothing when unlinked. */
-  function planLinkFor(toolName: string, options: ChatOrchestratorSendOptions): { planId?: string, stepId?: string } {
-    const step = deps.getActivePlanStep?.(options)
-    if (!step || !step.allowedTools.includes(toolName))
+  /**
+   * Plan identity stamped onto tool events.
+   *
+   * The focused step wins when it accepts the tool; otherwise the first open
+   * step that accepts it does, so evidence produced out of order still lands
+   * on the step it belongs to. When no open step accepts the tool the result
+   * stays unstamped and `mismatch` describes what the plan does accept, which
+   * the caller journals as a hint instead of dropping the fact in silence.
+   */
+  function planLinkFor(toolName: string, options: ChatOrchestratorSendOptions): PlanLink {
+    const candidates = deps.getPlanStepCandidates?.(options) ?? []
+    if (candidates.length === 0)
       return {}
-    return { planId: step.planId, stepId: step.stepId }
+
+    const accepts = (candidate: PlanStepCandidate) => candidate.allowedTools.includes(toolName)
+    const match = candidates.find(candidate => candidate.focused && accepts(candidate))
+      ?? candidates.find(accepts)
+    if (match)
+      return { planId: match.planId, stepId: match.stepId }
+
+    const focused = candidates.find(candidate => candidate.focused)
+    return {
+      mismatch: {
+        planId: candidates[0].planId,
+        ...(focused ? { focusedStepId: focused.stepId } : {}),
+        allowedTools: [...new Set(candidates.flatMap(candidate => [...candidate.allowedTools]))],
+      },
+    }
   }
 
   function emitStateChange() {
@@ -1214,6 +1267,19 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
                 summary: typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result ?? ''),
                 ...(resultLink.planId ? { planId: resultLink.planId, stepId: resultLink.stepId } : {}),
               })
+              // Evidence that no open step accepts is a routing problem, not a
+              // failure: the hint reaches the model through the plan
+              // projection so it can focus or switch tools next step.
+              if (resultLink.mismatch) {
+                appendJournal(sessionId, {
+                  type: 'plan/hint',
+                  planId: resultLink.mismatch.planId,
+                  toolName: resultToolName,
+                  allowedTools: resultLink.mismatch.allowedTools,
+                  ...(resultLink.mismatch.focusedStepId ? { focusedStepId: resultLink.mismatch.focusedStepId } : {}),
+                  timestamp: now(),
+                })
+              }
               updateStream(sessionId, buildingMessage)
             }
           },
@@ -1585,7 +1651,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       if (isStaleGeneration())
         return
 
-      turnError = error instanceof Error ? error.message : String(error)
+      turnError = errorMessageFrom(error) ?? String(error)
       console.error('Error sending message:', error)
       // A failed turn that already performed tool calls still carries context
       // the next turn needs. Persist the partial assistant message with its

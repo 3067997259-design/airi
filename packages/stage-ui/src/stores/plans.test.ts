@@ -87,6 +87,49 @@ describe('plan store', () => {
     }))
   })
 
+  it('advances the focus to the next unresolved step once evidence completes one', async () => {
+    // ROOT CAUSE:
+    //
+    // currentStepId was derived only from steps the gate marked in_progress or
+    // blocked. The moment a step completed, no step held either status, the
+    // fallback snapshot pointed at the finished step and was dropped, and the
+    // projection stopped naming any step at all — so the model had nothing to
+    // focus and the plan stalled with work left (HARNESS-PLAN §4.1).
+    const twoSteps: PlanSpec = {
+      ...SPEC,
+      steps: [
+        SPEC.steps[0],
+        {
+          id: 'report',
+          lane: 'coding',
+          intent: 'Summarize the result',
+          allowedTools: ['read'],
+          expectedEvidence: [{ source: 'tool_result', description: 'summary read' }],
+          riskLevel: 'low',
+          approvalRequired: false,
+        },
+      ],
+    }
+    const store = usePlanStore()
+    const id = await store.start(twoSteps, 'plan-advance')
+
+    expect(store.planViews[0]?.state.currentStepId).toBe('verify')
+
+    await store.recordToolResult({
+      planId: id,
+      stepId: 'verify',
+      toolName: 'bash',
+      ok: true,
+      summary: 'tests pass',
+      provenance: 'builtin',
+    })
+
+    // No focusStep call happened; the next step is derived from the gate.
+    expect(store.planViews[0]?.state.completedSteps).toEqual(['verify'])
+    expect(store.planViews[0]?.state.currentStepId).toBe('report')
+    expect(store.planViews[0]?.status).toBe('in_progress')
+  })
+
   it('hydrates the persisted state snapshot when the journal is empty', async () => {
     persistence.loadPlans.mockResolvedValueOnce([{
       id: 'plan-restored',

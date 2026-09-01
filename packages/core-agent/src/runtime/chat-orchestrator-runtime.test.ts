@@ -4,7 +4,7 @@ import type { Message } from '@xsai/shared-chat'
 import type { JournalEventInput } from '../journal/types'
 import type { ChatHistoryItem, ContextMessage, StreamingAssistantMessage } from '../types/chat'
 import type { StreamEvent, StreamOptions } from '../types/llm'
-import type { ChatMemoryContextItem, ChatOrchestratorSendOptions } from './chat-orchestrator-runtime'
+import type { ChatMemoryContextItem, ChatOrchestratorSendOptions, PlanStepCandidate } from './chat-orchestrator-runtime'
 
 import { ContextUpdateStrategy } from '@proj-airi/server-shared/types'
 import { describe, expect, it, vi } from 'vitest'
@@ -18,7 +18,7 @@ const provider = {
 function createHarness(options: {
   withMemory?: boolean
   withCompaction?: boolean
-  planSteps?: Record<string, { planId: string, stepId: string, allowedTools: readonly string[] }>
+  planSteps?: Record<string, PlanStepCandidate[]>
 } = {}) {
   const sessionMessages: Record<string, ChatHistoryItem[]> = {
     'session-1': [
@@ -116,7 +116,7 @@ function createHarness(options: {
         journalEvents.push(event)
       },
     },
-    getActivePlanStep: sendOptions => options.planSteps?.[sendOptions.planId ?? ''],
+    getPlanStepCandidates: sendOptions => options.planSteps?.[sendOptions.planId ?? ''] ?? [],
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
     now: () => nowValue,
@@ -741,8 +741,8 @@ describe('createChatOrchestratorRuntime', () => {
   it('links task tool evidence to the plan selected by the send', async () => {
     const harness = createHarness({
       planSteps: {
-        'goal-1': { planId: 'goal-1', stepId: 'inspect', allowedTools: ['read'] },
-        'goal-2': { planId: 'goal-2', stepId: 'write', allowedTools: ['write'] },
+        'goal-1': [{ planId: 'goal-1', stepId: 'inspect', allowedTools: ['read'], focused: true }],
+        'goal-2': [{ planId: 'goal-2', stepId: 'write', allowedTools: ['write'], focused: true }],
       },
     })
     harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
@@ -775,6 +775,90 @@ describe('createChatOrchestratorRuntime', () => {
       ok: true,
     }))
     expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({ planId: 'goal-2' }))
+  })
+
+  it('attaches evidence to an unfocused step that accepts the tool', async () => {
+    // ROOT CAUSE:
+    //
+    // Stamping used the focused step alone, so a turn that ran step two while
+    // the plan still pointed at step one lost that evidence for good: the
+    // journal kept an unstamped result, the gate never saw it, and the step
+    // stayed pending forever (HARNESS-PLAN §0.2 R3).
+    const harness = createHarness({
+      planSteps: {
+        'goal-1': [
+          { planId: 'goal-1', stepId: 'inspect', allowedTools: ['read'], focused: true },
+          { planId: 'goal-1', stepId: 'apply', allowedTools: ['write'] },
+        ],
+      },
+    })
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'call-write',
+        toolName: 'write',
+        args: '{"path":"README.md"}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({
+        type: 'tool-result',
+        toolCallId: 'call-write',
+        result: 'wrote README.md',
+      } as StreamEvent)
+    })
+
+    await harness.runtime.ingest('apply the change', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      planId: 'goal-1',
+    })
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      toolName: 'write',
+      planId: 'goal-1',
+      stepId: 'apply',
+    }))
+    expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({ type: 'plan/hint' }))
+  })
+
+  it('records a routing hint when no open step accepts the tool', async () => {
+    const harness = createHarness({
+      planSteps: {
+        'goal-1': [{ planId: 'goal-1', stepId: 'inspect', allowedTools: ['read'], focused: true }],
+      },
+    })
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'call-bash',
+        toolName: 'bash',
+        args: '{"command":"ls"}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({
+        type: 'tool-result',
+        toolCallId: 'call-bash',
+        result: 'README.md',
+      } as StreamEvent)
+    })
+
+    await harness.runtime.ingest('look around', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      planId: 'goal-1',
+    })
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'plan/hint',
+      planId: 'goal-1',
+      toolName: 'bash',
+      allowedTools: ['read'],
+      focusedStepId: 'inspect',
+    }))
+    expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      toolName: 'bash',
+      stepId: 'inspect',
+    }))
   })
 
   it('skips the self-initiative section and hook for ordinary sends', async () => {

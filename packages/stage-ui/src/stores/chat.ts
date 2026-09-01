@@ -170,8 +170,8 @@ function retrySourceIndexFrom(messages: ChatHistoryItem[], index: number): numbe
 const MEMORY_NEIGHBOR_MESSAGE_LIMIT = 4
 const MEMORY_NEIGHBOR_CHARACTER_LIMIT = 600
 
-const STOP_INTENT = /^(?:先\s*)?(?:停(?:一下|下来)?|停止|暂停|别(?:再)?做(?:了)?|不要继续|stop|pause|cancel)(?:[吧啊呀。.!！]?)+$/i
-const RESUME_INTENT = /^(?:继续|接着(?:做|来)?|恢复|resume|continue)(?:[吧啊呀。.!！]?)+$/i
+const STOP_INTENT = /^(?:先\s*)?(?:停(?:一下|下来)?|停止|暂停|别再?做了?|不要继续|stop|pause|cancel)[吧啊呀。.!！]*$/i
+const RESUME_INTENT = /^(?:继续|接着(?:做|来)?|恢复|resume|continue)[吧啊呀。.!！]*$/i
 
 function isStopIntent(text: string): boolean {
   return STOP_INTENT.test(text)
@@ -653,17 +653,27 @@ export const useChatStore = defineStore('chat', () => {
         return record
       },
     },
-    getActivePlanStep: (options) => {
+    getPlanStepCandidates: (options) => {
       const plan = options.planId
         ? planStore.planViews.find(candidate => candidate.id === options.planId)
         : planStore.scopedActivePlans(activeSessionId.value).at(-1)
-      const stepId = plan?.state.currentStepId
-      if (!plan || !stepId)
-        return undefined
-      const step = plan.spec.steps.find(candidate => candidate.id === stepId)
-      if (!step)
-        return undefined
-      return { planId: plan.id, stepId, allowedTools: step.allowedTools }
+      if (!plan)
+        return []
+
+      // Every unresolved step is a candidate, in plan order, with the focused
+      // one marked. A turn that works ahead of the focus still produces
+      // attachable evidence; a resolved step can no longer collect any.
+      const focusedStepId = plan.state.currentStepId
+      return plan.spec.steps
+        .filter(step => !plan.state.completedSteps.includes(step.id)
+          && !plan.state.failedSteps.includes(step.id)
+          && !plan.state.skippedSteps.includes(step.id))
+        .map(step => ({
+          planId: plan.id,
+          stepId: step.id,
+          allowedTools: step.allowedTools,
+          ...(step.id === focusedStepId ? { focused: true } : {}),
+        }))
     },
     foregroundStream: {
       patch: (message) => {
@@ -782,7 +792,6 @@ export const useChatStore = defineStore('chat', () => {
         assistantText: chat.outputText,
         sourceContext: createMemorySourceContext(sessionId, userMessageId, sessionMessages),
       }, extractMemoryTurn)
-
     },
     onAssistantTurnReady: ({ messageText, sessionMessages }) => {
       const artistry = cardStore.activeCard?.extensions?.airi?.modules?.artistry

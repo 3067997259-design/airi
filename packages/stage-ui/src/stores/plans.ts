@@ -75,6 +75,9 @@ function createPlanId(): string {
 }
 
 function eventMatchesPlan(event: JournalEvent, planId: string): boolean {
+  if (event.type === 'plan/hint')
+    return event.planId === planId
+
   if (event.type === 'approval/asked' || event.type === 'approval/decided')
     return event.planId === planId
   return (event.type === 'plan/update' || event.type === 'tool/call' || event.type === 'tool/result')
@@ -135,11 +138,19 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
     .map(step => ({ stepId: step.id, state: gateSnapshot.steps[step.id] }))
     .filter(({ stepId, state }) => state?.status === 'blocked' && state.reason && !completedSteps.includes(stepId))
     .map(({ state }) => state!.reason!)
-  const currentFromJournal = plan.spec.steps.find((step) => {
+  const startedStep = plan.spec.steps.find((step) => {
     const status = gateSnapshot.steps[step.id]?.status
     return status === 'in_progress' || status === 'blocked'
   })?.id
-  const currentCandidate = currentFromJournal ?? plan.stateSnapshot.currentStepId
+  // Focus advances by derivation, not by a write: once a step is resolved the
+  // first unresolved step becomes current. Without this the plan lost its
+  // focus the moment a step completed, and the projection stopped naming any
+  // next step even though the plan had work left (HARNESS-PLAN §4.1).
+  const nextUnresolvedStep = plan.spec.steps.find(step =>
+    !completedSteps.includes(step.id)
+    && !failedSteps.includes(step.id)
+    && !plan.stateSnapshot.skippedSteps.includes(step.id))?.id
+  const currentCandidate = startedStep ?? nextUnresolvedStep ?? plan.stateSnapshot.currentStepId
   const evidenceFromJournal: PlanEvidenceRef[] = planEvents.flatMap((event) => {
     if (event.type !== 'tool/result' || !event.ok || !event.stepId)
       return []
@@ -439,7 +450,17 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       : activePlan.value
     if (!plan)
       return ''
-    return buildTurnProjection({ plan: plan.spec, state: plan.state }).text
+
+    const recentHints = journal.events.flatMap((event) => {
+      if (event.type !== 'plan/hint' || event.planId !== plan.id)
+        return []
+      return [{ toolName: event.toolName, allowedTools: event.allowedTools }]
+    })
+    return buildTurnProjection({
+      plan: plan.spec,
+      state: plan.state,
+      ...(recentHints.length > 0 ? { recentHints } : {}),
+    }).text
   }
 
   function reset() {

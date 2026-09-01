@@ -13,11 +13,25 @@ import {
   summarizePlanStateForProjection,
 } from '../authority/contract'
 
+/** One tool result the plan could not attach, as the model should read it. */
+export interface TurnProjectionHint {
+  toolName: string
+  allowedTools: readonly string[]
+}
+
 export interface TurnProjectionInput {
   plan: PlanSpec
   state: PlanState
   recentEvidence?: readonly PlanEvidenceRef[]
   previousToolResult?: string
+  /**
+   * Tool results that no open step accepted, most recent last.
+   *
+   * Unattached results never reach a verification gate, so a turn that keeps
+   * using the wrong tool would stall the plan with no visible cause. Naming
+   * the mismatch is the structural alternative to hoping the model notices.
+   */
+  recentHints?: readonly TurnProjectionHint[]
 }
 
 export interface TurnProjection {
@@ -75,6 +89,14 @@ export function buildTurnProjection(input: TurnProjectionInput): TurnProjection 
     lines.push('', 'Recent evidence:')
     for (const ref of evidence)
       lines.push(`- ${ref.source}: ${sanitizePlanProjectionText(ref.summary)}`)
+  }
+
+  const hints = (input.recentHints ?? []).slice(-2)
+  if (hints.length > 0) {
+    lines.push('', 'Unattached tool results:')
+    for (const hint of hints) {
+      lines.push(`- ${sanitizePlanProjectionText(hint.toolName)} produced no step evidence. Open steps accept: ${hint.allowedTools.map(sanitizePlanProjectionText).join(', ') || 'none'}. Use one of those tools, or focus the step that needs this one.`)
+    }
   }
 
   if (input.previousToolResult?.trim()) {

@@ -17,6 +17,7 @@ export const JOURNAL_EVENT_TYPES = [
   'tool/call',
   'tool/result',
   'plan/update',
+  'plan/hint',
   'task/update',
   'context/inject',
   'event/reaction',
@@ -133,6 +134,26 @@ export interface TaskUpdateEvent {
   /** Full replace-self TaskMemory snapshot; the Nth update replaces the N-1th. */
   memory: Record<string, unknown>
   logRef?: string
+}
+
+/**
+ * A tool result that no open plan step accepts.
+ *
+ * The evidence gate reads stamped tool results only, so an unstamped result is
+ * invisible to it. Recording why keeps the mismatch visible to the model
+ * through the plan projection, instead of leaving a step pending forever with
+ * no explanation (HARNESS-PLAN §4.1).
+ */
+export interface PlanHintEvent {
+  type: 'plan/hint'
+  seq: number
+  planId: string
+  /** Tool whose result could not be attached. */
+  toolName: string
+  /** Tools the plan's open steps accept right now. */
+  allowedTools: string[]
+  focusedStepId?: string
+  timestamp: number
 }
 
 export interface ContextInjectEvent {
@@ -271,6 +292,7 @@ export type JournalEvent
     | ToolCallEvent
     | ToolResultEvent
     | PlanUpdateEvent
+    | PlanHintEvent
     | TaskUpdateEvent
     | ContextInjectEvent
     | EventReactionJournalEvent
