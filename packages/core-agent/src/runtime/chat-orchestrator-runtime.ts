@@ -951,17 +951,18 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       return undefined
 
     const textContent = typeof message.content === 'string' ? message.content : ''
+    const toolCalls = toolCallSlices.map((slice, index) => ({
+      id: slice.toolCall.toolCallId ?? `synthetic-${index + 1}`,
+      type: 'function' as const,
+      function: {
+        name: slice.toolCall.toolName ?? '',
+        arguments: slice.toolCall.args ?? '{}',
+      },
+    }))
     const transcript: Message[] = [{
       role: 'assistant',
       content: textContent,
-      tool_calls: toolCallSlices.map((slice, index) => ({
-        id: slice.toolCall.toolCallId ?? `synthetic-${index + 1}`,
-        type: 'function' as const,
-        function: {
-          name: slice.toolCall.toolName ?? '',
-          arguments: slice.toolCall.args ?? '{}',
-        },
-      })),
+      tool_calls: toolCalls,
     }]
     const answered = new Set(message.tool_results.map(result => result.id))
     for (const result of message.tool_results) {
@@ -974,7 +975,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     // A transcript with tool_calls but a missing result is rejected by the
     // provider on every later replay ("tool_calls must be followed by tool
     // messages"), so an interrupted turn must leave a self-consistent one.
-    for (const call of transcript[0]!.tool_calls ?? []) {
+    for (const call of toolCalls) {
       if (call.id && !answered.has(call.id)) {
         transcript.push({
           role: 'tool',

@@ -202,7 +202,12 @@ export async function streamFrom({
   const mergedTools = supportedTools ? [...builtinTools, ...customTools] : []
   const tools = mergedTools.length > 0 ? mergedTools : undefined
 
-  return new Promise<void>((resolve, reject) => {
+  // Retry bookkeeping shared by both attempts: a failure that already
+  // delivered stream content cannot be replayed, so only pre-content
+  // failures (the empty-upstream 400 class) qualify.
+  let delivered = false
+
+  const attempt = (): Promise<void> => new Promise<void>((resolve, reject) => {
     let settled = false
     let stepsSettled = false
     const resolveOnce = () => {
@@ -221,8 +226,10 @@ export async function streamFrom({
     const onEvent = async (event: Event) => {
       try {
         const streamEvent = toAiriStreamEvent(event)
-        if (streamEvent != null)
+        if (streamEvent != null) {
+          delivered = true
           await options?.onStreamEvent?.(streamEvent)
+        }
         if (streamEvent?.type === 'error')
           rejectOnce(streamEvent.error)
       }
@@ -334,6 +341,38 @@ export async function streamFrom({
       rejectOnce(error)
     }
   })
+
+  try {
+    await attempt()
+  }
+  catch (error) {
+    // Relay upstreams intermittently answer 400 with an empty candidate set
+    // (`empty_response_error` / "no valid content"). That failure is transient
+    // and content-of-the-moment, so replay once when nothing was streamed yet;
+    // a failure after real content cannot be replayed without duplicating it.
+    if (delivered || options?.abortSignal?.aborted || !isEmptyUpstreamResponseError(error))
+      throw error
+
+    await new Promise(resolve => setTimeout(resolve, 500))
+    if (options?.abortSignal?.aborted)
+      throw error
+    await attempt()
+  }
+}
+
+// Runtime auto-degrade: patterns that indicate an upstream answered with an
+// empty candidate set instead of content. Seen from OpenAI-compatible relays
+// fronting Gemini-style models as
+//   Remote sent 400 response: {"error":{"message":"Upstream returned no valid
+//   content","type":"empty_response_error"}}
+// The request shape is fine; the upstream simply produced nothing usable
+// (safety-blocked candidates or a degraded pool node), so a bounded replay is
+// the client-side remedy.
+const EMPTY_UPSTREAM_RESPONSE_PATTERN = /empty_response_error|no valid content/i
+
+/** Whether the failure is the transient upstream empty-response 400 class. */
+export function isEmptyUpstreamResponseError(error: unknown): boolean {
+  return EMPTY_UPSTREAM_RESPONSE_PATTERN.test(String(error))
 }
 
 // Runtime auto-degrade: patterns that indicate the model/provider does not support tool calling.

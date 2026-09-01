@@ -315,6 +315,59 @@ describe('streamFrom tool errors', () => {
       },
     })).rejects.toThrow('finish listener failed')
   })
+
+  it('replays once when the upstream answers the empty-response 400 before any content', async () => {
+    // Relay upstreams intermittently return an empty candidate set; the first
+    // attempt fails pre-content, so one bounded replay recovers the turn.
+    const emptyUpstream = new Error('Remote sent 400 response: {"error":{"message":"Upstream returned no valid content","type":"empty_response_error"}}')
+    streamTextMock.mockReturnValueOnce(createMockStreamResult(new Promise((_resolve, reject) => {
+      setTimeout(reject, 1, emptyUpstream)
+    })))
+    streamTextMock.mockReturnValueOnce(createMockStreamResult())
+
+    await streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'hello' }] as Message[],
+    })
+
+    expect(streamTextMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not replay an empty-upstream failure after content was already delivered', async () => {
+    const emptyUpstream = new Error('Remote sent 400 response: {"error":{"message":"Upstream returned no valid content","type":"empty_response_error"}}')
+    let rejectSteps: ((error: unknown) => void) | undefined
+    streamTextMock.mockReturnValueOnce(createMockStreamResult(new Promise((_resolve, reject) => {
+      rejectSteps = reject
+    })))
+
+    const pending = streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'hello' }] as Message[],
+    })
+    await vi.waitFor(() => expect(streamTextMock).toHaveBeenCalledTimes(1))
+    const onEvent = streamTextMock.mock.calls[0]?.[0]?.onEvent
+    await onEvent?.({ type: 'text.delta', delta: 'partial' })
+    rejectSteps?.(emptyUpstream)
+
+    await expect(pending).rejects.toThrow('no valid content')
+    expect(streamTextMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not replay unrelated 400 failures', async () => {
+    streamTextMock.mockReturnValueOnce(createMockStreamResult(new Promise((_resolve, reject) => {
+      setTimeout(() => reject(new Error('Remote sent 400 response: bad request')), 1)
+    })))
+
+    await expect(streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'hello' }] as Message[],
+    })).rejects.toThrow('bad request')
+
+    expect(streamTextMock).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('sanitizeMessages', () => {
