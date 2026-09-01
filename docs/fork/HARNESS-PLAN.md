@@ -395,8 +395,9 @@ CRLF 与混合行尾往返保真。
 | §9.1 | journal 落盘 + 回放 | ✅ | 主进程 `journal-host`（`<userData>/journal/<hash>.jsonl` 追加写 + 有界读回）+ 渲染端 `installJournalPersistence` 端口（**微任务批量**镜像，失败不影响内存流）+ `journal.hydrate()`，leader 启动时**先回放再水合计划** |
 | §9.1 | 委派原语 | ✅ | `stores/delegation.ts` + `task` 工具：子运行有独立消息列表、只读工具（grep/read/list）、12 步预算；报告显式标注「是主张不是证据」，不能满足计划步骤 |
 
-**未做（有意）**：§7 的真机验收 T1-T11 需要构建版 electron + CDP 走查，属另一轮工作；
-本轮只保证代码面、定向测试与 typecheck/lint 全绿。
+**真机验收（2026-09-01）**：T1-T11 已走查——T1/T2/T3/T5-T11 通过，T4 阻塞于
+「btw 无首问入口」；另移交两个缺陷（journal 回放的启动时序、write 行尾未按
+主导 EOL 归一）。完整记录见 `MODS.md`「真机验收（2026-09-01）」小节。
 
 ---
 

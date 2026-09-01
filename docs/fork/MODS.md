@@ -847,4 +847,72 @@ Stage Control / 注意力节，计划投影移到末条用户消息尾部的 `[P
 **未做（有意）**：`HARNESS-PLAN.md` §7 的真机验收 T1-T11 需要构建版 electron +
 CDP 走查，属另一轮工作；本轮只保证代码面与定向测试。
 
+### 真机验收（2026-09-01）：HARNESS-PLAN T1-T11 走查
+
+环境：`build:packages` + `stage-tamagotchi build`（`out/`），electron.exe 直跑 +
+`APP_USER_DATA_PATH=D:\.airi-smoke\userdata-acc2`（复制真实 profile 的
+Local Storage / IndexedDB——provider 配置随行、旧 journal/计划不带入）+
+CDP 9250 raw eval（ASCII 直发，非 ASCII 走 `.zcode/tmp/cdp-eval-utf8.sh`）。
+fixture：`~/AIRI-workspace/notes/` 下 3000 行 CRLF `big.txt`（NEEDLE 在 2500 行）
+与 3 行 CRLF `stale.txt`。
+
+**通过项（9/11）**
+
+- **T6 计划门自走**：grep→step-locate、edit→step-edit、bash→step-verify 三份
+  证据**自动**分戳到三个不同开放步骤（全程零 `plan_update focus`），门判完成，
+  计划离开活跃列表——R3「卡 1-3」与「完成不消失」双灭。
+- **T8 循环**：grep 命中带签名（`2500 cqp`）**直接喂 edit**（零 read），
+  `applied`；bash 确认 `exit 0, git-bash`；**编辑后文件 3000 行全 CRLF、0 裸 LF**
+  ——C6 edit 侧保真实证。
+- **T9 分页读**：`stale.txt (4 lines · showing 1-4 · more no · baseHash … ·
+  lineEnding CRLF)`；`big.txt (3001 lines · showing 1-400 · more yes)`；
+  big 签名 3 字符 / stale 2 字符——**签名宽度按总行数**（跨页不变式）成立。
+  她的一次 read 参数解析失败收到结构化错误后自愈重试。
+- **T10 陈旧写**：盲写（旧 baseHash）→ `state_changed` + 当前哈希、**未落盘**；
+  她重读见到外部篡改后以新哈希重写成功并附行级 diff。
+- **T2 打断**：工具执行中发消息 → 原回合在工具结算边界以
+  `turn/end {reason:'steered'}` 收束，打断消息进入新回合，sending 归位。
+  已开始的 bash 照常结算（drain 语义，与 dsh 一致）。
+- **T3 零续跑**：计划轮中打断 → `planContinuationMsgs: 0`、零新回合
+  （R2 永动机死亡）；停止按钮路径 `abortActiveSend` → `turn/end {reason:
+  'aborted'}` + **计划 `paused:true`** + 回合数稳定；「继续」（RESUME_INTENT）
+  → `paused:false`。注意：消息级暂停依赖短锚定 `STOP_INTENT`（停/继续/resume…），
+  英文长句不匹配——停止按钮才是可靠路径。
+- **T7 后台 job**：`bash {runInBackground:true}` → `job-1` 立即返回（返回文本
+  自带 job_output/job_kill 教学）→ `job_output: running` → `job_kill: killed`。
+  120 秒转圈在结构上死亡。
+- **T5 缓存可观测**：`prompt/supplement-changed{hash,previousHash}` 链式落
+  journal；A1 三步回合全程仅 1 次（回合内零抖动）。
+- **T11 win32**：bash 结果声明 `read-only tier, exit 0, git-bash`——shell
+  显式化后她在 Windows 直接用 POSIX grep 成功，cmd.exe 报错模式不复存在。
+- **T1 叙述**：slices 为 `call:grep, call:edit, call:bash, text(90)`——
+  叙述与工具交错可见（filterToSpeech 旁路生效）。本轮她习惯收尾才说，
+  交错密度属模型风格。
+
+**发现（移交修复）**
+
+1. **journal 回放启动时序缺陷（本轮头号）**：写入半边正常——会话 jsonl 落盘
+   109 条（`<userData>/journal/sha256(会话id)前32.jsonl`，哈希归属已验证）；
+   但重启后 `main.ts` 的 `hydrate(activeSessionId)` 执行时**会话 store 尚未
+   恢复**，回放打到了错误的默认会话（journal 仅 1 条）。手动对正确会话
+   `hydrate()` 一次性恢复全部 109 条（turnEnds 完整重现 8×completed /
+   2×steered / 1×aborted）——机制完好，纯启动顺序问题。计划恢复不受影响
+   （DuckDB 快照兜底，但这正是「快照而非日志」的旧路径）。修法方向：boot
+   等会话恢复完成后再 hydrate，或 leader 侧 watch `activeSessionId` 变化补
+   hydrate。
+2. **write 行尾缺口（C6 write 侧）**：edit 保真已证，但她用 `write` 以 `\n`
+   内容整写 CRLF 文件后落盘即全 LF——read 头部明明声明 `lineEnding CRLF`，
+   write 侧未按主导行尾归一。在本 CRLF 仓库里等于「整文件写一次、diff 全花」。
+3. **btw 无首问入口**：`askActive` 仅程序可达；`btw-card` 只处理追问；
+   InteractiveArea 无任何 btw 手势。store 懒实例化导致构建版控制台也不可达，
+   **T4 真机验证被此阻塞**。
+
+**行为注记（非缺陷）**：steer 后她在新回合顺手完成了原任务的 pending ls
+（harness 交付正确，模型顺从性）；裸「继续」只回文本不跑工具；
+被打断回合已结算的工具证据仍会完成其步骤（step-wait 在打断回合后 completed）。
+
+**结论**：T1/T2/T3/T5/T6/T7/T8/T9/T10/T11 通过；T4 阻塞于发现 3；
+发现 1、2 为移交缺陷。验收后遗留：`~/AIRI-workspace/notes/` fixture 与
+`D:\.airi-smoke\userdata-acc2` 冒烟 profile 未清理。
+
 
