@@ -81,6 +81,21 @@ interface PlanLink {
   }
 }
 
+/**
+ * Stable 32-bit hash of the system supplement, as hexadecimal.
+ *
+ * Only equality matters here: the journal records whether the cached prompt
+ * prefix changed between turns, never the prefix itself.
+ */
+function fnv1a32Hex(value: string): string {
+  let hash = 0x811C9DC5
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
 /** Delivery lane for a send that arrives while another turn is active. */
 export type ChatSendDelivery = 'next-step' | 'next-turn'
 
@@ -116,6 +131,17 @@ export interface ChatOrchestratorSendOptions {
   planId?: string
   /** Selects the self-initiative contract for autonomous task or blocker rounds. */
   selfInitiativeMode?: 'social' | 'task' | 'blocker'
+  /**
+   * Turn profile (HARNESS-PLAN §5).
+   *
+   * `work` is the quiet lane for repository work: the system prefix stays
+   * frozen between steps so the provider cache keeps hitting, volatile plan
+   * state rides at the tail instead, and narration reaches the bubble without
+   * the speech filter. `social` keeps the stage behavior unchanged.
+   *
+   * @default 'social'
+   */
+  profile?: 'social' | 'work'
   /** Step budget for this turn. @default 10 */
   maxSteps?: number
   /** `next-step` steers the active turn at its next provider step boundary. */
@@ -338,6 +364,15 @@ export interface ChatOrchestratorRuntimeDeps {
    * without requiring mid-conversation system messages.
    */
   getPostHistoryInstruction?: () => string | undefined
+  /**
+   * Volatile state that rides at the tail of the last user message.
+   *
+   * Plan state changes on every piece of evidence. Injecting it into the
+   * system message rewrites the prompt prefix each step and throws away the
+   * provider's cache for the whole conversation; at the tail only the last
+   * message changes (HARNESS-PLAN §5.1).
+   */
+  getTailProjection?: (options: ChatOrchestratorSendOptions) => string | undefined
   /** Runtime context providers ingested immediately before prompt composition. */
   runtimeContextProviders?: Array<() => ContextMessage | null | undefined>
   /** Optional memory retrieval channel used to build a replace-self context bucket. */
@@ -608,6 +643,8 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     sessionId: string
     steerRequested: boolean
   } | undefined
+  /** Last system-supplement hash per session, for prefix-cache observability. */
+  const supplementHashes = new Map<string, string>()
   const compactedSessions = new Map<string, CompactedSessionProjection>()
   const compactionTasks = new Map<string, Promise<void>>()
   const compactionGenerations = new Map<string, number>()
@@ -651,6 +688,21 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         allowedTools: [...new Set(candidates.flatMap(candidate => [...candidate.allowedTools]))],
       },
     }
+  }
+
+  /** Journals a system-prefix change, once per distinct supplement. */
+  function recordSupplementChange(sessionId: string, supplement: string): void {
+    const hash = fnv1a32Hex(supplement)
+    const previousHash = supplementHashes.get(sessionId)
+    if (previousHash === hash)
+      return
+    supplementHashes.set(sessionId, hash)
+    appendJournal(sessionId, {
+      type: 'prompt/supplement-changed',
+      hash,
+      ...(previousHash ? { previousHash } : {}),
+      timestamp: now(),
+    })
   }
 
   function emitStateChange() {
@@ -1187,7 +1239,12 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
           categorizer.consume(literal)
 
-          const speechOnly = categorizer.filterToSpeech(literal, streamPosition)
+          // A work turn shows what it says while it works: the speech filter
+          // exists to keep stage narration out of TTS, and applying it here
+          // dropped the running commentary of a coding turn (HARNESS-PLAN §5.1).
+          const speechOnly = options.profile === 'work'
+            ? literal
+            : categorizer.filterToSpeech(literal, streamPosition)
           streamPosition += literal.length
 
           if (speechOnly.trim()) {
@@ -1291,6 +1348,11 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       if (systemPromptSupplement)
         appendSystemSupplement(newMessages, systemPromptSupplement)
 
+      // The prefix is the cached part of the request, so a supplement that
+      // changes between steps costs the whole cache. Recording each change
+      // makes that cost measurable instead of a suspicion.
+      recordSupplementChange(sessionId, systemPromptSupplement ?? '')
+
       // Consideration turns add the self-initiative contract; see the
       // getSelfInitiativePrompt deps docs (LIFE-PLAN §二.2).
       if (options.source === 'self-initiative') {
@@ -1323,6 +1385,21 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
             promptText: contextPromptText,
           },
         })
+      }
+
+      const tailProjection = deps.getTailProjection?.(options)?.trim()
+      if (tailProjection) {
+        const lastMessage = newMessages.at(-1)
+        if (lastMessage && lastMessage.role === 'user') {
+          const existingParts = typeof lastMessage.content === 'string'
+            ? [{ type: 'text' as const, text: lastMessage.content }]
+            : lastMessage.content
+
+          lastMessage.content = [
+            ...existingParts,
+            { type: 'text' as const, text: `\n[Plan]\n${tailProjection}` },
+          ]
+        }
       }
 
       // Post-history instructions ride on the final user message — same

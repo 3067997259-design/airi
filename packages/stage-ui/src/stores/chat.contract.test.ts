@@ -786,6 +786,36 @@ describe('chat store contract', () => {
     expect(systemText).toContain('Plugin toolset guidance.')
   })
 
+  it('keeps the work-turn prefix free of stage sections and carries plan state at the tail', async () => {
+    // ROOT CAUSE:
+    //
+    // The plan projection rode in the system supplement, and it changes with
+    // every piece of evidence. Each step rewrote the cached prompt prefix, so
+    // a long coding turn paid for the whole conversation again on every step
+    // (HARNESS-PLAN §5.1). Volatile state belongs at the tail.
+    cardStoreState.systemPrompt = 'A plain character prompt.'
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'ok' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const store = useChatStore()
+    await store.ingest('apply the change', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      profile: 'work',
+    })
+
+    const messages = llmStreamMock.mock.calls[0]?.[2] as any[]
+    const systemMessage = messages[0]
+    const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
+
+    expect(systemText).not.toContain('## Stage Control')
+    expect(systemText).not.toContain('## Mode')
+    // Safety and formatting stay: they describe how to read tool output.
+    expect(systemText).toContain('## Workspace Content Safety')
+  })
+
   it('skips the stage control section for legacy cards that embed the protocol', async () => {
     cardStoreState.systemPrompt = 'Persona text <|ACT {"emotion":"happy"}|> protocol inside description'
     llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {

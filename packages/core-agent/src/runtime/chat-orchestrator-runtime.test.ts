@@ -861,6 +861,24 @@ describe('createChatOrchestratorRuntime', () => {
     }))
   })
 
+  it('records the cached prefix only when the supplement actually changes', async () => {
+    // The prompt prefix is what a provider caches. A supplement that carries
+    // volatile state rewrites it every turn and pays for the conversation
+    // again; this event is how that cost stays measurable (HARNESS-PLAN §5.1).
+    const harness = createHarness()
+
+    await harness.runtime.ingest('first', { model: 'gpt-test', chatProvider: provider })
+    await harness.runtime.ingest('second', { model: 'gpt-test', chatProvider: provider })
+
+    const changes = harness.journalEvents.filter(event => event.type === 'prompt/supplement-changed')
+    expect(changes).toHaveLength(1)
+
+    harness.systemPromptSupplement.mockReturnValue('## Section\ncount: 2')
+    await harness.runtime.ingest('third', { model: 'gpt-test', chatProvider: provider })
+
+    expect(harness.journalEvents.filter(event => event.type === 'prompt/supplement-changed')).toHaveLength(2)
+  })
+
   it('skips the self-initiative section and hook for ordinary sends', async () => {
     const harness = createHarness()
 

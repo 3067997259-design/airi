@@ -91,6 +91,7 @@ export type {
   ProjectionChangeListener,
   ProjectionSnapshot,
   ProjectionUnit,
+  PromptSupplementChangedEvent,
   SessionHeaderEvent,
   TodoItem,
   TodoWriteEvent,

@@ -92,6 +92,11 @@ export interface ChatSendPayload {
   selfInitiativeMode?: 'social' | 'task' | 'blocker'
   /** Steer at the next provider step or wait for the next complete turn. */
   delivery?: ChatSendDelivery
+  /**
+   * Turn profile; defaults to `work` for plan-driven turns and `social`
+   * otherwise (HARNESS-PLAN §5).
+   */
+  profile?: 'social' | 'work'
 }
 
 /** The durable messages appended while one chat request executes. */
@@ -441,6 +446,14 @@ export const useChatStore = defineStore('chat', () => {
   const queuedSends = shallowRef<QueuedSendSnapshot[]>([])
   const compactions = shallowRef<Record<string, ChatOrchestratorCompactionSnapshot>>({})
   let ownedActiveTurnSpan: typeof activeTurnSpan.value
+  /**
+   * Profile of the turn being sent right now.
+   *
+   * Hooks that fire mid-turn (assistant-ready side effects) have no send
+   * options, and sends are serialized, so the last profile set by executeSend
+   * is the running turn's profile.
+   */
+  let activeTurnProfile: 'social' | 'work' = 'social'
   const analyticsHooks = createChatAnalyticsHooks({
     getSessionMessages: sessionId => chatSession.getSessionMessages(sessionId),
   })
@@ -694,13 +707,23 @@ export const useChatStore = defineStore('chat', () => {
       // already embed the stage protocol in their description; skip re-injecting
       // it for them to avoid duplicating hundreds of tokens.
       const sections: string[] = []
-      if (!containsStageProtocol(cardStore.systemPrompt))
+      // A work turn keeps the prefix frozen: the stage protocol governs speech
+      // and expressions that a coding turn does not perform, and the attention
+      // section changes with task counts. Both would rewrite the cached prefix
+      // between steps for output the turn never produces (HARNESS-PLAN §5.1).
+      const isWorkTurn = options.profile === 'work'
+      if (!isWorkTurn && !containsStageProtocol(cardStore.systemPrompt))
         sections.push(buildStageProtocolSection(t))
-      sections.push(buildAttentionModeSection(resolveAttentionMode(taskStore.tasks, attentionStore.focusedModeEnabled)))
-      const scopedPlan = planStore.scopedActivePlans(activeSessionId.value).at(-1)
-      const planProjection = planStore.promptProjection(options.planId ?? scopedPlan?.id)
-      if (planProjection)
-        sections.push(planProjection)
+      if (!isWorkTurn)
+        sections.push(buildAttentionModeSection(resolveAttentionMode(taskStore.tasks, attentionStore.focusedModeEnabled)))
+      // Plan state changes on every piece of evidence, so a work turn carries
+      // it at the tail through getTailProjection instead.
+      if (!isWorkTurn) {
+        const scopedPlan = planStore.scopedActivePlans(activeSessionId.value).at(-1)
+        const planProjection = planStore.promptProjection(options.planId ?? scopedPlan?.id)
+        if (planProjection)
+          sections.push(planProjection)
+      }
       if (options.command?.name === 'plan' || options.command?.name === 'goal')
         sections.push(buildCommandSection(options.command as ChatCommand))
       sections.push([
@@ -714,6 +737,12 @@ export const useChatStore = defineStore('chat', () => {
       else if (llmToolsetPromptsStore.activeToolsetPrompt)
         sections.push(llmToolsetPromptsStore.activeToolsetPrompt)
       return sections.filter(section => section.trim().length > 0).join('\n\n')
+    },
+    getTailProjection: (options) => {
+      if (options.profile !== 'work')
+        return undefined
+      const scopedPlan = planStore.scopedActivePlans(activeSessionId.value).at(-1)
+      return planStore.promptProjection(options.planId ?? scopedPlan?.id) || undefined
     },
     getSelfInitiativePrompt: (_stimulus, options) => {
       if (options.selfInitiativeMode === 'blocker')
@@ -794,6 +823,12 @@ export const useChatStore = defineStore('chat', () => {
       }, extractMemoryTurn)
     },
     onAssistantTurnReady: ({ messageText, sessionMessages }) => {
+      // Relationship-side side effects stay off the work lane: a coding turn
+      // that silently starts drawing spends tokens the user did not ask for
+      // mid-task. Sends are serialized, so the profile of the running turn is
+      // unambiguous here.
+      if (activeTurnProfile === 'work')
+        return
       const artistry = cardStore.activeCard?.extensions?.airi?.modules?.artistry
       if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant')
         void artistryAutonomousStore.runArtistTask(messageText, toProviderHistory(sessionMessages))
@@ -821,6 +856,39 @@ export const useChatStore = defineStore('chat', () => {
 
     await runtime.compactNow(activeSessionId.value, model, chatProvider)
     return true
+  }
+
+  /**
+   * Tools a work turn may call.
+   *
+   * The workspace set plus plan and progress reporting, never the stage tools.
+   * The turn's own selection still wins, so a plan step that allows a specific
+   * tool keeps it.
+   */
+  const WORK_TURN_TOOL_NAMES: readonly string[] = Object.freeze([
+    'list',
+    'grep',
+    'read',
+    'write',
+    'edit',
+    'bash',
+    'job_output',
+    'job_kill',
+    'code_mode',
+    'plan_update',
+    'todo_write',
+    'user_ask',
+    'fetch',
+    'web_search',
+  ])
+
+  function collectWorkToolReferences(selectedTools: ChatToolReference[] = [], activatedSkillNames: string[] = []): ChatToolReference[] {
+    const names = new Set<string>(WORK_TURN_TOOL_NAMES)
+    for (const tool of selectedTools)
+      names.add(tool.name)
+    for (const name of activatedSkillNames)
+      names.add(name)
+    return [...names].map(name => ({ name }))
   }
 
   function collectToolReferences(sessionId: string, selectedTools: ChatToolReference[] = [], activatedSkillNames: string[] = []): ChatToolReference[] {
@@ -997,10 +1065,16 @@ export const useChatStore = defineStore('chat', () => {
       chatContext.ingestContextMessage(context)
 
     const activatedSkillNames = skillsStore.prepareForPrompt(sendingText)
+    // A plan-driven turn is repository work: it runs long, calls tools in a
+    // loop, and produces no stage performance. That is the work profile
+    // (HARNESS-PLAN §5). Callers can still ask for it explicitly.
+    const profile = payload.profile ?? (payload.planId ? 'work' : 'social')
+    activeTurnProfile = profile
     try {
       await runtime.ingest(sendingText, {
         model: modelId,
         chatProvider,
+        profile,
         maxSteps: payload.planId ? 50 : 10,
         attachments: payload.attachments,
         input: payload.input,
@@ -1015,6 +1089,14 @@ export const useChatStore = defineStore('chat', () => {
         tools: async () => {
           if (payload.source === 'self-initiative' && !payload.planId)
             return llmToolsStore.getToolsByNames('self_speak', 'self_note')
+          // A work turn mounts the work surface: the step's own tools plus the
+          // workspace set. Expression, parameter and mirror tools are stage
+          // equipment; carrying them costs prefix space every step for calls
+          // the turn will not make.
+          if (profile === 'work') {
+            const workReferences = collectWorkToolReferences(selectedTools, activatedSkillNames)
+            return llmToolsStore.getToolsByNames(...workReferences.map(tool => tool.name))
+          }
           if (payload.source === 'self-initiative')
             return llmToolsStore.getToolsByNames(...(selectedTools ?? []).map(tool => tool.name))
           const references = collectToolReferences(payload.sessionId, selectedTools, activatedSkillNames)

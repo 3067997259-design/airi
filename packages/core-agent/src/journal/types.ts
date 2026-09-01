@@ -19,6 +19,7 @@ export const JOURNAL_EVENT_TYPES = [
   'plan/update',
   'plan/hint',
   'todo/write',
+  'prompt/supplement-changed',
   'task/update',
   'context/inject',
   'event/reaction',
@@ -135,6 +136,23 @@ export interface TaskUpdateEvent {
   /** Full replace-self TaskMemory snapshot; the Nth update replaces the N-1th. */
   memory: Record<string, unknown>
   logRef?: string
+}
+
+/**
+ * The cached system prefix changed between turns.
+ *
+ * Everything before the last message is what a provider can cache, and the
+ * app-owned supplement sits there. A supplement that carries volatile state
+ * (plan counters, attention mode) rewrites the prefix each step and pays for
+ * the whole conversation again; this event is how that cost becomes visible
+ * (HARNESS-PLAN §5.1, verification T5).
+ */
+export interface PromptSupplementChangedEvent {
+  type: 'prompt/supplement-changed'
+  seq: number
+  hash: string
+  previousHash?: string
+  timestamp: number
 }
 
 /** One line of the model's own task list. */
@@ -318,6 +336,7 @@ export type JournalEvent
     | PlanUpdateEvent
     | PlanHintEvent
     | TodoWriteEvent
+    | PromptSupplementChangedEvent
     | TaskUpdateEvent
     | ContextInjectEvent
     | EventReactionJournalEvent

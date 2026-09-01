@@ -26,6 +26,7 @@ export type {
   JournalEventType,
   PlanHintEvent,
   PlanUpdateEvent,
+  PromptSupplementChangedEvent,
   ReviewAskedEvent,
   ReviewDecidedEvent,
   SessionHeaderEvent,
