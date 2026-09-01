@@ -31,6 +31,17 @@ const RECENT_TOOL_EVENTS = 6
 /** Characters kept per tool summary. */
 const TOOL_SUMMARY_LENGTH = 160
 
+/**
+ * Stage-protocol tokens (`<|ACT …|>`, `<|DELAY n|>`) emitted by the persona.
+ * The side channel never runs the stage marker parser, so the tokens would
+ * reach the card as raw text; they are display noise here, not speech.
+ */
+const STAGE_TOKEN_REGEX = /<\|[^|]*\|>/g
+
+function stripStageTokens(text: string): string {
+  return text.replace(STAGE_TOKEN_REGEX, '')
+}
+
 export interface BtwExchange {
   question: string
   answer: string
@@ -154,16 +165,16 @@ export const useBtwStore = defineStore('runtime-btw', () => {
             if (event.type !== 'text-delta')
               return
             answer += event.text
-            state.value = { status: 'asking', exchanges: previous, streaming: answer }
+            state.value = { status: 'asking', exchanges: previous, streaming: stripStageTokens(answer) }
           },
         },
       })
       state.value = {
         status: 'answered',
-        exchanges: [...previous, { question, answer }],
+        exchanges: [...previous, { question, answer: stripStageTokens(answer) }],
         streaming: '',
       }
-      return answer
+      return stripStageTokens(answer)
     }
     catch (error) {
       state.value = {
