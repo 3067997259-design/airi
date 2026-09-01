@@ -915,4 +915,13 @@ fixture：`~/AIRI-workspace/notes/` 下 3000 行 CRLF `big.txt`（NEEDLE 在 250
 发现 1、2 为移交缺陷。验收后遗留：`~/AIRI-workspace/notes/` fixture 与
 `D:\.airi-smoke\userdata-acc2` 冒烟 profile 未清理。
 
+**修复闭环（同日）**：发现 1/2 已修（`e162f17e4` 回放改为 watch
+activeSessionId——真机重启后选择落地即回放 110 条、turnEnds 完整重现；
+`6dad8e794` write 按主导行尾归一并报 `lineEndingNormalized`，21/21 单测含
+CRLF 回归）；发现 3 以 `/btw` 指令解决（`a6f1c2ace`：send 顶部分流到 btw
+store，不进队列不写会话；`1559f9d8d` 发送按钮删除、Esc 打断、提示文案
+Esc 优先）——真机复验：`/btw` 提问后主会话零写入、零新回合、btw store
+answered 且答案带人格口吻。注：btw 回答偶带角色卡的 `<|ACT|>` 协议前缀
+（人格节随卡注入所致），属外观问题，后续可在 btw 组装时剥离。
+
 
