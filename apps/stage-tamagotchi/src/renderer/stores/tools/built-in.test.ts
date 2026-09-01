@@ -72,6 +72,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
       { id: 'tamagotchi:github_post_pr_comment', defaultActive: false },
       { id: 'tamagotchi:plan_update', defaultActive: false },
       { id: 'tamagotchi:todo_write', defaultActive: false },
+      { id: 'tamagotchi:task', defaultActive: false },
       { id: 'tamagotchi:skill_submit', defaultActive: false },
       { id: 'tamagotchi:user_ask', defaultActive: false },
     ])

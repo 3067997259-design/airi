@@ -877,6 +877,7 @@ export const useChatStore = defineStore('chat', () => {
     'code_mode',
     'plan_update',
     'todo_write',
+    'task',
     'user_ask',
     'fetch',
     'web_search',

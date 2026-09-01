@@ -24,8 +24,8 @@ describe('journal persistence', () => {
 
   it('mirrors appended events to the durable owner in one batch per tick', async () => {
     const store = useJournalStore()
-    store.append('session-a', { type: 'user/message', text: 'first' })
-    store.append('session-a', { type: 'user/message', text: 'second' })
+    store.append('session-a', { type: 'user/message', text: 'first', timestamp: 1 })
+    store.append('session-a', { type: 'user/message', text: 'second', timestamp: 2 })
 
     // Batched: a tool loop appends many events, and one write per event would
     // make the loop disk-bound (HARNESS-PLAN §9.1).
@@ -44,7 +44,7 @@ describe('journal persistence', () => {
   it('replays a persisted session into memory without its old header', async () => {
     const persisted: JournalEvent[] = [
       { type: 'session/header', seq: 1, sessionId: 'session-b', createdAt: 1, delegationDepth: 0 },
-      { type: 'user/message', seq: 2, text: 'restored question' },
+      { type: 'user/message', seq: 2, text: 'restored question', timestamp: 2 },
       { type: 'tool/result', seq: 3, toolName: 'read', ok: true, summary: 'restored evidence' },
     ]
     port.read.mockResolvedValueOnce({ lines: persisted.map(event => JSON.stringify(event)), truncated: false })
@@ -59,7 +59,7 @@ describe('journal persistence', () => {
 
   it('skips a corrupt line instead of losing the whole history', async () => {
     port.read.mockResolvedValueOnce({
-      lines: ['{"type":"user/message","seq":2,"text":"kept"}', 'not json at all'],
+      lines: ['{"type":"user/message","seq":2,"text":"kept","timestamp":2}', 'not json at all'],
       truncated: false,
     })
 
@@ -73,7 +73,7 @@ describe('journal persistence', () => {
     port.append.mockRejectedValueOnce(new Error('disk is full'))
     const store = useJournalStore()
 
-    store.append('session-d', { type: 'user/message', text: 'still here' })
+    store.append('session-d', { type: 'user/message', text: 'still here', timestamp: 1 })
     await Promise.resolve()
     await Promise.resolve()
 
