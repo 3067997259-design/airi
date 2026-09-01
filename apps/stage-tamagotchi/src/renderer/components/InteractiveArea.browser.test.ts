@@ -94,6 +94,20 @@ describe('interactive area synchronized state', () => {
     expect(abort).toHaveBeenCalledWith('session-b')
   })
 
+  it('interrupts with Escape even when the composer does not hold focus', async () => {
+    const { chat, screen } = await renderArea()
+    const abort = vi.spyOn(chat, 'abortActiveSend').mockResolvedValueOnce(true)
+    chat.$patch({ activeSendSessionId: 'session-b', sending: true })
+    await nextTick()
+
+    // Focus stays wherever the user left it (history pane, tool chip); the
+    // interrupt is global, matching the CLI harness convention.
+    await userEvent.keyboard('{Escape}')
+
+    expect(abort).toHaveBeenCalledWith('session-b')
+    await expect.element(screen.getByRole('textbox', { name: 'stage.message' })).toBeInTheDocument()
+  })
+
   it('uses Shift + Enter to queue a message while the active session is sending', async () => {
     const { chat, screen } = await renderArea()
     const send = vi.spyOn(chat, 'send').mockResolvedValueOnce({ messages: [], sessionId: 'session-b' })

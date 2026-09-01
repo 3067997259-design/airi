@@ -19,7 +19,7 @@ import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { BasicTextarea, Button } from '@proj-airi/ui'
-import { useLocalStorage } from '@vueuse/core'
+import { useEventListener, useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -202,6 +202,21 @@ function handleAbort() {
   void chatStore.abortActiveSend(activeSessionId.value)
 }
 
+// TUI convention (HARNESS-PLAN §3.1): Esc interrupts from anywhere, not only
+// while the composer holds focus. A trigger panel keeps its own Escape (it
+// closes the panel) and the turn is left alone; the same applies while an IME
+// composition is in flight, where Esc belongs to the candidate window.
+useEventListener(window, 'keydown', (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || event.isComposing || isComposing.value)
+    return
+  if (isSlashPanelOpen.value || isWorkspacePanelOpen.value)
+    return
+  if (!isActiveSessionSending.value)
+    return
+  event.preventDefault()
+  handleAbort()
+})
+
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function handleManualAttach() {
@@ -218,12 +233,6 @@ function handleFileSelect(event: Event) {
 function handleMessageInputKeydown(event: KeyboardEvent) {
   if (isComposing.value)
     return
-
-  if (event.key === 'Escape' && isActiveSessionSending.value) {
-    event.preventDefault()
-    handleAbort()
-    return
-  }
 
   if (onWorkspaceKeyDown(event) || onSlashKeyDown(event))
     return
