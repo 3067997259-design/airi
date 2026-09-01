@@ -6,7 +6,7 @@ import { runBashCommand } from './policy'
 
 function fakeHost(exitCode = 0, stdout = 'out', stderr = '') {
   return {
-    runCommand: vi.fn(async () => ({ stdout, stderr, exitCode })),
+    runCommand: vi.fn(async () => ({ stdout, stderr, exitCode, shell: 'git-bash' as const })),
   }
 }
 
@@ -26,6 +26,9 @@ describe('coding host bash policy', () => {
     expect(deps.approve).not.toHaveBeenCalled()
     expect(result.status).toBe('ok')
     expect(result.tier).toBe('read-only')
+    // Command results name their interpreter so a failure can be traced to the
+    // shell that produced it (HARNESS-PLAN §3.5.3 C5).
+    expect(result.shell).toBe('git-bash')
     expect(deps.host.runCommand).toHaveBeenCalledWith('git status')
   })
 

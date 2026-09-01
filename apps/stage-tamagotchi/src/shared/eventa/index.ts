@@ -1,4 +1,5 @@
 import type { Locale } from '@intlify/core'
+import type { WorkspaceShell, WorkspaceShellKind } from '@proj-airi/coding-harness/tools/shell'
 import type {
   GameletIframeRequestPayload as GameletIframeInvokePayload,
   GameletIframeResponsePayload,
@@ -551,6 +552,8 @@ export interface CodingExecRunResult {
   status: 'ok' | 'error' | 'denied' | 'timeout'
   stdout: string
   stderr: string
+  /** Interpreter that ran the command; absent when nothing was executed. */
+  shell?: WorkspaceShellKind
   exitCode?: number
   /** Present when `status === 'denied'` so the UI can correlate the card. */
   requestId?: string
@@ -583,8 +586,17 @@ export interface CodingToolAvailability {
   description: string
   available: boolean
 }
+/**
+ * The interpreter the host spawns for `bash`, as told to the renderer.
+ *
+ * Renderers build the model-facing `bash` description from this, so the tool
+ * declaration and the process that runs commands cannot disagree.
+ */
+export type CodingShellDescriptor = Pick<WorkspaceShell, 'kind' | 'label' | 'syntax'>
+
 export interface CodingToolsStatusResult {
   workspaceRoot: string
+  shell: CodingShellDescriptor
   tools: CodingToolAvailability[]
 }
 

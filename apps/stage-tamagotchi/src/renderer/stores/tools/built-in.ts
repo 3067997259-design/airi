@@ -2,6 +2,8 @@ import type { ExecutableTool } from '@proj-airi/stage-ui/stores/ai/chat-llm/tool
 import type { ChatToolReference } from '@proj-airi/stage-ui/types/chat'
 import type { Tool } from '@xsai/shared-chat'
 
+import type { CodingShellDescriptor } from '../../../shared/eventa'
+
 import { useLive2DCustomParameters } from '@proj-airi/stage-ui-live2d/stores/custom-parameters'
 import { useExpressionStore } from '@proj-airi/stage-ui-live2d/stores/expression-store'
 import { expressionTools } from '@proj-airi/stage-ui-live2d/tools/expression-tools'
@@ -186,10 +188,13 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
     // answers, mirroring the M2 degraded-toolset behavior.
     let coding = [] as Tool[]
     try {
-      const tools = await codingTools()
+      // The host answers with the shell it resolved, and the bash declaration
+      // is built from it, so the availability call has to come first.
       const availability = await createCodingHostClient().listTools()
+      const tools = await codingTools(availability.shell)
       const availableNames = new Set(availability.tools.filter(tool => tool.available).map(tool => tool.name))
       coding = tools.filter(tool => availableNames.has(tool.function.name))
+      registerCodingToolsetPrompt(availability.shell)
     }
     catch {
       coding = []
@@ -238,12 +243,19 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
    * Tells the model how to use the Hashline edit protocol. Without this it
    * would copy whole lines; with signatures, edits are structurally safe.
    */
-  function registerCodingToolsetPrompt() {
+  function registerCodingToolsetPrompt(shell?: CodingShellDescriptor) {
+    // Shell facts arrive with the host status, so refresh() registers this
+    // prompt twice: once without the shell (the host may never answer) and
+    // again with it. Registration replaces by key, so the last one wins.
+    const shellLine = shell
+      ? `bash runs through ${shell.label}; write ${shell.syntax === 'posix' ? 'POSIX' : 'PowerShell'} syntax.`
+      : undefined
     llmToolsetPromptsStore.registerToolsetPrompts('coding-hashline', [{
       id: 'coding-hashline-overview',
       title: 'File editing (Hashline)',
       content: [
         'Workspace tools: list, read, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
+        ...(shellLine ? [shellLine] : []),
         'edit works by content signature: after read, reference the short signature shown before each line, plus the first 16-32 characters of that line as expectedPrefix.',
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',
         'For tasks needing several tool operations, prefer code_mode: write one program that bridges the tools and runs them in a sandbox; you get one result with a per-call trace.',

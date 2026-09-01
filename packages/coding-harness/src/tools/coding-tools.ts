@@ -14,9 +14,9 @@ import { classifyBashCommand } from '@proj-airi/core-agent'
 import { applyHashlineEdit, applyHashlineInsertAfter } from '../hashline/edit'
 import { formatSignedFileProjection } from '../hashline/read'
 import { joinTextFile, parseTextFile } from '../hashline/text'
-import { CODING_TOOL_META } from './coding-tool-meta'
+import { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
 
-export { CODING_TOOL_META } from './coding-tool-meta'
+export { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
 export type { CodingToolName } from './coding-tool-meta'
 
 export type { BashRiskTier }
@@ -178,7 +178,7 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
     },
     {
       name: CODING_TOOL_META.bash.name,
-      description: CODING_TOOL_META.bash.description,
+      description: bashDescriptionFor(host.shell),
       async run(args) {
         const toolArgs = args as ToolArgs
         const line = requireString(toolArgs, 0, 'command')
@@ -198,6 +198,7 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         return {
           tier,
           status: result.exitCode === 0 ? 'ok' : 'error',
+          shell: result.shell,
           exitCode: result.exitCode,
           stdout: result.stdout.slice(0, 8_000),
           stderr: result.stderr.slice(0, 2_000),

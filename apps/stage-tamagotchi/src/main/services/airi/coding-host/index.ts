@@ -171,6 +171,9 @@ export async function setupCodingHost(
 
   defineInvokeHandler(context, codingHostListTools, async () => ({
     workspaceRoot,
+    // The renderer builds the model-facing bash description from this, so the
+    // declared shell and the process that runs commands stay the same fact.
+    shell: { kind: host.shell.kind, label: host.shell.label, syntax: host.shell.syntax },
     tools: [
       ...tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
       // The PTC runtime is host-level rather than a bridge capability, so it

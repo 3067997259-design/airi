@@ -83,14 +83,14 @@ export function formatSignedFileProjection(input: FormatSignedFileProjectionInpu
   const last = lines.at(-1)?.lineNumber ?? 0
   const hasMore = last < input.lines.length
   const ending = input.lineEnding === '\r\n' ? 'CRLF' : input.lineEnding === '\n' ? 'LF' : undefined
-  const header = [
+  const header = `${[
     `${input.path}  (${input.lines.length} lines`,
     `showing ${first}-${last}`,
     `more ${hasMore ? 'yes' : 'no'}`,
     input.baseHash ? `baseHash ${input.baseHash}` : undefined,
     input.mtime ? `mtime ${input.mtime}` : undefined,
     ending ? `lineEnding ${ending}${input.mixedLineEndings ? ' (mixed input normalized on edit)' : ''}` : undefined,
-  ].filter(Boolean).join(' · ') + ')'
+  ].filter(Boolean).join(' · ')})`
   const rows = lines.map((line) => {
     const lineNumber = String(line.lineNumber).padStart(4)
     return `  ${lineNumber}  ${line.signature}  ${line.content}`

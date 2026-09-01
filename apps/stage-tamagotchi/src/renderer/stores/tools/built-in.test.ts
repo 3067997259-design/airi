@@ -107,6 +107,7 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
   it('registers coding tools when the coding host reports them as available', async () => {
     listCodingTools.mockResolvedValue({
       workspaceRoot: 'C:/AIRI-workspace',
+      shell: { kind: 'powershell', label: 'Windows PowerShell', syntax: 'powershell' },
       tools: ['list', 'read', 'write', 'edit', 'bash', 'code_mode'].map(name => ({
         name,
         description: `${name} tool`,
@@ -115,9 +116,14 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     })
 
     const toolsStore = useLlmToolsStore()
+    const promptsStore = useLlmToolsetPromptsStore()
     await useTamagotchiBuiltinToolsStore().refresh()
 
     expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'read', 'write', 'edit', 'bash', 'code_mode'])
+    // The declaration must name the interpreter the host resolved; a model told
+    // "bash" on a PowerShell machine retries the same POSIX line forever.
+    expect(toolsStore.getToolsByNames('bash')[0]?.function.description).toContain('Windows PowerShell')
+    expect(promptsStore.activeToolsetPrompt).toContain('bash runs through Windows PowerShell')
     expect(toolsStore.getToolsByNames('list', 'read', 'write', 'edit', 'bash', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'read', 'write', 'edit', 'bash', 'code_mode'])
   })
 })

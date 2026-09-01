@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { createCodeModeRuntime } from '../ptc/code-mode'
 import { parseTextFile } from '../hashline/text'
+import { createCodeModeRuntime } from '../ptc/code-mode'
 import { createCodingTools } from './coding-tools'
 import { createNodeWorkspaceHost } from './workspace-host'
 
@@ -144,6 +144,23 @@ describe('coding tools over the node host', () => {
       expect(bash.tier).toBe('medium')
       expect(bash.reason).toBe('approval_required')
     }
+  })
+
+  it('names the interpreter that ran the command', async () => {
+    // The model has to know which syntax it is speaking; a result that hides
+    // the shell makes it retry the same failing line (HARNESS-PLAN §3.5.3 C5).
+    const host = createNodeWorkspaceHost(rootDir)
+    const result = await host.runCommand('echo shell-check')
+
+    expect(result.shell).toBe(host.shell.kind)
+    expect(result.stdout.trim()).toBe('shell-check')
+  })
+
+  it('declares the resolved shell in the bash description', () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    const bashTool = createCodingTools(host).find(tool => tool.name === 'bash')
+
+    expect(bashTool?.description).toContain(host.shell.label)
   })
 
   it('returns structured command output for allowed commands', async () => {

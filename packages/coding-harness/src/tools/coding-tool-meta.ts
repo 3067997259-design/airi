@@ -7,6 +7,8 @@
  * Lives in its own side-effect-free module so browser bundles can import the
  * metadata without pulling the Node-only workspace host.
  */
+import type { WorkspaceShell } from './shell'
+
 export const CODING_TOOL_META = {
   list: {
     name: 'list',
@@ -64,3 +66,18 @@ export const CODING_TOOL_META = {
 } as const
 
 export type CodingToolName = keyof typeof CODING_TOOL_META
+
+/**
+ * Builds the `bash` description for the interpreter the host actually spawns.
+ *
+ * The active shell belongs in the description, not only in the results: a model
+ * told it has "bash" on a PowerShell machine rewrites the same POSIX line until
+ * the step budget runs out. Callers pass the host's resolved shell so the model
+ * declaration and the process that runs cannot drift apart.
+ */
+export function bashDescriptionFor(shell: Pick<WorkspaceShell, 'label' | 'syntax'>): string {
+  const syntax = shell.syntax === 'posix'
+    ? 'Write POSIX syntax (grep, ls, cat, pipes, &&).'
+    : 'Write PowerShell syntax (Select-String, Get-ChildItem, Get-Content, Test-Path). POSIX tools such as grep, ls and cat do not exist in this shell.'
+  return `${CODING_TOOL_META.bash.description} Commands run through ${shell.label}. ${syntax}`
+}

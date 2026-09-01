@@ -1,11 +1,12 @@
 import type { Tool } from '@xsai/shared-chat'
 
+import type { CodingShellDescriptor } from '../../../../shared/eventa'
 import type { CodingHostClient } from '../../../bridges/coding-host'
 
 import { applyHashlineEdit, applyHashlineInsertAfter } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
 import { joinTextFile, parseTextFile } from '@proj-airi/coding-harness/hashline/text'
-import { CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
+import { bashDescriptionFor, CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -125,7 +126,10 @@ async function executeBash(input: { command: string, mediumApprovalRequired?: bo
   if (result.status === 'timeout') {
     return `bash timed out (${result.tier} tier)\n${result.stderr}`
   }
-  const header = `bash ${result.status} (${result.tier} tier, exit ${result.exitCode ?? '?'})`
+  // The shell rides in the header of every result: a model that cannot see
+  // which interpreter answered rewrites the same failing command line.
+  const shell = result.shell ? `, ${result.shell}` : ''
+  const header = `bash ${result.status} (${result.tier} tier, exit ${result.exitCode ?? '?'}${shell})`
   const output = [result.stdout, result.stderr].filter(Boolean).join('\n')
   return output ? `${header}\n${output}` : header
 }
@@ -165,43 +169,52 @@ async function executeCodeMode(input: { program: string, timeoutMs?: number }): 
   return codeModeResultToText(result)
 }
 
-const tools: Promise<Tool>[] = [
-  tool({
-    name: CODING_TOOL_META.list.name,
-    description: CODING_TOOL_META.list.description,
-    execute: executeList,
-    parameters: listParams,
-  }),
-  tool({
-    name: CODING_TOOL_META.read.name,
-    description: CODING_TOOL_META.read.description,
-    execute: executeRead,
-    parameters: readParams,
-  }),
-  tool({
-    name: CODING_TOOL_META.write.name,
-    description: CODING_TOOL_META.write.description,
-    execute: executeWrite,
-    parameters: writeParams,
-  }),
-  tool({
-    name: CODING_TOOL_META.edit.name,
-    description: CODING_TOOL_META.edit.description,
-    execute: executeEdit,
-    parameters: editParams,
-  }),
-  tool({
-    name: CODING_TOOL_META.bash.name,
-    description: CODING_TOOL_META.bash.description,
-    execute: executeBash,
-    parameters: bashParams,
-  }),
-  tool({
-    name: 'code_mode',
-    description: 'Run a multi-step coding program in one sandboxed execution. Prefer it over many single tool calls when a task needs several read/write/edit/bash operations: control flow, loops, and conditionals run in code, and the result comes back as one summary with a trace per tool dispatch.',
-    execute: executeCodeMode,
-    parameters: codeModeParams,
-  }),
-]
+/**
+ * Builds the coding tool declarations for one resolved workspace shell.
+ *
+ * The shell is a runtime fact owned by the main process, so `bash` is declared
+ * per call instead of at module scope: the description must name the
+ * interpreter that will actually run the command.
+ */
+function createCodingToolDeclarations(shell: CodingShellDescriptor): Promise<Tool>[] {
+  return [
+    tool({
+      name: CODING_TOOL_META.list.name,
+      description: CODING_TOOL_META.list.description,
+      execute: executeList,
+      parameters: listParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.read.name,
+      description: CODING_TOOL_META.read.description,
+      execute: executeRead,
+      parameters: readParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.write.name,
+      description: CODING_TOOL_META.write.description,
+      execute: executeWrite,
+      parameters: writeParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.edit.name,
+      description: CODING_TOOL_META.edit.description,
+      execute: executeEdit,
+      parameters: editParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.bash.name,
+      description: bashDescriptionFor(shell),
+      execute: executeBash,
+      parameters: bashParams,
+    }),
+    tool({
+      name: 'code_mode',
+      description: 'Run a multi-step coding program in one sandboxed execution. Prefer it over many single tool calls when a task needs several read/write/edit/bash operations: control flow, loops, and conditionals run in code, and the result comes back as one summary with a trace per tool dispatch.',
+      execute: executeCodeMode,
+      parameters: codeModeParams,
+    }),
+  ]
+}
 
-export const codingTools = async () => Promise.all(tools)
+export const codingTools = async (shell: CodingShellDescriptor) => Promise.all(createCodingToolDeclarations(shell))

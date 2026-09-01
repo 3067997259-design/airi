@@ -52,6 +52,7 @@ export async function runBashCommand(command: string, deps: CodingHostDeps): Pro
   return {
     tier,
     status: result.exitCode === 0 ? 'ok' : 'error',
+    shell: result.shell,
     stdout: result.stdout.slice(0, MAX_COMMAND_STDOUT_CHARS),
     stderr: result.stderr.slice(0, MAX_COMMAND_STDERR_CHARS),
     exitCode: result.exitCode,

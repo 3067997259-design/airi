@@ -35,6 +35,10 @@
     "./tools/coding-tool-meta": {
       "types": "./src/tools/coding-tool-meta.ts",
       "default": "./src/tools/coding-tool-meta.ts"
+    },
+    "./tools/shell": {
+      "types": "./src/tools/shell.ts",
+      "default": "./src/tools/shell.ts"
     }
   },
   "scripts": {

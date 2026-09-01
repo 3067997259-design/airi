@@ -11,12 +11,17 @@
  * permission model at wiring time (WIRING-BACKLOG); this host must not be
  * assumed safe against a hostile program.
  */
+import type { WorkspaceShell, WorkspaceShellKind } from './shell'
+
+import process from 'node:process'
+
 import { execFile } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { mkdir, readdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
 import { contentHash } from '../hashline/text'
+import { probeWorkspaceShell } from './shell-probe'
 
 export interface WorkspaceReadResult {
   content: string
@@ -33,6 +38,8 @@ export interface CommandResult {
   stdout: string
   stderr: string
   exitCode: number
+  /** Interpreter that ran the command; repeated to the model on every result. */
+  shell: WorkspaceShellKind
 }
 
 export type WorkspaceWriteResult
@@ -40,6 +47,11 @@ export type WorkspaceWriteResult
     | { status: 'state_changed', currentHash: string | null }
 
 export interface WorkspaceHost {
+  /**
+   * Interpreter this host runs commands through, resolved once at creation.
+   * Callers declare it to the model instead of assuming a POSIX shell.
+   */
+  readonly shell: WorkspaceShell
   listDir: (path: string) => Promise<WorkspaceDirectoryEntry[]>
   readFile: (path: string) => Promise<WorkspaceReadResult>
   writeFile: (path: string, content: string) => Promise<void>
@@ -57,8 +69,17 @@ export function resolveInsideWorkspace(root: string, path: string): string {
   return normalized
 }
 
-export function createNodeWorkspaceHost(root: string): WorkspaceHost {
+export interface NodeWorkspaceHostOptions {
+  /**
+   * Overrides shell probing. The host resolves one shell at creation and keeps
+   * it: probing per command would spawn `git --exec-path` on every call.
+   */
+  shell?: WorkspaceShell
+}
+
+export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHostOptions = {}): WorkspaceHost {
   const canonicalRoot = realpathSync(root)
+  const shell = options.shell ?? probeWorkspaceShell()
 
   const ensureExistingInside = async (path: string): Promise<string> => {
     const lexicalPath = resolveInsideWorkspace(canonicalRoot, path)
@@ -80,6 +101,7 @@ export function createNodeWorkspaceHost(root: string): WorkspaceHost {
   }
 
   return {
+    shell,
     async listDir(path) {
       const resolved = await ensureExistingInside(path)
       const entries = await readdir(resolved, { withFileTypes: true })
@@ -138,22 +160,27 @@ export function createNodeWorkspaceHost(root: string): WorkspaceHost {
       return { status: 'written', baseHash: contentHash(content) }
     },
     runCommand(command) {
-      // NOTICE:
-      // `execFile` with the platform shell keeps metro-like quoting rules
-      // consistent (Windows: cmd via shell:true) while still returning
-      // stdout/stderr/exitCode. Command capabilities are gated upstream by
-      // classifyBashCommand + the approval callback, never here.
+      // The shell is spawned by path with its own command flag instead of
+      // `shell: true`, which resolved ComSpec (cmd.exe) on Windows and broke
+      // every POSIX command the model wrote. Capabilities stay gated upstream
+      // by classifyBashCommand plus the approval callback, never here.
       return new Promise<CommandResult>((resolveResult) => {
         execFile(
-          command,
-          { shell: true, cwd: canonicalRoot, windowsHide: true, timeout: 120_000 },
+          shell.executable,
+          [...shell.commandArgs, command],
+          {
+            cwd: canonicalRoot,
+            windowsHide: true,
+            timeout: 120_000,
+            ...(shell.env ? { env: { ...process.env, ...shell.env } } : {}),
+          },
           (error, stdout, stderr) => {
             const exitCode = typeof error === 'object' && error !== null && 'code' in error
               ? Number(error.code ?? 1)
               : error
                 ? 1
                 : 0
-            resolveResult({ stdout, stderr: String(stderr), exitCode: Number.isFinite(exitCode) ? exitCode : 1 })
+            resolveResult({ stdout, stderr: String(stderr), exitCode: Number.isFinite(exitCode) ? exitCode : 1, shell: shell.kind })
           },
         )
       })

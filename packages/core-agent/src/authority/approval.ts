@@ -40,6 +40,19 @@ export type BashRiskTier = 'read-only' | 'medium' | 'high'
 // Patterns below are matched against the normalized (collapsed-whitespace)
 // command string. Keep the lists small and explicit; the execution sandbox,
 // not these lists, is the actual safety boundary.
+//
+// Both syntaxes are classified unconditionally, whichever shell the workspace
+// host resolved (HARNESS-PLAN §3.5.3 C5): a Windows machine without Git for
+// Windows runs PowerShell, and a cmdlet missing from these lists would be a
+// destructive command silently downgraded to the read-only tier. Over-matching
+// only raises an approval card, so the lists err that way.
+//
+// PowerShell entries anchor at a command position and match case-insensitively
+// because the shell itself is case-insensitive, and its one- and two-letter
+// aliases (ri, sc, ni, mi) would otherwise match ordinary words anywhere in a
+// command line. Each alias needs its own entry: it shares no text with the
+// cmdlet name that the readable pattern matches.
+const POWERSHELL_COMMAND_START = String.raw`(?:^|[;|&(]\s*)`
 const HIGH_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   // remote push / publish
   /\bgit\s+push\b/,
@@ -53,6 +66,13 @@ const HIGH_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   /\b(systemctl|service|pm2|kubectl|helm)\b/,
   // destructive git operations
   /\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f|checkout\s+--)\b/,
+  // PowerShell deletion (cmdlet and aliases)
+  new RegExp(`${POWERSHELL_COMMAND_START}(remove-item|ri|rd|del|erase)\\b`, 'i'),
+  // PowerShell network egress
+  new RegExp(`${POWERSHELL_COMMAND_START}(invoke-webrequest|iwr|invoke-restmethod|irm|start-bitstransfer)\\b`, 'i'),
+  // PowerShell service and remote-session control
+  new RegExp(`${POWERSHELL_COMMAND_START}(stop-service|start-service|restart-service|set-service|sc)\\b`, 'i'),
+  new RegExp(`${POWERSHELL_COMMAND_START}(enter-pssession|new-pssession|invoke-command)\\b`, 'i'),
 ])
 
 const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
@@ -65,6 +85,8 @@ const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   /(>>|>\s+)/,
   // builds (write artifacts)
   /\b(npm|pnpm|yarn|bun)\s+(run\s+)?build\b/,
+  // PowerShell file creation, movement and writes (cmdlets and aliases)
+  new RegExp(`${POWERSHELL_COMMAND_START}(set-content|add-content|out-file|new-item|ni|copy-item|cpi|move-item|mi|rename-item|rni|md)\\b`, 'i'),
 ])
 
 /**
