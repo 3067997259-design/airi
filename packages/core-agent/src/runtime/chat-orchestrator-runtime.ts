@@ -963,12 +963,25 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         },
       })),
     }]
+    const answered = new Set(message.tool_results.map(result => result.id))
     for (const result of message.tool_results) {
       transcript.push({
         role: 'tool',
         tool_call_id: result.id,
         content: typeof result.result === 'string' ? result.result : JSON.stringify(result.result ?? ''),
       })
+    }
+    // A transcript with tool_calls but a missing result is rejected by the
+    // provider on every later replay ("tool_calls must be followed by tool
+    // messages"), so an interrupted turn must leave a self-consistent one.
+    for (const call of transcript[0]!.tool_calls ?? []) {
+      if (call.id && !answered.has(call.id)) {
+        transcript.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: 'Error: the tool call was interrupted before its result was recorded.',
+        })
+      }
     }
     return transcript
   }

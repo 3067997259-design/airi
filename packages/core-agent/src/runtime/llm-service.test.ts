@@ -330,6 +330,51 @@ describe('sanitizeMessages', () => {
     ])
   })
 
+  it('appends a synthetic tool result after interrupted tool calls with no answer', () => {
+    // Found in the 2026-09-01 acceptance loop: an interrupted turn persisted a
+    // partial transcript whose tool_calls never got results, and every later
+    // replay 400'd ("assistant tool_calls must be followed by tool messages").
+    const out = sanitizeMessages([
+      { role: 'user', content: 'run it' },
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'bash', arguments: '{"command":"sleep 90"}' } }],
+      },
+      { role: 'user', content: 'still there?' },
+    ])
+    expect(out).toHaveLength(4)
+    expect(out[2]).toEqual({
+      role: 'tool',
+      tool_call_id: 'call-1',
+      content: 'Error: the tool call was interrupted before its result was recorded.',
+    })
+    expect(out[3]).toEqual({ role: 'user', content: 'still there?' })
+  })
+
+  it('keeps answered tool calls untouched and heals only the dangling ones', () => {
+    const answered = {
+      role: 'assistant',
+      content: '',
+      tool_calls: [{ id: 'call-ok', type: 'function', function: { name: 'read', arguments: '{}' } }],
+    }
+    const toolResult = { role: 'tool', tool_call_id: 'call-ok', content: 'file body' }
+    const dangling = {
+      role: 'assistant',
+      content: '',
+      tool_calls: [
+        { id: 'call-a', type: 'function', function: { name: 'bash', arguments: '{}' } },
+        { id: 'call-b', type: 'function', function: { name: 'grep', arguments: '{}' } },
+      ],
+    }
+    const out = sanitizeMessages([answered, toolResult, dangling, { role: 'user', content: 'next' }])
+    expect(out).toHaveLength(6)
+    expect(out[1]).toEqual(toolResult)
+    expect(out[3]).toEqual({ role: 'tool', tool_call_id: 'call-a', content: 'Error: the tool call was interrupted before its result was recorded.' })
+    expect(out[4]).toEqual({ role: 'tool', tool_call_id: 'call-b', content: 'Error: the tool call was interrupted before its result was recorded.' })
+    expect(out[5]).toEqual({ role: 'user', content: 'next' })
+  })
+
   it('flattens text-only content arrays to a string by default', () => {
     /**
      * @example

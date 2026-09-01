@@ -1,5 +1,5 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { Event, Message, Usage } from '@xsai/shared-chat'
+import type { Event, Message, ToolMessage, Usage } from '@xsai/shared-chat'
 
 import type { StreamEvent, StreamFromOptions, StreamOptions } from '../types/llm'
 
@@ -32,7 +32,7 @@ import { streamText } from '@xsai/stream-text'
  *   providers.
  */
 export function sanitizeMessages(messages: unknown[], supportsContentArray: boolean = true): Message[] {
-  return messages.map((message: any) => {
+  const sanitized = messages.map((message: any) => {
     if (message && message.role === 'error') {
       return {
         role: 'user',
@@ -67,6 +67,45 @@ export function sanitizeMessages(messages: unknown[], supportsContentArray: bool
 
     return message as Message
   })
+
+  return repairDanglingToolCalls(sanitized)
+}
+
+/**
+ * Appends a synthetic tool result after every assistant `tool_calls` block
+ * that no following `tool` message answers.
+ *
+ * Interrupted turns can persist a partial assistant transcript whose calls
+ * never received results. Providers reject that shape on every later replay
+ * ("assistant message with tool_calls must be followed by tool messages"), so
+ * the poisoned history would 400 forever. Healing at the wire boundary keeps
+ * replay valid without rewriting stored history.
+ */
+function repairDanglingToolCalls(messages: Message[]): Message[] {
+  const repaired: Message[] = []
+  for (let index = 0; index < messages.length; index++) {
+    const message = messages[index]!
+    repaired.push(message)
+    if (message.role !== 'assistant' || !Array.isArray(message.tool_calls) || message.tool_calls.length === 0)
+      continue
+
+    const answered = new Set<string>()
+    for (let next = index + 1; next < messages.length && messages[next]!.role === 'tool'; next++) {
+      const tool = messages[next]! as ToolMessage
+      if (tool.tool_call_id)
+        answered.add(tool.tool_call_id)
+    }
+    for (const call of message.tool_calls) {
+      if (call?.id && !answered.has(call.id)) {
+        repaired.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: 'Error: the tool call was interrupted before its result was recorded.',
+        })
+      }
+    }
+  }
+  return repaired
 }
 
 export function modelKey(model: string, chatProvider: ChatProvider): string {
