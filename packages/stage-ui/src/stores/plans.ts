@@ -2,6 +2,7 @@ import type { JournalEvent, PlanEvidenceRef, PlanSpec, PlanState, PlanStepStatus
 
 import type { PlanPersistenceRepository } from '../services/memory/local-memory'
 
+import { errorMessageFrom } from '@moeru/std'
 import { buildTurnProjection, projectStepGateStates } from '@proj-airi/core-agent'
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, toRaw } from 'vue'
@@ -178,11 +179,31 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
  * Owns plan specifications and restart snapshots while the journal owns
  * current-session activity. Only the synchronized leader opens DuckDB.
  */
+/** Attempts to open the plan database before the failure becomes visible. */
+const PERSISTENCE_OPEN_ATTEMPTS = 3
+
+/** Backoff between open attempts, in milliseconds. */
+const PERSISTENCE_RETRY_BACKOFF_MS = Object.freeze([200, 600])
+
+/**
+ * Whether plans are being kept, as the plan card reports it.
+ *
+ * `unavailable` is a follower window, which owns no writes by design.
+ * `failed` means work is running with nothing behind it — the state that used
+ * to be a console warning and looked to the user like plans evaporating on
+ * restart (HARNESS-PLAN §0.2 R4).
+ */
+export interface PlanPersistenceState {
+  status: 'idle' | 'ready' | 'unavailable' | 'failed'
+  error?: string
+}
+
 export const usePlanStore = defineStore('runtime-plans', () => {
   const journal = useJournalStore()
   const plans = ref<RuntimePlanRecord[]>([])
   const repository = shallowRef<PlanPersistenceRepository>()
   const initialized = shallowRef(false)
+  const persistence = shallowRef<PlanPersistenceState>({ status: 'idle' })
   let initializationPromise: Promise<void> | undefined
 
   const planViews = computed<PlanView[]>(() => {
@@ -238,6 +259,8 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     initializationPromise = (async () => {
       const locationSearch = globalThis.location?.search
       if (locationSearch == null || resolveMemoryWriteAccess(locationSearch) === 'follower') {
+        // A follower owns no writes; that is the design, not a fault.
+        persistence.value = { status: 'unavailable' }
         initialized.value = true
         return
       }
@@ -246,11 +269,31 @@ export const usePlanStore = defineStore('runtime-plans', () => {
         import('../composables/use-duck-db'),
         import('../services/memory/local-memory'),
       ])
-      const database = useDuckDb()
-      await database.getDb()
-      if (!database.db.value)
-        throw new Error('Plan persistence database did not initialize')
-      repository.value = createDuckDbMemoryRepository(database.db.value)
+      // OPFS allows a single writer, so a leftover window or a reloading
+      // worker can hold the handle for a moment. Retrying with a short backoff
+      // turns that transient conflict into a slow start instead of a session
+      // that silently keeps no plans at all (HARNESS-PLAN §4.3).
+      let lastError: unknown
+      for (let attempt = 0; attempt < PERSISTENCE_OPEN_ATTEMPTS && !repository.value; attempt++) {
+        try {
+          const database = useDuckDb()
+          await database.getDb()
+          if (database.db.value)
+            repository.value = createDuckDbMemoryRepository(database.db.value)
+          else
+            lastError = new Error('Plan persistence database did not initialize')
+        }
+        catch (error) {
+          lastError = error
+        }
+
+        if (!repository.value && attempt < PERSISTENCE_OPEN_ATTEMPTS - 1)
+          await new Promise(resolve => setTimeout(resolve, PERSISTENCE_RETRY_BACKOFF_MS[attempt] ?? 0))
+      }
+
+      if (!repository.value)
+        throw lastError instanceof Error ? lastError : new Error('Plan persistence database did not initialize')
+
       const persisted = await repository.value.loadPlans()
       const merged = new Map(persisted.map(plan => [plan.id, {
         id: plan.id,
@@ -266,10 +309,17 @@ export const usePlanStore = defineStore('runtime-plans', () => {
           merged.set(local.id, local)
       }
       plans.value = [...merged.values()].sort((left, right) => left.updatedAt - right.updatedAt)
+      persistence.value = { status: 'ready' }
       initialized.value = true
-    })().finally(() => {
-      initializationPromise = undefined
-    })
+    })()
+      .catch((error) => {
+        // Left un-initialized on purpose: the next persist retries, and the
+        // chip tells the user that plans are not being kept meanwhile.
+        persistence.value = { status: 'failed', error: errorMessageFrom(error) ?? 'unknown error' }
+      })
+      .finally(() => {
+        initializationPromise = undefined
+      })
     return initializationPromise
   }
 
@@ -283,19 +333,39 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       return
 
     const updatedAt = Date.now()
+
     const stateSnapshot = clonePlanState(view.state)
     plans.value = plans.value.map(plan => plan.id === planId
       ? { ...plan, stateSnapshot, updatedAt }
       : plan)
-    await repository.value.savePlan({
-      id: planId,
-      spec: clonePlanSpec(view.spec),
-      state: stateSnapshot,
-      status: view.status,
-      ...(record.sessionId ? { sessionId: record.sessionId } : {}),
-      createdAt: record.createdAt,
-      updatedAt,
-    })
+    try {
+      await repository.value.savePlan({
+        id: planId,
+        spec: clonePlanSpec(view.spec),
+        state: stateSnapshot,
+        status: view.status,
+        ...(record.sessionId ? { sessionId: record.sessionId } : {}),
+        createdAt: record.createdAt,
+        updatedAt,
+      })
+      if (persistence.value.status !== 'ready')
+        persistence.value = { status: 'ready' }
+    }
+    catch (error) {
+      // The plan keeps running in memory; the chip says it will not survive a
+      // restart. Swallowing this was how "my plan evaporated" happened with no
+      // warning anywhere the user could see.
+      persistence.value = { status: 'failed', error: errorMessageFrom(error) ?? 'unknown error' }
+    }
+  }
+
+  /** Re-opens the plan database after a failed start, for the card's chip. */
+  async function retryPersistence(): Promise<PlanPersistenceState> {
+    initialized.value = false
+    repository.value = undefined
+    persistence.value = { status: 'idle' }
+    await initialize()
+    return persistence.value
   }
 
   async function start(spec: PlanSpec, requestedId?: string, options?: { sessionId?: string }): Promise<string> {
@@ -468,11 +538,14 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     repository.value = undefined
     initialized.value = false
     initializationPromise = undefined
+    persistence.value = { status: 'idle' }
   }
 
   return {
     plans,
     planViews,
+    persistence,
+    retryPersistence,
     activePlans,
     activeSessionPlan,
     activeLongPlan,
@@ -494,7 +567,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
   }
 }, {
   synced: {
-    actions: ['initialize', 'persistPlan', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'pausePlan', 'resumePlan', 'softDeletePlan'],
+    actions: ['initialize', 'persistPlan', 'retryPersistence', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'pausePlan', 'resumePlan', 'softDeletePlan'],
     state: true,
   },
 })

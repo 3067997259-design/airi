@@ -32,6 +32,9 @@ chat:
     evidence: Evidence
     deadline: Deadline
     unverified: Unverified
+    persistence:
+      failed: Plans are not being saved. Work continues, but it will not survive a restart.
+      retry: Retry
   todo-card:
     title: Task list
   approval-card:

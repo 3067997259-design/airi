@@ -32,6 +32,9 @@ chat:
     evidence: 证据
     deadline: 截止日期
     unverified: 未验证
+    persistence:
+      failed: 计划没有被保存。工作会继续，但重启后不会留下。
+      retry: 重试
   todo-card:
     title: 任务清单
   approval-card:

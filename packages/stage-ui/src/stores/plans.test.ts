@@ -130,6 +130,44 @@ describe('plan store', () => {
     expect(store.planViews[0]?.status).toBe('in_progress')
   })
 
+  it('reports a failed plan database instead of dropping plans in silence', async () => {
+    // ROOT CAUSE:
+    //
+    // A failed hydration only reached console.warn, so a session ran with no
+    // persistence at all and the user learned about it when the plans were
+    // gone after a restart (HARNESS-PLAN §0.2 R4).
+    persistence.loadPlans.mockRejectedValueOnce(new Error('OPFS handle is busy'))
+    const store = usePlanStore()
+
+    await store.initialize()
+
+    expect(store.persistence).toEqual({ status: 'failed', error: 'OPFS handle is busy' })
+
+    // The chip's retry button re-opens the database and clears the state.
+    persistence.loadPlans.mockResolvedValue([])
+    expect(await store.retryPersistence()).toEqual({ status: 'ready' })
+  })
+
+  it('reports a follower window as unavailable rather than failed', async () => {
+    vi.stubGlobal('location', new URL('http://localhost/?synced-leader=false'))
+    const store = usePlanStore()
+
+    await store.initialize()
+
+    expect(store.persistence.status).toBe('unavailable')
+  })
+
+  it('reports a failing save without stopping the plan', async () => {
+    const store = usePlanStore()
+    await store.start(SPEC, 'plan-save-failure')
+    persistence.savePlan.mockRejectedValueOnce(new Error('disk is full'))
+
+    await store.persistPlan('plan-save-failure')
+
+    expect(store.persistence).toEqual({ status: 'failed', error: 'disk is full' })
+    expect(store.planViews.find(plan => plan.id === 'plan-save-failure')).toBeDefined()
+  })
+
   it('hydrates the persisted state snapshot when the journal is empty', async () => {
     persistence.loadPlans.mockResolvedValueOnce([{
       id: 'plan-restored',
