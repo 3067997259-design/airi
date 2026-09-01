@@ -10,13 +10,14 @@ import { installExpressionJournalPort } from '@proj-airi/stage-ui-live2d/stores/
  */
 import { installApprovalsBridge } from '@proj-airi/stage-ui/stores/approvals'
 import { installCodingHostClient, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
-import { useJournalStore } from '@proj-airi/stage-ui/stores/journal'
+import { installJournalPersistence, useJournalStore } from '@proj-airi/stage-ui/stores/journal'
 import { installLifeModePort } from '@proj-airi/stage-ui/stores/modules/life-mode'
 import { installMemoryHostPort } from '@proj-airi/stage-ui/stores/modules/memory'
 import { installSkillRuntime } from '@proj-airi/stage-ui/stores/skills'
 import { installFetchTextPort } from '@proj-airi/stage-ui/tools/fetch'
 
 import { createCodingHostClient } from './coding-host'
+import { createJournalHostClient } from './journal-host'
 import { createLifeModeClient } from './life-mode'
 import { createMemoryHostClient } from './memory-host'
 import { createWebFetchClient } from './web-fetch'
@@ -54,6 +55,9 @@ export function installCodingHostBridge(): void {
   client.onWorkspaceRootChanged(() => {
     void useCodingToolsStore().refreshStatus()
   })
+  // The journal becomes durable here: the store keeps owning the live stream
+  // and only mirrors it, so a renderer without this port behaves as before.
+  installJournalPersistence(createJournalHostClient())
   installFetchTextPort(createWebFetchClient())
   installLifeModePort(createLifeModeClient())
   installAppearanceJournaling()

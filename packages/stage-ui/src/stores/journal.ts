@@ -7,6 +7,25 @@ import { computed, ref, shallowRef } from 'vue'
 const DEFAULT_SESSION_ID = 'stage-session'
 
 /**
+ * Durable journal storage, installed by the app shell.
+ *
+ * The store stays the source of truth in memory; this port only mirrors the
+ * stream to disk and reads it back, so a renderer without persistence behaves
+ * exactly as before (HARNESS-PLAN §9.1).
+ */
+export interface JournalPersistencePort {
+  append: (sessionId: string, lines: string[]) => Promise<void>
+  read: (sessionId: string) => Promise<{ lines: string[], truncated: boolean }>
+}
+
+let persistencePort: JournalPersistencePort | undefined
+
+/** Registers the durable journal owner for this renderer. */
+export function installJournalPersistence(port: JournalPersistencePort | undefined): void {
+  persistencePort = port
+}
+
+/**
  * UI projection of one append-only runtime journal.
  *
  * The store keeps raw events as the source of truth. Cards and diagnostics
@@ -43,6 +62,8 @@ export const useJournalStore = defineStore('runtime-journal', () => {
   })
 
   const stores = new Map<string, JournalStore>()
+  const pendingWrites = new Map<string, string[]>()
+  let flushScheduled = false
   const projections = new Map<string, ProjectionRegistry>()
   const projectionSnapshots = shallowRef<Record<string, unknown>>({})
 
@@ -82,7 +103,78 @@ export const useJournalStore = defineStore('runtime-journal', () => {
     projections.get(sessionId)?.ingest(record)
     events.value = store.readAll()
     projectionSnapshots.value = projections.get(sessionId)?.snapshot().values ?? {}
+    queuePersist(sessionId, record)
     return record
+  }
+
+  /**
+   * Mirrors one event to disk on the next microtask batch.
+   *
+   * A tool loop appends many events in a row; one write per event would make
+   * the loop disk-bound. Persistence failures never reach the caller: the
+   * journal keeps working in memory, which is what the running turn needs.
+   */
+  function queuePersist(sessionId: string, record: JournalEvent): void {
+    if (!persistencePort)
+      return
+
+    const batch = pendingWrites.get(sessionId) ?? []
+    batch.push(JSON.stringify(record))
+    pendingWrites.set(sessionId, batch)
+    if (flushScheduled)
+      return
+
+    flushScheduled = true
+    void Promise.resolve().then(async () => {
+      flushScheduled = false
+      const batches = [...pendingWrites.entries()]
+      pendingWrites.clear()
+      for (const [id, lines] of batches) {
+        try {
+          await persistencePort?.append(id, lines)
+        }
+        catch {
+          // Losing durability is not losing the session; the next append tries
+          // again and the in-memory journal is unaffected.
+        }
+      }
+    })
+  }
+
+  /**
+   * Replays a persisted session into memory.
+   *
+   * Called before a session is used, so restored state comes from the same
+   * events the live stream produces. Unparsable lines are skipped rather than
+   * failing the whole replay: one corrupt tail must not cost the history.
+   */
+  async function hydrate(sessionId = DEFAULT_SESSION_ID): Promise<number> {
+    if (!persistencePort)
+      return 0
+
+    const store = ensureSession(sessionId)
+    if (store.readAll().length > 1)
+      return 0
+
+    const { lines } = await persistencePort.read(sessionId)
+    let replayed = 0
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line) as JournalEvent
+        if (event.type === 'session/header')
+          continue
+        store.append(event)
+        projections.get(sessionId)?.ingest(event)
+        replayed++
+      }
+      catch {
+        continue
+      }
+    }
+
+    events.value = store.readAll()
+    projectionSnapshots.value = projections.get(sessionId)?.snapshot().values ?? {}
+    return replayed
   }
 
   function appendActive(event: JournalEventInput): JournalEvent {
@@ -109,6 +201,7 @@ export const useJournalStore = defineStore('runtime-journal', () => {
     pendingReviews,
     projectionSnapshots,
     ensureSession,
+    hydrate,
     append,
     appendActive,
     readSession,

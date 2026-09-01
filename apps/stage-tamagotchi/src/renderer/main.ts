@@ -63,6 +63,17 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
   void (async () => {
     const { useMemoryStore } = await import('@proj-airi/stage-ui/stores/modules/memory')
     const { usePlanStore } = await import('@proj-airi/stage-ui/stores/plans')
+    const { useJournalStore } = await import('@proj-airi/stage-ui/stores/journal')
+    const { useChatSessionStore } = await import('@proj-airi/stage-ui/stores/chat/session-store')
+    try {
+      // Replay before the plan store hydrates: plan state is derived from the
+      // journal, so a restored plan needs its events back first
+      // (HARNESS-PLAN §9.1).
+      await useJournalStore().hydrate(useChatSessionStore().activeSessionId)
+    }
+    catch (error) {
+      console.warn('[Boot] Journal replay failed.', error)
+    }
     try {
       await usePlanStore().initialize()
     }

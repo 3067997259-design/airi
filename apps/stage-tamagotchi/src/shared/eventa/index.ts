@@ -611,6 +611,39 @@ export interface CodingToolsStatusResult {
   tools: CodingToolAvailability[]
 }
 
+// ---------------------------------------------------------------------------
+// Journal persistence — durable JSONL per session (HARNESS-PLAN §9.1).
+// ---------------------------------------------------------------------------
+
+export interface JournalAppendParams {
+  sessionId: string
+  /** One JSONL line per event, already serialized by the renderer. */
+  lines: string[]
+}
+export interface JournalAppendResult {
+  appended: number
+}
+export interface JournalReadParams {
+  sessionId: string
+  /** Newest events to return. @default 2000 */
+  limit?: number
+}
+export interface JournalReadResult {
+  lines: string[]
+  /** Whether older events exist on disk beyond the returned window. */
+  truncated: boolean
+}
+export interface JournalClearParams {
+  sessionId: string
+}
+export interface JournalClearResult {
+  cleared: true
+}
+
+export const journalHostAppend = defineInvokeEventa<JournalAppendResult, JournalAppendParams>('eventa:invoke:electron:journal-host:append')
+export const journalHostRead = defineInvokeEventa<JournalReadResult, JournalReadParams>('eventa:invoke:electron:journal-host:read')
+export const journalHostClear = defineInvokeEventa<JournalClearResult, JournalClearParams>('eventa:invoke:electron:journal-host:clear')
+
 export interface CodingJobOutputParams {
   jobId: string
   /** Return only the last N characters of output. */

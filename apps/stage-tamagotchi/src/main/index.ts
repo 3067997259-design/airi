@@ -34,6 +34,7 @@ import { setupServerChannel } from './services/airi/channel-server'
 import { setupCodingHost } from './services/airi/coding-host'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupBuiltInServer } from './services/airi/http-server'
+import { setupJournalHost } from './services/airi/journal-host'
 import { setupLifeMode } from './services/airi/life-mode'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupMemoryHost } from './services/airi/memory-host'
@@ -249,6 +250,13 @@ app.whenReady().then(async () => {
     },
   })
 
+  const journalHost = injeca.provide('modules:journal-host', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupJournalHost(context, {}, app.getPath('userData'))
+    },
+  })
+
   const memoryHost = injeca.provide('modules:memory-host', {
     build: async () => {
       const { context } = createContext(ipcMain)
@@ -271,7 +279,7 @@ app.whenReady().then(async () => {
   })
 
   const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, memoryHost, webFetch, lifeMode },
+    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, journalHost, memoryHost, webFetch, lifeMode },
     build: async ({ dependsOn }) => setupMainWindow({
       ...dependsOn,
       onWindowCreated: (window) => {
