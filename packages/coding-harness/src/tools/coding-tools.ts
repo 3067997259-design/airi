@@ -157,13 +157,30 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
         const path = requireString(toolArgs, 0, 'path')
         const content = requireString(toolArgs, 1, 'content')
         const baseHash = requireBaseHash(toolArgs, 2)
-        // A whole-file write is unreviewable without the change it made; the
-        // result carries the line summary (HARNESS-PLAN §9.1).
-        const before = baseHash === null ? [] : parseTextFile((await host.readFile(path).catch(() => ({ content: '' }))).content).lines
-        const result = await host.writeFileIfUnchanged(path, content, baseHash)
+        // The declared base hash doubles as the staleness read: one fetch
+        // yields both the diff baseline and the file's dominant line ending.
+        const existing = baseHash === null
+          ? undefined
+          : await host.readFile(path).catch(() => undefined)
+        const existingSnapshot = existing && existing.content.length > 0
+          ? parseTextFile(existing.content)
+          : undefined
+        // Keep the file's own line-ending style: the read header declares it,
+        // so a whole-file write carrying bare \n must not silently flip a
+        // CRLF file to LF (found in the 2026-09-01 acceptance run). New and
+        // empty files keep whatever the model sent.
+        const outgoing = existingSnapshot
+          ? joinTextFile(parseTextFile(content).lines, existingSnapshot.lineEnding)
+          : content
+        const result = await host.writeFileIfUnchanged(path, outgoing, baseHash)
         if (result.status === 'state_changed')
           return { path, ...result }
-        return { path, ...result, diff: summarizeLineDiff(before, parseTextFile(content).lines).text }
+        return {
+          path,
+          ...result,
+          diff: summarizeLineDiff(existingSnapshot?.lines ?? [], parseTextFile(outgoing).lines).text,
+          ...(outgoing !== content ? { lineEndingNormalized: true } : {}),
+        }
       },
     },
     {

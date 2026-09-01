@@ -2,14 +2,14 @@ import type { CodeModeRuntime } from '../ptc/code-mode'
 
 import process from 'node:process'
 
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { buildSignedFileProjection } from '../hashline/read'
-import { parseTextFile } from '../hashline/text'
+import { contentHash, parseTextFile } from '../hashline/text'
 import { createCodeModeRuntime } from '../ptc/code-mode'
 import { createCodingTools } from './coding-tools'
 import { createNodeWorkspaceHost } from './workspace-host'
@@ -70,6 +70,26 @@ describe('coding tools over the node host', () => {
       return await bridge('read', ['fresh.ts'])
     `)
     expect(result).toEqual(expect.objectContaining({ ok: true }))
+  })
+
+  it('keeps a CRLF file CRLF across a whole-file write', async () => {
+    // Regression of the 2026-09-01 acceptance run: a write carrying bare \n
+    // flipped a CRLF file to LF even though the read header declares
+    // `lineEnding CRLF`. The write must rejoin lines with the file's own
+    // dominant ending instead of storing the model's bytes verbatim.
+    const crlfPath = join(rootDir, 'crlf-notes.txt')
+    const crlfContent = 'alpha\r\nbeta\r\n'
+    await writeFile(crlfPath, crlfContent)
+    const result = await runtime.run(`
+      return await bridge('write', ['crlf-notes.txt', 'first\\nsecond\\n', '${contentHash(crlfContent)}'])
+    `)
+    expect(result).toEqual(expect.objectContaining({ ok: true }))
+    if (result.ok) {
+      const write = result.value as { lineEndingNormalized?: boolean }
+      expect(write.lineEndingNormalized).toBe(true)
+    }
+    const stored = await readFile(crlfPath, 'utf8')
+    expect(stored).toBe('first\r\nsecond\r\n')
   })
 
   it('edits one line through its content signature', async () => {
