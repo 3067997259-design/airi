@@ -54,11 +54,15 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
     // fall back to the two list/call proxy tools when discovery yields
     // nothing usable (no servers configured, or listing failed).
     let tools: Tool[]
+    let descriptors: Awaited<ReturnType<typeof runtime.listTools>> = []
+    let runtimeStatus: Awaited<ReturnType<typeof getMcpRuntimeStatus>> | undefined
     try {
-      const [descriptors, runtimeStatus] = await Promise.all([
+      const [descriptorList, status] = await Promise.all([
         runtime.listTools(),
         getMcpRuntimeStatus().catch(() => undefined),
       ])
+      descriptors = descriptorList
+      runtimeStatus = status
       tools = descriptors.length > 0
         ? createMcpNativeTools(descriptors, runtime)
         : await Promise.all(createMcpTools(runtime))
@@ -78,6 +82,35 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
       ...tool,
       id: `${toolIdPrefix}${tool.function.name}`,
     } satisfies ExecutableTool)))
+    scheduleDiscoveryRetry(descriptors.length)
+  }
+
+  // Boot race (2026-09-01): App.vue refreshes once at mount, but stdio
+  // servers take seconds to reach ready (npx cold start, python boot). A
+  // first empty listing used to stick as proxy tools for the whole session.
+  // Retry on a bounded chain until native discovery lands or attempts run
+  // out; a successful listing resets the counter.
+  const DISCOVERY_RETRY_DELAYS_MS = [5_000, 10_000, 15_000, 20_000, 30_000, 30_000]
+  let discoveryRetryTimer: ReturnType<typeof setTimeout> | undefined
+  let discoveryRetryAttempts = 0
+
+  function scheduleDiscoveryRetry(descriptorCount: number) {
+    if (discoveryRetryTimer) {
+      clearTimeout(discoveryRetryTimer)
+      discoveryRetryTimer = undefined
+    }
+    if (descriptorCount > 0) {
+      discoveryRetryAttempts = 0
+      return
+    }
+    if (discoveryRetryAttempts >= DISCOVERY_RETRY_DELAYS_MS.length)
+      return
+
+    const delay = DISCOVERY_RETRY_DELAYS_MS[discoveryRetryAttempts]
+    discoveryRetryAttempts++
+    discoveryRetryTimer = setTimeout(() => {
+      void refresh()
+    }, delay)
   }
 
   function dispose() {

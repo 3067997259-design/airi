@@ -1355,7 +1355,14 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return
     }
 
-    activeSessionId.value = getCharacterIndex(getCurrentCharacterId())?.activeSessionId ?? ''
+    const indexedSessionId = getCharacterIndex(getCurrentCharacterId())?.activeSessionId ?? ''
+    // Diagnostic for the "sent a message and the view jumped back to another
+    // chat" class of report: this restore is index-driven and can race a
+    // freshly created session whose index pointer has not landed yet.
+    if (indexedSessionId !== activeSessionId.value) {
+      console.info('[chat-session] selection restored from index:', activeSessionId.value || '(empty)', '->', indexedSessionId || '(empty)')
+    }
+    activeSessionId.value = indexedSessionId
   }
 
   const messages = computed<ChatHistoryItem[]>({
@@ -1591,6 +1598,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       ?.sessionId
 
     if (fallbackSessionId) {
+      // Diagnostic: this repair path treats the current selection as an
+      // unknown/deleted session and falls back; a false positive here is the
+      // other candidate for the "view jumped back to another chat" report.
+      console.info('[chat-session] selection repair:', sessionId || '(empty)', '->', fallbackSessionId)
       void setActiveSession(fallbackSessionId)
     }
     // If no fallback exists yet, wait for the synchronized delete action.
