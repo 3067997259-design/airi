@@ -1,7 +1,8 @@
 # HARNESS-PLAN：回合语义改造（turn / 中断 / 双车道 / 仓库交互 / 工作画像 / btw）
 
-**状态**：批次一、批次一·五**已全部落地并提交**（2026-09-01）；批次二/三/四实施中。
-进度只看两张状态表：§3.0（批次一）与 §3.5.0（批次一·五）。
+**状态**：**四批全部落地并提交，§9.1 三处缺口一并补齐**（2026-09-01）。
+进度只看三处状态表：§3.0（批次一）、§3.5.0（批次一·五）、§4.0（批次二/三/四 + §9.1）。
+剩下的是真机验收（§7 的 T1-T11）——代码面已完成，未做的是构建版走查。
 **来源**：真机事故复盘（dsh-web 连接器开发任务）+ dsh（`D:\deepseek-harness`，即 MODS.md 中的 dsh / DeepSeek Harness）源码研究
 + 一次接手前的对照勘探（2026-08-31，对照 opencode 类开源 coding harness 的日常循环，产出 §3.5）。
 **总纲**：`DESIGN-PRINCIPLES.md` 七条全部适用（原则七于 2026-08-31 修订：判据从"工具数量"改为"循环形状"，
@@ -378,6 +379,27 @@ CRLF 与混合行尾往返保真。
 
 ---
 
+## 4.0 批次二 / 三 / 四 与 §9.1 的实施状态（2026-09-01：全部落地并提交）
+
+| 批次 | 项 | 状态 | 落点 |
+|---|---|---|---|
+| 二 | 证据门去焦点化（R3 根修） | ✅ | `getActivePlanStep` → `getPlanStepCandidates`（返回全部未完成步骤，焦点仅作优先级）；`planLinkFor` 先焦点后计划序匹配；焦点由 `stateFromJournal` **派生推进**（步骤解决后自动指向下一未决步骤），不再需要模型手动 focus |
+| 二 | 错配反馈 | ✅ | 新增 journal 事件 `plan/hint`（工具名 + 当前开放步骤可用工具集），`buildTurnProjection` 渲染「Unattached tool results」段回喂模型 |
+| 二 | todo 通道 | ✅ | journal `todo/write` + `todo_write` 工具 + `stores/todos.ts`（**派生态**：取最近 `turn/start` 之后的最后一次写入，故新回合天然空）+ 聊天区卡片；不参与验证门、也不被门阻塞；写入有界（20 条 / 每条 200 字） |
+| 二 | 持久化可见化（R4） | ✅ | `plans.persistence`（ready / unavailable / failed + 原因）+ 开库退避重试（200ms、600ms 共 3 次）+ 保存失败上浮 + 计划泳道琥珀色芯片与重试按钮 |
+| 二 | bash 后台原语（R5） | ✅ | `tools/jobs.ts`（作业注册表：环形输出缓冲 20k 字、`taskkill /T` 杀进程树、切根即清）+ `bash runInBackground` + `job_output` / `job_kill` 工具；审批门在 spawn 之前 |
+| 三 | 工作画像 | ✅ | `ChatOrchestratorSendOptions.profile`（计划轮默认 `work`）：系统前缀不注入 Stage Control / 注意力节；计划投影改走**尾部** `[Plan]` 块（新增 `getTailProjection` dep）；工具面裁到工作集；叙述跳过 `filterToSpeech`；artistry 副作用退场 |
+| 三 | 缓存可观测 | ✅ | 每次 supplement 变化记 journal `prompt/supplement-changed{hash, previousHash}`（同一 supplement 不重复记），T5 验收依赖它 |
+| 四 | btw 旁路 | ✅ | `stores/btw.ts`：独立 `streamFrom` + 独立 AbortController，**不写主会话、不进队列、不触发回合钩子、不挂任何工具**；上下文 = 有界工作投影（计划步骤 + todo + 最近 6 条工具摘要）+ 角色卡人格；聊天区侧线卡片 |
+| §9.1 | diff 面 | ✅ | `hashline/diff.ts` `summarizeLineDiff`（公共前后缀 + 有界列举）；`write` 先读后写以产出 diff，`edit` 直接对比；Code Mode 结果同带 |
+| §9.1 | journal 落盘 + 回放 | ✅ | 主进程 `journal-host`（`<userData>/journal/<hash>.jsonl` 追加写 + 有界读回）+ 渲染端 `installJournalPersistence` 端口（**微任务批量**镜像，失败不影响内存流）+ `journal.hydrate()`，leader 启动时**先回放再水合计划** |
+| §9.1 | 委派原语 | ✅ | `stores/delegation.ts` + `task` 工具：子运行有独立消息列表、只读工具（grep/read/list）、12 步预算；报告显式标注「是主张不是证据」，不能满足计划步骤 |
+
+**未做（有意）**：§7 的真机验收 T1-T11 需要构建版 electron + CDP 走查，属另一轮工作；
+本轮只保证代码面、定向测试与 typecheck/lint 全绿。
+
+---
+
 ## 4. 批次二：证据门去焦点化 + todo 通道 + bash 后台
 
 **目标**：门从「要求自律」回到「结构使然」；沟通与验证解耦；长命令不再挂死。
@@ -559,6 +581,18 @@ T2/T3 在批次一合并前录制为常驻回归；T10 在批次一·五合并�
 - life-mode / 自主节拍的语义变更——仅按批次一需要接 paused 态，其余不动。
 
 ### 9.1 范围外但已确认存在的三处缺口（2026-08-31 勘探补）
+
+> **2026-09-01 更新：三项均已由用户拍板纳入并实现**（落点见 §4.0 状态表）。
+> 下面保留原始诊断文本——它记录的是「为什么要做」，不是当前状态。
+> 实现时对原诊断的三处修正：
+> （1）journal 落盘选了**主进程 JSONL owner + 渲染端只读镜像**，
+> 而不是让每个渲染进程各自写盘——OPFS 单写者的教训在前，多写者是同一个坑；
+> 回放**先于**计划水合，因为计划态是从事件派生的。
+> （2）委派原语落成**只读子运行 + 报告**，不是完整子会话：
+> 按原则三，子运行的报告是「主张」不是「证据」，工具描述与返回文本都写明了这一点，
+> 它不能满足任何计划步骤。
+> （3）diff 面按原文的「最小形态」做：结果里带行级摘要，不新增 UI 面；
+> 代价是 `write` 多一次读（为了拿到改前内容），换来整文件覆盖也可审阅。
 
 这三项**不是**本计划的遗漏，是需要用户按产品判断单独拍板的事。
 写在这里是为了「接手时知道它们存在且知道为什么没做」，避免误以为批次二给了。

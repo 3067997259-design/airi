@@ -785,3 +785,66 @@ steer and queue lanes` 落地回合化本体：每回合一个 AbortController�
 与本批改动无关：`plugins/index.test.ts` 的两个 gamelet 用例、
 `http-server/static-assets/paths.test.ts` 的两个符号链接用例。
 
+
+### 批次二 / 三 / 四 + §9.1 落地收官（2026-09-01）
+
+HARNESS-PLAN 的四批与 §9.1 三处缺口全部实现并提交（八个提交）。状态表见
+`HARNESS-PLAN.md` §4.0，本节只记结论、决策与踩到的坑。
+
+**批次二（证据门 + todo + 持久化 + 后台）**
+
+- **证据门去焦点化是 R3 的根修**：打戳从「当前焦点步骤」放宽为「任何**未完成**
+  且接受该工具的步骤」（焦点只作优先级）。同时把「焦点推进」做成**派生**而非写入：
+  步骤被门解决后，`currentStepId` 自动指向下一未决步骤。原实现里步骤一完成就
+  没有任何步骤处于 in_progress/blocked，投影随即不再指名任何步骤——这才是
+  「计划卡住不动」的直接机制。
+- **错配不再静默**：无处可挂的工具结果记 `plan/hint`，并在计划投影里回喂
+  「bash 没有产生步骤证据；开放步骤接受 read」。丢证据是原设计里最贵的静默失败。
+- **todo 通道是派生态**：取最近 `turn/start` 之后的最后一次 `todo/write`。
+  这样「新回合清空」不需要任何清空写入，last-write-wins 也天然成立。
+  它不参与验证门，也不被门阻塞——把沟通职责压给裁决机构正是 R3 的成因。
+- **持久化可见化**：`plans.persistence` 三态 + 开库退避重试 + 琥珀芯片。
+  OPFS 单写者冲突多是残留句柄，退避重试把「静默无持久化」变成「慢一点启动」。
+- **bash 后台**：作业注册表 + `job_output` / `job_kill`。**两处非显然点**：
+  审批门必须在 spawn 之前（后台启动也是执行）；杀进程要杀**进程树**
+  （win32 用 `taskkill /T`，否则 bash 死了但 dev server 还占着端口）。
+  切根时 `disposeAll`，不留孤儿进程在没人指向的目录里。
+
+**批次三（工作画像）**：`profile: 'work'`（计划轮默认）——系统前缀不再注入
+Stage Control / 注意力节，计划投影移到末条用户消息尾部的 `[Plan]` 块。
+判据很直接：前缀是**被缓存的那一段**，计划投影每落一条证据就变一次，
+放在前缀里等于每步重付整段对话的钱。叙述跳过 `filterToSpeech`——
+那个过滤器是为 TTS 而生的，它在工作轮里吃掉的正是「边干边说」。
+每次 supplement 变化记 `prompt/supplement-changed`，T5 验收从此有据可依。
+
+**批次四（btw）**：独立 `streamFrom` + 独立 AbortController，不写主会话、
+不进队列、不触发回合钩子、不挂任何工具。上下文是**有界工作投影**
+（计划步骤 + todo + 最近 6 条工具摘要），三小时任务与第一分钟同价。
+
+**§9.1 三处缺口（用户拍板一并做掉）**
+
+- **journal 落盘 + 回放**：主进程 `journal-host` 持有
+  `<userData>/journal/<sha256 前 32 位>.jsonl`，渲染端只镜像、**按微任务批量**写
+  （工具循环一轮几十条事件，逐条写会把循环变成磁盘绑定）。写盘失败不影响内存流。
+  leader 启动时**先回放 journal 再水合计划**——计划态是从事件派生的，顺序反了就白回放。
+  会话文件名用哈希：会话 id 来自聊天会话，可能含文件系统不接受的字符。
+- **委派原语**：`task` 工具 = 只读子运行（grep/read/list、12 步预算、独立消息列表）
+  + 短报告。**报告是主张不是证据**（原则三），工具描述与返回文本都写死这句话，
+  它不能满足任何计划步骤。
+- **diff 面**：`summarizeLineDiff`（公共前后缀 + 有界列举）挂在 `write` / `edit` /
+  Code Mode 的结果里，不新增 UI 面（§9 第一条「UI 第 3 位」不变）。
+  `write` 为此多一次读——代价换来「整文件覆盖也能审阅」。
+
+**验证**：`packages/stage-ui` 144 文件 / 859 用例全绿；
+`coding-harness` + `core-agent` + `stage-tamagotchi:node` 定向全绿；
+四个包 typecheck 与全仓 eslint 干净。
+全仓 `vitest run` 另有 11 个**与本批无关的 Windows 环境失败**：
+`plugins/index.test.ts` 与 `static-assets/paths.test.ts` 各 2 个
+（`EPERM: symlink`，未开开发者模式）、`cap-vite` 5 个（路径分隔符断言）、
+`ui-server-auth` 1 个（CRLF 断言）、`plugin-sdk` 1 个（入口解析）。
+这些包本批一行未改。
+
+**未做（有意）**：`HARNESS-PLAN.md` §7 的真机验收 T1-T11 需要构建版 electron +
+CDP 走查，属另一轮工作；本轮只保证代码面与定向测试。
+
+
