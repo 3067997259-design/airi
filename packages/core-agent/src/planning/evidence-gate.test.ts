@@ -54,6 +54,58 @@ describe('evidence gate runtime', () => {
 
   // ROOT CAUSE:
   //
+  // 2026-09-01 dsh-web exam: a plan whose steps all declared riskLevel 'low'
+  // completed 3/3 from seven read-only calls (bash/grep/read/list) — the
+  // mutation-proof branch keyed on the model's own risk grade, so a step that
+  // whitelisted write never raised it. The whitelist is structure; the grade
+  // is only a proposal.
+  it('requires mutation evidence for a low-risk step whose whitelist declares write', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'bash', summary: 'bash ok (read-only tier, exit 0, git-bash)' }),
+      toolResult({ seq: 3, stepId: 'step-1', provenance: 'builtin', toolName: 'grep', summary: 'grep "ws" · 50 matches in 19 files' }),
+    ]
+    const snapshot = projectStepGateStates(events, [step({ riskLevel: 'low', allowedTools: ['bash', 'write', 'read'] })])
+    const state = snapshot.steps['step-1']!
+    expect(state.status).toBe('blocked')
+    expect(state.reason).toContain('not_mutation_proof')
+  })
+
+  it('completes the same low-risk write step once a write lands', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'bash', summary: 'bash ok (read-only tier, exit 0, git-bash)' }),
+      toolResult({ seq: 3, stepId: 'step-1', provenance: 'builtin', toolName: 'write', summary: 'written' }),
+    ]
+    const snapshot = projectStepGateStates(events, [step({ riskLevel: 'low', allowedTools: ['bash', 'write', 'read'] })])
+    expect(snapshot.steps['step-1']).toMatchObject({ status: 'completed' })
+  })
+
+  it('counts a non-read-only bash run as mutation evidence for a side-effect step', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'bash', summary: 'bash ok (medium tier, exit 0, git-bash)' }),
+    ]
+    const snapshot = projectStepGateStates(events, [step()])
+    expect(snapshot.steps['step-1']).toMatchObject({ status: 'completed' })
+  })
+
+  it('still completes a pure-read step from read-only evidence', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'grep', summary: 'grep "ws" · 50 matches in 19 files' }),
+    ]
+    const readStep = step({ riskLevel: 'low', allowedTools: ['grep', 'read', 'list'] })
+    const snapshot = projectStepGateStates(events, [readStep])
+    expect(snapshot.steps['step-1']).toMatchObject({ status: 'completed' })
+  })
+
+  // ROOT CAUSE:
+  //
   // The evidence projection accepted a trusted tool result without checking
   // its `ok` flag. A failed mutation could therefore complete its plan step.
   it('never completes a step from a failed trusted tool result', () => {

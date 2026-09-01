@@ -1,6 +1,7 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { CommonContentPart, Message, PrepareStep, ToolMessage } from '@xsai/shared-chat'
 
+import type { ToolEvidenceAuthor } from '../authority/provenance'
 import type { AgentContextPort } from '../contracts/context-port'
 import type { AgentForegroundStreamPort } from '../contracts/stream-port'
 import type { JournalEventInput, TurnEndReason } from '../journal/types'
@@ -393,6 +394,14 @@ export interface ChatOrchestratorRuntimeDeps {
    * candidate, then the first accepting step in plan order.
    */
   getPlanStepCandidates?: (options: ChatOrchestratorSendOptions) => readonly PlanStepCandidate[]
+  /**
+   * Resolves the evidence author bucket for a tool's journal `tool/result`
+   * events (builtin / reviewed_self_authored / remote_agent), so gate refs
+   * know who produced them. Hosts without a plan gate may omit it: refs then
+   * fall back to the least-trusted bucket and can never satisfy a mutation
+   * proof.
+   */
+  getToolEvidenceAuthor?: (toolName: string) => ToolEvidenceAuthor | undefined
   /** Clock used for persisted message timestamps. @default Date.now */
   now?: () => number
   /** Monotonic clock used for elapsed telemetry in milliseconds. @default performance.now */
@@ -1331,11 +1340,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               buildingMessage.tool_results.push(ctx.data)
               const resultToolName = toolCallNames.get(ctx.data.id) ?? ctx.data.id
               const resultLink = planLinkFor(resultToolName, options)
+              const evidenceAuthor = deps.getToolEvidenceAuthor?.(resultToolName)
               appendJournal(sessionId, {
                 type: 'tool/result',
                 toolName: resultToolName,
                 ok: !ctx.data.isError,
                 summary: typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result ?? ''),
+                ...(evidenceAuthor ? { provenance: evidenceAuthor } : {}),
                 ...(resultLink.planId ? { planId: resultLink.planId, stepId: resultLink.stepId } : {}),
               })
               // Evidence that no open step accepts is a routing problem, not a

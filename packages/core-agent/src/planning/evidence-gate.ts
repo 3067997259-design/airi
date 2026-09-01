@@ -60,6 +60,7 @@ export function collectStepGateRefs(events: readonly JournalEvent[], stepId: str
         source: 'tool_result',
         summary: event.summary,
         provenance,
+        toolName: event.toolName,
       })
     }
     else if (event.type === 'approval/asked' && !approvals.has(event.requestId)) {

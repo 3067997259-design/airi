@@ -697,6 +697,16 @@ export const useChatStore = defineStore('chat', () => {
         streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
       },
     },
+    getToolEvidenceAuthor: (toolName) => {
+      // MCP servers are external agents: their reports are guidance, never
+      // mutation proof. Reviewed skills are the self-authored trusted bucket;
+      // everything else registered here is a builtin host tool.
+      if (toolName.startsWith('mcp_'))
+        return 'remote_agent'
+      if (skillsStore.reviewedSkills.some(skill => skill.toolId === toolName))
+        return 'reviewed_self_authored'
+      return 'builtin'
+    },
     llm: {
       stream: streamWithStageAdapters,
     },
