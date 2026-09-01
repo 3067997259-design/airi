@@ -32,6 +32,8 @@ chat:
     evidence: 证据
     deadline: 截止日期
     unverified: 未验证
+  todo-card:
+    title: 任务清单
   approval-card:
     title: 需要批准
     expected-evidence: 预期证据

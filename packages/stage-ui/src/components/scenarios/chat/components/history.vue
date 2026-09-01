@@ -21,6 +21,7 @@ import ChatPlanLanes from './plan-lanes.vue'
 import ChatReactionLine from './reaction-line.vue'
 import ChatReviewCard from './review-card.vue'
 import ChatTaskCard from './task-card.vue'
+import ChatTodoCard from './todo-card.vue'
 import ChatUserItem from './user-item.vue'
 
 import { useChatHistoryScroll } from '../composables/use-chat-history-scroll'
@@ -313,6 +314,7 @@ function emitToolCallRerun(
       </template>
     </Virtualizer>
 
+    <ChatTodoCard />
     <ChatApprovalCard />
     <ChatReviewCard />
   </div>

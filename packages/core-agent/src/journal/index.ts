@@ -30,6 +30,8 @@ export type {
   ReviewDecidedEvent,
   SessionHeaderEvent,
   TaskUpdateEvent,
+  TodoItem,
+  TodoWriteEvent,
   ToolCallEvent,
   ToolResultEvent,
   TurnEndEvent,

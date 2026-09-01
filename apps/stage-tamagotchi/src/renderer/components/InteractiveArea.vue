@@ -33,7 +33,7 @@ import { createSlashTriggerProvider } from '../composables/slash-trigger-provide
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
 import { useTriggerPanel } from '../composables/use-trigger-panel'
 import { createWorkspaceTriggerProvider } from '../composables/workspace-trigger-provider'
-import { artistryToolReferences, githubReadToolReferences, skillAuthoringToolReferences, widgetToolReferences } from '../stores/tools'
+import { artistryToolReferences, githubReadToolReferences, skillAuthoringToolReferences, todoToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
@@ -165,7 +165,7 @@ async function handleSend(delivery: ChatSendDelivery = 'next-step') {
       text: textToSend,
       attachments: attachmentsToSend,
       delivery,
-      tools: [...artistryToolReferences, ...githubReadToolReferences, ...skillAuthoringToolReferences],
+      tools: [...artistryToolReferences, ...githubReadToolReferences, ...skillAuthoringToolReferences, ...todoToolReferences],
     })
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))

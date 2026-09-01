@@ -87,10 +87,13 @@ export type {
   JournalEventType,
   JournalStore,
   JournalStoreOptions,
+  PlanHintEvent,
   ProjectionChangeListener,
   ProjectionSnapshot,
   ProjectionUnit,
   SessionHeaderEvent,
+  TodoItem,
+  TodoWriteEvent,
   ToolEvidenceEntry,
 } from './journal'
 

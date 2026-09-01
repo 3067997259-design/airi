@@ -25,6 +25,7 @@ import { githubTools } from './builtin/github'
 import { imageJournalTools } from './builtin/image-journal'
 import { planTools } from './builtin/plan'
 import { skillSubmitTools } from './builtin/skill-submit'
+import { todoTools } from './builtin/todo'
 import { userAskTools } from './builtin/user-ask'
 import { weatherTools } from './builtin/weather'
 import { widgetsTools } from './builtin/widgets'
@@ -61,6 +62,14 @@ export const codingToolReferences = [
 ] satisfies ChatToolReference[]
 
 export const codingReferences = [...codingToolReferences] satisfies ChatToolReference[]
+
+/**
+ * The model's progress list. Mounted with the coding tools because multi-step
+ * repository work is where it earns its place; it never proves a plan step.
+ */
+export const todoToolReferences = [
+  { name: 'todo_write' },
+] satisfies ChatToolReference[]
 
 /**
  * Read-only GitHub watch tools available to normal chat turns.
@@ -223,6 +232,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       }),
       githubTools(),
       planTools(),
+      todoTools(),
       skillSubmitTools(),
       userAskTools(),
       Promise.resolve(selfTools),
@@ -262,6 +272,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',
         'For tasks needing several tool operations, prefer code_mode: write one program that bridges the tools and runs them in a sandbox; you get one result with a per-call trace.',
         'bash commands are tiered; high-risk commands (push, delete, network, production, publish) require user approval. Use read-only commands (tests, git status/diff, logs) freely.',
+        'For work of more than two steps, keep todo_write current: send the whole list, mark one task in_progress while you work on it, and mark it completed as soon as it is done. It shows progress and never completes a plan step.',
       ].join('\n\n'),
     }])
   }

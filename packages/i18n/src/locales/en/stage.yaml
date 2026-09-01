@@ -32,6 +32,8 @@ chat:
     evidence: Evidence
     deadline: Deadline
     unverified: Unverified
+  todo-card:
+    title: Task list
   approval-card:
     title: Approval required
     expected-evidence: Expected evidence

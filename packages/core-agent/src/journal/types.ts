@@ -18,6 +18,7 @@ export const JOURNAL_EVENT_TYPES = [
   'tool/result',
   'plan/update',
   'plan/hint',
+  'todo/write',
   'task/update',
   'context/inject',
   'event/reaction',
@@ -134,6 +135,29 @@ export interface TaskUpdateEvent {
   /** Full replace-self TaskMemory snapshot; the Nth update replaces the N-1th. */
   memory: Record<string, unknown>
   logRef?: string
+}
+
+/** One line of the model's own task list. */
+export interface TodoItem {
+  content: string
+  status: 'pending' | 'in_progress' | 'completed'
+}
+
+/**
+ * The model's task list, replaced whole on every write.
+ *
+ * This is a communication channel, not a verdict: nothing here satisfies a
+ * verification gate, and no gate blocks a write. The two jobs are separate on
+ * purpose — the fork's evidence gate stalled once it also had to carry
+ * "what is she doing right now" (HARNESS-PLAN §1, §4.2). The list is scoped to
+ * the current turn: readers take the last write after the newest turn/start,
+ * so a new turn starts empty without anyone clearing it.
+ */
+export interface TodoWriteEvent {
+  type: 'todo/write'
+  seq: number
+  todos: TodoItem[]
+  timestamp: number
 }
 
 /**
@@ -293,6 +317,7 @@ export type JournalEvent
     | ToolResultEvent
     | PlanUpdateEvent
     | PlanHintEvent
+    | TodoWriteEvent
     | TaskUpdateEvent
     | ContextInjectEvent
     | EventReactionJournalEvent

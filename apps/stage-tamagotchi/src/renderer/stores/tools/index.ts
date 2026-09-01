@@ -3,6 +3,7 @@ export {
   githubReadToolReferences,
   live2dAppearanceToolReferences,
   skillAuthoringToolReferences,
+  todoToolReferences,
   useTamagotchiBuiltinToolsStore,
   widgetToolReferences,
 } from './built-in'
