@@ -26,6 +26,17 @@ export const CODING_TOOL_META = {
       limit: 'Maximum lines to return. Default 400.',
     },
   },
+  grep: {
+    name: 'grep',
+    description: 'Search file contents inside the workspace. Every matched line comes back with its content signature, so a hit can go straight to edit without reading the whole file.',
+    parameterDescriptions: {
+      pattern: 'Regular expression in ripgrep syntax.',
+      path: 'Directory or file to search, relative to the workspace root. Defaults to the whole workspace.',
+      glob: 'Glob filter for candidate files, such as "*.ts" or "src/**/*.vue".',
+      maxMatches: 'Maximum matched lines to return. Default 50.',
+      contextLines: 'Lines of context around each match, 0 to 5. Default 0.',
+    },
+  },
   readRaw: {
     name: 'readRaw',
     description: 'Read a text file inside the workspace and return its exact bytes unchanged. Use this when content is going to be parsed or executed (no line signatures).',

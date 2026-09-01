@@ -1,4 +1,5 @@
 import type { Locale } from '@intlify/core'
+import type { WorkspaceGrepQuery, WorkspaceGrepResult } from '@proj-airi/coding-harness/tools/grep'
 import type { WorkspaceShell, WorkspaceShellKind } from '@proj-airi/coding-harness/tools/shell'
 import type {
   GameletIframeRequestPayload as GameletIframeInvokePayload,
@@ -538,6 +539,10 @@ export type CodingFsWriteGuardedResult
   = | { status: 'written', baseHash: string }
     | { status: 'state_changed', currentHash: string | null }
 
+/** Search request and signed result; owned by the coding harness. */
+export type CodingGrepParams = WorkspaceGrepQuery
+export type CodingGrepResult = WorkspaceGrepResult
+
 export type CodingBashRiskTier = 'read-only' | 'medium' | 'high'
 export interface CodingExecRunParams {
   command: string
@@ -631,6 +636,7 @@ export const codingHostFsRead = defineInvokeEventa<CodingFsReadResult, CodingFsR
 export const codingHostFsList = defineInvokeEventa<CodingFsListResult, CodingFsListParams>('eventa:invoke:electron:coding-host:fs:list')
 export const codingHostFsWrite = defineInvokeEventa<CodingFsWriteResult, CodingFsWriteParams>('eventa:invoke:electron:coding-host:fs:write')
 export const codingHostFsWriteGuarded = defineInvokeEventa<CodingFsWriteGuardedResult, CodingFsWriteGuardedParams>('eventa:invoke:electron:coding-host:fs:write-guarded')
+export const codingHostFsGrep = defineInvokeEventa<CodingGrepResult, CodingGrepParams>('eventa:invoke:electron:coding-host:fs:grep')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
 export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')

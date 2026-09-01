@@ -53,6 +53,7 @@ export const widgetToolReferences = [
  */
 export const codingToolReferences = [
   { name: 'list' },
+  { name: 'grep' },
   { name: 'read' },
   { name: 'write' },
   { name: 'edit' },
@@ -254,7 +255,8 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       id: 'coding-hashline-overview',
       title: 'File editing (Hashline)',
       content: [
-        'Workspace tools: list, read, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
+        'Workspace tools: list, grep, read, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
+        'Start from grep, not from bash or a recursive list: it searches file contents and returns every hit with the same signature read would show, so a hit can go straight to edit.',
         ...(shellLine ? [shellLine] : []),
         'edit works by content signature: after read, reference the short signature shown before each line, plus the first 16-32 characters of that line as expectedPrefix.',
         'If edit returns STATE_CHANGED or prefix_mismatch, the file changed — re-read it and retry with a fresh signature. Rejections are not failures.',

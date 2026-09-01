@@ -11,6 +11,7 @@
  * permission model at wiring time (WIRING-BACKLOG); this host must not be
  * assumed safe against a hostile program.
  */
+import type { WorkspaceGrepMatch, WorkspaceGrepQuery, WorkspaceGrepResult } from './grep'
 import type { WorkspaceShell, WorkspaceShellKind } from './shell'
 
 import process from 'node:process'
@@ -20,7 +21,10 @@ import { realpathSync } from 'node:fs'
 import { mkdir, readdir, readFile, realpath, stat, writeFile as writeFileAsync } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 
-import { contentHash } from '../hashline/text'
+import { lineSignature } from '../hashline/signature'
+import { contentHash, parseTextFile } from '../hashline/text'
+import { truncateGrepContent } from './grep'
+import { searchWorkspace } from './grep-search'
 import { probeWorkspaceShell } from './shell-probe'
 
 export interface WorkspaceReadResult {
@@ -54,6 +58,13 @@ export interface WorkspaceHost {
   readonly shell: WorkspaceShell
   listDir: (path: string) => Promise<WorkspaceDirectoryEntry[]>
   readFile: (path: string) => Promise<WorkspaceReadResult>
+  /**
+   * Searches file contents and signs every returned line.
+   *
+   * Signatures use the whole-file line count, exactly like `read`, so a hit is
+   * a usable `edit` anchor without reading the file again.
+   */
+  grep: (query: WorkspaceGrepQuery) => Promise<WorkspaceGrepResult>
   writeFile: (path: string, content: string) => Promise<void>
   writeFileIfUnchanged: (path: string, content: string, baseHash: string | null) => Promise<WorkspaceWriteResult>
   runCommand: (command: string) => Promise<CommandResult>
@@ -75,6 +86,11 @@ export interface NodeWorkspaceHostOptions {
    * it: probing per command would spawn `git --exec-path` on every call.
    */
   shell?: WorkspaceShell
+  /**
+   * Ripgrep executable for `grep`. `null` forces the Node walk, which is how
+   * the degraded search path is exercised without removing the binary.
+   */
+  rgPath?: string | null
 }
 
 export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHostOptions = {}): WorkspaceHost {
@@ -128,6 +144,61 @@ export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHost
       return {
         content,
         ...(stats.mtime ? { mtime: stats.mtime.toISOString() } : {}),
+      }
+    },
+    async grep(query) {
+      // Containment belongs here, not in the search process: both search paths
+      // receive a scope already proven to sit inside the workspace, so neither
+      // a relative escape nor an absolute path can widen the search.
+      const scope = query.path && query.path.length > 0
+        ? relative(canonicalRoot, resolveInsideWorkspace(canonicalRoot, query.path)) || '.'
+        : '.'
+      const outcome = await searchWorkspace({
+        root: canonicalRoot,
+        query: { ...query, path: scope },
+        ...(options.rgPath === undefined ? {} : { rgPath: options.rgPath }),
+      })
+
+      // Signing needs the file line count, so each matched file is read once
+      // and reused for every hit inside it.
+      const lineCounts = new Map<string, number>()
+      const unreadablePaths = new Set<string>()
+      const matches: WorkspaceGrepMatch[] = []
+
+      for (const hit of outcome.hits) {
+        if (unreadablePaths.has(hit.path))
+          continue
+
+        let lineCount = lineCounts.get(hit.path)
+        if (lineCount === undefined) {
+          try {
+            const resolved = await ensureExistingInside(hit.path)
+            lineCount = parseTextFile(await readFile(resolved, 'utf8')).lines.length
+            lineCounts.set(hit.path, lineCount)
+          }
+          catch {
+            unreadablePaths.add(hit.path)
+            continue
+          }
+        }
+
+        const { content, truncated } = truncateGrepContent(hit.text)
+        matches.push({
+          path: hit.path,
+          lineNumber: hit.lineNumber,
+          signature: lineSignature(hit.text, { lineCount }),
+          content,
+          truncated,
+          matched: hit.matched,
+        })
+      }
+
+      return {
+        matches,
+        matchCount: matches.filter(match => match.matched).length,
+        truncated: outcome.truncated,
+        ...(outcome.degradedReason ? { degradedReason: outcome.degradedReason } : {}),
+        ...(unreadablePaths.size > 0 ? { unreadablePaths: [...unreadablePaths] } : {}),
       }
     },
     async writeFile(path, content) {

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { buildSignedFileProjection } from '../hashline/read'
 import { parseTextFile } from '../hashline/text'
 import { createCodeModeRuntime } from '../ptc/code-mode'
 import { createCodingTools } from './coding-tools'
@@ -194,6 +195,72 @@ describe('workspace path containment', () => {
     await expect(host.readFile('linked-outside/secret.txt')).rejects.toThrow(/escapes workspace/)
     await expect(host.writeFile('linked-outside/new.txt', 'outside')).rejects.toThrow(/escapes workspace/)
     await expect(host.listDir('linked-outside')).rejects.toThrow(/escapes workspace/)
+  })
+})
+
+describe('workspace search', () => {
+  // A file long enough to cross the 500-line signature-width threshold, so a
+  // hit signature that ignored the whole-file line count would not match the
+  // read projection (HARNESS-PLAN §8 item 8).
+  const LONG_FILE_LINES = 600
+
+  beforeAll(async () => {
+    const lines = Array.from({ length: LONG_FILE_LINES }, (_, index) => index === 420
+      ? 'export const searchNeedle = "grep-target"'
+      : `export const filler${index} = ${index}`)
+    await writeFile(join(rootDir, 'src', 'long-file.ts'), `${lines.join('\n')}\n`)
+    await writeFile(join(rootDir, 'src', 'other.md'), 'searchNeedle lives in markdown too\n')
+  })
+
+  it('signs matched lines exactly like the read projection', async () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    const result = await host.grep({ pattern: 'searchNeedle', glob: '*.ts' })
+    const hit = result.matches.find(match => match.path === 'src/long-file.ts')
+
+    expect(hit).toBeDefined()
+    const file = await host.readFile('src/long-file.ts')
+    const projection = buildSignedFileProjection(parseTextFile(file.content).lines, { limit: LONG_FILE_LINES })
+    const projected = projection.find(line => line.lineNumber === hit?.lineNumber)
+
+    expect(hit?.signature).toBe(projected?.signature)
+    expect(hit?.signature).toHaveLength(3)
+    expect(hit?.content).toBe(projected?.content)
+  })
+
+  it('applies the glob filter and reports the match count', async () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    const onlyTs = await host.grep({ pattern: 'searchNeedle', glob: '*.ts' })
+    const everything = await host.grep({ pattern: 'searchNeedle' })
+
+    expect(onlyTs.matches.every(match => match.path.endsWith('.ts'))).toBe(true)
+    expect(everything.matchCount).toBeGreaterThan(onlyTs.matchCount)
+  })
+
+  it('stops at the match cap instead of returning the whole file', async () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    const result = await host.grep({ pattern: 'export const filler', maxMatches: 5 })
+
+    expect(result.matchCount).toBe(5)
+    expect(result.truncated).toBe(true)
+  })
+
+  it('says so when the search runs without the ripgrep binary', async () => {
+    // The degraded path must announce itself; a silent downgrade makes the
+    // model conclude that code it cannot find does not exist.
+    const host = createNodeWorkspaceHost(rootDir, { rgPath: null })
+    const result = await host.grep({ pattern: 'searchNeedle', glob: '*.ts' })
+    const hit = result.matches.find(match => match.path === 'src/long-file.ts')
+
+    expect(result.degradedReason).toBeDefined()
+    expect(hit?.lineNumber).toBe(421)
+    const file = await host.readFile('src/long-file.ts')
+    const projection = buildSignedFileProjection(parseTextFile(file.content).lines, { limit: LONG_FILE_LINES })
+    expect(hit?.signature).toBe(projection.find(line => line.lineNumber === 421)?.signature)
+  })
+
+  it('never searches outside the workspace root', async () => {
+    const host = createNodeWorkspaceHost(rootDir)
+    await expect(host.grep({ pattern: 'outside', path: '../' })).rejects.toThrow(/escapes workspace/)
   })
 })
 

@@ -7,6 +7,7 @@ import { applyHashlineEdit, applyHashlineInsertAfter } from '@proj-airi/coding-h
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
 import { joinTextFile, parseTextFile } from '@proj-airi/coding-harness/hashline/text'
 import { bashDescriptionFor, CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
+import { formatWorkspaceGrep, MAX_GREP_CONTEXT_LINES } from '@proj-airi/coding-harness/tools/grep'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -45,6 +46,19 @@ async function executeRead(input: { path: string, offset?: number, limit?: numbe
     lineEnding: snapshot.lineEnding,
     mixedLineEndings: snapshot.mixedLineEndings,
   }, { offset: input.offset, limit: input.limit })
+}
+
+const grepParams = z.object({
+  pattern: z.string().describe(CODING_TOOL_META.grep.parameterDescriptions.pattern),
+  path: z.string().optional().describe(CODING_TOOL_META.grep.parameterDescriptions.path),
+  glob: z.string().optional().describe(CODING_TOOL_META.grep.parameterDescriptions.glob),
+  maxMatches: z.number().int().min(1).max(500).optional().describe(CODING_TOOL_META.grep.parameterDescriptions.maxMatches),
+  contextLines: z.number().int().min(0).max(MAX_GREP_CONTEXT_LINES).optional().describe(CODING_TOOL_META.grep.parameterDescriptions.contextLines),
+})
+
+async function executeGrep(input: { pattern: string, path?: string, glob?: string, maxMatches?: number, contextLines?: number }): Promise<string> {
+  const result = await createCodingHostClient().grep(input)
+  return formatWorkspaceGrep(input, result)
 }
 
 const writeParams = z.object({
@@ -183,6 +197,12 @@ function createCodingToolDeclarations(shell: CodingShellDescriptor): Promise<Too
       description: CODING_TOOL_META.list.description,
       execute: executeList,
       parameters: listParams,
+    }),
+    tool({
+      name: CODING_TOOL_META.grep.name,
+      description: CODING_TOOL_META.grep.description,
+      execute: executeGrep,
+      parameters: grepParams,
     }),
     tool({
       name: CODING_TOOL_META.read.name,

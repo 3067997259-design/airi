@@ -28,6 +28,20 @@ export type { SandboxRunnerOptions } from './ptc/runner'
 export { bashDescriptionFor, CODING_TOOL_META, createCodingTools } from './tools/coding-tools'
 export type { ApprovalOutcome, CodingToolName, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
 
+export {
+  DEFAULT_GREP_MAX_MATCHES,
+  formatWorkspaceGrep,
+  MAX_GREP_CONTEXT_LINES,
+  normalizeContextLines,
+  normalizeMaxMatches,
+  parseRipgrepEvent,
+  truncateGrepContent,
+} from './tools/grep'
+export type { RipgrepHit, WorkspaceGrepMatch, WorkspaceGrepQuery, WorkspaceGrepResult } from './tools/grep'
+
+export { resolveRipgrepPath, searchWorkspace } from './tools/grep-search'
+export type { WorkspaceSearchOptions, WorkspaceSearchOutcome } from './tools/grep-search'
+
 export { gitBashShell, POSIX_SHELL, powershellShell, selectWorkspaceShell, WINDOWS_POWERSHELL_FALLBACK } from './tools/shell'
 export type { WorkspaceShell, WorkspaceShellKind, WorkspaceShellProbe, WorkspaceShellSyntax } from './tools/shell'
 

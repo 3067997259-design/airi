@@ -7,6 +7,7 @@
 import type { BashRiskTier } from '@proj-airi/core-agent'
 
 import type { CodeModeTool } from '../ptc/code-mode'
+import type { WorkspaceGrepQuery } from './grep'
 import type { WorkspaceHost } from './workspace-host'
 
 import { classifyBashCommand } from '@proj-airi/core-agent'
@@ -15,6 +16,7 @@ import { applyHashlineEdit, applyHashlineInsertAfter } from '../hashline/edit'
 import { formatSignedFileProjection } from '../hashline/read'
 import { joinTextFile, parseTextFile } from '../hashline/text'
 import { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
+import { formatWorkspaceGrep } from './grep'
 
 export { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
 export type { CodingToolName } from './coding-tool-meta'
@@ -106,6 +108,33 @@ export function createCodingTools(host: WorkspaceHost, options: CodingToolsOptio
             offset: optionalNonNegativeInteger(toolArgs, 1, 'offset'),
             limit: optionalNonNegativeInteger(toolArgs, 2, 'limit'),
           }),
+        }
+      },
+    },
+    {
+      name: CODING_TOOL_META.grep.name,
+      description: CODING_TOOL_META.grep.description,
+      async run(args) {
+        const toolArgs = args as ToolArgs
+        const path = optionalString(toolArgs, 1, 'path')
+        const glob = optionalString(toolArgs, 2, 'glob')
+        const query: WorkspaceGrepQuery = {
+          pattern: requireString(toolArgs, 0, 'pattern'),
+          ...(path ? { path } : {}),
+          ...(glob ? { glob } : {}),
+          ...(optionalNonNegativeInteger(toolArgs, 3, 'maxMatches') !== undefined
+            ? { maxMatches: optionalNonNegativeInteger(toolArgs, 3, 'maxMatches') }
+            : {}),
+          ...(optionalNonNegativeInteger(toolArgs, 4, 'contextLines') !== undefined
+            ? { contextLines: optionalNonNegativeInteger(toolArgs, 4, 'contextLines') }
+            : {}),
+        }
+        const result = await host.grep(query)
+        return {
+          projection: formatWorkspaceGrep(query, result),
+          matches: result.matches,
+          matchCount: result.matchCount,
+          truncated: result.truncated,
         }
       },
     },

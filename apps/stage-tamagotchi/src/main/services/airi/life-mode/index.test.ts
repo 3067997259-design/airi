@@ -1,7 +1,8 @@
+import type { ElectronMainContextExtensions, ElectronMainEmitOptions } from '@moeru/eventa/adapters/electron/main'
+
 import type { LifeModeConfigContract } from '../../../../shared/eventa'
 import type { EventaWindowBroadcast } from '../../../libs/electron/eventa-window-broadcast'
 
-import type { ElectronMainContextExtensions, ElectronMainEmitOptions } from '@moeru/eventa/adapters/electron/main'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as realSetTimeout } from 'node:timers/promises'
@@ -14,8 +15,8 @@ import {
   lifeModeGetConfig,
   lifeModeSetConfig,
 } from '../../../../shared/eventa'
-import { readPersistedLifeMode, setupLifeMode } from './index'
 import { evaluateLifeTickGate } from './gates'
+import { readPersistedLifeMode, setupLifeMode } from './index'
 
 const BASE_CONFIG: LifeModeConfigContract = {
   mode: 'autonomous',

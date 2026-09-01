@@ -25,6 +25,7 @@ import {
   codingApprovalRequested,
   codingHostCodeRun,
   codingHostExecRun,
+  codingHostFsGrep,
   codingHostFsList,
   codingHostFsRead,
   codingHostFsWrite,
@@ -147,6 +148,8 @@ export async function setupCodingHost(
   defineInvokeHandler(context, codingHostFsRead, async ({ path }) => host.readFile(path))
 
   defineInvokeHandler(context, codingHostFsList, async ({ path }) => ({ entries: await host.listDir(path) }))
+
+  defineInvokeHandler(context, codingHostFsGrep, async query => host.grep(query))
 
   defineInvokeHandler(context, codingHostFsWrite, async ({ path, content }) => {
     await host.writeFile(path, content)

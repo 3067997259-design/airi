@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { ChatSendDelivery } from '@proj-airi/core-agent'
 import type { ChatToolCallRendererRegistry } from '@proj-airi/stage-ui/components'
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
-import type { ChatSendDelivery } from '@proj-airi/core-agent'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
@@ -194,6 +194,10 @@ function sendFromKeyboard(delivery: ChatSendDelivery = 'next-step') {
   void handleSend(delivery)
 }
 
+// Declared above the keyboard handler: Enter steers or queues the active turn,
+// and Escape stops it, so both branches read this before the template does.
+const isActiveSessionSending = computed(() => sending.value && activeSendSessionId.value === activeSessionId.value)
+
 function handleAbort() {
   void chatStore.abortActiveSend(activeSessionId.value)
 }
@@ -302,7 +306,6 @@ watch(sendMode, () => {
 
 const historyMessages = computed(() => messages.value as unknown as ChatHistoryItem[])
 const assistantLabel = computed(() => activeCard.value?.name?.trim() || undefined)
-const isActiveSessionSending = computed(() => sending.value && activeSendSessionId.value === activeSessionId.value)
 const visibleStreamingMessage = computed(() => activeSendSessionId.value === activeSessionId.value
   ? activeStreamingMessage.value
   : streamingMessage.value)

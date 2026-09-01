@@ -75,6 +75,10 @@ export default {
     'out/**',
     'resources/**',
     'package.json',
+    // The search binary is required at runtime by @proj-airi/coding-harness and
+    // is resolved from its own package location, so the package has to travel
+    // with the app instead of being bundled into the main chunk.
+    '**/node_modules/@vscode/ripgrep*/**',
     // NOTICE: Exclude npm `electron` package from app payload.
     // Electron runtime is already provided by the outer app bundle; bundling a nested
     // `node_modules/electron/dist/Electron.app` makes electron-builder deep-sign it and
@@ -96,6 +100,10 @@ export default {
   asar: true,
   asarUnpack: [
     '**/*.node',
+    // A binary inside app.asar cannot be spawned. electron-builder writes
+    // unpacked entries next to the archive, and resolveRipgrepPath redirects
+    // the reported path into app.asar.unpacked.
+    '**/node_modules/@vscode/ripgrep*/**',
   ],
   extraResources: [
     {
