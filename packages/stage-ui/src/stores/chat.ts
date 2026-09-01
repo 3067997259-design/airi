@@ -1067,23 +1067,28 @@ export const useChatStore = defineStore('chat', () => {
       chatContext.ingestContextMessage(context)
 
     const activatedSkillNames = skillsStore.prepareForPrompt(sendingText)
-    // A plan-driven turn is repository work: it runs long, calls tools in a
-    // loop, and produces no stage performance. That is the work profile
-    // (HARNESS-PLAN §5). Callers can still ask for it explicitly.
-    const profile = payload.profile ?? (payload.planId ? 'work' : 'social')
+    // A plan-driven round rides the work profile and the longer step budget
+    // (HARNESS-PLAN §5). The scheduler and continuations say so via planId;
+    // the human entry says it with a /plan or /goal command, or by already
+    // having an active session-horizon plan — the same round, driven by hand.
+    // Long-horizon goals stay scheduler-owned and do not capture plain chat.
+    const sessionPlan = planStore.scopedActivePlans(payload.sessionId)
+      .find(plan => plan.spec.horizon === 'session' && !plan.state.paused)
+    const planId = payload.planId ?? sessionPlan?.id
+    const profile = payload.profile ?? (planId || command ? 'work' : 'social')
     activeTurnProfile = profile
     try {
       await runtime.ingest(sendingText, {
         model: modelId,
         chatProvider,
         profile,
-        maxSteps: payload.planId ? 50 : 10,
+        maxSteps: planId || command ? 50 : 10,
         attachments: payload.attachments,
         input: payload.input,
         toolReferences: selectedTools,
         source: payload.source,
         command,
-        planId: payload.planId,
+        planId,
         selfInitiativeMode: payload.selfInitiativeMode,
         delivery: payload.delivery ?? (payload.source === 'self-initiative' || payload.source === 'btw' ? 'next-turn' : 'next-step'),
         // Social consideration mounts only self tools. Task rounds receive
