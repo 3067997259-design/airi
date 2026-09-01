@@ -39,7 +39,8 @@ import { resolveLlmTools } from './ai/chat-llm/tool-resolver'
 import { useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
 import { useAttentionStore } from './attention'
-import { buildCommandSection, parseChatCommand } from './chat/chat-command'
+import { useBtwStore } from './btw'
+import { buildCommandSection, parseBtwCommand, parseChatCommand } from './chat/chat-command'
 import { createMinecraftContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
 import { useChatSessionStore } from './chat/session-store'
@@ -1133,6 +1134,14 @@ export const useChatStore = defineStore('chat', () => {
 
   /** Sends one serializable chat request through the elected leader. */
   async function send(payload: ChatSendPayload): Promise<ChatSendResult> {
+    // /btw diverts before the queue (HARNESS-PLAN §6): the side channel must
+    // never enter the session or the running turn's prompt prefix would
+    // change. The btw card renders the answer and any failure.
+    const btwQuestion = parseBtwCommand(payload.text)
+    if (btwQuestion) {
+      await useBtwStore().askActive(btwQuestion)
+      return { messages: [], sessionId: payload.sessionId }
+    }
     if (payload.source !== 'self-initiative' && payload.source !== 'btw') {
       const text = payload.text.trim()
       if (isStopIntent(text)) {

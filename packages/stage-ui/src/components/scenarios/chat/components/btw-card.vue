@@ -23,7 +23,9 @@ const question = ref('')
 
 const state = computed(() => btw.state)
 const busy = computed(() => state.value.status === 'asking')
-const visible = computed(() => props.active || state.value.exchanges.length > 0 || busy.value)
+// A failed `/btw` must stay visible even with no exchanges yet, or the error
+// would be swallowed the moment the ask settles.
+const visible = computed(() => props.active || state.value.exchanges.length > 0 || busy.value || state.value.status === 'failed')
 
 async function submit() {
   const text = question.value.trim()

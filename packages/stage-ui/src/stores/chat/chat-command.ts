@@ -4,14 +4,34 @@ export interface ChatCommand {
 }
 
 const COMMAND_REGEX = /^\/(plan|goal)\s+([\s\S]+)/
+const BTW_REGEX = /^\/btw\s+([\s\S]+)/
 
 /** Parses a supported leading command and removes blank subject edges. */
 export function parseChatCommand(text: string): ChatCommand | undefined {
-  const match = COMMAND_REGEX.exec(text)
+  const match = text.match(COMMAND_REGEX)
   const subject = match?.[2]?.trim()
   if (!match || !subject)
     return undefined
   return { name: match[1] as ChatCommand['name'], subject }
+}
+
+/**
+ * Parses a leading `/btw` side-channel question (HARNESS-PLAN §6).
+ *
+ * Unlike `/plan`, a `/btw` question must never reach the main turn: the caller
+ * diverts it to the btw store before the send queue, so the running turn's
+ * prompt prefix stays untouched. Undefined means the text is an ordinary send.
+ *
+ * @example
+ * parseBtwCommand('/btw what are you doing?')
+ * // => 'what are you doing?'
+ */
+export function parseBtwCommand(text: string): string | undefined {
+  const match = text.match(BTW_REGEX)
+  const question = match?.[1]?.trim()
+  if (!match || !question)
+    return undefined
+  return question
 }
 
 /** Builds the send-specific system section for one intercepted command. */
