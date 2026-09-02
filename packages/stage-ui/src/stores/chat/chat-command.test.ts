@@ -18,10 +18,18 @@ describe('chat commands', () => {
     expect(parseBtwCommand('/btw   ')).toBeUndefined()
   })
 
+  it('parses flow entry and exit commands without turning them into user text', () => {
+    expect(parseChatCommand('/flow Fix the parser')).toEqual({ name: 'flow', subject: 'Fix the parser' })
+    expect(parseChatCommand('/flow on Fix the parser')).toEqual({ name: 'flow', mode: 'on', subject: 'Fix the parser' })
+    expect(parseChatCommand('/flow off')).toEqual({ name: 'flow', mode: 'off', subject: '' })
+    expect(parseChatCommand('/flow')).toEqual({ name: 'flow', subject: '' })
+  })
+
   it('builds distinct bounded instructions for session and long horizons', () => {
     expect(buildCommandSection({ name: 'plan', subject: 'Ship it' })).toContain('horizon `session`')
     const goal = buildCommandSection({ name: 'goal', subject: 'Maintain it' })
     expect(goal).toContain('horizon `long`')
     expect(goal).toContain('Keep the same plan id')
+    expect(buildCommandSection({ name: 'flow', subject: 'Fix it' })).toContain('flow mode')
   })
 })

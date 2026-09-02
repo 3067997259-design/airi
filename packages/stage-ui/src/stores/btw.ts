@@ -47,12 +47,20 @@ export interface BtwExchange {
   answer: string
 }
 
+export interface BtwUserQuestion {
+  requestId: string
+  question: string
+  choices?: string[]
+}
+
 export interface BtwState {
   status: 'idle' | 'asking' | 'answered' | 'failed'
   /** Question and answer pairs for this side conversation, oldest first. */
   exchanges: readonly BtwExchange[]
   /** Text streamed for the question in flight. */
   streaming: string
+  /** Non-blocking question that she asked the user during a flow. */
+  pendingUserQuestion?: BtwUserQuestion
   error?: string
 }
 
@@ -215,6 +223,44 @@ export const useBtwStore = defineStore('runtime-btw', () => {
     })
   }
 
+  /** Raises a non-blocking question for the user while the work flow continues. */
+  function askUser(question: string, choices?: string[]): string {
+    const requestId = globalThis.crypto?.randomUUID?.() ?? `btw-user-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    const trimmed = question.trim()
+    if (!trimmed)
+      return ''
+
+    const pendingUserQuestion: BtwUserQuestion = {
+      requestId,
+      question: trimmed,
+      ...(choices?.length ? { choices: choices.slice(0, 4) } : {}),
+    }
+    state.value = { ...state.value, pendingUserQuestion }
+    journal.appendActive({
+      type: 'user/asked',
+      requestId,
+      question: trimmed,
+      ...(pendingUserQuestion.choices ? { choices: pendingUserQuestion.choices } : {}),
+      source: 'btw',
+    })
+    return requestId
+  }
+
+  /** Records a response to the latest non-blocking flow question. */
+  function answerUser(requestId: string, answer: string, channel: 'choice' | 'text' | 'dismissed' = 'text'): void {
+    const pending = state.value.pendingUserQuestion
+    if (!pending || pending.requestId !== requestId)
+      return
+    state.value = { ...state.value, pendingUserQuestion: undefined }
+    journal.appendActive({
+      type: 'user/answered',
+      requestId,
+      answer,
+      channel,
+      source: 'btw',
+    })
+  }
+
   /** Stops the answer in flight; the work turn is unaffected. */
   function cancel(): void {
     controller?.abort()
@@ -233,6 +279,8 @@ export const useBtwStore = defineStore('runtime-btw', () => {
     state,
     ask,
     askActive,
+    askUser,
+    answerUser,
     cancel,
     reset,
     workProjection,

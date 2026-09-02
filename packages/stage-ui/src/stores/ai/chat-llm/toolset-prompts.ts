@@ -5,10 +5,12 @@ export interface LlmToolsetPromptContribution {
   id: string
   title?: string
   content: string
+  /** Prompt consumers may restrict a contribution to one turn profile. */
+  profiles?: readonly ('social' | 'work')[]
 }
 
-function renderToolsetPrompts(prompts: LlmToolsetPromptContribution[]) {
-  const activePrompts = prompts.filter(prompt => prompt.content.trim().length > 0)
+function renderToolsetPrompts(prompts: LlmToolsetPromptContribution[], profile: 'social' | 'work') {
+  const activePrompts = prompts.filter(prompt => (prompt.profiles === undefined || prompt.profiles.includes(profile)) && prompt.content.trim().length > 0)
   if (activePrompts.length === 0) {
     return ''
   }
@@ -42,12 +44,17 @@ export const useLlmToolsetPromptsStore = defineStore('llm-toolset-prompts', () =
     promptsByProvider.value = remaining
   }
 
-  const activeToolsetPrompt = computed(() => renderToolsetPrompts(Object.values(promptsByProvider.value).flat()))
+  function renderFor(profile: 'social' | 'work'): string {
+    return renderToolsetPrompts(Object.values(promptsByProvider.value).flat(), profile)
+  }
+
+  const activeToolsetPrompt = computed(() => renderFor('social'))
 
   return {
     activeToolsetPrompt,
     clearToolsetPrompts,
     promptsByProvider,
+    renderFor,
     registerToolsetPrompts,
   }
 })

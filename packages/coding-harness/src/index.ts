@@ -28,7 +28,7 @@ export type {
 export { executeSandboxedProgram } from './ptc/runner'
 export type { SandboxRunnerOptions } from './ptc/runner'
 
-export { bashDescriptionFor, CODING_TOOL_META, createCodingTools } from './tools/coding-tools'
+export { bashDescriptionFor, CODING_TOOL_META, createCodingTools, WORKSPACE_ROOT_TOOL_META } from './tools/coding-tools'
 export type { ApprovalOutcome, CodingToolName, CodingToolsOptions, ToolArgs } from './tools/coding-tools'
 
 export {

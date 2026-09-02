@@ -22,11 +22,18 @@ describe('useLlmToolsetPromptsStore', () => {
         title: 'Chess Plugin Guidance',
         content: 'Do not pass fen or pgn when mode is "new".',
       },
+      {
+        id: 'social-only',
+        content: 'Social-only guidance.',
+        profiles: ['social'],
+      },
     ])
 
     expect(store.activeToolsetPrompt).toContain('## Toolset')
     expect(store.activeToolsetPrompt).toContain('Chess Plugin Guidance')
     expect(store.activeToolsetPrompt).toContain('Do not pass fen or pgn when mode is "new".')
+    expect(store.renderFor('social')).toContain('Social-only guidance.')
+    expect(store.renderFor('work')).not.toContain('Social-only guidance.')
 
     store.clearToolsetPrompts('plugin-tools')
 

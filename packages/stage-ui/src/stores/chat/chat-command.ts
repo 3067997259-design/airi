@@ -1,6 +1,7 @@
 export interface ChatCommand {
-  name: 'plan' | 'goal'
+  name: 'plan' | 'goal' | 'flow'
   subject: string
+  mode?: 'on' | 'off'
 }
 
 const COMMAND_REGEX = /^\/(plan|goal)\s+([\s\S]+)/
@@ -8,6 +9,21 @@ const BTW_REGEX = /^\/btw\s+([\s\S]+)/
 
 /** Parses a supported leading command and removes blank subject edges. */
 export function parseChatCommand(text: string): ChatCommand | undefined {
+  if (text.slice(0, 5).toLowerCase() === '/flow' && (text.length === 5 || /^\s/.test(text.slice(5)))) {
+    const rest = text.slice(5).trim()
+    const firstSpace = rest.search(/\s/)
+    const firstWord = firstSpace < 0 ? rest : rest.slice(0, firstSpace)
+    const mode = firstWord.toLowerCase() === 'on' || firstWord.toLowerCase() === 'off'
+      ? firstWord.toLowerCase() as ChatCommand['mode']
+      : undefined
+    const subject = mode && firstSpace >= 0 ? rest.slice(firstSpace).trim() : mode ? '' : rest
+    return {
+      name: 'flow',
+      subject,
+      ...(mode ? { mode } : {}),
+    }
+  }
+
   const match = text.match(COMMAND_REGEX)
   const subject = match?.[2]?.trim()
   if (!match || !subject)
@@ -36,6 +52,15 @@ export function parseBtwCommand(text: string): string | undefined {
 
 /** Builds the send-specific system section for one intercepted command. */
 export function buildCommandSection(command: ChatCommand): string {
+  if (command.name === 'flow') {
+    return [
+      '## Flow',
+      'This request runs in flow mode. Continue across turns until the task is done or blocked.',
+      'Use flow_update with action "done" only after the task is complete.',
+      'Use flow_update with action "blocked" only after you ask the user with btw_ask or user_ask.',
+    ].join('\n')
+  }
+
   const horizon = command.name === 'goal' ? 'long' : 'session'
   const lines = [
     '## Command',

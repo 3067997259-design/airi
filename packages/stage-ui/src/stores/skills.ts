@@ -252,6 +252,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         type: 'tool/result',
         toolName: entry.tool.name,
         ok,
+        outcome: ok ? 'ok' : 'failed',
         summary,
         provenance: 'reviewed_self_authored',
       })
@@ -303,6 +304,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       type: 'tool/result',
       toolName: entry.tool.name,
       ok: result.status === 'ok',
+      outcome: result.status === 'ok' ? 'ok' : result.status === 'denied' ? 'denied' : result.status === 'timeout' ? 'timeout' : 'failed',
       summary: `${result.status}: ${(result.stdout || result.stderr).slice(0, 500)}`,
       provenance: 'reviewed_self_authored',
     })

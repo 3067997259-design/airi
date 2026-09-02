@@ -19,7 +19,7 @@ import { joinTextFile, parseTextFile } from '../hashline/text'
 import { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
 import { formatWorkspaceGrep } from './grep'
 
-export { bashDescriptionFor, CODING_TOOL_META } from './coding-tool-meta'
+export { bashDescriptionFor, CODING_TOOL_META, WORKSPACE_ROOT_TOOL_META } from './coding-tool-meta'
 export type { CodingToolName } from './coding-tool-meta'
 
 export type { BashRiskTier }

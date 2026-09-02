@@ -48,6 +48,7 @@ export const useUserAskStore = defineStore('runtime-user-ask', () => {
       type: 'user/asked',
       requestId,
       question,
+      source: 'user_ask',
       ...(choices?.length ? { choices } : {}),
     })
     const answer = await promise
@@ -56,6 +57,7 @@ export const useUserAskStore = defineStore('runtime-user-ask', () => {
       requestId,
       answer: answer.answer,
       channel: answer.channel,
+      source: 'user_ask',
     })
     return answer
   }

@@ -170,6 +170,7 @@ export function useCodingToolsStore() {
         type: 'tool/result',
         toolName: trace.toolName,
         ok: trace.ok,
+        outcome: trace.ok ? 'ok' : 'failed',
         summary: trace.resultSummary,
       })
     }

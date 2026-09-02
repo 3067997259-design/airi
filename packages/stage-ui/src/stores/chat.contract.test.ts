@@ -201,6 +201,7 @@ vi.mock('./ai/chat-llm/tools', () => ({
 vi.mock('./ai/chat-llm/toolset-prompts', () => ({
   useLlmToolsetPromptsStore: () => ({
     activeToolsetPrompt: 'Plugin toolset guidance.',
+    renderFor: () => 'Plugin toolset guidance.',
     registerToolsetPrompts: vi.fn(),
   }),
 }))
@@ -812,8 +813,50 @@ describe('chat store contract', () => {
 
     expect(systemText).not.toContain('## Stage Control')
     expect(systemText).not.toContain('## Mode')
+    expect(systemText).toContain('## Environment')
+    expect(systemText).toContain('- workspaceRoot: unavailable')
+    expect(systemText).toContain('- shell: unavailable')
+    expect(systemText).toContain('## Agent Role')
+    expect(systemText).toContain('Your expression may have personality')
     // Safety and formatting stay: they describe how to read tool output.
     expect(systemText).toContain('## Workspace Content Safety')
+  })
+
+  it('mounts only the work allowlist plus plan and skill tools on work turns', async () => {
+    const planStore = usePlanStore()
+    await planStore.start({
+      goal: 'Apply a workspace change',
+      horizon: 'session',
+      steps: [{
+        id: 'edit',
+        lane: 'coding',
+        intent: 'Edit one file',
+        allowedTools: ['edit'],
+        expectedEvidence: [{ source: 'tool_result', description: 'edit applied' }],
+        riskLevel: 'low',
+        approvalRequired: false,
+      }],
+    }, 'plan-work-tools', { sessionId: 'session-1' })
+    const resolvedToolNames: string[][] = []
+    llmStreamMock.mockImplementationOnce(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      const tools = typeof options.tools === 'function' ? await options.tools() : options.tools
+      resolvedToolNames.push(tools.map((tool: Tool) => tool.function.name))
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await useChatStore().send({
+      sessionId: 'session-1',
+      text: 'apply the edit',
+      profile: 'work',
+      planId: 'plan-work-tools',
+      tools: [{ name: 'stage_widgets' }],
+    })
+
+    expect(resolvedToolNames[0]).toContain('edit')
+    expect(resolvedToolNames[0]).toContain('read')
+    expect(resolvedToolNames[0]).toContain('grep')
+    expect(resolvedToolNames[0]).toContain('list')
+    expect(resolvedToolNames[0]).not.toContain('stage_widgets')
   })
 
   it('skips the stage control section for legacy cards that embed the protocol', async () => {

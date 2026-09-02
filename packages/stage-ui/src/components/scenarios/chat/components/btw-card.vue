@@ -25,7 +25,7 @@ const state = computed(() => btw.state)
 const busy = computed(() => state.value.status === 'asking')
 // A failed `/btw` must stay visible even with no exchanges yet, or the error
 // would be swallowed the moment the ask settles.
-const visible = computed(() => props.active || state.value.exchanges.length > 0 || busy.value || state.value.status === 'failed')
+const visible = computed(() => props.active || state.value.exchanges.length > 0 || busy.value || state.value.status === 'failed' || !!state.value.pendingUserQuestion)
 
 async function submit() {
   const text = question.value.trim()
@@ -40,6 +40,24 @@ function onKeydown(event: KeyboardEvent) {
     return
   event.preventDefault()
   void submit()
+}
+
+function answerUserQuestion(answer: string, channel: 'choice' | 'text' | 'dismissed' = 'text') {
+  const pending = state.value.pendingUserQuestion
+  if (!pending)
+    return
+  btw.answerUser(pending.requestId, answer, channel)
+}
+
+function answerUserText(event: KeyboardEvent) {
+  if (event.key !== 'Enter' || event.shiftKey)
+    return
+  const target = event.target as HTMLInputElement
+  const answer = target.value.trim()
+  if (!answer)
+    return
+  answerUserQuestion(answer)
+  target.value = ''
 }
 </script>
 
@@ -56,6 +74,34 @@ function onKeydown(event: KeyboardEvent) {
       <Button v-if="busy" size="sm" variant="secondary" color="neutral" @click="btw.cancel()">
         {{ t('stage.chat.btw-card.stop') }}
       </Button>
+    </div>
+
+    <div
+      v-if="state.pendingUserQuestion"
+      :class="['flex flex-col gap-2 rounded-md border p-2', 'border-amber-200/60 bg-amber-50/70 dark:border-amber-800/60 dark:bg-amber-950/30']"
+      data-testid="chat-btw-user-question"
+    >
+      <span :class="['text-xs font-medium text-amber-700 dark:text-amber-300']">
+        {{ t('stage.chat.question-card.title') }}
+      </span>
+      <span :class="['text-xs text-neutral-700 dark:text-neutral-200']">{{ state.pendingUserQuestion.question }}</span>
+      <div v-if="state.pendingUserQuestion.choices?.length" class="flex flex-wrap gap-2">
+        <Button
+          v-for="choice in state.pendingUserQuestion.choices"
+          :key="choice"
+          size="sm"
+          variant="secondary"
+          @click="answerUserQuestion(choice, 'choice')"
+        >
+          {{ choice }}
+        </Button>
+      </div>
+      <input
+        type="text"
+        :placeholder="t('stage.chat.question-card.placeholder')"
+        :class="['min-h-7 w-full rounded-md border-2 border-solid px-2 py-1 text-sm outline-none', 'border-amber-200/50 bg-white/70 text-neutral-800 dark:border-amber-800/50 dark:bg-neutral-900/70 dark:text-neutral-100']"
+        @keydown="answerUserText"
+      >
     </div>
 
     <div v-for="(exchange, index) in state.exchanges" :key="index" :class="['flex flex-col gap-0.5 text-xs']">

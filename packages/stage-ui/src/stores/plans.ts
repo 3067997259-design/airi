@@ -1,4 +1,4 @@
-import type { JournalEvent, PlanEvidenceRef, PlanSpec, PlanState, PlanStepStatus, ToolEvidenceAuthor } from '@proj-airi/core-agent'
+import type { JournalEvent, PlanEvidenceRef, PlanSpec, PlanState, PlanStepStatus, ToolEvidenceAuthor, ToolResultOutcome, ToolResultTier } from '@proj-airi/core-agent'
 
 import type { PlanPersistenceRepository } from '../services/memory/local-memory'
 
@@ -32,6 +32,7 @@ interface RuntimePlanRecord {
 }
 
 const EMPTY_PLANS: PlanView[] = Object.freeze([]) as unknown as PlanView[]
+const EXPLORATION_TOOL_NAMES = Object.freeze(['read', 'grep', 'list'])
 
 function emptyPlanState(): PlanState {
   return {
@@ -54,6 +55,18 @@ function clonePlanSpec(spec: PlanSpec): PlanSpec {
       allowedTools: [...step.allowedTools],
       expectedEvidence: step.expectedEvidence.map(evidence => ({ ...evidence })),
     })),
+  }
+}
+
+function normalizePlanSpec(spec: PlanSpec): PlanSpec {
+  return {
+    ...spec,
+    steps: spec.steps.map(step => (step.allowedTools.some(tool => tool === 'edit' || tool === 'write' || tool === 'bash')
+      ? {
+          ...step,
+          allowedTools: [...new Set([...step.allowedTools, ...EXPLORATION_TOOL_NAMES])],
+        }
+      : step)),
   }
 }
 
@@ -153,7 +166,7 @@ function stateFromJournal(plan: RuntimePlanRecord, events: readonly JournalEvent
     && !plan.stateSnapshot.skippedSteps.includes(step.id))?.id
   const currentCandidate = startedStep ?? nextUnresolvedStep ?? plan.stateSnapshot.currentStepId
   const evidenceFromJournal: PlanEvidenceRef[] = planEvents.flatMap((event) => {
-    if (event.type !== 'tool/result' || !event.ok || !event.stepId)
+    if (event.type !== 'tool/result' || !event.ok || (event.outcome ?? 'ok') !== 'ok' || !event.stepId)
       return []
     return [{
       stepId: event.stepId,
@@ -204,6 +217,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
   const repository = shallowRef<PlanPersistenceRepository>()
   const initialized = shallowRef(false)
   const persistence = shallowRef<PlanPersistenceState>({ status: 'idle' })
+  const terminalStatusEvents = new Map<string, 'completed' | 'failed'>()
   let initializationPromise: Promise<void> | undefined
 
   const planViews = computed<PlanView[]>(() => {
@@ -225,7 +239,18 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       return view
     })
   })
-  const activePlans = computed(() => planViews.value.filter(plan => plan.status !== 'completed' && plan.status !== 'failed'))
+  // A completed plan with unverified steps stays in the active set: the field
+  // run showed plan completion arriving from unrelated receipts while real
+  // verification had not run, and removal from the active set is what made
+  // "No active plan" erase the model's own task state mid-turn
+  // (FLOW-DIAGNOSIS P0-1). The card keeps its amber unverified rendering.
+  const activePlans = computed(() => planViews.value.filter((plan) => {
+    if (plan.status === 'failed')
+      return false
+    if (plan.status === 'completed')
+      return (plan.state.unverifiedSteps ?? []).length > 0
+    return true
+  }))
   const activeSessionPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'session' && !plan.state.paused).at(-1))
   const activeLongPlan = computed(() => activePlans.value.filter(plan => plan.spec.horizon === 'long' && !plan.state.paused).at(-1))
   const activePlan = computed(() => activeSessionPlan.value ?? activeLongPlan.value)
@@ -370,8 +395,10 @@ export const usePlanStore = defineStore('runtime-plans', () => {
 
   async function start(spec: PlanSpec, requestedId?: string, options?: { sessionId?: string }): Promise<string> {
     await initialize()
-    const rolling = spec.horizon === 'long' ? activeLongPlan.value : undefined
+    const normalizedSpec = normalizePlanSpec(spec)
+    const rolling = normalizedSpec.horizon === 'long' ? activeLongPlan.value : undefined
     const id = requestedId ?? rolling?.id ?? createPlanId()
+    terminalStatusEvents.delete(id)
     const existingIndex = plans.value.findIndex(plan => plan.id === id)
     if (existingIndex >= 0 && rolling?.id !== id)
       throw new Error(`Plan already exists: ${id}`)
@@ -381,13 +408,13 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       const previous = plans.value[existingIndex]!
       const previousState = planViews.value.find(plan => plan.id === id)?.state ?? previous.stateSnapshot
       plans.value = plans.value.map((plan, index) => index === existingIndex
-        ? { ...plan, spec: clonePlanSpec(spec), stateSnapshot: clonePlanState(previousState), updatedAt: now }
+        ? { ...plan, spec: clonePlanSpec(normalizedSpec), stateSnapshot: clonePlanState(previousState), updatedAt: now }
         : plan)
     }
     else {
       plans.value = [...plans.value, {
         id,
-        spec: clonePlanSpec(spec),
+        spec: clonePlanSpec(normalizedSpec),
         stateSnapshot: emptyPlanState(),
         ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
         createdAt: now,
@@ -396,7 +423,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     }
 
     journal.ensureSession()
-    const firstStep = spec.steps[0]
+    const firstStep = normalizedSpec.steps[0]
     if (firstStep) {
       journal.appendActive({
         type: 'plan/update',
@@ -407,6 +434,26 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     }
     await persistPlan(id)
     return id
+  }
+
+  /** Records a derived terminal plan status once, so status transitions stay auditable. */
+  async function recordTerminalStatus(planId: string): Promise<void> {
+    const view = planViews.value.find(candidate => candidate.id === planId)
+    const status = view?.status === 'completed' || view?.status === 'failed' ? view.status : undefined
+    if (!status) {
+      terminalStatusEvents.delete(planId)
+      return
+    }
+    if (terminalStatusEvents.get(planId) === status)
+      return
+
+    terminalStatusEvents.set(planId, status)
+    journal.appendActive({
+      type: 'plan/update',
+      planId,
+      status,
+      reason: `plan reached terminal status: ${status}`,
+    })
   }
 
   async function updateStep(planId: string, stepId: string, status: Exclude<PlanStepStatus, 'completed'>, reason?: string): Promise<void> {
@@ -420,6 +467,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       ...(reason ? { reason } : {}),
     })
     await persistPlan(planId)
+    await recordTerminalStatus(planId)
   }
 
   /** Focuses a step and returns it, so the caller can raise the approval card for `approvalRequired` steps. */
@@ -472,20 +520,24 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       ...(rationale ? { reason: rationale } : {}),
     })
     await persistPlan(planId)
+    await recordTerminalStatus(planId)
     return `Step "${stepId}" marked complete (unverified — the declared evidence was not satisfied in the journal). The plan card flags it amber.`
   }
 
-  async function recordToolResult(input: { planId: string, stepId: string, toolName: string, ok: boolean, summary: string, provenance?: ToolEvidenceAuthor }): Promise<void> {
+  async function recordToolResult(input: { planId: string, stepId: string, toolName: string, ok: boolean, summary: string, outcome?: ToolResultOutcome, tier?: ToolResultTier, provenance?: ToolEvidenceAuthor }): Promise<void> {
     journal.appendActive({
       type: 'tool/result',
       planId: input.planId,
       stepId: input.stepId,
       toolName: input.toolName,
       ok: input.ok,
+      ...(input.outcome ? { outcome: input.outcome } : {}),
+      ...(input.tier ? { tier: input.tier } : {}),
       summary: input.summary,
       ...(input.provenance ? { provenance: input.provenance } : {}),
     })
     await persistPlan(input.planId)
+    await recordTerminalStatus(input.planId)
   }
 
   async function setPaused(planId: string, paused: boolean): Promise<void> {
@@ -495,6 +547,14 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     plans.value = plans.value.map(plan => plan.id === planId
       ? { ...plan, stateSnapshot: { ...clonePlanState(plan.stateSnapshot), paused }, updatedAt: Date.now() }
       : plan)
+    const stepId = record.stateSnapshot.currentStepId ?? record.spec.steps[0]?.id
+    journal.appendActive({
+      type: 'plan/update',
+      planId,
+      ...(stepId ? { stepId } : {}),
+      status: paused ? 'paused' : 'in_progress',
+      reason: paused ? 'paused by the user' : 'resumed by the user',
+    })
     await persistPlan(planId)
   }
 
@@ -512,6 +572,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
       return
     await repository.value?.softDeletePlan(planId)
     plans.value = plans.value.filter(plan => plan.id !== planId)
+    terminalStatusEvents.delete(planId)
   }
 
   function promptProjection(planId?: string): string {
@@ -539,6 +600,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     initialized.value = false
     initializationPromise = undefined
     persistence.value = { status: 'idle' }
+    terminalStatusEvents.clear()
   }
 
   return {
@@ -559,6 +621,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     focusStep,
     completeStep,
     recordToolResult,
+    recordTerminalStatus,
     pausePlan,
     resumePlan,
     softDeletePlan,
@@ -567,7 +630,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
   }
 }, {
   synced: {
-    actions: ['initialize', 'persistPlan', 'retryPersistence', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'pausePlan', 'resumePlan', 'softDeletePlan'],
+    actions: ['initialize', 'persistPlan', 'retryPersistence', 'start', 'updateStep', 'focusStep', 'completeStep', 'recordToolResult', 'recordTerminalStatus', 'pausePlan', 'resumePlan', 'softDeletePlan'],
     state: true,
   },
 })

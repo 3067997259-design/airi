@@ -62,6 +62,24 @@ describe('plan store', () => {
     expect(store.scopedActivePlans('session-1').map(plan => plan.id)).toContain('plan-paused')
   })
 
+  it('adds exploration tools structurally to mutation steps', async () => {
+    const store = usePlanStore()
+    await store.start(SPEC, 'plan-normalized')
+
+    expect(store.planViews[0]?.spec.steps[0]?.allowedTools).toEqual(['bash', 'read', 'grep', 'list'])
+  })
+
+  it('keeps a model-completed unverified plan in the active set', async () => {
+    const store = usePlanStore()
+    const id = await store.start(SPEC, 'plan-unverified')
+
+    await store.completeStep(id, 'verify', 'The model declared completion before running the tests.')
+
+    expect(store.planViews[0]?.status).toBe('completed')
+    expect(store.planViews[0]?.state.unverifiedSteps).toEqual(['verify'])
+    expect(store.activePlans.map(plan => plan.id)).toContain(id)
+  })
+
   it('keeps a plan blocked until trusted tool evidence completes its gate', async () => {
     const store = usePlanStore()
     const id = await store.start(SPEC, 'plan-1')

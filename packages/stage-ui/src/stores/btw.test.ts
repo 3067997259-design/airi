@@ -72,4 +72,19 @@ describe('btw side channel', () => {
     expect(store.state.error).toBe('provider refused')
     expect(store.state.exchanges).toHaveLength(1)
   })
+
+  it('raises a non-blocking question and records the later answer', async () => {
+    const { useBtwStore } = await import('./btw')
+    const { useJournalStore } = await import('./journal')
+    const store = useBtwStore()
+    const requestId = store.askUser('Which file should I change?', ['a.ts', 'b.ts'])
+
+    expect(requestId).toBeTruthy()
+    expect(store.state.pendingUserQuestion).toMatchObject({ question: 'Which file should I change?' })
+    store.answerUser(requestId, 'a.ts', 'choice')
+
+    expect(store.state.pendingUserQuestion).toBeUndefined()
+    expect(useJournalStore().events).toContainEqual(expect.objectContaining({ type: 'user/asked', source: 'btw' }))
+    expect(useJournalStore().events).toContainEqual(expect.objectContaining({ type: 'user/answered', source: 'btw', answer: 'a.ts' }))
+  })
 })
