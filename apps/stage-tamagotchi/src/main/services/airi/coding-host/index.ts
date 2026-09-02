@@ -28,7 +28,7 @@ import { dirname, join } from 'node:path'
 import { env } from 'node:process'
 
 import { defineInvokeHandler } from '@moeru/eventa'
-import { createCodeModeRuntime, createCodingTools, createNodeWorkspaceHost } from '@proj-airi/coding-harness'
+import { createCodeModeRuntime, createCodingTools, createNodeWorkspaceHost, WORKSPACE_ROOT_TOOL_META } from '@proj-airi/coding-harness'
 
 import {
   codingApprovalDecided,
@@ -303,6 +303,11 @@ export async function setupCodingHost(
     shell: { kind: workspace.host.shell.kind, label: workspace.host.shell.label, syntax: workspace.host.shell.syntax },
     tools: [
       ...workspace.tools.map(tool => ({ name: tool.name, description: tool.description, available: true })),
+      // Root switching is a renderer-facing control-plane tool. It is not a
+      // Code Mode bridge because the latter captures one immutable host per
+      // program; the normal tool calls the runtime handler that rebuilds all
+      // root-bound services together.
+      { name: WORKSPACE_ROOT_TOOL_META.name, description: WORKSPACE_ROOT_TOOL_META.description, available: true },
       // The PTC runtime is host-level rather than a bridge capability, so it
       // is listed separately; renderers gate registration on this entry.
       { name: 'code_mode', description: 'Run a sandboxed program that dispatches the coding tools through bridge().', available: true },

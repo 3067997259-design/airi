@@ -7,8 +7,9 @@ import { summarizeLineDiff } from '@proj-airi/coding-harness/hashline/diff'
 import { applyHashlineEdit, applyHashlineInsertAfter } from '@proj-airi/coding-harness/hashline/edit'
 import { formatSignedFileProjection } from '@proj-airi/coding-harness/hashline/read'
 import { joinTextFile, parseTextFile } from '@proj-airi/coding-harness/hashline/text'
-import { bashDescriptionFor, CODING_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
+import { bashDescriptionFor, CODING_TOOL_META, WORKSPACE_ROOT_TOOL_META } from '@proj-airi/coding-harness/tools/coding-tool-meta'
 import { formatWorkspaceGrep, MAX_GREP_CONTEXT_LINES } from '@proj-airi/coding-harness/tools/grep'
+import { useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -31,9 +32,18 @@ const listParams = z.object({
   path: z.string().describe(CODING_TOOL_META.list.parameterDescriptions.path),
 })
 
+const workspaceRootParams = z.object({
+  root: z.string().min(1).describe(WORKSPACE_ROOT_TOOL_META.parameterDescriptions.root),
+})
+
 async function executeList(input: { path: string }): Promise<string> {
   const result = await createCodingHostClient().listDir({ path: input.path })
   return JSON.stringify({ path: input.path, entries: result.entries })
+}
+
+async function executeSetWorkspaceRoot(input: { root: string }): Promise<string> {
+  const outcome = await useCodingToolsStore().setWorkspaceRoot(input.root)
+  return JSON.stringify(outcome)
 }
 
 async function executeRead(input: { path: string, offset?: number, limit?: number }): Promise<string> {
@@ -184,21 +194,9 @@ async function executeBash(input: { command: string, mediumApprovalRequired?: bo
     ...(input.runInBackground ? { runInBackground: true } : {}),
   })
 
-  if (result.status === 'started') {
-    return `bash started in the background as ${result.jobId ?? 'an unknown job'} (${result.tier} tier). Read it with job_output, stop it with job_kill.`
-  }
-  if (result.status === 'denied') {
-    return `bash denied: ${result.tier}-tier command requires approval (requestId ${result.requestId ?? 'n/a'}). Ask the user to approve, or use a lower-risk command.`
-  }
-  if (result.status === 'timeout') {
-    return `bash timed out (${result.tier} tier)\n${result.stderr}`
-  }
-  // The shell rides in the header of every result: a model that cannot see
-  // which interpreter answered rewrites the same failing command line.
-  const shell = result.shell ? `, ${result.shell}` : ''
-  const header = `bash ${result.status} (${result.tier} tier, exit ${result.exitCode ?? '?'}${shell})`
-  const output = [result.stdout, result.stderr].filter(Boolean).join('\n')
-  return output ? `${header}\n${output}` : header
+  // Keep the result as structured JSON so the harness can distinguish a
+  // failed command from a successful tool call without parsing prose.
+  return JSON.stringify(result)
 }
 
 const CODE_MODE_MIN_TIMEOUT_MS = 1_000
@@ -292,6 +290,12 @@ function createCodingToolDeclarations(shell: CodingShellDescriptor): Promise<Too
       description: CODING_TOOL_META.jobKill.description,
       execute: executeJobKill,
       parameters: jobKillParams,
+    }),
+    tool({
+      name: WORKSPACE_ROOT_TOOL_META.name,
+      description: WORKSPACE_ROOT_TOOL_META.description,
+      execute: executeSetWorkspaceRoot,
+      parameters: workspaceRootParams,
     }),
     tool({
       name: 'code_mode',

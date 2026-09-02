@@ -81,6 +81,8 @@ message: 说点什么...
 turn:
   send: 发送消息
   stop: 停止当前回合
+  flow-active: 心流运行中 · 第 {iteration} 步
+  flow-stop: 停止心流
   steer-hint: Esc 打断 · Enter 插话 · Shift + Enter 排队
   queued: 已排队
   cancel-queued: 取消排队消息
@@ -105,6 +107,8 @@ command:
     description: 为当前会话创建一个有边界的计划。
   goal:
     description: 创建或继续一个长期目标。
+  flow:
+    description: 跨回合持续工作，直到完成或阻塞。
 workspace-reference:
   empty: 工作区中没有匹配的文件。
   file: 文件

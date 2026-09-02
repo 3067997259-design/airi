@@ -15,4 +15,11 @@ describe('createSlashTriggerProvider', () => {
     expect(sections[0]?.items[0]).toEqual(expect.objectContaining({ label: '/plan', replacement: '/plan ', badge: 'stage.command.badge' }))
     expect(sections[1]?.items[0]).toEqual(expect.objectContaining({ label: 'plan_helper', replacement: '/plan_helper ' }))
   })
+
+  it('lists flow as a built-in command', async () => {
+    const provider = createSlashTriggerProvider(() => [], key => key)
+    const sections = await provider.getSections('flow')
+
+    expect(sections[0]?.items[0]).toEqual(expect.objectContaining({ label: '/flow', replacement: '/flow ' }))
+  })
 })

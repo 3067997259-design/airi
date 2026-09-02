@@ -61,6 +61,8 @@ describe('setupCodingHost workspace root', () => {
     const secondRoot = await temporaryDirectory('airi-coding-host-second-')
     await writeFile(join(secondRoot, 'marker.txt'), 'second root\n')
 
+    expect((await host.listTools()).tools).toContainEqual(expect.objectContaining({ name: 'setWorkspaceRoot', available: true }))
+
     const outcome = await host.setWorkspaceRoot({ root: secondRoot })
 
     expect(outcome).toMatchObject({ status: 'switched' })

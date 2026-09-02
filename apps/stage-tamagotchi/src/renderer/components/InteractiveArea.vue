@@ -80,6 +80,7 @@ const airiCardStore = useAiriCardStore()
 const { activeSessionId, messages } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
 const { activeSendSessionId, activeStreamingMessage, compactions, queuedSends, sending } = storeToRefs(chatStore)
+const { flowStates } = storeToRefs(chatStore)
 const { reactions } = storeToRefs(useCharacterStore())
 const { tasks } = storeToRefs(useTaskStore())
 const { planViews: allPlanViews } = storeToRefs(planStore)
@@ -197,9 +198,17 @@ function sendFromKeyboard(delivery: ChatSendDelivery = 'next-step') {
 // Declared above the keyboard handler: Enter steers or queues the active turn,
 // and Escape stops it, so both branches read this before the template does.
 const isActiveSessionSending = computed(() => sending.value && activeSendSessionId.value === activeSessionId.value)
+const activeFlow = computed(() => {
+  const flow = flowStates.value[activeSessionId.value]
+  return flow?.status === 'running' ? flow : undefined
+})
 
 function handleAbort() {
   void chatStore.abortActiveSend(activeSessionId.value)
+}
+
+function handleFlowStop() {
+  void chatStore.endFlow(activeSessionId.value, 'interrupted', 'flow stopped from the composer')
 }
 
 // TUI convention (HARNESS-PLAN §3.1): Esc interrupts from anywhere, not only
@@ -579,6 +588,16 @@ async function handleCleanupMessages() {
     </div>
     <ChatBtwCard :active="isActiveSessionSending" />
     <ChatQuestionCard />
+    <div
+      v-if="activeFlow"
+      :class="['mb-1 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs', 'bg-amber-50/80 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300']"
+      data-testid="chat-flow-indicator"
+    >
+      <span>{{ t('stage.turn.flow-active', { iteration: activeFlow.iteration }) }}</span>
+      <Button size="sm" variant="secondary" color="neutral" @click="handleFlowStop">
+        {{ t('stage.turn.flow-stop') }}
+      </Button>
+    </div>
     <div class="relative w-full">
       <div
         v-if="activeQueuedSends.length > 0"

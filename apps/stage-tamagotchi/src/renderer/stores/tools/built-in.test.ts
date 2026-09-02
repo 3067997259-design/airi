@@ -73,6 +73,8 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
       { id: 'tamagotchi:plan_update', defaultActive: false },
       { id: 'tamagotchi:todo_write', defaultActive: false },
       { id: 'tamagotchi:task', defaultActive: false },
+      { id: 'tamagotchi:flow_update', defaultActive: false },
+      { id: 'tamagotchi:btw_ask', defaultActive: false },
       { id: 'tamagotchi:skill_submit', defaultActive: false },
       { id: 'tamagotchi:user_ask', defaultActive: false },
     ])
@@ -104,13 +106,15 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     await useTamagotchiBuiltinToolsStore().refresh()
     expect(promptsStore.activeToolsetPrompt).toContain('Live2D Appearance')
     expect(promptsStore.activeToolsetPrompt).toContain('Sleep')
+    expect(promptsStore.renderFor('social')).toContain('Live2D Appearance')
+    expect(promptsStore.renderFor('work')).not.toContain('Live2D Appearance')
   })
 
   it('registers coding tools when the coding host reports them as available', async () => {
     listCodingTools.mockResolvedValue({
       workspaceRoot: 'C:/AIRI-workspace',
       shell: { kind: 'powershell', label: 'Windows PowerShell', syntax: 'powershell' },
-      tools: ['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'].map(name => ({
+      tools: ['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode'].map(name => ({
         name,
         description: `${name} tool`,
         available: true,
@@ -121,11 +125,11 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     const promptsStore = useLlmToolsetPromptsStore()
     await useTamagotchiBuiltinToolsStore().refresh()
 
-    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'])
+    expect(toolsStore.activeTools.map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode'])
     // The declaration must name the interpreter the host resolved; a model told
     // "bash" on a PowerShell machine retries the same POSIX line forever.
     expect(toolsStore.getToolsByNames('bash')[0]?.function.description).toContain('Windows PowerShell')
     expect(promptsStore.activeToolsetPrompt).toContain('bash runs through Windows PowerShell')
-    expect(toolsStore.getToolsByNames('list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'code_mode'])
+    expect(toolsStore.getToolsByNames('list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode'])
   })
 })

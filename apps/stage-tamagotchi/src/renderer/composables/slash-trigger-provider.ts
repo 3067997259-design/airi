@@ -16,7 +16,7 @@ export function createSlashTriggerProvider(
     tokenCharacters: '[\\w-]',
     async getSections(query) {
       const needle = query.toLocaleLowerCase()
-      const commands = ['plan', 'goal'].map(name => ({
+      const commands = ['plan', 'goal', 'flow'].map(name => ({
         id: `command:${name}`,
         label: `/${name}`,
         description: translate(`stage.command.${name}.description`),

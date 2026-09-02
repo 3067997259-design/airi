@@ -81,6 +81,8 @@ message: Say something...
 turn:
   send: Send message
   stop: Stop the active turn
+  flow-active: Flow is running · step {iteration}
+  flow-stop: Stop flow
   steer-hint: Esc interrupts · Enter steers · Shift + Enter queues
   queued: Queued
   cancel-queued: Cancel queued message
@@ -105,6 +107,8 @@ command:
     description: Create a bounded plan for this session.
   goal:
     description: Create or continue a long-running goal.
+  flow:
+    description: Continue work across turns until it is done or blocked.
 workspace-reference:
   empty: No matching workspace files.
   file: File

@@ -76,8 +76,16 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
       const journalStore = useJournalStore()
       const chatSessionStore = useChatSessionStore()
       watch(() => chatSessionStore.activeSessionId, (sessionId) => {
-        if (sessionId)
-          void journalStore.hydrate(sessionId)
+        if (!sessionId)
+          return
+        // After the journal replays, a flow recorded as still running means
+        // the app died mid-flow: rebuild its counters and continue it
+        // (FLOW-DIAGNOSIS P2-2). Failures stay silent — a boot without a
+        // resumable flow is the common case.
+        void journalStore.hydrate(sessionId).then(async () => {
+          const { useChatStore } = await import('@proj-airi/stage-ui/stores/chat')
+          await useChatStore().resumeFlowAfterRestart(sessionId)
+        }).catch(error => console.warn('[Boot] Flow resume failed.', error))
       }, { immediate: true })
     }
     catch (error) {

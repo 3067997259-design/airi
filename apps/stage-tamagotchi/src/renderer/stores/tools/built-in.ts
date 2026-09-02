@@ -22,6 +22,7 @@ import { watch } from 'vue'
 import { createCodingHostClient } from '../../bridges/coding-host'
 import { codingTools } from './builtin/coding'
 import { delegationTools } from './builtin/delegate'
+import { flowTools } from './builtin/flow'
 import { githubTools } from './builtin/github'
 import { imageJournalTools } from './builtin/image-journal'
 import { planTools } from './builtin/plan'
@@ -57,6 +58,7 @@ export const codingToolReferences = [
   { name: 'list' },
   { name: 'grep' },
   { name: 'read' },
+  { name: 'setWorkspaceRoot' },
   { name: 'write' },
   { name: 'edit' },
   { name: 'bash' },
@@ -72,6 +74,12 @@ export const codingReferences = [...codingToolReferences] satisfies ChatToolRefe
  */
 export const todoToolReferences = [
   { name: 'todo_write' },
+] satisfies ChatToolReference[]
+
+/** Flow controls and the non-blocking question channel. */
+export const flowToolReferences = [
+  { name: 'flow_update' },
+  { name: 'btw_ask' },
 ] satisfies ChatToolReference[]
 
 /**
@@ -193,6 +201,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       id: 'live2d-appearance-overview',
       title: 'Live2D Appearance',
       content: sections.join('\n\n'),
+      profiles: ['social'],
     }])
   }
 
@@ -245,6 +254,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       planTools(),
       todoTools(),
       delegationTools(),
+      flowTools(),
       skillSubmitTools(),
       userAskTools(),
       Promise.resolve(selfTools),
@@ -277,7 +287,8 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       id: 'coding-hashline-overview',
       title: 'File editing (Hashline)',
       content: [
-        'Workspace tools: list, grep, read, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
+        'Workspace tools: list, grep, read, setWorkspaceRoot, write, edit, bash, plus code_mode. Paths are relative to the workspace root.',
+        'If the requested repository is outside the current root, call setWorkspaceRoot once with its explicit absolute directory, then use paths relative to the new root. Do not bypass containment with an escaping read path.',
         'Start from grep, not from bash or a recursive list: it searches file contents and returns every hit with the same signature read would show, so a hit can go straight to edit.',
         ...(shellLine ? [shellLine] : []),
         'edit works by content signature: after read, reference the short signature shown before each line, plus the first 16-32 characters of that line as expectedPrefix.',
@@ -287,6 +298,8 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
         'When finding something would take many reads, delegate it with task: the sub-agent searches in its own context and answers with a short report. Its report is a claim, not evidence — read the file yourself before you change it.',
         'A command that does not exit on its own (a server, a watch) must run with bash runInBackground: it answers with a job id at once. Read it with job_output and stop it with job_kill; never wait for such a command in the foreground.',
         'For work of more than two steps, keep todo_write current: send the whole list, mark one task in_progress while you work on it, and mark it completed as soon as it is done. It shows progress and never completes a plan step.',
+        'Use flow_update action "start" when work needs several turns. Use action "done" only after the task is complete. Use action "blocked" only after you ask the user with btw_ask or user_ask.',
+        'Use btw_ask for a non-blocking question during flow work. Continue other safe work while the user answers; the answer appears in the next flow context.',
       ].join('\n\n'),
     }])
   }

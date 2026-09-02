@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { codeModeResultToText } from './coding'
+import { codeModeResultToText, codingTools } from './coding'
+
+const { setWorkspaceRoot } = vi.hoisted(() => ({
+  setWorkspaceRoot: vi.fn(async (root: string) => ({ status: 'switched' as const, workspaceRoot: root })),
+}))
+
+vi.mock('@proj-airi/stage-ui/stores/coding', () => ({
+  useCodingToolsStore: () => ({ setWorkspaceRoot }),
+}))
 
 describe('codeModeResultToText', () => {
   it('flattens a successful run with value, logs, and traces', () => {
@@ -34,5 +42,16 @@ describe('codeModeResultToText', () => {
     expect(text).toContain('program failed (timeout): program exceeded 10000ms')
     expect(text).toContain('log: partial log')
     expect(text).toContain('ok read -> 12 lines')
+  })
+
+  it('exposes an explicit root switch for repositories outside the current root', async () => {
+    const tools = await codingTools({ kind: 'powershell', label: 'Windows PowerShell', syntax: 'powershell' })
+    const rootTool = tools.find(tool => tool.function.name === 'setWorkspaceRoot')
+
+    expect(rootTool?.function.description).toContain('explicit absolute directory')
+    const result = await rootTool?.execute?.({ root: 'D:\\airi' }, { abortSignal: undefined } as never)
+
+    expect(setWorkspaceRoot).toHaveBeenCalledWith('D:\\airi')
+    expect(result).toBe('{"status":"switched","workspaceRoot":"D:\\\\airi"}')
   })
 })
