@@ -372,7 +372,7 @@ Open **Settings → Modules → Factorio**, then follow the [Factorio Integratio
 
 #### MCP Server
 
-MCP (Model Context Protocol) allows AIRI to use external tools through local processes. On desktop, open **Settings → Modules → MCP Server**, click **Add server**, then fill in **Identifier**, **Command**, **Arguments**, and any optional **Working directory** or **Environment** values. Use **Test** to test the selected server, then click **Save and restart** to write the configuration and restart MCP. **Reveal in file manager** and **Edit JSON** are also available for direct configuration maintenance. Only run MCP servers that you trust: they can execute commands locally and access environment variables that you grant.
+MCP (Model Context Protocol) allows AIRI to use external tools through local processes. On desktop, open **Settings → Modules → MCP Server**, click **Add server**, then fill in **Identifier**, **Command**, **Arguments**, and any optional **Working directory** or **Environment** values. You can also set **Request timeout (ms)** and **Maximum total timeout (ms)** for each server. Progress updates reset the request timeout. The maximum total timeout remains the hard limit. The defaults are `10000` and `15000` milliseconds when these fields are empty. Use **Test** to test the selected server, then click **Save and restart** to write the configuration and restart MCP. **Reveal in file manager** and **Edit JSON** are also available for direct configuration maintenance. Only run MCP servers that you trust: they can execute commands locally and access environment variables that you grant.
 
 #### Beat Sync
 

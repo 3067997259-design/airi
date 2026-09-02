@@ -44,6 +44,24 @@ const tn = (k: string) => t(`settings.pages.modules.mcp-server.${k}`)
       input-class="font-mono"
       :required="false"
     />
+    <div :class="['grid grid-cols-1 gap-4', 'md:grid-cols-2']">
+      <FieldInput
+        v-model="model.requestTimeoutMs"
+        type="number"
+        :label="tn('fields.request-timeout.label')"
+        :description="tn('fields.request-timeout.description')"
+        :placeholder="tn('fields.request-timeout.placeholder')"
+        :required="false"
+      />
+      <FieldInput
+        v-model="model.maxTotalTimeoutMs"
+        type="number"
+        :label="tn('fields.max-total-timeout.label')"
+        :description="tn('fields.max-total-timeout.description')"
+        :placeholder="tn('fields.max-total-timeout.placeholder')"
+        :required="false"
+      />
+    </div>
     <div flex="~ col gap-2">
       <FieldKeyValues
         v-model="model.envEntries"

@@ -1108,6 +1108,14 @@ pages:
           value-placeholder: value
         enabled:
           label: Enabled
+        request-timeout:
+          label: Request timeout (ms)
+          description: 'Maximum idle time for one MCP request. Progress updates reset this timeout. Default: 10000.'
+          placeholder: 'Default: 10000'
+        max-total-timeout:
+          label: Maximum total timeout (ms)
+          description: 'Hard limit for one MCP request, including progress updates. Default: 15000.'
+          placeholder: 'Default: 15000'
       json:
         title: Edit mcp.json
         description: 'Edit the raw JSON directly. Click "Apply" to load it into the form, then "Save and restart" to write it to disk.'

@@ -256,6 +256,10 @@ export interface ElectronMcpStdioServerConfig {
   env?: Record<string, string>
   cwd?: string
   enabled?: boolean
+  /** Maximum idle time for one request. Progress notifications reset this timer. */
+  requestTimeoutMs?: number
+  /** Maximum wall-clock time for one request, including progress notifications. */
+  maxTotalTimeoutMs?: number
 }
 
 export interface ElectronMcpStdioConfigFile {
@@ -271,7 +275,7 @@ export interface ElectronMcpStdioApplyResult {
 
 export interface ElectronMcpStdioServerRuntimeStatus {
   name: string
-  state: 'running' | 'stopped' | 'error'
+  state: 'starting' | 'running' | 'reconnecting' | 'error' | 'stopped'
   command: string
   args: string[]
   pid: number | null

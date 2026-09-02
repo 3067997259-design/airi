@@ -117,13 +117,15 @@ function runtimeStateOf(name: string) {
   return runtime.value?.servers.find(s => s.name === name)?.state
 }
 
-const RUNTIME_BADGE: Record<'running' | 'stopped' | 'error', string> = {
+const RUNTIME_BADGE: Record<'starting' | 'running' | 'reconnecting' | 'stopped' | 'error', string> = {
+  starting: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
   running: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  reconnecting: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
   error: 'bg-red-500/15 text-red-700 dark:text-red-300',
   stopped: 'bg-neutral-400/20 text-neutral-600 dark:text-neutral-300',
 }
 
-function badgeClass(state: 'running' | 'stopped' | 'error' | undefined) {
+function badgeClass(state: 'starting' | 'running' | 'reconnecting' | 'stopped' | 'error' | undefined) {
   return RUNTIME_BADGE[state ?? 'stopped']
 }
 

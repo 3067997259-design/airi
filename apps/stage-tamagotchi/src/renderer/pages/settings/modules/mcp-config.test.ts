@@ -69,6 +69,33 @@ describe('mcp-config helpers', () => {
     })
   })
 
+  it('preserves independent timeout budgets during form conversion', () => {
+    const server = {
+      rowId: 'mcp-timeouts',
+      identifier: 'slow-tools',
+      command: 'slow-mcp',
+      argsText: '',
+      envEntries: [],
+      cwd: '',
+      enabled: true,
+      requestTimeoutMs: 2_000,
+      maxTotalTimeoutMs: 500,
+    }
+
+    const config = buildConfigFile([server], translateMessage)
+    const loaded = loadServerForms(config)
+
+    expect(config.mcpServers['slow-tools']).toEqual({
+      command: 'slow-mcp',
+      requestTimeoutMs: 2_000,
+      maxTotalTimeoutMs: 500,
+    })
+    expect(loaded.servers[0]).toMatchObject({
+      requestTimeoutMs: 2_000,
+      maxTotalTimeoutMs: 500,
+    })
+  })
+
   it('keeps the existing JSON draft when form rows are incomplete', () => {
     const previousDraft = '{\n  "mcpServers": {\n    "saved": { "command": "npx" }\n  }\n}\n'
 
@@ -111,5 +138,35 @@ describe('mcp-config helpers', () => {
         },
       },
     }))).toThrow('mcpServers.filesystem: Unrecognized key: "extraField"')
+  })
+
+  it('accepts independent positive integer timeout values and rejects unsafe values', () => {
+    expect(parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        filesystem: {
+          command: 'npx',
+          requestTimeoutMs: 2_000,
+          maxTotalTimeoutMs: 500,
+        },
+      },
+    }))).toEqual({
+      mcpServers: {
+        filesystem: {
+          command: 'npx',
+          requestTimeoutMs: 2_000,
+          maxTotalTimeoutMs: 500,
+        },
+      },
+    })
+
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: { filesystem: { command: 'npx', requestTimeoutMs: 0 } },
+    }))).toThrow('mcpServers.filesystem.requestTimeoutMs')
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: { filesystem: { command: 'npx', maxTotalTimeoutMs: 1.5 } },
+    }))).toThrow('mcpServers.filesystem.maxTotalTimeoutMs')
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: { filesystem: { command: 'npx', maxTotalTimeoutMs: 2_147_483_648 } },
+    }))).toThrow('mcpServers.filesystem.maxTotalTimeoutMs')
   })
 })

@@ -14,6 +14,8 @@ export interface ServerForm {
   envEntries: { key: string, value: string }[]
   cwd: string
   enabled: boolean
+  requestTimeoutMs?: number
+  maxTotalTimeoutMs?: number
 }
 
 /** Editable MCP server rows derived from persisted config. */
@@ -51,6 +53,8 @@ export function createServerForm(): ServerForm {
     envEntries: [],
     cwd: '',
     enabled: true,
+    requestTimeoutMs: undefined,
+    maxTotalTimeoutMs: undefined,
   }
 }
 
@@ -78,6 +82,12 @@ export function buildServerConfig(server: ServerForm): ElectronMcpStdioServerCon
 
   if (!server.enabled)
     config.enabled = false
+
+  if (server.requestTimeoutMs !== undefined)
+    config.requestTimeoutMs = server.requestTimeoutMs
+
+  if (server.maxTotalTimeoutMs !== undefined)
+    config.maxTotalTimeoutMs = server.maxTotalTimeoutMs
 
   return config
 }
@@ -142,6 +152,8 @@ export function loadServerForms(
     envEntries: Object.entries(server.env ?? {}).map(([key, value]) => ({ key, value })),
     cwd: server.cwd ?? '',
     enabled: server.enabled !== false,
+    requestTimeoutMs: server.requestTimeoutMs,
+    maxTotalTimeoutMs: server.maxTotalTimeoutMs,
   }))
 
   const selectedRowId = options.selectedIdentifier

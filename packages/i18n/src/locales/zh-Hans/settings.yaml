@@ -1067,6 +1067,14 @@ pages:
           value-placeholder: 值
         enabled:
           label: 启用
+        request-timeout:
+          label: 请求超时（毫秒）
+          description: '单个 MCP 请求在没有进度更新时允许等待的最长时间。默认：10000。'
+          placeholder: '默认：10000'
+        max-total-timeout:
+          label: 请求总超时（毫秒）
+          description: '单个 MCP 请求允许使用的最长总时间，包含进度更新。默认：15000。'
+          placeholder: '默认：15000'
       json:
         title: 编辑 mcp.json
         description: '可以直接修改 JSON，点击「应用」时会自动解析，此时再次点击「保存并重启」就能写到磁盘上啦～'

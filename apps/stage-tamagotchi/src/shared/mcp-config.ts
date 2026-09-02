@@ -3,14 +3,14 @@ import type {
   ElectronMcpStdioServerConfig,
 } from './eventa'
 
+import { errorMessageFrom } from '@moeru/std'
 import { z } from 'zod'
 
-function stringifyError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
+/** Keeps MCP request timers within the range supported by Node.js timers. */
+const mcpTimeoutMsSchema = z.number().int().positive().safe().max(2_147_483_647)
 
-  return String(error)
+function stringifyError(error: unknown) {
+  return errorMessageFrom(error) ?? String(error)
 }
 
 /**
@@ -33,6 +33,8 @@ export const electronMcpStdioServerConfigSchema = z.object({
   env: z.record(z.string(), z.string()).optional(),
   cwd: z.string().optional(),
   enabled: z.boolean().optional(),
+  requestTimeoutMs: mcpTimeoutMsSchema.optional(),
+  maxTotalTimeoutMs: mcpTimeoutMsSchema.optional(),
 }).strict() satisfies z.ZodType<ElectronMcpStdioServerConfig>
 
 /**
