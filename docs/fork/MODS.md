@@ -925,3 +925,155 @@ answered 且答案带人格口吻。注：btw 回答偶带角色卡的 `<|ACT|>`
 （人格节随卡注入所致），属外观问题，后续可在 btw 组装时剥离。
 
 
+
+## LOOP-PLAN 立项（2026-09-01）：心流模式
+
+产出 `docs/fork/LOOP-PLAN.md`。**只写文档，未动代码。** 依据是一次真机任务的
+完整 journal 复盘（dsh web 连接插件，488 事件 / 36 回合 / 125 次工具调用，
+`<userData>/journal/04b0b35e49b94e0822fc9c62107b0c98.jsonl`），文档内所有诊断
+均带 `seq` 引用可复查。
+
+- **核心判断**：AIRI 有「一步」，没有「一步一步」。回合结束后没有任何东西在问
+  「用户要的事做完了吗」——判定权散在三处互不通气的机械里（`stepCountAtLeast`
+  只数步数；`schedulePlanContinuation` 只看计划步骤且**仅在 `options.planId`
+  存在时被调用**；用户 Esc/删对话是唯一兜底）。于是"想一下改一下"这种最常见
+  的工作形态在结构上不存在。
+- **解**：把现有 `profile: 'work'` 升级为独立运行状态「心流模式」，
+  **与 `/plan` 完全独立**（已拍板）：计划提供**裁决**，心流提供**推进**；
+  心流不会自动升级成计划模式，其终止条件只与任务有关。顺带化解 HARNESS-PLAN
+  §9.2 的张力——心流是第三档「有循环、无裁决」。
+- **journal 坐实的五处**：
+  1. `chat.ts:1088-1095` 的 `planId || command` 同时决定 profile 与预算 →
+     计划蒸发后同一件工作 50 步变 10 步（turn 26 → turn 31），且无任何提示。
+  2. **三次 max-steps 三次悬空工具调用**（10 call / 9 result，无例外）——
+     墙落在她伸手到一半，模型永远看不到最后一步结果，且 transcript 留下
+     provider 会拒的悬空 `tool_calls`。
+  3. **122 条 `tool/result` 中 `ok=false` 为 0**：`ok: !ctx.data.isError` 记录的是
+     调用是否抛异常，而 coding 工具把失败编码成返回字符串从不 throw →
+     "失败"这个信号在系统里不存在 → 证据门收下失败命令、步骤永不 failed、
+     一切基于失败的循环判据永远空转。**这是第一前置项。**
+  4. **三个计划先后蒸发**（seq 220/253/463+470 全是 "No active plan"），
+     她三次重建不是健忘而是每次都发现计划没了；全程只有 1 条 `plan/update`，
+     **状态转变零记账**。riskLevel 级联已初步修复，但实测残留：只用 `bash`
+     干活的步骤（计划 C 的 step-3）仍退回宽松语义。
+  5. **`assistant/chunk` 事件数 0**，`assistant/start` 36 / `assistant/done` 24 →
+     12 个回合零文本，其中 turn 30 是 32 步连续工具全程一字未说。
+     气泡是原子单位，封口前没有中途表达的位置。HARNESS-PLAN 的 T1 判定未达成。
+- **推进形态的明确弃用**：现有 `schedulePlanContinuation` 用合成的
+  `user/message`（"Plan continuation (n/N)…"）推进。本计划弃用该形态——它污染
+  对话历史、使"谁在说话"不可辨、把判据挤进提示词。改为 runtime 内续跑：
+  尾部追加、前缀不动，**这同时就是缓存策略**（验收 L4 断言心流各回合之间
+  `prompt/supplement-changed` 哈希恒定）。
+- **进入条件不靠自律**：「她认为有必要时开启」若交给模型判断即自律式解法。
+  改为结构触发为主（出现变更类工具 / `todo_write` / `plan_update start`）、
+  显式声明为辅。五种退出（done/blocked/interrupted/budget/no-progress）
+  全部落 `flow/end {reason}`——这是第 4 条那个教训的直接应用。
+- **顺带发现的证据门缺陷**：`refProvesMutation` 只看 bash tier 不看 exit code，
+  一条 `medium tier, exit 1` 的失败命令可以充当变更证明。修 `outcome` 字段时一并处理。
+- **另一处收益**：content 已开始后的失败不能重放整轮（会重复内容），正确处置是
+  "保住已完成的工具结果、作为新一步继续"——**这与心流的正常推进是同一条代码路径**，
+  比在流层做通用重试省得多。
+- 批次：前置（`outcome`/`tier` 结构化 + 悬空补偿 + 状态记账）→ 一（心流状态本体）
+  → 二（harness 推进）→ 三（重试分类 + chunk 落盘 + btw 反向）→ 后续（rewind
+  取代删对话，数据前提 journal + `contentHash` 已具备）。验收 L1-L9，
+  其中 L1/L2/L7 列为常驻回归（对应的都是静默失败）。
+
+## LOOP-PLAN 实施（2026-09-01）
+
+已落地前置、批次一、批次二和批次三的代码闭环：
+
+- `ToolResultEvent` 增加 `outcome` 与 `tier`。证据门不再接受失败 bash 结果。
+- 预算耗尽的工具调用会写入合成失败结果。provider transcript 保持可回放。
+- 新增 `flow/start`、`flow/step`、`flow/end`。心流续跑在 runtime 内执行，不写合成 `user/message`。
+- 心流按结构工具触发。它支持 `/flow`、`flow_update`、40 回合预算、400 次工具调用预算、连续无进展退出、重复失败拦截、陈旧 edit 强制 read 和有限失败上下文。
+- 心流回合写入 `assistant/chunk`。工作轮使用稳定系统前缀和消息尾部上下文。
+- 新增 `btw_ask` 非阻塞提问。用户答案从 journal 投影进入下一步上下文。
+- `/flow` 状态指示器和停止操作已加入 composer。
+
+定向 Vitest、core-agent build、core-agent、stage-ui 和 stage-tamagotchi typecheck、受影响文件 lint 均通过。Windows Electron 真机验收 L1-L9 尚未在本批运行；需要带 provider 的实际任务确认自动续跑、缓存哈希和中途中断。
+
+## LOOP-PLAN 二轮深挖（2026-09-02）：`FLOW-DIAGNOSIS.md`
+
+对首次真机深挖的归因做了**修正**（同一 journal，seq 503-652）。**只写文档，未动代码。**
+
+- **新增** `docs/fork/FLOW-DIAGNOSIS.md`，含完整复盘与改动清单（P0 ×3、P1 ×5、P2 ×3）。
+- **修正 §11.3.1 的归因**：心流只跑一轮的根因不是「她把 Flow 当事务锁急着交卷」，
+  而是证据门把「任意允许工具的成功回执」当作「步骤要验证的内容已完成」。
+  `planLinkFor`（`chat-orchestrator-runtime.ts:905-923`）在聚焦步不接受工具时
+  落到第一个接受的开放步，于是 seq 547 一条**探活 bash** 满足了
+  step-3-test-verify（真正集成测试 seq 590 还没跑），计划 A 提前判 completed，
+  `activePlans` 移除，她同回合两次遭遇 "No active plan"。
+- **另一条修正**：bash 连发不是「她不会用合适工具」，是本地 HTTP 无声明式通道
+  （`fetch` 无 method/body 且 SSRF 封锁 loopback、`code_mode` 沙箱无 http），
+  bash 是唯一路径。附带一个安全问题：声明式 fetch 有 SSRF 防护，命令式 bash
+  完全没有，她的手写 HTTP POST 绕过了 loopback 封锁，且 `tier=medium` 无审批。
+- **同场记档**：`plan/hint` 只取 `slice(-2)`（`buildTurnProjection:94`）且内容
+  在教她放弃正确的 grep/list；seq 651 用户安慰在 seq 652 `insufficient balance`
+  前未被回复。
+
+## FLOW-FIX 批次（2026-09-02）
+
+- **动机**：首轮真机把探活回执误当验证证据，并在 tool-call 阶段提前结束心流；
+  工作轮还混入人格外观工具，缺少环境与 agent 角色基座。
+- **改动**：完成门延后到 tool-result 与 turn 边界，并要求本心流已有变更成功证据；
+  验证步骤增加 test/verify/build/lint/check 语义门；重启从 journal 重建心流计数；
+  hint 改为最近工具聚合；计划变更步骤结构化补入 read/grep/list，未验证计划留在
+  active 集。工作轮增加环境块与 Agent Role，Live2D 提示仅 social，工作工具面收紧为
+  `WORK_TURN_TOOL_NAMES ∪ 计划步骤 allowedTools ∪ activatedSkills`；压缩失败回落到
+  journal 机械摘要；spark 指令补执行契约；删除废弃 `plan-runtime`。
+- **验证**：`@proj-airi/core-agent` 全量 Vitest 通过（23 files / 206 tests），
+  core-agent build 通过；stage-ui 定向 Vitest 通过（3 files / 41 tests），
+  stage-tamagotchi 内置工具测试通过（3 tests）；core-agent、stage-ui、
+  stage-tamagotchi 三包 typecheck 和全局 `pnpm lint` 通过，应用 build 通过。
+  Electron 9250 抽查成功启动并确认主 renderer、lazy chat 窗口、聊天控件和工作工具
+  注册；隔离 profile 无 provider，故 iterations≥2、验证前计划状态和带模型的工作提示
+  真机链未执行，不记为通过。
+- **遗留**：P1-2 本地 RPC 仅登记端口制并独立立项；P2-1 social 轮 flow 工具待拍板；
+  环境块的 git 分支、测试/构建命令扩展待后续。
+- **延伸评审（FLOW-DIAGNOSIS §4.2）**：FLOW-FIX 后心流不再提前终止（iterations:12、
+  `flow/end` 落回合边界），但**回合内步进**仍不符合 harness 预期。根因不在心流层，
+  在 `llm-service.ts:248` 的 `stopWhen: stepCountAtLeast(maxSteps)` + `chat.ts:1129`
+  对 work 轮设 `maxSteps:50`，单回合可连发 50 个工具调用而无需停下思考。
+  journal 实证（seq 679-932）全部 12 回合 `assistant/chunk` 的 `before`/`during`
+  均为 0，100% 落在最后一次工具调用之后。由此新增 **P0-4**：把 work 轮 `maxSteps`
+  降到 3-5（方案 A，改一行），配合 `prepareStep`/`postToolCall` 注入叙述指令
+  （方案 B），让「一步」从「一个回合」变为「一次工具调用 + 一次评估 + 一次叙述」。
+  方案 C（流动步进回调）列为长期方向，不作为第一优先。详见 FLOW-DIAGNOSIS §4.2。
+
+## FLOW-STEP 批次（2026-09-02）
+
+- **动机**：`stopWhen: stepCountAtLeast(maxSteps)` 在工具执行前做停止决策，导致预算边界
+  可能丢失当前工具结果；单个心流回合还会连续执行过多工具，工具间隙没有重新思考。
+- **改动**：通过 `pnpm patch` 持久修改 `@xsai/stream-text@0.5.0-beta.8`，新增执行后的
+  `onStepResult` 回调。`llm-service` 只在无工具调用的 step 上使用 `stopWhen`，runtime
+  在工具结果完整落地后用 `{ stop: true }` 控制预算。心流 `softBudget` 固定为 5，非心流
+  work 轮保持原 `maxSteps`（默认 50）。心流后续 step 增加工具间隙叙述提示。
+- **验证**：真实 patched xsAI SSE 测试确认工具执行、tool message、step result 均先完成，
+  然后回调才可停止；core-agent 定向测试 77 tests 通过，core-agent typecheck 通过。
+- **遗留**：需要 provider-backed Electron 真机重跑 seq 679 场景，确认每回合不超过 5 步、
+  工具间有 chunk，并观察跨回合 iterations；本批不改变 P1-2、P2-1 或环境块扩展范围。
+
+### FLOW-EVIDENCE / ROOT 修正（2026-09-02）
+
+- **动机**：复核发现 `expectedEvidence: 查看 diff` 仍会把成功的 `git log` 当成证据，
+  另一个实际阻塞是模型没有可调用的显式根切换工具，无法安全读取根外的 `patches/`。
+- **改动**：证据门为 diff/patch 语义增加正文判据，只接受成功回执中实际出现的统一
+  diff 标记；`git log`、`git diff --stat` 和探活结果不再过门。保留
+  `resolveInsideWorkspace` 的越界拒绝，新增 `setWorkspaceRoot` 模型工具：调用一次
+  绝对路径后由主进程校验存在/目录/可写，重建 host + Code Mode，并持久化和记 journal。
+- **验证**：新增 `git log` 拒绝与 patch hunk 通过的 core-agent 回归测试；工作区工具
+  注册测试覆盖 `setWorkspaceRoot`，主进程切根测试继续覆盖普通 read 与 Code Mode 共同换根；
+  core-agent/coding-harness/stage-ui/stage-tamagotchi typecheck 与 stage-tamagotchi build 通过。
+- **遗留**：仍需带 provider 的 Electron 真机确认模型先调用 `setWorkspaceRoot` 再读取
+  `patches/`；本修正不放宽 read 的绝对路径约束，也不把根切换加入 Code Mode 的静态 bridge。
+
+## MCP SERVER TIMEOUT 配置（2026-09-02）
+
+- **改动**：MCP server 支持独立的 `requestTimeoutMs` 和 `maxTotalTimeoutMs`。
+  两个字段进入共享契约、严格 JSON 校验、设置页表单和中英文文档。
+- **运行时**：连接、工具枚举、工具调用和测试连接都读取所属 server 的预算。
+  请求超时在进度更新时重置，总超时由 AIRI 自有墙钟信号强制执行。
+- **验证**：MCP 定向 Vitest 10 tests、stage-tamagotchi typecheck、包级 lint、应用 build 和
+  `git diff --check` 已通过。开发 Electron 日志显示 CDP 启动，但端口未在 60 秒内接受连接，
+  设置页点击验收未执行；没有停止已有 Electron 进程。
+

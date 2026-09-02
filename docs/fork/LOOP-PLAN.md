@@ -445,8 +445,9 @@ flow/end     { flowId, reason: 'done' | 'blocked' | 'interrupted' | 'budget' | '
 |---|---|---|
 | **前置** | §5.1 `ok`/`outcome`/`tier` 结构化；§5.2 悬空补偿；§5.3 状态转变落 journal | 无。三者都是独立可交付的修复 |
 | **一** | 心流状态本体：独立状态位、profile 与预算改由它决定（拔掉 `chat.ts:1088-1095` 的 `planId \|\| command`）、结构触发 + 显式声明、五种退出全落 journal | 前置。**实测（§11）：部分落地**——状态位/预算/命令在，结构触发与退出五态待验 |
-| **二** | harness 推进：runtime 内续跑（弃用合成用户消息）、终止判据为任务、压缩 await、§3.4 四条轨迹判据、§3.5 已排除路径 | 一。**实测（§11）：未实现——当前最大欠账** |
-| **三** | 失败重试两分类（§4）；`assistant/chunk` 落盘（§7.1）；btw 反向（§7.2） | 二。**实测（§11）：§7.1 未实现（34 次调用零叙述）** |
+| **二** | harness 推进：runtime 内续跑（弃用合成用户消息）、终止判据为任务、压缩 await、§3.4 四条轨迹判据、§3.5 已排除路径 | 一。**实测（§11.3.1 更正）：已实现且已接线（`:2324-2387`），但从未被执行**——`flow_update done` 无门，她在首个回合内即宣告完成 |
+| **二·五** | **给循环开门**：`done`/`blocked` 加机械判据、`flow/end` 结算到回合边界（§13） | 二。**当前最大欠账** |
+| **三** | 失败重试两分类（§4）；`assistant/chunk` 落盘（§7.1）；btw 反向（§7.2） | 二·五。**实测：§7.1 未实现（27 条 chunk 全在收尾）** |
 | **后续** | rewind 取代删对话。数据前提已具备：journal 落盘 + `tool/result` 记录 write/edit + `hashline/text.ts` 的 `contentHash`。缺的是接线 | 前置的状态记账 |
 
 每批：定向 vitest + typecheck 全绿再进下一批。
@@ -514,15 +515,82 @@ L1、L2、L7 在合并前录制为常驻回归——它们对应的都是静默�
 ### 11.3 判定与欠账
 
 当前实现 = **批次一的一部分**（状态位 + 预算）。
-**批次二（§3 推进循环 + §3.4 轨迹判据）与 §7.1（叙述协议）整体未落地。**
-验收映射：L1/L5/L6 当前必然失败；L3 的「跨多回合自动推进」不成立
-（2 个回合是 `/flow` 消息本身产生的，不是 harness 推进的）；
-「心流显示只有一步」的 UI 观感与 journal 一致——指示器没有数据源，
-因为推进循环不存在。
+验收映射：L1/L5/L6 当前必然失败；L3 的「跨多回合自动推进」不成立；
+「心流显示只有一步」的 UI 观感与 journal 一致。
 
-**下一步就是批次二本身**：runtime 内续跑（不新增 user/message）、
-`turn/start {source:'flow', flowId, iteration}`、`flow/step` 事件、
-§3.4 四条轨迹判据、§3.2 的结算-等待-评估-组装序列。
+### 11.3.1 修正：推进循环**已实现**，是被提前关掉的（2026-09-02 二次核查）
+
+§11.1「推进循环未实现」的判定**不准确**，据代码与 journal 更正如下。
+
+`continueFlow`（`chat-orchestrator-runtime.ts:2324`）**完整存在且已接线**：
+`sendQueue` 的 handler 在 `performSend` 之后无条件调用它（`:2404`），
+循环体里 §3.2 的序列基本齐备——generation 检查、steer 检查、三种预算上限、
+`await runningCompaction`（`:2355-2357`，§3.2 第 2 步）、`flow/step` 写入
+（`:2363`）、以 `source:'flow'` + `flowContinuation` 递归 `performSend`（`:2374`）。
+§3.4 的轨迹状态字段也都在 `FlowRuntimeRecord` 里（`repeatedFailures`、
+`editStateChangedStreaks`、`forceReadPaths`、`planHintStreak`、`zeroProgressTurns`）。
+
+**真正的失败点是 seq 606 早于 seq 630**——`flow/end` 落在**回合内**，
+`turn/end` 在其后 24 个 seq。事件序列：
+
+| seq | 事件 |
+|---|---|
+| 601 | `plan_update complete` → **"No active plan in this session"** |
+| 603-605 | `todo_write` → `todo list updated (3/3 done)` |
+| **606** | **`flow/end {reason:'done', iterations:1}`** |
+| 607 | `tool/call flow_update {action:'done'}` |
+| 608 | `tool/result` → `Flow complete: 已成功…重构并完善…` |
+| 609+ | 最终总结的 27 条 chunk |
+| 630 | `turn/end {completed}` |
+
+她在第一个回合的工具循环**内部**调了 `flow_update done`。
+`endFlow` 立即把 `status` 置 `ended`，于是回合结束后 `continueFlow` 跑到
+`:2359` 的 `if (!nextFlow \|\| nextFlow.status !== 'running') return` 直接退出。
+**循环不是没实现，是它启动前状态已经被关掉了。** `iterations:1` 就是证据：
+计数器停在初始值，一次续跑都没发生。
+
+**根因是 `flow_update done` 无门**（`builtin/flow.ts:executeFlowUpdate`）：
+`action:'done'` 只返回一句文本，没有任何条件校验。这正是
+`DESIGN-PRINCIPLES.md` 原则一与原则三要防的形状——**"她说完成了"直接成为
+系统事实**，而本仓的全部设计都建立在"模型声称不是证据"之上。
+§2.3 把 `done` 设计成"工具调用而非自然语言"是对的，但只换了**载体**，
+没有加**门**：工具调用同样是模型声称。
+
+同场证据表明这次声称确实不可信（§11.4）：测试断言空转、远端明确否认 PTC、
+`plan_update complete` 收到 "No active plan"（她自己的计划状态是坏的），
+而她仍然宣告 done。
+
+**修法（§13 第 1 条）**：`done` 必须过门。至少三条机械校验：
+1. **有变更证据**：本次心流内至少一次 `outcome:'ok'` 的变更类工具结果
+   （复用 §5.1 的 `outcome`/`tier`，与证据门的 `refProvesMutation` 同源判据）。
+2. **todo 一致**：若本心流写过 todo，全部条目为 `completed`
+   （本次是 3/3，这条会通过——不足以单独作门，需与第 1、3 条合取）。
+3. **无未结算的坏状态**：最近若干工具结果里没有未处理的失败/拒绝
+   （本次 seq 602 的 "No active plan" 属此类，会挡下这次 done）。
+门不通过时 `flow_update done` 应**返回拒绝并说明缺什么**，语义对齐 Hashline
+的 `state_changed`：不是任务失败，是"还不能宣告完成，先补 X"。
+
+**另一处需一并修的时序问题**：`flow/end` 写在回合内，导致 journal 里
+`flow/end` 早于 `turn/end`，且此后 24 个 seq 仍在同一回合内产生
+（含 27 条 chunk）。心流的结束应当**结算在回合边界**：回合内的 `done`
+声明只置一个待结束标记，由 `continueFlow` 在回合结束后校验并落 `flow/end`。
+这样 §6 的事件序列才自洽（`flow/end` 必在 `turn/end` 之后）。
+
+### 11.3.2 修正后的欠账清单
+
+| 项 | 状态 |
+|---|---|
+| §3.2 推进序列（结算-等待-评估-组装） | **已实现**（`:2324-2387`），未被执行过 |
+| `flow/step` 事件 + `turn/start {source:'flow'}` | **已实现**，同上 |
+| 三种预算上限 + `no-progress` 退出 | **已实现**，同上 |
+| §3.4 轨迹判据的状态字段 | **已实现**；注入/干预动作是否接上待逐条验 |
+| **`flow_update done` 的门** | **缺失——当前最大欠账**（本节） |
+| **`flow/end` 的回合边界结算** | **缺失**（本节） |
+| §7.1 叙述协议（工具期间 chunk） | 缺失（27 条 chunk 全在收尾） |
+| §5.1 `outcome`/`tier` 结构化 | 部分——`tool/result` 摘要里已有 `{"tier":"read-only","status":"ok"}`（seq 598）与 `{"status":"written","baseHash":…}`（seq 596），但仍在 summary 字符串内，非结构化字段 |
+
+**下一步不是重写批次二，是给它开门**：`done` 加证据门 + `flow/end` 移到回合边界。
+这两项落地后，现有的 `continueFlow` 才有机会跑第二圈。
 
 ### 11.4 插件改动质量（同场审查，记档）
 
@@ -559,3 +627,85 @@ exit 0），但其断言只覆盖「调用不抛异常 + 会话归属」；对�
    心流无显式 token 成本预算（水位压缩管上下文不管花费——
    flash 模型连跑 200 步的费用应有一句提醒与可选上限）；
    验收完成后按体例回写 `MODS.md` 批次指针。
+6. **§11.1 的「推进循环未实现」判定已由 §11.3.1 更正**：循环存在且已接线，
+   失败点是 `flow_update done` 无门导致回合内提前关闭。保留 §11.1 原表
+   （它记录的是首测观测到的现象），但读表时以 §11.3.1 的归因为准。
+
+---
+
+## 13. FLOW-FIX 批次：给推进循环开门（2026-09-02）
+
+本节的执行版与评审修正统一记录在 [`FLOW-DIAGNOSIS.md`](./FLOW-DIAGNOSIS.md)。
+本批按 **P0-1/P0-2/P0-3/P0-4、P1-1/P1-3/P1-5、P2-2、P3-1/P3-2/P3-8** 及五点审计
+落地；P0-1 采用“保留 fallback 打章、增加验证语义门”的修正。P1-2 本批仅登记
+为受审批端口制的独立立项，P2-1 和环境块的 git 分支/测试命令扩展不在本批实现。
+P0-4 采用执行后的 `onStepResult`；心流回合的 `softBudget` 固定为 5，非心流 work
+轮继续使用原 `maxSteps`，默认值保持 50。
+
+§11.3.1 把欠账从"实现循环"改成了"让循环有机会跑"。按此重排：
+
+### 13.1 P0 —— `flow_update done` 加证据门
+
+`builtin/flow.ts` 的 `executeFlowUpdate` 目前对 `done` 零校验。
+改为三条合取的机械判据（全部读结构化事实，不读自然语言）：
+
+1. 本次心流内 ≥1 条变更类工具的成功结果（`outcome:'ok'` + 非 read-only tier）。
+2. 若本心流写过 todo，全部条目 `completed`。
+3. 最近 N 条工具结果中无未处理的失败/拒绝（seq 602 那类 "No active plan"）。
+
+拒绝时返回缺什么，语义对齐 Hashline 的 `state_changed`——不是失败，是"先补 X"。
+门的判据与证据门的 `refProvesMutation` **同源但不同用**：证据门裁决"这一步算不算做完"，
+这道门裁决"整个任务能不能宣告结束"。两者共享 `outcome`/`tier`，各自独立判定。
+
+`blocked` 同样需要门：§2.3 要求"已通过 btw/user_ask 提出"，
+当前 `executeFlowUpdate` 对此也零校验——应检查本心流内确有 `btw_ask` / `user_ask` 调用。
+
+### 13.2 P0 —— `flow/end` 结算到回合边界
+
+回合内的 `done`/`blocked` 声明只置待结束标记（`flow.pendingEnd`），
+由 `continueFlow` 在回合结束后校验并落 `flow/end`。收益有三：
+
+- journal 事件序列自洽（`flow/end` 必在 `turn/end` 之后）。
+- 门的校验能看到**整个回合**的工具结果，而不是声明那一刻的部分结果。
+- 声明之后回合内若又出现失败，门可以驳回这次结束并让循环继续。
+
+### 13.3 P1 —— §5.1 结构化字段收尾
+
+seq 596/598 显示工具结果里已有 `{"tier":"read-only","status":"ok"}` 与
+`{"status":"written","baseHash":…}`，但都在 `summary` 字符串内。
+把它们提升为 `ToolResultEvent` 的结构化字段（`outcome` / `tier`），
+使 13.1 的门与 §3.4 的轨迹判据不必解析字符串。
+顺带修 `refProvesMutation` 只看 tier 不看 exit code 的缺陷（§5.1 末段）。
+
+### 13.4 P1 —— §7.1 叙述协议
+
+27 条 chunk 全部在收尾（seq 609+），工具期间零叙述。§12 第 1 条已澄清机制：
+文本 delta 本来就实时流进气泡，缺的是**模型不做叙述动作**（无指令要求）
+与 **journal 不落工具期间的 chunk**。前者靠心流的推进上下文明确要求
+"每完成一个动作用一句话说明下一步"；后者是落盘接线。
+
+### 13.5 验收补充
+
+| # | 断言 | 对应 |
+|---|---|---|
+| L10 | 心流内声称完成但无变更证据（或有未处理失败）→ `flow_update done` **被拒**并说明缺什么；循环继续 | 13.1 |
+| L11 | `flow/end` 在 journal 中**始终晚于**同回合的 `turn/end` | 13.2 |
+| L12 | 一次成功的心流：`flow/step` ≥1、`turn/start {source:'flow'}` ≥1、`flow/end.iterations` >1 | 13.1+13.2 解锁 |
+
+L10 是本轮首测那次虚报的显式回归——**它同时也是 §11.4「断言空转」的同构防线**：
+她的测试用空断言放过了失败，而 harness 的 `done` 门不能重犯同一个错。
+
+### 13.6 P0-4 回合内步进的执行后停止
+
+`@xsai/stream-text` 的 patch 在工具结果写入 messages 后调用 `onStepResult`。
+回调返回 `{ stop: true }` 时，当前 step 先进入 `steps`，然后结束本回合。
+`llm-service.ts` 的 `stopWhen` 只在无工具调用的 step 上停止。
+
+runtime 的预算规则如下：
+
+1. 心流轮：`softBudget = 5`，到达预算后由 `onStepResult` 停止。
+2. 非心流 work 轮：`softBudget = maxSteps`，保持原调用方预算，默认 50。
+3. 心流的后续 step：`prepareStep` 追加工具间隙叙述指令。
+
+验收必须确认：第五步工具结果已落 journal 和 provider transcript，且第六步不会启动。
+非心流 work 轮不得因为心流预算而提前停止。
