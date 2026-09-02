@@ -1,9 +1,8 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { Event, Message, ToolMessage, Usage } from '@xsai/shared-chat'
+import type { Event, Message, StopCondition, ToolMessage, Usage } from '@xsai/shared-chat'
 
 import type { StreamEvent, StreamFromOptions, StreamOptions } from '../types/llm'
 
-import { stepCountAtLeast } from '@xsai/shared-chat'
 import { streamText } from '@xsai/stream-text'
 
 /**
@@ -140,6 +139,9 @@ async function resolveTools(options?: StreamOptions) {
   return tools ?? []
 }
 
+/** Stops only after the model returns a step without tool calls. */
+const stopWhen: StopCondition<Message> = ({ step }) => step.toolCalls.length === 0
+
 /**
  * Maps xsAI stream events onto the AIRI {@link StreamEvent} contract.
  *
@@ -245,10 +247,11 @@ export async function streamFrom({
         messages: sanitized,
         headers: options?.headers,
         streamOptions: { includeUsage: true },
-        stopWhen: stepCountAtLeast(maxSteps),
+        stopWhen,
         tools,
         toolChoice: options?.toolChoice,
         postToolCall: options?.postToolCall,
+        onStepResult: options?.onStepResult ?? (({ steps }) => steps.length >= maxSteps ? { stop: true } : undefined),
         prepareStep: options?.prepareStep,
         onEvent,
       })
@@ -346,14 +349,12 @@ export async function streamFrom({
     await attempt()
   }
   catch (error) {
-    // Relay upstreams intermittently answer 400 with an empty candidate set
-    // (`empty_response_error` / "no valid content"). That failure is transient
-    // and content-of-the-moment, so replay once when nothing was streamed yet;
-    // a failure after real content cannot be replayed without duplicating it.
-    if (delivered || options?.abortSignal?.aborted || !isEmptyUpstreamResponseError(error))
+    // Replay one pre-content transport failure. A response after content was
+    // delivered cannot replay safely because the user would see duplicate text.
+    if (delivered || options?.abortSignal?.aborted || !isPreContentRetryableError(error))
       throw error
 
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, retryAfterMs(error)))
     if (options?.abortSignal?.aborted)
       throw error
     await attempt()
@@ -373,6 +374,48 @@ const EMPTY_UPSTREAM_RESPONSE_PATTERN = /empty_response_error|no valid content/i
 /** Whether the failure is the transient upstream empty-response 400 class. */
 export function isEmptyUpstreamResponseError(error: unknown): boolean {
   return EMPTY_UPSTREAM_RESPONSE_PATTERN.test(String(error))
+}
+
+function isPreContentRetryableError(error: unknown): boolean {
+  if (isEmptyUpstreamResponseError(error))
+    return true
+  const record = typeof error === 'object' && error !== null ? error as Record<string, unknown> : undefined
+  const response = typeof record?.response === 'object' && record.response !== null
+    ? record.response as Record<string, unknown>
+    : undefined
+  const status = record?.status ?? record?.statusCode ?? response?.status
+  if (status === 408 || status === 429 || (typeof status === 'number' && status >= 500 && status < 600))
+    return true
+  const text = String(error)
+  return /429|408|5\d\d|ETIMEDOUT|ECONNRESET|timed out|timeout|socket hang up|network/i.test(text)
+}
+
+function retryAfterMs(error: unknown): number {
+  const record = typeof error === 'object' && error !== null ? error as Record<string, unknown> : undefined
+  const response = typeof record?.response === 'object' && record.response !== null
+    ? record.response as Record<string, unknown>
+    : undefined
+  const responseHeaders = response?.headers
+  const headerFromGetter = typeof responseHeaders === 'object' && responseHeaders !== null && 'get' in responseHeaders && typeof responseHeaders.get === 'function'
+    ? responseHeaders.get('retry-after')
+    : undefined
+  const retryAfter = record?.retryAfter ?? headerFromGetter ?? (typeof responseHeaders === 'object' && responseHeaders !== null
+    ? responseHeaders
+    : undefined)
+  const headerValue = typeof retryAfter === 'object' && retryAfter !== null
+    ? (retryAfter as Record<string, unknown>)['retry-after']
+    : retryAfter
+  if (typeof headerValue === 'number' && Number.isFinite(headerValue))
+    return Math.max(0, Math.min(10_000, Math.round(headerValue * 1_000)))
+  if (typeof headerValue === 'string' && headerValue.trim()) {
+    const seconds = Number(headerValue)
+    if (Number.isFinite(seconds))
+      return Math.max(0, Math.min(10_000, Math.round(seconds * 1_000)))
+    const dateMs = Date.parse(headerValue)
+    if (Number.isFinite(dateMs))
+      return Math.max(0, Math.min(10_000, dateMs - Date.now()))
+  }
+  return 500
 }
 
 // Runtime auto-degrade: patterns that indicate the model/provider does not support tool calling.

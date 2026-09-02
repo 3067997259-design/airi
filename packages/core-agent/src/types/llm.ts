@@ -1,5 +1,5 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { CommonContentPart, CompletionToolCall, CompletionToolResult, Message, PostToolCall, PrepareStep, Tool, ToolChoice } from '@xsai/shared-chat'
+import type { CommonContentPart, CompletionStep, CompletionToolCall, CompletionToolResult, Message, PostToolCall, PrepareStep, Tool, ToolChoice } from '@xsai/shared-chat'
 
 /** Describes whether generation usage came from the provider or a local fallback. */
 export type LlmUsageSource = 'reported' | 'estimated' | 'unavailable'
@@ -44,6 +44,17 @@ export interface StreamOptions {
   tools?: Tool[] | (() => Promise<Tool[] | undefined>)
   /** Transforms a completed tool result before it enters the next provider step. */
   postToolCall?: PostToolCall
+  /**
+   * Decides whether to stop after the current step and all its tool results
+   * have been recorded. Returning `{ stop: true }` stops before the next
+   * provider step without discarding the completed result.
+   */
+  onStepResult?: (context: {
+    step: CompletionStep
+    steps: CompletionStep[]
+    messages: Message[]
+    stepNumber: number
+  }) => { stop: boolean } | void | Promise<{ stop: boolean } | void>
   /** Adjusts the provider input for each step without changing persisted messages. */
   prepareStep?: PrepareStep
   /**

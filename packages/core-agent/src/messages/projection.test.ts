@@ -84,6 +84,8 @@ describe('projectConversationEntries', () => {
     expect(notify.segments[1].type).toBe('tagged-text')
     expect(notify.segments[2].type).toBe('reference')
     expect(command.segments[0].type).toBe('instruction')
+    expect((command.segments[0] as { type: 'instruction', text: string }).text).toContain('Without a tool result, do not claim')
+    expect((command.segments[0] as { type: 'instruction', text: string }).text).toContain('safety rules')
     expect(command.segments[1].type).toBe('tagged-text')
     expect(command.segments[2].type).toBe('state-snapshot')
   })

@@ -106,6 +106,62 @@ describe('evidence gate runtime', () => {
 
   // ROOT CAUSE:
   //
+  // 2026-09-01 dsh-web field run (FLOW-DIAGNOSIS §1.2): a "write tests and
+  // verify" step completed from a bare liveness probe. The focused step
+  // rejected bash, the fallback stamping attached the probe to the verify
+  // step, and a successful-but-irrelevant bash result satisfied its
+  // tool_result evidence before the real test ever ran.
+  it('does not complete a verify step from an unrelated successful bash receipt', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'bash', summary: '{"tier":"medium","status":"ok","stdout":"workspace.list ok"}' }),
+    ]
+    const verifyStep = step({
+      riskLevel: 'low',
+      allowedTools: ['bash', 'read'],
+      intent: 'run the integration tests and verify',
+      expectedEvidence: [{ source: 'tool_result', description: 'tests written and verification passed' }],
+    })
+    const state = projectStepGateStates(events, [verifyStep]).steps['step-1']
+    expect(state?.status).toBe('blocked')
+    expect(state?.reason).toContain('not_verified_outcome')
+  })
+
+  it('completes the verify step once a receipt carries real verification output', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'bash', summary: 'node src/tools/dsh_bridge_test.js · ALL INTEGRATION TESTS PASSED · exitCode 0' }),
+    ]
+    const verifyStep = step({
+      riskLevel: 'low',
+      allowedTools: ['bash', 'read'],
+      intent: 'run the integration tests and verify',
+      expectedEvidence: [{ source: 'tool_result', description: 'tests written and verification passed' }],
+    })
+    expect(projectStepGateStates(events, [verifyStep]).steps['step-1']).toMatchObject({ status: 'completed' })
+  })
+
+  it('never counts writing a test file as running it', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', toolName: 'write', summary: '{"path":"src/tools/dsh_bridge_test.js","status":"written"}' }),
+    ]
+    const verifyStep = step({
+      riskLevel: 'low',
+      allowedTools: ['bash', 'write', 'read'],
+      intent: 'write the tests and verify they pass',
+      expectedEvidence: [{ source: 'tool_result', description: 'tests pass' }],
+    })
+    const state = projectStepGateStates(events, [verifyStep]).steps['step-1']
+    expect(state?.status).toBe('blocked')
+    expect(state?.reason).toContain('not_verified_outcome')
+  })
+
+  // ROOT CAUSE:
+  //
   // The evidence projection accepted a trusted tool result without checking
   // its `ok` flag. A failed mutation could therefore complete its plan step.
   it('never completes a step from a failed trusted tool result', () => {
@@ -116,6 +172,27 @@ describe('evidence gate runtime', () => {
     ]
 
     const state = projectStepGateStates(events, [step()]).steps['step-1']
+
+    expect(state?.status).toBe('failed')
+    expect(state?.verdict?.passed).toBe(false)
+  })
+
+  it('does not treat an exit-one bash result as mutation evidence', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({
+        seq: 2,
+        stepId: 'step-1',
+        toolName: 'bash',
+        provenance: 'builtin',
+        outcome: 'failed',
+        tier: 'medium',
+        summary: '{"status":"error","tier":"medium","exitCode":1}',
+      }),
+    ]
+
+    const state = projectStepGateStates(events, [step({ allowedTools: ['bash'] })]).steps['step-1']
 
     expect(state?.status).toBe('failed')
     expect(state?.verdict?.passed).toBe(false)

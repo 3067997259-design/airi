@@ -71,4 +71,45 @@ describe('buildTurnProjection', () => {
     expect(result.text).toContain('Previous tool result: The focused tests passed.')
     expect(result.text.length).toBeLessThan(2_000)
   })
+
+  // 2026-09-01 field run (FLOW-DIAGNOSIS §2.3): 20 mismatch hints collided
+  // in one turn while the window showed only the last two verbatim, hiding
+  // the loop and advising the model to abandon correct exploration tools.
+  it('aggregates repeated mismatch hints per tool and keeps exploration allowed', () => {
+    const recentHints = [
+      ...Array.from({ length: 6 }, () => ({ toolName: 'grep', allowedTools: ['edit', 'write', 'read', 'bash'] as readonly string[] })),
+      ...Array.from({ length: 4 }, () => ({ toolName: 'list', allowedTools: ['edit', 'write', 'read', 'bash'] as readonly string[] })),
+      { toolName: 'read', allowedTools: ['edit', 'write'] as readonly string[] },
+    ]
+    const result = buildTurnProjection({
+      plan: {
+        goal: 'Refactor the bridge',
+        horizon: 'session',
+        steps: [{
+          id: 'step-2',
+          lane: 'coding',
+          intent: 'Rewrite the client',
+          allowedTools: ['edit', 'write'],
+          expectedEvidence: [{ source: 'tool_result', description: 'edit applied' }],
+          riskLevel: 'low',
+          approvalRequired: false,
+        }],
+      },
+      state: {
+        currentStepId: 'step-2',
+        completedSteps: [],
+        failedSteps: [],
+        skippedSteps: [],
+        blockers: [],
+        evidenceRefs: [],
+      },
+      recentHints,
+    })
+
+    expect(result.text).toContain('grep (6 recent calls) produced no step evidence')
+    expect(result.text).toContain('list (4 recent calls) produced no step evidence')
+    expect(result.text).toContain('Exploration tools are always available; their results do not count as evidence for this step')
+    // One line per tool, not one per collision.
+    expect(result.text.match(/produced no step evidence/g)).toHaveLength(3)
+  })
 })

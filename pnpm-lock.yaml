@@ -1236,6 +1236,7 @@ overrides:
 packageExtensionsChecksum: sha256-lLxz4me6BFXSsuohDen54RU9DmiItse34Xa+IWGtSzU=
 
 patchedDependencies:
+  '@xsai/stream-text@0.5.0-beta.8': bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04
   mineflayer-pathfinder: 4bbfdca823ab48b74086e6e7d4b2f9baf5ee7c0ba9aee0c279b3c91c50bfd797
   pixi-live2d-display: 7881eb52793f46a10d6c04d62b1799a3d0ef79f83edc0283777baa6db339ed6d
   sponsorkit@17.1.0: f5887da52a29ae85732e01644d05c0c274231fe76b95aebeafbfab6dc4444f88
@@ -1410,7 +1411,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       valibot:
         specifier: 'catalog:'
         version: 1.4.2(typescript@6.0.3)
@@ -1573,7 +1574,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/stream-transcription':
         specifier: 'catalog:'
         version: 0.5.0-beta.8
@@ -2018,7 +2019,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/stream-transcription':
         specifier: 'catalog:'
         version: 0.5.0-beta.8
@@ -2500,7 +2501,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/stream-transcription':
         specifier: 'catalog:'
         version: 0.5.0-beta.8
@@ -3626,7 +3627,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/tool':
         specifier: 'catalog:'
         version: 0.5.0-beta.8(@valibot/to-json-schema@1.7.1(valibot@1.4.2(typescript@6.0.3)))(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
@@ -4502,7 +4503,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/stream-transcription':
         specifier: 'catalog:'
         version: 0.5.0-beta.8
@@ -5420,7 +5421,7 @@ importers:
         version: 0.5.0-beta.8
       '@xsai/stream-text':
         specifier: 'catalog:'
-        version: 0.5.0-beta.8
+        version: 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       pinia:
         specifier: 'catalog:'
         version: 4.0.3(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.41(typescript@6.0.3))
@@ -20048,7 +20049,7 @@ snapshots:
       '@valibot/to-json-schema': 1.7.1(valibot@1.4.2(typescript@6.0.3))
       '@xsai/generate-text': 0.5.0-beta.8
       '@xsai/shared-chat': 0.5.0-beta.8
-      '@xsai/stream-text': 0.5.0-beta.8
+      '@xsai/stream-text': 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/tool': 0.5.0-beta.8(@valibot/to-json-schema@1.7.1(valibot@1.4.2(typescript@6.0.3)))(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
       es-toolkit: 1.51.0
       minimatch: 10.2.6
@@ -20192,7 +20193,7 @@ snapshots:
       '@xsai-ext/responses': 0.5.0-beta.8(zod@4.4.3)
       '@xsai/shared': 0.5.0-beta.8
       '@xsai/shared-chat': 0.5.0-beta.8
-      '@xsai/stream-text': 0.5.0-beta.8
+      '@xsai/stream-text': 0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)
       '@xsai/tool': 0.5.0-beta.8(@valibot/to-json-schema@1.7.1(valibot@1.4.2(typescript@6.0.3)))(zod-to-json-schema@3.25.2(zod@4.4.3))(zod@4.4.3)
       yocto-queue: 1.2.2
     transitivePeerDependencies:
@@ -26844,7 +26845,7 @@ snapshots:
 
   '@xsai/shared@0.5.0-beta.8': {}
 
-  '@xsai/stream-text@0.5.0-beta.8':
+  '@xsai/stream-text@0.5.0-beta.8(patch_hash=bf080c9e4fd1192ff28abc2fac19b592512c30441568afce609bdf1c3a3cca04)':
     dependencies:
       '@xsai/shared': 0.5.0-beta.8
       '@xsai/shared-chat': 0.5.0-beta.8

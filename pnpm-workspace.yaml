@@ -32,6 +32,7 @@ overrides:
   stockfish: 17.1.0
   string.prototype.matchall: npm:@nolyfill/string.prototype.matchall@^1.0.44
 patchedDependencies:
+  '@xsai/stream-text@0.5.0-beta.8': patches/@xsai__stream-text@0.5.0-beta.8.patch
   mineflayer-pathfinder: patches/mineflayer-pathfinder.patch
   pixi-live2d-display: patches/pixi-live2d-display.patch
   sponsorkit@17.1.0: patches/sponsorkit@17.1.0.patch

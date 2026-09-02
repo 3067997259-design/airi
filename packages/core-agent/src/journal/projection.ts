@@ -31,6 +31,8 @@ export interface ToolEvidenceEntry {
   seq: number
   toolName: string
   ok: boolean
+  outcome?: 'ok' | 'failed' | 'denied' | 'timeout'
+  tier?: 'read-only' | 'medium' | 'high'
   summary: string
   provenance?: string
 }
@@ -130,6 +132,8 @@ export function createToolEvidenceIndexUnit(): ProjectionUnit<ToolEvidenceEntry[
             seq: event.seq,
             toolName: event.toolName,
             ok: event.ok,
+            ...(event.outcome ? { outcome: event.outcome } : {}),
+            ...(event.tier ? { tier: event.tier } : {}),
             summary: event.summary,
             ...(event.provenance ? { provenance: event.provenance } : {}),
           }

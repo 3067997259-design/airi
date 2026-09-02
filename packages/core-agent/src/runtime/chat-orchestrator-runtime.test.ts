@@ -1,7 +1,7 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { Message } from '@xsai/shared-chat'
+import type { CompletionStep, Message, Tool } from '@xsai/shared-chat'
 
-import type { JournalEventInput } from '../journal/types'
+import type { JournalEvent, JournalEventInput } from '../journal/types'
 import type { ChatHistoryItem, ContextMessage, StreamingAssistantMessage } from '../types/chat'
 import type { StreamEvent, StreamOptions } from '../types/llm'
 import type { ChatMemoryContextItem, ChatOrchestratorSendOptions, PlanStepCandidate } from './chat-orchestrator-runtime'
@@ -15,10 +15,17 @@ const provider = {
   chat: () => ({ baseURL: 'https://example.com/' }),
 } as unknown as ChatProvider
 
+/** Resolves a send's tool list whether it was declared as a value or a thunk. */
+async function resolveTools(options?: StreamOptions): Promise<Tool[]> {
+  const declared = options?.tools
+  return (typeof declared === 'function' ? await declared() : declared) ?? []
+}
+
 function createHarness(options: {
   withMemory?: boolean
   withCompaction?: boolean
   planSteps?: Record<string, PlanStepCandidate[]>
+  journalSource?: () => JournalEvent[] | undefined
 } = {}) {
   const sessionMessages: Record<string, ChatHistoryItem[]> = {
     'session-1': [
@@ -117,6 +124,7 @@ function createHarness(options: {
       },
     },
     getPlanStepCandidates: sendOptions => options.planSteps?.[sendOptions.planId ?? ''] ?? [],
+    readJournalEvents: sessionId => (sessionId === 'session-1' ? options.journalSource?.() : undefined),
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
     now: () => nowValue,
@@ -262,6 +270,97 @@ describe('createChatOrchestratorRuntime', () => {
     expect(harness.journalEvents).toContainEqual(expect.objectContaining({
       type: 'turn/end',
       reason: 'max-steps',
+    }))
+  })
+
+  it('uses a five-step post-result budget for flow turns and keeps the work budget', async () => {
+    const completedStep: CompletionStep = {
+      finishReason: 'tool-calls',
+      text: '',
+      toolCalls: [],
+      toolResults: [],
+    }
+    const flowHarness = createHarness()
+    let flowOptions: StreamOptions | undefined
+    flowHarness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      flowOptions = options
+    })
+    flowHarness.runtime.startFlow('session-1', 'command')
+    await flowHarness.runtime.ingest('continue the flow', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      maxSteps: 50,
+      profile: 'work',
+    })
+
+    expect(flowOptions?.onStepResult).toBeTypeOf('function')
+    if (!flowOptions?.onStepResult)
+      return
+    expect(await flowOptions.onStepResult({
+      step: completedStep,
+      steps: Array.from<CompletionStep>({ length: 4 }).fill(completedStep),
+      messages: [],
+      stepNumber: 4,
+    })).toBeUndefined()
+    expect(await flowOptions.onStepResult({
+      step: completedStep,
+      steps: Array.from<CompletionStep>({ length: 5 }).fill(completedStep),
+      messages: [],
+      stepNumber: 5,
+    })).toEqual({ stop: true })
+
+    const workHarness = createHarness()
+    let workOptions: StreamOptions | undefined
+    workHarness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      workOptions = options
+    })
+    await workHarness.runtime.ingest('continue the work task', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      maxSteps: 50,
+      profile: 'work',
+    })
+
+    expect(workOptions?.onStepResult).toBeTypeOf('function')
+    if (!workOptions?.onStepResult)
+      return
+    expect(await workOptions.onStepResult({
+      step: completedStep,
+      steps: Array.from<CompletionStep>({ length: 49 }).fill(completedStep),
+      messages: [],
+      stepNumber: 49,
+    })).toBeUndefined()
+    expect(await workOptions.onStepResult({
+      step: completedStep,
+      steps: Array.from<CompletionStep>({ length: 50 }).fill(completedStep),
+      messages: [],
+      stepNumber: 50,
+    })).toEqual({ stop: true })
+  })
+
+  it('asks a flow turn to narrate between completed tool steps', async () => {
+    const harness = createHarness()
+    let preparedInput: Message[] = []
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      preparedInput = (await options?.prepareStep?.({
+        input: [],
+        model: 'gpt-test',
+        stepNumber: 1,
+        steps: [],
+      }))?.input ?? []
+    })
+    harness.runtime.startFlow('session-1', 'command')
+
+    await harness.runtime.ingest('continue the flow', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      maxSteps: 50,
+      profile: 'work',
+    })
+
+    expect(preparedInput).toContainEqual(expect.objectContaining({
+      role: 'system',
+      content: expect.stringContaining('上一步的工具结果'),
     }))
   })
 
@@ -1454,6 +1553,7 @@ describe('createChatOrchestratorRuntime', () => {
       pendingQueuedSendCount: 0,
       queuedSends: [],
       compactions: {},
+      flows: {},
     })
 
     harness.runtime.setSending(false)
@@ -1465,6 +1565,7 @@ describe('createChatOrchestratorRuntime', () => {
       pendingQueuedSendCount: 0,
       queuedSends: [],
       compactions: {},
+      flows: {},
     })
   })
 
@@ -1520,7 +1621,294 @@ describe('createChatOrchestratorRuntime', () => {
       pendingQueuedSendCount: 0,
       queuedSends: [],
       compactions: {},
+      flows: {},
     })
+  })
+
+  it('continues a structurally triggered flow without adding synthetic user messages', async () => {
+    const harness = createHarness()
+    harness.stream.mockImplementation(async (_model, _chatProvider, _messages, options) => {
+      if (harness.stream.mock.calls.length === 1) {
+        await options?.onStreamEvent?.({
+          type: 'tool-call',
+          toolCallId: 'call-write',
+          toolName: 'write',
+          args: '{"path":"a.ts","content":"next","baseHash":"old"}',
+        } as StreamEvent)
+        await options?.onStreamEvent?.({
+          type: 'tool-result',
+          toolCallId: 'call-write',
+          result: '{"status":"ok","path":"a.ts"}',
+        } as StreamEvent)
+      }
+      else {
+        await options?.onStreamEvent?.({
+          type: 'tool-call',
+          toolCallId: 'call-done',
+          toolName: 'flow_update',
+          args: '{"action":"done"}',
+        } as StreamEvent)
+        await options?.onStreamEvent?.({
+          type: 'tool-result',
+          toolCallId: 'call-done',
+          result: 'Flow complete.',
+        } as StreamEvent)
+      }
+      await options?.onStreamEvent?.({ type: 'text-delta', text: 'working' })
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('fix the bug', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    expect(harness.stream).toHaveBeenCalledTimes(2)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/start', trigger: 'tool' }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/step', iteration: 2 }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/end', reason: 'done' }))
+    expect(harness.journalEvents.filter(event => event.type === 'user/message')).toHaveLength(1)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'turn/start', source: 'flow', iteration: 2 }))
+  })
+
+  it('defers a done declaration without verified change evidence and keeps the flow running', async () => {
+    // FLOW-DIAGNOSIS P0-2: the 2026-09-01 field run declared done from three
+    // false completion signals (self-written todo, an unrelated-receipt plan
+    // completion, assertion-free green tests). The declaration itself must
+    // carry proof: with no write/edit/non-read-only-bash success in the flow,
+    // done is deferred and the loop continues.
+    const harness = createHarness()
+    const flowUpdateTool: Tool = {
+      type: 'function',
+      function: { name: 'flow_update', parameters: {} },
+      execute: async () => 'Flow complete.',
+    }
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementation(async (_model, _chatProvider, _messages, options) => {
+      if (harness.stream.mock.calls.length === 1) {
+        await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'probe', toolName: 'bash', args: '{"command":"node -e probe"}' } as StreamEvent)
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'probe', result: '{"tier":"read-only","status":"ok","stdout":"workspace.list ok"}' } as StreamEvent)
+        await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'done-call', toolName: 'flow_update', args: '{"action":"done"}' } as StreamEvent)
+        const tools = await resolveTools(options)
+        const flowUpdate = tools.find(tool => tool.function.name === 'flow_update')
+        const deferred = await flowUpdate?.execute({ action: 'done' }, { messages: [], toolCallId: 'done-call' })
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'done-call', result: String(deferred) } as StreamEvent)
+      }
+      await options?.onStreamEvent?.({ type: 'text-delta', text: 'working' })
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('probe the service', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [flowUpdateTool],
+    })
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      toolName: 'flow_update',
+      summary: '还不能宣告完成：本心流尚无已验证的变更证据',
+    }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/step', iteration: 2 }))
+    expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({ type: 'flow/end', reason: 'done' }))
+  })
+
+  it('does not accept a blocked declaration before the flow asked the user', async () => {
+    const harness = createHarness()
+    const flowUpdateTool: Tool = {
+      type: 'function',
+      function: { name: 'flow_update', parameters: {} },
+      execute: async () => 'Flow blocked.',
+    }
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'blocked-call', toolName: 'flow_update', args: '{"action":"blocked"}' } as StreamEvent)
+      const tools = await resolveTools(options)
+      const flowUpdate = tools.find(tool => tool.function.name === 'flow_update')
+      const result = await flowUpdate?.execute({ action: 'blocked' }, { messages: [], toolCallId: 'blocked-call' })
+      await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'blocked-call', result: String(result) } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('continue the work', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [flowUpdateTool],
+    })
+
+    expect(harness.journalEvents).not.toContainEqual(expect.objectContaining({ type: 'flow/end', reason: 'blocked' }))
+  })
+
+  it('settles a gated done at the turn boundary, after in-flight calls are journaled', async () => {
+    // FLOW-DIAGNOSIS P0-3: flow/end must land after turn/end, never between a
+    // tool call and its result.
+    const harness = createHarness()
+    const flowUpdateTool: Tool = {
+      type: 'function',
+      function: { name: 'flow_update', parameters: {} },
+      execute: async () => 'Flow complete.',
+    }
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementation(async (_model, _chatProvider, _messages, options) => {
+      if (harness.stream.mock.calls.length === 1) {
+        await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'w', toolName: 'write', args: '{"path":"a.ts","content":"x","baseHash":null}' } as StreamEvent)
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'w', result: '{"status":"written"}' } as StreamEvent)
+        await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'd', toolName: 'flow_update', args: '{"action":"done"}' } as StreamEvent)
+        const tools = await resolveTools(options)
+        const flowUpdate = tools.find(tool => tool.function.name === 'flow_update')
+        const settled = await flowUpdate?.execute({ action: 'done' }, { messages: [], toolCallId: 'd' })
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'd', result: String(settled) } as StreamEvent)
+        // An in-flight call after the declaration must still settle inside
+        // the turn; the flow ends at the boundary, not at the declaration.
+        await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'late', toolName: 'bash', args: '{"command":"ls"}' } as StreamEvent)
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'late', result: '{"tier":"read-only","status":"ok"}' } as StreamEvent)
+      }
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('write then declare', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [flowUpdateTool],
+    })
+
+    const end = harness.journalEvents.findIndex(event => event.type === 'flow/end' && event.reason === 'done')
+    const lastTurnEnd = harness.journalEvents.findLastIndex(event => event.type === 'turn/end')
+    expect(end).toBeGreaterThanOrEqual(0)
+    expect(end).toBeGreaterThan(lastTurnEnd)
+  })
+
+  it('resumes a flow from the persisted journal after a restart', async () => {
+    // FLOW-DIAGNOSIS P2-2: counters were in-memory only; the journal already
+    // recorded flow/start and flow/step, so a restart should rebuild and
+    // continue instead of forgetting the loop.
+    const persisted: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 'session-1', createdAt: 1, delegationDepth: 0 } as JournalEvent,
+      { type: 'flow/start', seq: 1, flowId: 'flow-restart', trigger: 'command', timestamp: 2 } as JournalEvent,
+      { type: 'flow/step', seq: 2, flowId: 'flow-restart', iteration: 2, reason: 'continue' } as JournalEvent,
+      { type: 'tool/result', seq: 3, toolName: 'write', ok: true, outcome: 'ok', summary: '{"status":"written"}' } as JournalEvent,
+      { type: 'tool/result', seq: 4, toolName: 'bash', ok: false, outcome: 'failed', summary: 'exit 1' } as JournalEvent,
+    ]
+    const harness = createHarness({ journalSource: () => persisted })
+    harness.stream.mockImplementation(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({ type: 'text-delta', text: 'resumed' })
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    const resumed = harness.runtime.resumeFlowFromJournal('session-1', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      profile: 'work',
+    })
+
+    expect(resumed).toBe(true)
+    await vi.waitFor(() => expect(harness.stream).toHaveBeenCalled())
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/step', iteration: 3 }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'turn/start', source: 'flow' }))
+  })
+
+  it('blocks a fourth identical failed tool execution inside a flow', async () => {
+    const harness = createHarness()
+    const execute = vi.fn(async () => '{"status":"error","tier":"medium","exitCode":1}')
+    const bashTool: Tool = {
+      type: 'function',
+      function: { name: 'bash', parameters: {} },
+      execute,
+    }
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
+      const bash = tools?.find(tool => tool.function.name === 'bash')
+      for (let index = 1; index <= 4; index++) {
+        const toolCallId = `call-${index}`
+        await options?.onStreamEvent?.({
+          type: 'tool-call',
+          toolCallId,
+          toolName: 'bash',
+          args: '{"command":"same"}',
+        } as StreamEvent)
+        const result = await bash?.execute({ command: 'same' }, { messages: [], toolCallId })
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId, result: String(result) } as StreamEvent)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('retry the command', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [bashTool],
+    })
+
+    expect(execute).toHaveBeenCalledTimes(3)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'tool/result', outcome: 'failed', tier: 'medium' }))
+  })
+
+  it('pairs a tool call that reaches the step budget with a synthetic failed result', async () => {
+    const harness = createHarness()
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'budget-call',
+        toolName: 'bash',
+        args: '{"command":"long"}',
+      } as StreamEvent)
+      await options?.prepareStep?.({ input: [], model: 'gpt-test', stepNumber: 1, steps: [] })
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'length' })
+    })
+
+    await harness.runtime.ingest('run until the budget ends', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      maxSteps: 2,
+    })
+
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      toolName: 'bash',
+      outcome: 'failed',
+      summary: 'Step budget ended before the tool result returned.',
+    }))
+    const assistant = harness.sessionMessages['session-1']?.find(message => message.role === 'assistant') as StreamingAssistantMessage | undefined
+    expect(assistant?.providerTranscript).toContainEqual(expect.objectContaining({
+      role: 'tool',
+      tool_call_id: 'budget-call',
+    }))
+  })
+
+  it('continues a flow after a provider error that started content', async () => {
+    const harness = createHarness()
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({ type: 'text-delta', text: 'partial work' })
+      throw new Error('upstream 500 after content')
+    })
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'recover-write',
+        toolName: 'write',
+        args: '{"path":"recovery.txt","content":"recovered","baseHash":null}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'recover-write', result: '{"status":"written"}' } as StreamEvent)
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'recover-done',
+        toolName: 'flow_update',
+        args: '{"action":"done"}',
+      } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'recover-done', result: 'Flow complete.' } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('continue after the provider error', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    expect(harness.stream).toHaveBeenCalledTimes(2)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'turn/end', reason: 'error' }))
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'flow/end', reason: 'done' }))
   })
 
   it('returns pending queued send snapshots with public fields', async () => {

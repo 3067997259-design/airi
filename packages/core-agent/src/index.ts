@@ -81,6 +81,11 @@ export type {
   ArchivePointerEvent,
   CreateArchivePointerInput,
   CreateBranchOptions,
+  FlowEndEvent,
+  FlowEndReason,
+  FlowStartEvent,
+  FlowStepEvent,
+  FlowTrigger,
   JournalBranch,
   JournalEvent,
   JournalEventInput,
@@ -96,6 +101,8 @@ export type {
   TodoItem,
   TodoWriteEvent,
   ToolEvidenceEntry,
+  ToolResultOutcome,
+  ToolResultTier,
 } from './journal'
 
 export {
@@ -138,6 +145,7 @@ export type {
   ChatOrchestratorSessionPort,
   ChatSendDelivery,
   ChatSendSource,
+  FlowState,
   QueuedSendSnapshot,
 } from './runtime/chat-orchestrator-runtime'
 export { createChatOrchestratorRuntime } from './runtime/chat-orchestrator-runtime'

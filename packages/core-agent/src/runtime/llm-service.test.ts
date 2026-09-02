@@ -13,14 +13,6 @@ vi.mock('@xsai/stream-text', () => ({
   streamText: streamTextMock,
 }))
 
-vi.mock('@xsai/shared-chat', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@xsai/shared-chat')>()
-  return {
-    ...actual,
-    stepCountAtLeast: vi.fn(),
-  }
-})
-
 const provider = {
   chat: () => ({
     baseURL: 'https://example.com/',
@@ -156,6 +148,27 @@ describe('streamFrom tool errors', () => {
       postToolCall,
       prepareStep,
     }))
+  })
+
+  it('runs tool-bearing steps before the stop condition and forwards the result callback', async () => {
+    const onStepResult = vi.fn()
+    streamTextMock.mockReturnValueOnce(createMockStreamResult())
+
+    await streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'continue' }] as Message[],
+      options: { maxSteps: 3, onStepResult },
+    })
+
+    const streamOptions = streamTextMock.mock.calls[0]?.[0] as {
+      onStepResult?: typeof onStepResult
+      stopWhen?: (context: { step: { toolCalls: unknown[] } }) => boolean
+    }
+    expect(streamOptions.onStepResult).toBe(onStepResult)
+    expect(streamOptions.stopWhen).toBeTypeOf('function')
+    expect(streamOptions.stopWhen?.({ step: { toolCalls: [] } })).toBe(true)
+    expect(streamOptions.stopWhen?.({ step: { toolCalls: [{}] } })).toBe(false)
   })
 
   it('marks usage unavailable when the provider omits the final usage chunk', async () => {
@@ -323,6 +336,20 @@ describe('streamFrom tool errors', () => {
     streamTextMock.mockReturnValueOnce(createMockStreamResult(new Promise((_resolve, reject) => {
       setTimeout(reject, 1, emptyUpstream)
     })))
+    streamTextMock.mockReturnValueOnce(createMockStreamResult())
+
+    await streamFrom({
+      model: 'model-a',
+      chatProvider: provider,
+      messages: [{ role: 'user', content: 'hello' }] as Message[],
+    })
+
+    expect(streamTextMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('replays a pre-content 429 without replaying delivered content', async () => {
+    const rateLimit = Object.assign(new Error('rate limited'), { status: 429, retryAfter: 0 })
+    streamTextMock.mockReturnValueOnce(createMockStreamResult(Promise.reject(rateLimit)))
     streamTextMock.mockReturnValueOnce(createMockStreamResult())
 
     await streamFrom({

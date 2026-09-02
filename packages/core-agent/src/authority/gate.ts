@@ -12,6 +12,8 @@ export interface GateRef extends PlanEvidenceRef {
   provenance: PlanningAuthorityRule
   /** Producer tool for `tool_result` refs; absent for approvals and traces. */
   toolName?: string
+  outcome?: 'ok' | 'failed' | 'denied' | 'timeout'
+  tier?: 'read-only' | 'medium' | 'high'
 }
 
 export interface VerificationGateInput {
@@ -22,6 +24,8 @@ export interface VerificationGateInput {
     expectedEvidence: PlanExpectedEvidence[]
     /** Steps with no declared tools cannot act; a decided approval is their whole work. */
     allowedTools: string[]
+    /** Step intent, when the caller has it; feeds the verification-semantic check. */
+    intent?: string
   }
   refs: GateRef[]
 }
@@ -33,7 +37,7 @@ export interface VerificationGateSatisfied {
 
 export interface VerificationGateMissing {
   expected: PlanExpectedEvidence
-  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof'
+  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof' | 'not_verified_outcome' | 'not_diff_content'
 }
 
 export interface VerificationGateVerdict {
@@ -74,10 +78,12 @@ export function refProvesMutation(ref: GateRef): boolean {
     return false
   if (ref.source !== 'tool_result')
     return false
+  if (ref.outcome && ref.outcome !== 'ok')
+    return false
   if (ref.toolName === undefined)
     return true
   if (ref.toolName === 'bash')
-    return !/read-only tier/.test(ref.summary)
+    return ref.tier ? ref.tier !== 'read-only' : !/read-only tier/.test(ref.summary)
   if (READ_ONLY_TOOL_NAMES.has(ref.toolName))
     return false
   return true
@@ -86,6 +92,60 @@ export function refProvesMutation(ref: GateRef): boolean {
 /** Whether the step can act at all: a tool-less step is pure conversation/sign-off. */
 export function stepCanAct(step: VerificationGateInput['step']): boolean {
   return step.allowedTools.length > 0
+}
+
+// Verification-semantic matching (FLOW-DIAGNOSIS P0-1, 2026-09-02): a step
+// whose declared intent or evidence descriptions say test/verify/build must
+// not complete from a receipt that carries no verification semantics — in the
+// field run a bare liveness probe (`node -e` hitting a port) satisfied a
+// "write tests and verify" step because it was merely a successful bash
+// result. Receipts from execution tools count when their summary names a
+// test/spec/build artifact or an explicit pass/fail outcome; writing a test
+// file (write/edit) never counts as running it.
+// Removal condition: when plan steps can declare structured verification
+// commands instead of free-text intent/description.
+const VERIFICATION_STEP_PATTERN = /test|verify|verification|build|lint|check|typecheck|检查|验证/i
+const VERIFICATION_RECEIPT_PATTERN = /_test\.|\.test\.|\.spec\.|_spec\.|\b(?:test|tests|spec|verify|verification|vitest|jest|pytest|build|compile|lint|check|typecheck|tsc|eslint)\b/i
+/** Receipts that can carry verification semantics: execution tools only. */
+const VERIFICATION_RECEIPT_TOOLS = new Set(['bash', 'code_mode', 'job_output'])
+
+// A diff step requires the result body, not a command name or a successful
+// read-only command. Unified diff markers are the stable common denominator
+// for `git diff`, a patch file, and a background job that prints the diff.
+// Removal condition: when tool results carry structured evidence kinds instead
+// of bounded text summaries, use that diff-content field directly.
+const DIFF_STEP_PATTERN = /diff|patch|差异|补丁内容|变更内容/i
+const DIFF_RECEIPT_TOOLS = new Set(['bash', 'read', 'readRaw', 'job_output', 'code_mode'])
+const DIFF_CONTENT_PATTERN = /diff --git\s+a\/\S+\s+b\/\S+|@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@|(?:^|\\n|\r?\n)(?:---|\+\+\+)\s+(?:a\/|b\/)\S+/m
+
+function stepExpectsVerification(step: VerificationGateInput['step']): boolean {
+  return [step.intent ?? '', ...step.expectedEvidence.map(item => item.description)]
+    .some(text => VERIFICATION_STEP_PATTERN.test(text))
+}
+
+function refCarriesVerification(ref: GateRef): boolean {
+  if (ref.source !== 'tool_result')
+    return false
+  if (ref.toolName !== undefined && !VERIFICATION_RECEIPT_TOOLS.has(ref.toolName))
+    return false
+  return VERIFICATION_RECEIPT_PATTERN.test(ref.summary)
+}
+
+function expectedEvidenceDescribesDiff(expected: PlanExpectedEvidence): boolean {
+  return DIFF_STEP_PATTERN.test(expected.description)
+}
+
+function stepExpectsDiff(step: VerificationGateInput['step']): boolean {
+  return [step.intent ?? '', ...step.expectedEvidence.map(item => item.description)]
+    .some(text => DIFF_STEP_PATTERN.test(text))
+}
+
+function refCarriesDiffContent(ref: GateRef): boolean {
+  if (ref.source !== 'tool_result' || (ref.outcome && ref.outcome !== 'ok'))
+    return false
+  if (ref.toolName !== undefined && !DIFF_RECEIPT_TOOLS.has(ref.toolName))
+    return false
+  return DIFF_CONTENT_PATTERN.test(ref.summary)
 }
 
 /**
@@ -133,6 +193,48 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
         expected: unproven.expected,
         reason: 'not_mutation_proof',
       })
+    }
+  }
+
+  // Independent of mutation proof: a verification-flavored step owes a
+  // receipt with verification semantics. Runs even for read-only steps, so a
+  // "test and verify" step cannot complete from an unrelated probe.
+  if (
+    stepExpectsVerification(input.step)
+    && stepCanAct(input.step)
+    && satisfied.length > 0
+    && !satisfied.some(({ ref }) => refCarriesVerification(ref))
+  ) {
+    const index = satisfied.findIndex(({ expected }) => expected.source === 'tool_result')
+    const [unverified] = satisfied.splice(index >= 0 ? index : 0, 1)
+    if (unverified) {
+      missing.push({
+        expected: unverified.expected,
+        reason: 'not_verified_outcome',
+      })
+    }
+  }
+
+  // A diff-flavored evidence item is stricter than the generic verification
+  // semantic check: `git log`, `git diff --stat`, and a successful probe do not
+  // show changed content. Require an accepted tool result whose body contains
+  // a unified-diff marker, so the gate follows what was read rather than which
+  // command happened to succeed.
+  if (stepExpectsDiff(input.step) && stepCanAct(input.step)) {
+    for (const expected of input.step.expectedEvidence.filter(expectedEvidenceDescribesDiff)) {
+      const satisfiedIndex = satisfied.findIndex(item => item.expected === expected)
+      if (satisfiedIndex < 0 || expected.source !== 'tool_result')
+        continue
+      if (stepRefs.some(ref => refCarriesDiffContent(ref)))
+        continue
+
+      const [unread] = satisfied.splice(satisfiedIndex, 1)
+      if (unread) {
+        missing.push({
+          expected: unread.expected,
+          reason: 'not_diff_content',
+        })
+      }
     }
   }
 

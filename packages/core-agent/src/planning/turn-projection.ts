@@ -91,11 +91,31 @@ export function buildTurnProjection(input: TurnProjectionInput): TurnProjection 
       lines.push(`- ${ref.source}: ${sanitizePlanProjectionText(ref.summary)}`)
   }
 
-  const hints = (input.recentHints ?? []).slice(-2)
+  // Aggregate mismatch hints per tool instead of listing them
+  // one by one: the field run produced 20 collisions in one turn while the
+  // window showed only the last 2 verbatim, hiding the loop
+  // (FLOW-DIAGNOSIS P1-3). Five most recent tools, each with its count.
+  const hintCounts = new Map<string, number>()
+  const latestHintIndex = new Map<string, number>()
+  for (const [index, hint] of (input.recentHints ?? []).entries()) {
+    const count = hintCounts.get(hint.toolName) ?? 0
+    hintCounts.set(hint.toolName, count + 1)
+    latestHintIndex.set(hint.toolName, index)
+  }
+  const hintOrder = [...latestHintIndex.entries()]
+    .sort(([, left], [, right]) => left - right)
+    .slice(-5)
+    .map(([toolName]) => toolName)
+  const hints = hintOrder.map(toolName => ({
+    toolName,
+    count: hintCounts.get(toolName) ?? 0,
+    allowedTools: (input.recentHints ?? []).findLast(hint => hint.toolName === toolName)?.allowedTools ?? [],
+  }))
   if (hints.length > 0) {
     lines.push('', 'Unattached tool results:')
     for (const hint of hints) {
-      lines.push(`- ${sanitizePlanProjectionText(hint.toolName)} produced no step evidence. Open steps accept: ${hint.allowedTools.map(sanitizePlanProjectionText).join(', ') || 'none'}. Use one of those tools, or focus the step that needs this one.`)
+      const tally = hint.count > 1 ? ` (${hint.count} recent calls)` : ''
+      lines.push(`- ${sanitizePlanProjectionText(hint.toolName)}${tally} produced no step evidence. Open steps accept: ${hint.allowedTools.map(sanitizePlanProjectionText).join(', ') || 'none'}. Exploration tools are always available; their results do not count as evidence for this step. Keep exploring when that is the right move, and attach evidence with an accepted tool when the step is ready.`)
     }
   }
 

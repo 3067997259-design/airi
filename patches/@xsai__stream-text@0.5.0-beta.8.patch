@@ -1,0 +1,60 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index a596849dec1316dd84e4261650aa6b439327a4f5..e49ff9264d7357736c80d9aa2f6ba5559cfc3989 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -27,10 +27,21 @@ interface StreamTextChunkResult {
+ }
+ 
+ interface StreamTextOptions extends ChatOptions {
+-    onEvent?: (event: Event) => Promise<unknown> | unknown;
+-    onFinish?: (step?: CompletionStep) => Promise<unknown> | unknown;
+-    onStepFinish?: (step: CompletionStep) => Promise<unknown> | unknown;
+-    postToolCall?: PostToolCall;
++  onEvent?: (event: Event) => Promise<unknown> | unknown;
++  onFinish?: (step?: CompletionStep) => Promise<unknown> | unknown;
++  onStepFinish?: (step: CompletionStep) => Promise<unknown> | unknown;
++  /** Called after the current step and all of its tool results are recorded. */
++  onStepResult?: (context: {
++    step: CompletionStep;
++    steps: CompletionStep[];
++    messages: Message[];
++    stepNumber: number;
++  }) => Promise<{
++    stop: boolean;
++  } | void> | {
++    stop: boolean;
++  } | void;
++  postToolCall?: PostToolCall;
+     prepareStep?: PrepareStep;
+     preToolCall?: PreToolCall;
+     /** @default `stepCountAtLeast(1)` */
+diff --git a/dist/index.js b/dist/index.js
+index ec6e01b0defd49370f75ed50d975aa6da8c03faf..b34c0980eadac639ea4df4cb87bf1a23c381b45e 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -160,7 +160,7 @@ const streamText = (options) => {
+       toolResults,
+       usage
+     };
+-    const stop = shouldStop(stopWhen, {
++    let stop = shouldStop(stopWhen, {
+       input: messages,
+       step,
+       steps: [...steps, step]
+@@ -188,6 +188,16 @@ const streamText = (options) => {
+         pushEvent({ ...completionToolResult, type: "tool-result.done" });
+       }
+     }
++    if (options.onStepResult != null) {
++      const decision = await options.onStepResult({
++        step,
++        steps: [...steps, step],
++        messages,
++        stepNumber: steps.length + 1
++      });
++      if (decision?.stop === true)
++        stop = true;
++    }
+     const willContinue = validToolCalls.length > 0 && !stop && !options.abortSignal?.aborted;
+     pushStep(step);
+     pushEvent({ type: "step.done", usage });

@@ -1,10 +1,10 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
-import type { CommonContentPart, Message, PrepareStep, ToolMessage } from '@xsai/shared-chat'
+import type { CommonContentPart, Message, PrepareStep, Tool, ToolMessage } from '@xsai/shared-chat'
 
 import type { ToolEvidenceAuthor } from '../authority/provenance'
 import type { AgentContextPort } from '../contracts/context-port'
 import type { AgentForegroundStreamPort } from '../contracts/stream-port'
-import type { JournalEventInput, TurnEndReason } from '../journal/types'
+import type { FlowEndReason, FlowTrigger, JournalEvent, JournalEventInput, ToolResultOutcome, ToolResultTier, TurnEndReason } from '../journal/types'
 import type { HistoryItem, Message as StructuredMessage } from '../messages/types'
 import type { ChatAssistantMessage, ChatHistoryItem, ChatSlices, ChatStreamEventContext, ChatToolReference, ContextMessage, ErrorMessage, StreamingAssistantMessage } from '../types/chat'
 import type { LlmUsage, StreamEvent, StreamOptions } from '../types/llm'
@@ -55,7 +55,22 @@ function cloneStreamingMessage(message: StreamingAssistantMessage): StreamingAss
  * (LIFE-PLAN §二.2): no user input exists, the round decides whether to
  * speak, note privately, or stay silent.
  */
-export type ChatSendSource = 'text' | 'voice' | 'self-initiative' | 'btw'
+export type ChatSendSource = 'text' | 'voice' | 'self-initiative' | 'btw' | 'flow'
+
+export interface FlowState {
+  flowId: string
+  sessionId: string
+  status: 'running' | 'ended'
+  trigger: FlowTrigger
+  startedAt: number
+  iteration: number
+  totalToolCalls: number
+  zeroProgressTurns: number
+  lastProgressAt?: number
+  endedAt?: number
+  endReason?: FlowEndReason
+  detail?: string
+}
 
 /** One unresolved plan step a turn may attach tool evidence to. */
 export interface PlanStepCandidate {
@@ -147,6 +162,8 @@ export interface ChatOrchestratorSendOptions {
   maxSteps?: number
   /** `next-step` steers the active turn at its next provider step boundary. */
   delivery?: ChatSendDelivery
+  /** Internal continuation marker; it never creates a user message. */
+  flowContinuation?: { flowId: string, iteration: number }
 }
 
 interface QueuedSend {
@@ -161,6 +178,34 @@ interface QueuedSend {
     resolve: () => void
     reject: (error: unknown) => void
   }
+}
+
+interface FlowFailureRecord {
+  toolName: string
+  args: string
+  reason: string
+}
+
+interface FlowRuntimeRecord extends FlowState {
+  options?: ChatOrchestratorSendOptions
+  generation?: number
+  failureTrail: FlowFailureRecord[]
+  repeatedFailures: Map<string, number>
+  lastToolCallArgs: Map<string, unknown>
+  editStateChangedStreaks: Map<string, number>
+  forceReadPaths: Set<string>
+  userQuestionAsked: boolean
+  planHintStreak: number
+  turnMutationSuccesses: number
+  /** Cumulative across the whole flow, unlike the per-turn counter above. */
+  flowMutationSuccesses: number
+  /**
+   * A model declaration (flow_update done/blocked) that passed its
+   * tool-result gate and waits for the turn boundary to settle. Ending the
+   * flow mid-turn would strand in-flight tool calls and journal the end
+   * before the turn it belongs to (FLOW-DIAGNOSIS P0-2/P0-3).
+   */
+  pendingEnd?: 'done' | 'blocked'
 }
 
 /**
@@ -259,6 +304,8 @@ export interface ChatOrchestratorMemoryPort {
 
 /** Async summary adapter used by the token-waterline compaction scheduler. */
 export interface ChatOrchestratorCompactionSummaryInput {
+  /** Session whose journal can provide a mechanical fallback summary. */
+  sessionId: string
   removedTurnCount: number
   originalItems: HistoryItem[]
   keptItems: HistoryItem[]
@@ -320,6 +367,8 @@ export interface ChatOrchestratorRuntimeState {
   queuedSends: QueuedSendSnapshot[]
   /** Compaction snapshots keyed by session ID for history UI and diagnostics. */
   compactions: Record<string, ChatOrchestratorCompactionSnapshot>
+  /** Flow snapshots keyed by session ID for the running-work indicator. */
+  flows: Record<string, FlowState>
 }
 
 /** Correlation keys shared by every analytics milestone from one user-to-assistant round. */
@@ -374,6 +423,8 @@ export interface ChatOrchestratorRuntimeDeps {
    * message changes (HARNESS-PLAN §5.1).
    */
   getTailProjection?: (options: ChatOrchestratorSendOptions) => string | undefined
+  /** Returns bounded user-facing flow context for the next internal step. */
+  getFlowProjection?: (flow: FlowState) => string | undefined
   /** Runtime context providers ingested immediately before prompt composition. */
   runtimeContextProviders?: Array<() => ContextMessage | null | undefined>
   /** Optional memory retrieval channel used to build a replace-self context bucket. */
@@ -402,6 +453,12 @@ export interface ChatOrchestratorRuntimeDeps {
    * proof.
    */
   getToolEvidenceAuthor?: (toolName: string) => ToolEvidenceAuthor | undefined
+  /**
+   * Reads the persisted journal for one session, so a flow left running by a
+   * restart can be rebuilt (iteration, counters) and resumed instead of
+   * forgotten. Hosts without durable journals may omit it.
+   */
+  readJournalEvents?: (sessionId: string) => readonly JournalEvent[] | undefined
   /** Clock used for persisted message timestamps. @default Date.now */
   now?: () => number
   /** Monotonic clock used for elapsed telemetry in milliseconds. @default performance.now */
@@ -559,12 +616,126 @@ export interface ChatOrchestratorRuntime {
   clearCompaction: (sessionId?: string) => void
   /** Compacts a session immediately for a manual settings-page request. */
   compactNow: (sessionId: string, model: string, chatProvider: ChatProvider) => Promise<void>
+  /** Starts or resumes one session flow and writes `flow/start` once. */
+  startFlow: (sessionId: string, trigger: FlowTrigger, triggerDetail?: string) => FlowState
+  /** Ends a running session flow and writes one `flow/end` event. */
+  endFlow: (sessionId: string, reason: FlowEndReason, detail?: string) => boolean
+  /** Returns the current flow snapshot for one session. */
+  getFlowState: (sessionId: string) => FlowState | undefined
+  /**
+   * Rebuilds a running flow from the persisted journal after a restart and
+   * continues it. Returns false when no resumable flow exists.
+   */
+  resumeFlowFromJournal: (sessionId: string, options: ChatOrchestratorSendOptions) => boolean
   /** Hook registry preserved from the previous stage-ui store API. */
   hooks: ReturnType<typeof createChatHooks>
 }
 
 function defaultCreateId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+/** Maximum continuation turns in one flow before the harness stops it. */
+const FLOW_MAX_ITERATIONS = 40
+
+/** Maximum tool results in one flow before the harness stops it. */
+const FLOW_MAX_TOOL_CALLS = 400
+
+/** Consecutive no-mutation turns that indicate a flow has stopped progressing. */
+const FLOW_NO_PROGRESS_TURNS = 3
+
+/** Number of recent failures retained in the next flow prompt. */
+const FLOW_FAILURE_TRAIL_LIMIT = 6
+
+/** Repeated identical failures are blocked before a fourth execution. */
+const FLOW_REPEAT_FAILURE_THRESHOLD = 3
+
+/** Consecutive stale-edit results that require a fresh read. */
+const FLOW_EDIT_STATE_CHANGE_THRESHOLD = 2
+
+/** Consecutive plan-routing hints that require an explicit tool correction. */
+const FLOW_PLAN_HINT_THRESHOLD = 3
+
+/** Receipt text used when a done declaration has no verified mutation behind it. */
+const FLOW_DONE_GATE_MESSAGE = '还不能宣告完成：本心流尚无已验证的变更证据'
+
+function parseJsonRecord(value: unknown): Record<string, unknown> | undefined {
+  let candidate: unknown
+  if (typeof value === 'string') {
+    const attempts = [value, value.split('\n', 1)[0] ?? '']
+    for (const attempt of attempts) {
+      try {
+        candidate = JSON.parse(attempt) as unknown
+        break
+      }
+      catch {
+        continue
+      }
+    }
+  }
+  else {
+    candidate = value
+  }
+  if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate))
+    return undefined
+  return candidate as Record<string, unknown>
+}
+
+function toolResultOutcome(isError: boolean | undefined, result: unknown): ToolResultOutcome {
+  if (isError)
+    return 'failed'
+
+  const record = parseJsonRecord(result)
+  const status = typeof record?.status === 'string' ? record.status : undefined
+  if (status === 'denied')
+    return 'denied'
+  if (status === 'timeout' || status === 'timed_out')
+    return 'timeout'
+  if (status === 'error' || status === 'failed' || status === 'blocked' || status === 'state_changed' || status === 'prefix_mismatch')
+    return 'failed'
+
+  const text = typeof result === 'string' ? result : ''
+  const trimmedText = text.trim()
+  if (['bash denied', 'bash timed out', 'bash error', 'edit rejected', 'program failed'].some(prefix => trimmedText.toLowerCase().startsWith(prefix)) || /^skill .* failed/i.test(trimmedText))
+    return trimmedText.toLowerCase().includes('timed out') ? 'timeout' : trimmedText.toLowerCase().startsWith('bash denied') ? 'denied' : 'failed'
+  return 'ok'
+}
+
+function toolResultTier(result: unknown): ToolResultTier | undefined {
+  const tier = parseJsonRecord(result)?.tier
+  return tier === 'read-only' || tier === 'medium' || tier === 'high' ? tier : undefined
+}
+
+function toolArgumentValue(args: unknown, key: string): unknown {
+  return parseJsonRecord(args)?.[key]
+}
+
+function summarizeToolArgs(args: unknown): string {
+  if (typeof args === 'string')
+    return args.slice(0, 240)
+  try {
+    return JSON.stringify(args ?? '').slice(0, 240)
+  }
+  catch {
+    return '[unserializable arguments]'
+  }
+}
+
+function hashText(value: string): string {
+  let hash = 0x811C9DC5
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+function isStateChangedResult(summary: string): boolean {
+  return /"status"\s*:\s*"state_changed"|edit rejected:.*state_changed|STATE_CHANGED/i.test(summary)
+}
+
+function isUnrecoverableFlowError(error: unknown): boolean {
+  return /401|403|unauthori[sz]ed|forbidden|invalid api key|quota|insufficient_quota|model .*not found|404/i.test(String(error))
 }
 
 function textFromContent(content: unknown): string {
@@ -657,6 +828,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
   const compactedSessions = new Map<string, CompactedSessionProjection>()
   const compactionTasks = new Map<string, Promise<void>>()
   const compactionGenerations = new Map<string, number>()
+  const flows = new Map<string, FlowRuntimeRecord>()
 
   function appendJournal(sessionId: string, event: JournalEventInput): void {
     try {
@@ -667,6 +839,84 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       // chat failure. The runtime still reports the storage fault to the host.
       console.warn('[Chat] Journal append failed.', error)
     }
+  }
+
+  function flowSnapshot(flow: FlowRuntimeRecord): FlowState {
+    return {
+      flowId: flow.flowId,
+      sessionId: flow.sessionId,
+      status: flow.status,
+      trigger: flow.trigger,
+      startedAt: flow.startedAt,
+      iteration: flow.iteration,
+      totalToolCalls: flow.totalToolCalls,
+      zeroProgressTurns: flow.zeroProgressTurns,
+      ...(flow.lastProgressAt !== undefined ? { lastProgressAt: flow.lastProgressAt } : {}),
+      ...(flow.endedAt !== undefined ? { endedAt: flow.endedAt } : {}),
+      ...(flow.endReason ? { endReason: flow.endReason } : {}),
+      ...(flow.detail ? { detail: flow.detail } : {}),
+    }
+  }
+
+  function startFlow(sessionId: string, trigger: FlowTrigger, triggerDetail?: string): FlowState {
+    const existing = flows.get(sessionId)
+    if (existing?.status === 'running')
+      return flowSnapshot(existing)
+
+    const flow: FlowRuntimeRecord = {
+      flowId: createId(),
+      sessionId,
+      status: 'running',
+      trigger,
+      startedAt: now(),
+      iteration: 0,
+      totalToolCalls: 0,
+      zeroProgressTurns: 0,
+      failureTrail: [],
+      repeatedFailures: new Map(),
+      lastToolCallArgs: new Map(),
+      editStateChangedStreaks: new Map(),
+      forceReadPaths: new Set(),
+      userQuestionAsked: false,
+      planHintStreak: 0,
+      turnMutationSuccesses: 0,
+      flowMutationSuccesses: 0,
+    }
+    flows.set(sessionId, flow)
+    appendJournal(sessionId, {
+      type: 'flow/start',
+      flowId: flow.flowId,
+      trigger,
+      ...(triggerDetail ? { triggerDetail: triggerDetail.slice(0, 300) } : {}),
+      timestamp: flow.startedAt,
+    })
+    emitStateChange()
+    return flowSnapshot(flow)
+  }
+
+  function endFlow(sessionId: string, reason: FlowEndReason, detail?: string): boolean {
+    const flow = flows.get(sessionId)
+    if (!flow || flow.status !== 'running')
+      return false
+
+    flow.status = 'ended'
+    flow.endedAt = now()
+    flow.endReason = reason
+    flow.detail = detail?.slice(0, 500)
+    if (reason === 'interrupted' && activeTurn?.sessionId === sessionId) {
+      activeTurn.reason = 'aborted'
+      activeTurn.controller.abort(new Error('Flow interrupted by the user'))
+    }
+    appendJournal(sessionId, {
+      type: 'flow/end',
+      flowId: flow.flowId,
+      reason,
+      iterations: flow.iteration,
+      timestamp: flow.endedAt,
+      ...(flow.detail ? { detail: flow.detail } : {}),
+    })
+    emitStateChange()
+    return true
   }
 
   /**
@@ -699,6 +949,154 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     }
   }
 
+  function flowFromSession(sessionId: string): FlowRuntimeRecord | undefined {
+    const flow = flows.get(sessionId)
+    return flow?.status === 'running' ? flow : undefined
+  }
+
+  function flowDeclaration(args: unknown): string | undefined {
+    const action = toolArgumentValue(args, 'action')
+    return action === 'start' || action === 'done' || action === 'blocked' ? action : undefined
+  }
+
+  function structuralFlowTrigger(toolName: string, args: unknown): { trigger: FlowTrigger, detail: string } | undefined {
+    if (toolName === 'write' || toolName === 'edit')
+      return { trigger: 'tool', detail: toolName }
+    if (toolName === 'todo_write')
+      return { trigger: 'tool', detail: toolName }
+    if (toolName === 'plan_update' && toolArgumentValue(args, 'action') === 'start')
+      return { trigger: 'tool', detail: 'plan_update:start' }
+    if (toolName === 'flow_update' && flowDeclaration(args) === 'start')
+      return { trigger: 'declared', detail: 'flow_update:start' }
+    return undefined
+  }
+
+  function recordFlowFailure(flow: FlowRuntimeRecord, toolName: string, args: unknown, summary: string): void {
+    const argsText = summarizeToolArgs(args)
+    const key = `${toolName}:${hashText(argsText)}`
+    flow.repeatedFailures.set(key, (flow.repeatedFailures.get(key) ?? 0) + 1)
+    flow.failureTrail.push({
+      toolName,
+      args: argsText,
+      reason: summary.slice(0, 240),
+    })
+    if (flow.failureTrail.length > FLOW_FAILURE_TRAIL_LIMIT)
+      flow.failureTrail.splice(0, flow.failureTrail.length - FLOW_FAILURE_TRAIL_LIMIT)
+  }
+
+  function recordFlowToolResult(input: {
+    sessionId: string
+    toolName: string
+    callId: string
+    args: unknown
+    summary: string
+    outcome: ToolResultOutcome
+    tier?: ToolResultTier
+  }): void {
+    let flow = flowFromSession(input.sessionId)
+    if (!flow && input.toolName === 'bash' && input.tier && input.tier !== 'read-only') {
+      startFlow(input.sessionId, 'tool', `bash:${input.tier}`)
+      flow = flowFromSession(input.sessionId)
+    }
+    if (!flow)
+      return
+
+    flow.totalToolCalls += 1
+    const args = flow.lastToolCallArgs.get(input.callId) ?? input.args
+    if (input.outcome === 'ok') {
+      const key = `${input.toolName}:${hashText(summarizeToolArgs(args))}`
+      flow.repeatedFailures.delete(key)
+      if (input.toolName === 'read') {
+        const path = toolArgumentValue(args, 'path')
+        if (typeof path === 'string')
+          flow.forceReadPaths.delete(path)
+      }
+      if (input.toolName === 'edit') {
+        const path = toolArgumentValue(args, 'path')
+        if (typeof path === 'string')
+          flow.editStateChangedStreaks.delete(path)
+      }
+    }
+    else {
+      recordFlowFailure(flow, input.toolName, args, input.summary)
+      if (input.toolName === 'edit' && isStateChangedResult(input.summary)) {
+        const path = toolArgumentValue(args, 'path')
+        if (typeof path === 'string') {
+          const streak = (flow.editStateChangedStreaks.get(path) ?? 0) + 1
+          flow.editStateChangedStreaks.set(path, streak)
+          if (streak >= FLOW_EDIT_STATE_CHANGE_THRESHOLD)
+            flow.forceReadPaths.add(path)
+        }
+      }
+    }
+
+    if (isMutationSuccess(input.toolName, input.outcome, input.tier)) {
+      flow.turnMutationSuccesses += 1
+      flow.flowMutationSuccesses += 1
+    }
+  }
+
+  function isMutationSuccess(toolName: string, outcome: ToolResultOutcome, tier?: ToolResultTier): boolean {
+    if (outcome !== 'ok')
+      return false
+    return toolName === 'write' || toolName === 'edit' || (toolName === 'bash' && tier !== undefined && tier !== 'read-only')
+  }
+
+  function wrapFlowTools(tools: Tool[], sessionId: string): Tool[] {
+    return tools.map((definition) => {
+      const toolName = definition.function.name
+      return {
+        ...definition,
+        execute: async (input, executeOptions) => {
+          const flow = flowFromSession(sessionId)
+          if (!flow)
+            return definition.execute(input, executeOptions)
+
+          const key = `${toolName}:${hashText(summarizeToolArgs(input))}`
+          if ((flow.repeatedFailures.get(key) ?? 0) >= FLOW_REPEAT_FAILURE_THRESHOLD) {
+            return JSON.stringify({
+              status: 'blocked',
+              reason: 'repeated_failure',
+              toolName,
+              message: `This exact ${toolName} call failed ${FLOW_REPEAT_FAILURE_THRESHOLD} times. Choose another path.`,
+            })
+          }
+
+          const path = toolArgumentValue(input, 'path')
+          if (toolName === 'edit' && typeof path === 'string' && flow.forceReadPaths.has(path)) {
+            return JSON.stringify({
+              status: 'blocked',
+              reason: 'read_required',
+              path,
+              message: 'Read this file again before calling edit.',
+            })
+          }
+
+          return definition.execute(input, executeOptions)
+        },
+      }
+    })
+  }
+
+  function flowPrompt(flow: FlowRuntimeRecord): string {
+    const lines = [
+      `[Flow continuation ${flow.iteration + 1}]`,
+      'Continue the current task from the verified history. Do not wait for a user message.',
+    ]
+    if (flow.failureTrail.length > 0) {
+      lines.push('Excluded paths:')
+      lines.push(...flow.failureTrail.map(failure => `- ${failure.toolName} ${failure.args}: ${failure.reason}`))
+    }
+    if (flow.forceReadPaths.size > 0)
+      lines.push(`Read before edit: ${[...flow.forceReadPaths].join(', ')}`)
+    if (flow.planHintStreak >= FLOW_PLAN_HINT_THRESHOLD)
+      lines.push('Recent plan hints show a tool mismatch. Use an allowed tool or update the focused step before trying again.')
+    const projection = deps.getFlowProjection?.(flowSnapshot(flow))?.trim()
+    if (projection)
+      lines.push(projection)
+    return lines.join('\n')
+  }
+
   /** Journals a system-prefix change, once per distinct supplement. */
   function recordSupplementChange(sessionId: string, supplement: string): void {
     const hash = fnv1a32Hex(supplement)
@@ -722,6 +1120,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       pendingQueuedSendCount: pendingQueuedSends.length,
       queuedSends: getPendingQueuedSendSnapshot(),
       compactions: Object.fromEntries(compactedSessions),
+      flows: Object.fromEntries([...flows].map(([sessionId, flow]) => [sessionId, flowSnapshot(flow)])),
     })
   }
 
@@ -871,6 +1270,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       let summary = `Compacted ${removedTurnCount} older turns with paired reactions.`
       if (options.summarize) {
         const summaryResult = await options.summarize({
+          sessionId: input.sessionId,
           removedTurnCount,
           originalItems: history.items,
           keptItems: history.items.slice(-recentTurnLimit),
@@ -1065,14 +1465,15 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     generation: number,
     sessionId: string,
   ) {
-    if (!sendingMessage && !options.attachments?.length)
+    const isFlowTurn = options.flowContinuation !== undefined
+    if (!sendingMessage && !options.attachments?.length && !isFlowTurn)
       return
 
     deps.session.ensureSession(sessionId)
     deps.journal?.startSession?.(sessionId)
 
     const existingSessionMessages = deps.session.getSessionMessages(sessionId)
-    const turnIndex = existingSessionMessages.filter(message => message.role === 'user').length + 1
+    const turnIndex = existingSessionMessages.filter(message => message.role === 'user').length + (isFlowTurn ? 0 : 1)
 
     // Activation measures whether a conversation reaches its first assistant
     // response. Later turns still emit message and latency telemetry, but they
@@ -1087,6 +1488,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
     const sendingCreatedAt = now()
     const isSelfInitiative = options.source === 'self-initiative'
+    const flow = flowFromSession(sessionId)
+    if (flow) {
+      flow.options ??= options
+      flow.generation = generation
+      flow.iteration = options.flowContinuation?.iteration ?? Math.max(flow.iteration, 1)
+      flow.turnMutationSuccesses = 0
+    }
 
     // TODO: Expire or prune stale runtime contexts from disconnected services before composing.
     // Allocate the three per-round ids in their historical order so callers
@@ -1136,7 +1544,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       tool_results: [],
       createdAt: now(),
       id: assistantMessageId,
-      ...(isSelfInitiative ? { hiddenFromHistory: true } : {}),
+      ...(isSelfInitiative || isFlowTurn ? { hiddenFromHistory: true } : {}),
     }
     // Declared at function scope so the catch path can persist whatever tool
     // transcript was captured before a mid-stream failure.
@@ -1144,22 +1552,69 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     const toolCallNames = new Map<string, string>()
     const settledToolCallIds = new Set<string>()
     const maxSteps = Math.max(1, Math.floor(options.maxSteps ?? 10))
+    const fluxActive = isFlowTurn || flow?.status === 'running'
+    const softBudget = fluxActive ? 5 : maxSteps
     let reachedMaxSteps = false
     let turnEndReason: TurnEndReason = 'error'
     let turnError: string | undefined
+    let contentStarted = false
+    function settleDanglingToolCalls(reason: string): void {
+      for (const [toolCallId, toolName] of toolCallNames) {
+        if (settledToolCallIds.has(toolCallId))
+          continue
+
+        settledToolCallIds.add(toolCallId)
+        buildingMessage.tool_results.push({
+          id: toolCallId,
+          isError: true,
+          result: reason,
+        })
+        const link = planLinkFor(toolName, options)
+        appendJournal(sessionId, {
+          type: 'tool/result',
+          toolName,
+          ok: false,
+          outcome: 'failed',
+          summary: reason,
+          ...(link.planId ? { planId: link.planId, stepId: link.stepId } : {}),
+        })
+      }
+    }
+
+    function repairProviderTranscript(): void {
+      if (!providerTranscript)
+        return
+      const answered = new Set(providerTranscript
+        .filter((message): message is ToolMessage => message.role === 'tool')
+        .map(message => message.tool_call_id))
+      const missing = providerTranscript.flatMap((message) => {
+        if (message.role !== 'assistant' || !message.tool_calls)
+          return []
+        return message.tool_calls
+          .filter(call => call.id && !answered.has(call.id))
+          .map(call => ({
+            role: 'tool' as const,
+            tool_call_id: call.id,
+            content: 'Error: the tool call ended before its result returned.',
+          }))
+      })
+      if (missing.length > 0)
+        providerTranscript = [...providerTranscript, ...missing]
+    }
     beginStream(sessionId, buildingMessage)
     appendJournal(sessionId, {
       type: 'turn/start',
       turnId: roundId,
-      source: options.source ?? (options.input?.type === 'input:voice' || options.input?.type === 'input:text:voice' ? 'voice' : 'text'),
+      source: options.source ?? (isFlowTurn ? 'flow' : options.input?.type === 'input:voice' || options.input?.type === 'input:text:voice' ? 'voice' : 'text'),
       timestamp: sendingCreatedAt,
       ...(options.planId ? { planId: options.planId } : {}),
+      ...(options.flowContinuation ? { flowId: options.flowContinuation.flowId, iteration: options.flowContinuation.iteration } : {}),
       maxSteps,
     })
     appendJournal(sessionId, { type: 'assistant/start' })
     const hasVoice = options.input?.type === 'input:voice'
       || options.input?.type === 'input:text:voice'
-    const sendSource: ChatSendSource = options.source ?? (hasVoice ? 'voice' : 'text')
+    const sendSource: ChatSendSource = options.source ?? (isFlowTurn ? 'flow' : hasVoice ? 'voice' : 'text')
     const activeProvider = deps.getActiveProvider?.() ?? ''
     // The user message is the durable start of a round, so its ID also serves
     // as the correlation key for every telemetry milestone emitted by it.
@@ -1221,36 +1676,43 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         createdAt: sendingCreatedAt,
         id: roundId,
         ...(options.toolReferences?.length ? { tools: options.toolReferences } : {}),
-        ...(isSelfInitiative ? { hiddenFromHistory: true } : {}),
+        ...(isSelfInitiative || isFlowTurn ? { hiddenFromHistory: true } : {}),
       }
-      deps.session.appendSessionMessage(sessionId, userMessage)
-      appendJournal(sessionId, {
-        type: 'user/message',
-        text: sendingMessage,
-        timestamp: sendingCreatedAt,
-      })
+      if (!isFlowTurn) {
+        deps.session.appendSessionMessage(sessionId, userMessage)
+        appendJournal(sessionId, {
+          type: 'user/message',
+          text: sendingMessage,
+          timestamp: sendingCreatedAt,
+        })
+      }
 
       // Cloud sync v1: only the raw text part round-trips; image attachments
       // and other non-text parts stay local.
-      deps.onUserMessageAppended?.({
-        sessionId,
-        message: userMessage,
-        messageText: sendingMessage,
-        source: sendSource,
-        model: options.model,
-        provider: activeProvider,
-        roundId,
-        turnIndex,
-      })
+      if (!isFlowTurn) {
+        deps.onUserMessageAppended?.({
+          sessionId,
+          message: userMessage,
+          messageText: sendingMessage,
+          source: sendSource,
+          model: options.model,
+          provider: activeProvider,
+          roundId,
+          turnIndex,
+        })
+      }
 
       const sessionMessagesForSend = deps.session.getSessionMessages(sessionId)
-      await ingestMemoryContext(sendingMessage, sessionId)
+      if (!isFlowTurn)
+        await ingestMemoryContext(sendingMessage, sessionId)
       if (shouldAbort())
         return
-      deps.onUserTurnReady?.({
-        messageText: sendingMessage,
-        sessionMessages: sessionMessagesForSend,
-      })
+      if (!isFlowTurn) {
+        deps.onUserTurnReady?.({
+          messageText: sendingMessage,
+          sessionMessages: sessionMessagesForSend,
+        })
+      }
 
       const categorizer = createStreamingCategorizer(deps.getActiveProvider())
       let streamPosition = 0
@@ -1272,6 +1734,12 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
           if (speechOnly.trim()) {
             buildingMessage.content += speechOnly
+
+            appendJournal(sessionId, {
+              type: 'assistant/chunk',
+              text: speechOnly,
+              ...(options.flowContinuation ? { turnId: roundId } : {}),
+            })
 
             await hooks.emitTokenLiteralHooks(speechOnly, streamingMessageContext)
 
@@ -1321,14 +1789,50 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               return
             if (ctx.data.type === 'tool-call') {
               buildingMessage.slices.push(ctx.data)
+              const toolCallId = ctx.data.toolCall.toolCallId ?? `tool-call-${buildingMessage.slices.length}`
+              const toolName = ctx.data.toolCall.toolName ?? ''
+              const rawArgs = ctx.data.toolCall.args ?? ''
+              const args = parseJsonRecord(rawArgs) ?? rawArgs
+              const trigger = structuralFlowTrigger(toolName, args)
+              if (trigger)
+                startFlow(sessionId, trigger.trigger, trigger.detail)
+              const currentFlow = flowFromSession(sessionId)
+              if (currentFlow) {
+                currentFlow.lastToolCallArgs.set(toolCallId, args)
+                currentFlow.options ??= options
+                currentFlow.generation = generation
+                if (currentFlow.iteration === 0)
+                  currentFlow.iteration = 1
+              }
+              if (currentFlow && (toolName === 'user_ask' || toolName === 'btw_ask')) {
+                currentFlow.userQuestionAsked = true
+              }
+              if (toolName === 'flow_update') {
+                // Declarations only mark intent here; the gate and the actual
+                // end both happen later (tool-result + turn boundary), so an
+                // in-flight turn is never cut down mid-step and the journal
+                // keeps flow/end after turn/end (FLOW-DIAGNOSIS P0-2/P0-3).
+                const action = flowDeclaration(args)
+                if (action === 'done') {
+                  if (currentFlow)
+                    currentFlow.pendingEnd = 'done'
+                }
+                else if (action === 'blocked') {
+                  if (currentFlow?.userQuestionAsked)
+                    currentFlow.pendingEnd = 'blocked'
+                  else if (currentFlow)
+                    currentFlow.pendingEnd = undefined
+                }
+              }
               if (ctx.data.toolCall.toolCallId && ctx.data.toolCall.toolName)
                 toolCallNames.set(ctx.data.toolCall.toolCallId, ctx.data.toolCall.toolName)
-              const toolName = ctx.data.toolCall.toolName ?? ''
+              else
+                toolCallNames.set(toolCallId, toolName)
               const callLink = planLinkFor(toolName, options)
               appendJournal(sessionId, {
                 type: 'tool/call',
                 toolName,
-                args: ctx.data.toolCall.args ?? '',
+                args: rawArgs,
                 ...(callLink.planId ? { planId: callLink.planId } : {}),
               })
               updateStream(sessionId, buildingMessage)
@@ -1337,15 +1841,38 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
             if (ctx.data.type === 'tool-call-result') {
               settledToolCallIds.add(ctx.data.id)
-              buildingMessage.tool_results.push(ctx.data)
               const resultToolName = toolCallNames.get(ctx.data.id) ?? ctx.data.id
+              const rawResultSummary = typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result ?? '')
+              const outcome = toolResultOutcome(ctx.data.isError, ctx.data.result)
+              const tier = toolResultTier(ctx.data.result)
+              const resultArgs = flowFromSession(sessionId)?.lastToolCallArgs.get(ctx.data.id) ?? ''
               const resultLink = planLinkFor(resultToolName, options)
               const evidenceAuthor = deps.getToolEvidenceAuthor?.(resultToolName)
+              recordFlowToolResult({
+                sessionId,
+                toolName: resultToolName,
+                callId: ctx.data.id,
+                args: resultArgs,
+                summary: rawResultSummary,
+                outcome,
+                ...(tier ? { tier } : {}),
+              })
+              const currentFlow = flowFromSession(sessionId)
+              const completionRejected = currentFlow?.pendingEnd === 'done'
+                && currentFlow.flowMutationSuccesses === 0
+              if (completionRejected)
+                currentFlow.pendingEnd = undefined
+              const resultSummary = completionRejected ? FLOW_DONE_GATE_MESSAGE : rawResultSummary
+              buildingMessage.tool_results.push(completionRejected
+                ? { ...ctx.data, result: resultSummary }
+                : ctx.data)
               appendJournal(sessionId, {
                 type: 'tool/result',
                 toolName: resultToolName,
                 ok: !ctx.data.isError,
-                summary: typeof ctx.data.result === 'string' ? ctx.data.result : JSON.stringify(ctx.data.result ?? ''),
+                outcome,
+                ...(tier ? { tier } : {}),
+                summary: resultSummary,
                 ...(evidenceAuthor ? { provenance: evidenceAuthor } : {}),
                 ...(resultLink.planId ? { planId: resultLink.planId, stepId: resultLink.stepId } : {}),
               })
@@ -1353,6 +1880,9 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
               // failure: the hint reaches the model through the plan
               // projection so it can focus or switch tools next step.
               if (resultLink.mismatch) {
+                const currentFlow = flowFromSession(sessionId)
+                if (currentFlow)
+                  currentFlow.planHintStreak += 1
                 appendJournal(sessionId, {
                   type: 'plan/hint',
                   planId: resultLink.mismatch.planId,
@@ -1362,6 +1892,11 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
                   timestamp: now(),
                 })
               }
+              else {
+                const currentFlow = flowFromSession(sessionId)
+                if (currentFlow)
+                  currentFlow.planHintStreak = 0
+              }
               updateStream(sessionId, buildingMessage)
             }
           },
@@ -1369,6 +1904,12 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       })
 
       const newMessages = buildProviderMessages(sessionId, sessionMessagesForSend)
+      if (isFlowTurn) {
+        newMessages.push({
+          role: 'user',
+          content: sendingMessage,
+        })
+      }
       const systemPromptSupplement = deps.getSystemPromptSupplement?.(options.model, options.chatProvider, options)?.trim()
       if (systemPromptSupplement)
         appendSystemSupplement(newMessages, systemPromptSupplement)
@@ -1494,19 +2035,38 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
         if (stepOptions.stepNumber >= maxSteps - 1)
           reachedMaxSteps = true
-        if (maxSteps < 2 || stepOptions.stepNumber !== maxSteps - 2)
-          return {}
-
-        return {
-          input: [
-            ...stepOptions.input,
-            {
-              role: 'system',
-              content: `The turn step budget is almost exhausted (${maxSteps} steps). Summarize verified progress, stop starting new work, and finish or state the blocker now.`,
-            },
-          ],
+        const input = [...stepOptions.input]
+        if (fluxActive && stepOptions.stepNumber >= 1) {
+          input.push({
+            role: 'system',
+            content: '上一步的工具结果你已看到。先说一句你从结果里发现了什么、或打算接着做什么，再继续下一步。',
+          })
         }
+        if (maxSteps >= 2 && stepOptions.stepNumber === maxSteps - 2) {
+          input.push({
+            role: 'system',
+            content: `The turn step budget is almost exhausted (${maxSteps} steps). Summarize verified progress, stop starting new work, and finish or state the blocker now.`,
+          })
+        }
+        if (input.length === stepOptions.input.length)
+          return {}
+        return { input }
       }
+
+      const onStepResult: NonNullable<StreamOptions['onStepResult']> = async ({ steps }) => {
+        // xsAI invokes this callback after tool execution and message updates.
+        // The next flow turn can therefore resume from a complete step.
+        if (steps.length < softBudget)
+          return
+        return { stop: true }
+      }
+
+      const configuredTools = options.tools
+      const guardedTools: StreamOptions['tools'] = typeof configuredTools === 'function'
+        ? async () => wrapFlowTools(await configuredTools() ?? [], sessionId)
+        : configuredTools
+          ? wrapFlowTools(configuredTools, sessionId)
+          : undefined
 
       await deps.llm.stream(options.model, options.chatProvider, newMessages as Message[], {
         abortSignal: turnController.signal,
@@ -1516,9 +2076,10 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
           conversationId: correlation.conversationId,
           roundId: correlation.roundId,
         },
-        tools: options.tools,
+        tools: guardedTools,
         waitForTools: true,
         prepareStep,
+        onStepResult,
         onMessages: (messages) => {
           const currentTurnMessages = messages.slice(providerInputMessageCount)
           const hasToolRound = currentTurnMessages.some(message =>
@@ -1554,6 +2115,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
           switch (event.type) {
             case 'tool-call':
+              contentStarted = true
               sawToolActivity = true
               toolCallQueue.enqueue({
                 type: 'tool-call',
@@ -1562,6 +2124,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
               break
             case 'tool-result':
+              contentStarted = true
               sawToolActivity = true
               settledToolCallIds.add(event.toolCallId)
               toolCallQueue.enqueue({
@@ -1572,6 +2135,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
               break
             case 'tool-error':
+              contentStarted = true
               sawToolActivity = true
               settledToolCallIds.add(event.toolCallId)
               toolCallQueue.enqueue({
@@ -1583,6 +2147,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
               break
             case 'text-delta':
+              contentStarted = true
               if (!llmFirstTokenEmitted) {
                 llmFirstTokenEmitted = true
                 deps.onLlmFirstToken?.({
@@ -1625,11 +2190,13 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       if (shouldAbort())
         return
 
+      settleDanglingToolCalls('Step budget ended before the tool result returned.')
+      repairProviderTranscript()
       await parser.end()
       if (shouldAbort())
         return
 
-      buildingMessage.providerTranscript = providerTranscript
+      buildingMessage.providerTranscript = providerTranscript ?? synthesizeToolTranscriptFromSlices(buildingMessage)
       deps.onAssistantResponseRendered?.({
         ...correlation,
         model: options.model,
@@ -1723,25 +2290,8 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     catch (error) {
       if (turnController.signal.aborted || isStaleGeneration()) {
         turnEndReason = ownedTurn.reason ?? 'aborted'
-        for (const [toolCallId, toolName] of toolCallNames) {
-          if (settledToolCallIds.has(toolCallId))
-            continue
-
-          const result = 'Tool call did not complete because the turn was interrupted.'
-          buildingMessage.tool_results.push({
-            id: toolCallId,
-            isError: true,
-            result,
-          })
-          const link = planLinkFor(toolName, options)
-          appendJournal(sessionId, {
-            type: 'tool/result',
-            toolName,
-            ok: false,
-            summary: result,
-            ...(link.planId ? { planId: link.planId, stepId: link.stepId } : {}),
-          })
-        }
+        settleDanglingToolCalls('Tool call did not complete because the turn was interrupted.')
+        repairProviderTranscript()
         if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
           buildingMessage.providerTranscript = providerTranscript ?? synthesizeToolTranscriptFromSlices(buildingMessage)
           deps.session.appendSessionMessage(sessionId, buildingMessage)
@@ -1758,6 +2308,8 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       // A failed turn that already performed tool calls still carries context
       // the next turn needs. Persist the partial assistant message with its
       // tool transcript instead of dropping the whole round on the floor.
+      settleDanglingToolCalls('Tool call did not complete because the provider turn failed.')
+      repairProviderTranscript()
       if (!isStaleGeneration() && buildingMessage.slices.length > 0) {
         buildingMessage.providerTranscript = providerTranscript ?? synthesizeToolTranscriptFromSlices(buildingMessage)
         deps.session.appendSessionMessage(sessionId, buildingMessage)
@@ -1780,11 +2332,39 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
           errorCode: 'llm_response_failed',
         })
       }
+      const currentFlow = flowFromSession(sessionId)
+      if (currentFlow && isUnrecoverableFlowError(error)) {
+        endFlow(sessionId, 'blocked', turnError)
+      }
+      if (currentFlow && !isUnrecoverableFlowError(error)) {
+        const failureKind = contentStarted ? 'content stream failed' : 'pre-content stream failed after retry'
+        currentFlow.failureTrail.push({ toolName: 'llm', args: '', reason: failureKind })
+        if (currentFlow.failureTrail.length > FLOW_FAILURE_TRAIL_LIMIT)
+          currentFlow.failureTrail.splice(0, currentFlow.failureTrail.length - FLOW_FAILURE_TRAIL_LIMIT)
+        return
+      }
       throw error
     }
     finally {
       if (turnEndReason === 'error' && (turnController.signal.aborted || isStaleGeneration()))
         turnEndReason = ownedTurn.reason ?? 'aborted'
+      const currentFlow = flowFromSession(sessionId)
+      if (currentFlow) {
+        if (currentFlow.turnMutationSuccesses > 0) {
+          currentFlow.zeroProgressTurns = 0
+          currentFlow.lastProgressAt = now()
+        }
+        else {
+          currentFlow.zeroProgressTurns += 1
+        }
+        if (turnEndReason === 'aborted' || turnEndReason === 'steered')
+          endFlow(sessionId, 'interrupted', turnEndReason)
+        if (!currentFlow.options)
+          currentFlow.options = options
+        currentFlow.generation = generation
+        if (currentFlow.iteration === 0)
+          currentFlow.iteration = 1
+      }
       appendJournal(sessionId, {
         type: 'turn/end',
         turnId: roundId,
@@ -1799,10 +2379,94 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     }
   }
 
+  async function continueFlow(sessionId: string, generation: number, currentQueueId: string): Promise<void> {
+    while (true) {
+      let flow = flowFromSession(sessionId)
+      if (!flow) {
+        flow = rebuildFlowFromJournal(sessionId)
+        if (flow)
+          emitStateChange()
+      }
+      if (!flow)
+        return
+      if (deps.session.getSessionGeneration(sessionId) !== generation) {
+        endFlow(sessionId, 'interrupted', 'session generation changed')
+        return
+      }
+
+      const steerQueued = pendingQueuedSends.some(queued => queued.id !== currentQueueId
+        && queued.sessionId === sessionId
+        && queued.delivery === 'next-step')
+      if (steerQueued) {
+        endFlow(sessionId, 'interrupted', 'a steer message is waiting')
+        return
+      }
+
+      // A declaration that passed its tool-result gate settles here, at the
+      // turn boundary — after every in-flight tool call of the turn has been
+      // journaled, and never before the turn's own end event
+      // (FLOW-DIAGNOSIS P0-3).
+      if (flow.pendingEnd === 'done' && flow.flowMutationSuccesses === 0) {
+        // The result handler normally clears this. Keep the boundary as a
+        // second mechanical guard for providers that omit a tool result.
+        flow.pendingEnd = undefined
+      }
+      if (flow.pendingEnd) {
+        endFlow(sessionId, flow.pendingEnd, 'declared at the turn boundary')
+        return
+      }
+
+      if (flow.iteration >= FLOW_MAX_ITERATIONS) {
+        endFlow(sessionId, 'budget', `flow reached ${FLOW_MAX_ITERATIONS} iterations`)
+        return
+      }
+      if (flow.totalToolCalls >= FLOW_MAX_TOOL_CALLS) {
+        endFlow(sessionId, 'budget', `flow reached ${FLOW_MAX_TOOL_CALLS} tool calls`)
+        return
+      }
+      if (flow.zeroProgressTurns >= FLOW_NO_PROGRESS_TURNS) {
+        endFlow(sessionId, 'no-progress', `flow had ${FLOW_NO_PROGRESS_TURNS} turns without a successful mutation`)
+        return
+      }
+
+      const runningCompaction = compactionTasks.get(sessionId)
+      if (runningCompaction)
+        await runningCompaction
+      const nextFlow = flowFromSession(sessionId)
+      if (!nextFlow || nextFlow.status !== 'running')
+        return
+
+      const nextIteration = nextFlow.iteration + 1
+      appendJournal(sessionId, {
+        type: 'flow/step',
+        flowId: nextFlow.flowId,
+        iteration: nextIteration,
+        reason: 'continue',
+        ...(nextFlow.failureTrail.at(-1) ? { pending: nextFlow.failureTrail.at(-1)!.reason } : {}),
+      })
+      const baseOptions = nextFlow.options
+      if (!baseOptions)
+        return
+
+      await performSend(
+        flowPrompt(nextFlow),
+        {
+          ...baseOptions,
+          source: 'flow',
+          profile: 'work',
+          delivery: 'next-turn',
+          flowContinuation: { flowId: nextFlow.flowId, iteration: nextIteration },
+        },
+        generation,
+        sessionId,
+      )
+    }
+  }
+
   const sendQueue = createQueue<QueuedSend>({
     handlers: [
       async ({ data }) => {
-        const { sendingMessage, options, generation, deferred, sessionId, cancelled } = data
+        const { sendingMessage, options, generation, deferred, sessionId, cancelled, id } = data
 
         if (cancelled)
           return
@@ -1814,6 +2478,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
 
         try {
           await performSend(sendingMessage, options, generation, sessionId)
+          await continueFlow(sessionId, generation, id)
           deferred.resolve()
         }
         catch (error) {
@@ -1861,8 +2526,99 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
   function abortActiveSend(sessionId?: string): boolean {
     if (!activeTurn || (sessionId && activeTurn.sessionId !== sessionId))
       return false
+    if (flowFromSession(activeTurn.sessionId))
+      endFlow(activeTurn.sessionId, 'interrupted', 'active turn aborted')
     activeTurn.reason = 'aborted'
     activeTurn.controller.abort(new Error('Turn aborted by the user'))
+    return true
+  }
+
+  function getFlowState(sessionId: string): FlowState | undefined {
+    const flow = flows.get(sessionId)
+    return flow ? flowSnapshot(flow) : undefined
+  }
+
+  /** Rebuilds the minimum running-flow state that survives in the journal. */
+  function rebuildFlowFromJournal(sessionId: string, options?: ChatOrchestratorSendOptions): FlowRuntimeRecord | undefined {
+    const events = deps.readJournalEvents?.(sessionId)
+    if (!events || events.length === 0)
+      return undefined
+
+    const startIndex = events.findLastIndex(event => event.type === 'flow/start')
+    if (startIndex < 0)
+      return undefined
+    const flowStart = events[startIndex] as Extract<JournalEvent, { type: 'flow/start' }>
+    const window = events.slice(startIndex + 1)
+    if (window.some(event => event.type === 'flow/end'))
+      return undefined
+
+    let iteration = 1
+    let totalToolCalls = 0
+    let flowMutationSuccesses = 0
+    let userQuestionAsked = false
+    const failureTrail: FlowFailureRecord[] = []
+    for (const event of window) {
+      if (event.type === 'flow/step')
+        iteration = Math.max(iteration, event.iteration)
+      if (event.type === 'tool/call' && (event.toolName === 'user_ask' || event.toolName === 'btw_ask'))
+        userQuestionAsked = true
+      if (event.type !== 'tool/result')
+        continue
+      totalToolCalls += 1
+      const outcomeOk = (event.outcome ?? 'ok') === 'ok' && event.ok
+      if (outcomeOk && (event.toolName === 'write' || event.toolName === 'edit'
+        || (event.toolName === 'bash' && event.tier !== undefined && event.tier !== 'read-only'))) {
+        flowMutationSuccesses += 1
+      }
+      if (!outcomeOk) {
+        failureTrail.push({ toolName: event.toolName, args: '', reason: String(event.summary).slice(0, 240) })
+      }
+    }
+    if (failureTrail.length > FLOW_FAILURE_TRAIL_LIMIT)
+      failureTrail.splice(0, failureTrail.length - FLOW_FAILURE_TRAIL_LIMIT)
+
+    const flow: FlowRuntimeRecord = {
+      flowId: flowStart.flowId,
+      sessionId,
+      status: 'running',
+      trigger: flowStart.trigger,
+      startedAt: flowStart.timestamp ?? now(),
+      iteration,
+      totalToolCalls,
+      zeroProgressTurns: 0,
+      failureTrail,
+      repeatedFailures: new Map(),
+      lastToolCallArgs: new Map(),
+      editStateChangedStreaks: new Map(),
+      forceReadPaths: new Set(),
+      userQuestionAsked,
+      planHintStreak: 0,
+      turnMutationSuccesses: 0,
+      flowMutationSuccesses,
+      options,
+      generation: deps.session.getSessionGeneration(sessionId),
+    }
+    flows.set(sessionId, flow)
+    return flow
+  }
+
+  /**
+   * Rebuilds a running flow from the persisted journal after a restart and
+   * continues it (FLOW-DIAGNOSIS P2-2). Counters were in-memory only, so a
+   * restart used to erase the loop's self-observation while flow/start and
+   * flow/step sat on disk. Reconstruction is deliberately minimal: iteration
+   * and the cumulative counters the gates read; per-turn streaks restart at
+   * zero, and the resumed turn runs on the caller-supplied options because
+   * the original send options are not journaled.
+   */
+  function resumeFlowFromJournal(sessionId: string, options: ChatOrchestratorSendOptions): boolean {
+    if (flows.has(sessionId))
+      return false
+    const flow = rebuildFlowFromJournal(sessionId, options)
+    if (!flow)
+      return false
+    emitStateChange()
+    void continueFlow(sessionId, flow.generation!, '')
     return true
   }
 
@@ -1916,6 +2672,10 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
     setSending,
     clearCompaction,
     compactNow,
+    startFlow,
+    endFlow,
+    getFlowState,
+    resumeFlowFromJournal,
     hooks,
   }
 }

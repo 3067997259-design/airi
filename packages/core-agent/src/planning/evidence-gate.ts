@@ -12,6 +12,10 @@ import type { ToolEvidenceAuthor } from '../authority/provenance'
  * The desktop wiring (approval cards, step execution loop) consumes this
  * runtime later (WORKSPACE-DESIGN / WIRING-BACKLOG); everything below runs
  * headless against journal fixtures.
+ *
+ * Execution-time rejection was intentionally replaced by candidates stamping
+ * in R3: tool results remain journal facts, and the gate decides completion
+ * only after the result is attached to a plan step.
  */
 import type { JournalEvent } from '../journal/types'
 
@@ -24,6 +28,8 @@ export interface StepGateSpec {
   approvalRequired: boolean
   expectedEvidence: PlanExpectedEvidence[]
   allowedTools: string[]
+  /** Step intent; feeds the verification-semantic check in the gate. */
+  intent?: string
 }
 
 export type StepGateStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed'
@@ -52,7 +58,7 @@ export function collectStepGateRefs(events: readonly JournalEvent[], stepId: str
   }>()
 
   for (const event of events) {
-    if (event.type === 'tool/result' && event.stepId === stepId && event.ok) {
+    if (event.type === 'tool/result' && event.stepId === stepId && event.ok && (event.outcome ?? 'ok') === 'ok') {
       const evidenceAuthor = event.provenance as ToolEvidenceAuthor | undefined
       const provenance = resolveEvidenceAuthority({ source: 'tool_result' }, evidenceAuthor ?? 'unreviewed_self_authored')
       refs.push({
@@ -61,6 +67,8 @@ export function collectStepGateRefs(events: readonly JournalEvent[], stepId: str
         summary: event.summary,
         provenance,
         toolName: event.toolName,
+        ...(event.outcome ? { outcome: event.outcome } : {}),
+        ...(event.tier ? { tier: event.tier } : {}),
       })
     }
     else if (event.type === 'approval/asked' && !approvals.has(event.requestId)) {
@@ -91,7 +99,14 @@ export function collectStepGateRefs(events: readonly JournalEvent[], stepId: str
 /** Evaluates the verification gate for one step over the journal. */
 export function verdictForStep(events: readonly JournalEvent[], step: StepGateSpec): VerificationGateVerdict {
   return evaluateVerificationGate({
-    step,
+    step: {
+      id: step.id,
+      riskLevel: step.riskLevel,
+      approvalRequired: step.approvalRequired,
+      expectedEvidence: step.expectedEvidence,
+      allowedTools: step.allowedTools,
+      ...(step.intent ? { intent: step.intent } : {}),
+    },
     refs: collectStepGateRefs(events, step.id),
   })
 }
@@ -168,5 +183,5 @@ function latestToolResultFailed(events: readonly JournalEvent[], stepId: string)
     if (event.type === 'tool/result' && event.stepId === stepId)
       latest = event
   }
-  return latest?.ok === false
+  return latest?.ok === false || (latest?.outcome !== undefined && latest.outcome !== 'ok')
 }

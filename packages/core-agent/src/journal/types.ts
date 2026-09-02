@@ -16,6 +16,9 @@ export const JOURNAL_EVENT_TYPES = [
   'assistant/done',
   'tool/call',
   'tool/result',
+  'flow/start',
+  'flow/step',
+  'flow/end',
   'plan/update',
   'plan/hint',
   'todo/write',
@@ -39,13 +42,23 @@ export type JournalEventType = (typeof JOURNAL_EVENT_TYPES)[number]
 
 export type TurnEndReason = 'completed' | 'aborted' | 'steered' | 'max-steps' | 'error'
 
+export type FlowTrigger = 'tool' | 'declared' | 'command'
+
+export type FlowEndReason = 'done' | 'blocked' | 'interrupted' | 'budget' | 'no-progress'
+
+export type ToolResultOutcome = 'ok' | 'failed' | 'denied' | 'timeout'
+
+export type ToolResultTier = 'read-only' | 'medium' | 'high'
+
 export interface TurnStartEvent {
   type: 'turn/start'
   seq: number
   turnId: string
-  source: 'text' | 'voice' | 'self-initiative' | 'btw'
+  source: 'text' | 'voice' | 'self-initiative' | 'btw' | 'flow'
   timestamp: number
   planId?: string
+  flowId?: string
+  iteration?: number
   maxSteps: number
 }
 
@@ -84,6 +97,7 @@ export interface AssistantStartEvent {
 export interface AssistantChunkEvent {
   type: 'assistant/chunk'
   seq: number
+  turnId?: string
   text: string
 }
 
@@ -105,6 +119,10 @@ export interface ToolResultEvent {
   seq: number
   toolName: string
   ok: boolean
+  /** Whether the tool result completed, failed, was denied, or timed out. */
+  outcome?: ToolResultOutcome
+  /** Bash risk tier, when the tool reports one. */
+  tier?: ToolResultTier
   summary: string
   /** Serialized evidence provenance (author bucketing), set by the caller. */
   provenance?: string
@@ -112,6 +130,34 @@ export interface ToolResultEvent {
   stepId?: string
   /** Plan that owns the step when more than one plan is active. */
   planId?: string
+}
+
+export interface FlowStartEvent {
+  type: 'flow/start'
+  seq: number
+  flowId: string
+  trigger: FlowTrigger
+  triggerDetail?: string
+  timestamp: number
+}
+
+export interface FlowStepEvent {
+  type: 'flow/step'
+  seq: number
+  flowId: string
+  iteration: number
+  reason: 'continue'
+  pending?: string
+}
+
+export interface FlowEndEvent {
+  type: 'flow/end'
+  seq: number
+  flowId: string
+  reason: FlowEndReason
+  iterations: number
+  timestamp: number
+  detail?: string
 }
 
 export interface PlanUpdateEvent {
@@ -242,6 +288,7 @@ export interface UserAskedEvent {
   requestId: string
   question: string
   choices?: string[]
+  source?: 'user_ask' | 'btw'
 }
 
 export interface UserAnsweredEvent {
@@ -250,6 +297,7 @@ export interface UserAnsweredEvent {
   requestId: string
   answer: string
   channel?: 'choice' | 'text' | 'dismissed'
+  source?: 'user_ask' | 'btw'
 }
 
 export interface ReviewAskedEvent {
@@ -333,6 +381,9 @@ export type JournalEvent
     | AssistantDoneEvent
     | ToolCallEvent
     | ToolResultEvent
+    | FlowStartEvent
+    | FlowStepEvent
+    | FlowEndEvent
     | PlanUpdateEvent
     | PlanHintEvent
     | TodoWriteEvent

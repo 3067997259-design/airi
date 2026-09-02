@@ -185,4 +185,38 @@ describe('verification gate', () => {
     })
     expect(verdict.passed).toBe(true)
   })
+
+  it('does not treat a git log receipt as reading diff content', () => {
+    const verdict = evaluateVerificationGate({
+      step: makeStep({
+        riskLevel: 'low',
+        allowedTools: ['bash', 'read'],
+        expectedEvidence: [{ source: 'tool_result', description: '查看 diff' }],
+      }),
+      refs: [makeRef({
+        toolName: 'bash',
+        tier: 'read-only',
+        summary: '{"status":"ok","stdout":"commit abc123\\nAuthor: AIRI\\nDate: today\\n    update workspace"}',
+      })],
+    })
+
+    expect(verdict.passed).toBe(false)
+    expect(verdict.missing[0]?.reason).toBe('not_diff_content')
+  })
+
+  it('accepts a read receipt that contains a unified diff hunk', () => {
+    const verdict = evaluateVerificationGate({
+      step: makeStep({
+        riskLevel: 'low',
+        allowedTools: ['bash', 'read'],
+        expectedEvidence: [{ source: 'tool_result', description: '查看 diff' }],
+      }),
+      refs: [makeRef({
+        toolName: 'read',
+        summary: 'patches/change.patch  (4 lines)\n1  diff --git a/src/a.ts b/src/a.ts\n2  @@ -1 +1 @@\n3  -old\n4  +new',
+      })],
+    })
+
+    expect(verdict.passed).toBe(true)
+  })
 })
