@@ -162,3 +162,11 @@ packages/i18n/glossary/glossary.tbx
 .mimosa/
 
 /airi-docs/
+
+# Local acceptance-run artifacts (fork)
+.tmp/
+.zcode/
+L07-retest/
+M07-source-20260909/
+/skills/
+/workspace/
