@@ -41,6 +41,10 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     return providersStore.modelLoadError[activeProvider.value] || null
   })
 
+  const activeReasoningCapability = computed(() => {
+    return providersStore.getChatReasoningCapability(activeProvider.value, activeModel.value)
+  })
+
   const filteredModels = computed(() => {
     if (!modelSearchQuery.value.trim()) {
       return providerModels.value
@@ -95,11 +99,14 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     return []
   }
 
-  /** Resolves a provider with the reasoning mode shared by every Consciousness input path. */
-  async function getChatProviderInstance(provider: string) {
+  /** Resolves a provider with the reasoning mode and effort for the requested model. */
+  async function getChatProviderInstance(provider: string, model = activeModel.value) {
+    const capability = providersStore.getChatReasoningCapability(provider, model)
+    const reasoningEnabled = settingsStore.reasoning || capability?.mandatory === true
     return providersStore.getChatProviderInstance(provider, {
-      reasoning: settingsStore.reasoning ? 'enabled' : 'disabled',
-    })
+      reasoning: reasoningEnabled ? 'enabled' : 'disabled',
+      reasoningEffort: settingsStore.reasoningEffort,
+    }, model)
   }
 
   const configured = computed(() => {
@@ -125,6 +132,7 @@ export const useConsciousnessStore = defineStore('consciousness', () => {
     providerModels,
     isLoadingActiveProviderModels,
     activeProviderModelError,
+    activeReasoningCapability,
     filteredModels,
 
     // Actions

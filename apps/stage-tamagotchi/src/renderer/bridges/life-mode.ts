@@ -1,33 +1,48 @@
-import type { LifeModeConfig, LifeModePort, LifeTickPayload } from '@proj-airi/stage-ui/stores/modules/life-mode'
+import type {
+  LifeModePort,
+} from '@proj-airi/stage-ui/stores/modules/life-mode'
 
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 
-import { lifeModeConsumeTick, lifeModeGetConfig, lifeModeSetConfig, lifeTickEmitted } from '../../shared/eventa'
+import {
+  lifeHeartbeatEmitted,
+  lifeModeClaimDecision,
+  lifeModeGetSnapshot,
+  lifeModeRecordGate,
+  lifeModeRequestTestHeartbeat,
+  lifeModeSetConfig,
+  lifeModeSnapshotChanged,
+} from '../../shared/eventa'
 import { resolveRendererWindowContext } from '../window-context'
 
-/**
- * Renderer-side life mode client (LIFE-PLAN M3).
- *
- * Thin facade over the main-process contracts; shapes mirror the stage-ui
- * `LifeModePort` structurally. The main process owns persistence and the
- * heartbeat; this client only relays config and forwards ticks.
- */
+/** Creates the renderer client for the main-process life-mode owner. */
 export function createLifeModeClient(): LifeModePort {
   const context = getElectronEventaContext()
-  const getConfig = defineInvoke(context, lifeModeGetConfig)
+  const getSnapshot = defineInvoke(context, lifeModeGetSnapshot)
   const setConfig = defineInvoke(context, lifeModeSetConfig)
-  const consumeTick = defineInvoke(context, lifeModeConsumeTick)
+  const claimDecision = defineInvoke(context, lifeModeClaimDecision)
+  const requestTestHeartbeat = defineInvoke(context, lifeModeRequestTestHeartbeat)
+  const recordGate = defineInvoke(context, lifeModeRecordGate)
 
   return {
-    getConfig: async () => (await getConfig()) as unknown as LifeModeConfig,
-    setConfig: async config => (await setConfig(config as never)) as unknown as LifeModeConfig,
-    consumeTick: async tickId => consumeTick({ tickId }),
-    isTickConsumer: () => resolveRendererWindowContext().leadership === 'leader-only',
-    onTick(listener) {
-      const off = context.on(lifeTickEmitted, (event) => {
+    getSnapshot: async () => await getSnapshot(),
+    setConfig: async patch => await setConfig({ patch }),
+    claimDecision: async heartbeatId => await claimDecision({ heartbeatId }),
+    requestTestHeartbeat: async () => await requestTestHeartbeat(),
+    recordGate: async gate => await recordGate({ gate }),
+    isHeartbeatConsumer: () => resolveRendererWindowContext().leadership === 'leader-only',
+    onSnapshot(listener) {
+      const off = context.on(lifeModeSnapshotChanged, (event) => {
         if (event.body)
-          listener(event.body as LifeTickPayload)
+          listener(event.body)
+      })
+      return () => off()
+    },
+    onHeartbeat(listener) {
+      const off = context.on(lifeHeartbeatEmitted, (event) => {
+        if (event.body)
+          listener(event.body)
       })
       return () => off()
     },

@@ -1,11 +1,15 @@
 import type {} from 'pinia-plugin-synced'
 
+import type { ChatReasoningPreference } from '../../libs/providers/types'
 import type { MirrorVisualCapabilitySetting } from '../mirror-visual'
 
 import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
 const MIRROR_VISUAL_SETTINGS_KEY = 'settings/consciousness/mirror-visual-capabilities'
+const REASONING_EFFORT_SETTINGS_KEY = 'settings/consciousness/reasoning-effort'
+const REASONING_PREFERENCES = ['auto', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const
+const DEFAULT_REASONING_EFFORT: ChatReasoningPreference = 'auto'
 
 function loadReasoning() {
   // Non-renderer runtimes have no durable settings owner. They use the product
@@ -21,6 +25,23 @@ function persistReasoning(value: boolean) {
     return
 
   localStorage.setItem('settings/consciousness/reasoning', String(value))
+}
+
+function loadReasoningEffort(): ChatReasoningPreference {
+  if (typeof localStorage === 'undefined')
+    return DEFAULT_REASONING_EFFORT
+
+  const value = localStorage.getItem(REASONING_EFFORT_SETTINGS_KEY)
+  return value && (REASONING_PREFERENCES as readonly string[]).includes(value)
+    ? value as ChatReasoningPreference
+    : DEFAULT_REASONING_EFFORT
+}
+
+function persistReasoningEffort(value: ChatReasoningPreference) {
+  if (typeof localStorage === 'undefined')
+    return
+
+  localStorage.setItem(REASONING_EFFORT_SETTINGS_KEY, value)
 }
 
 function loadMirrorVisualCapabilities(): Record<string, MirrorVisualCapabilitySetting> {
@@ -65,11 +86,26 @@ export const useConsciousnessSettingsStore = defineStore('consciousness-settings
   // Pinia owns live cross-window state. Only synchronized actions write the
   // durable value, so a follower cannot persist an uncommitted proposal.
   const reasoning = shallowRef(loadReasoning())
+  const reasoningEffort = shallowRef<ChatReasoningPreference>(loadReasoningEffort())
   const mirrorVisualCapabilities = shallowRef(loadMirrorVisualCapabilities())
 
   async function setReasoning(value: boolean) {
     reasoning.value = value
     persistReasoning(value)
+  }
+
+  async function setReasoningEffort(value: ChatReasoningPreference) {
+    if (!(REASONING_PREFERENCES as readonly string[]).includes(value))
+      return
+
+    reasoningEffort.value = value
+    persistReasoningEffort(value)
+  }
+
+  /** Reloads settings written by an isolated profile import into live refs. */
+  function restorePersistedSettings(): void {
+    reasoning.value = loadReasoning()
+    reasoningEffort.value = loadReasoningEffort()
   }
 
   function getMirrorVisualCapability(providerId: string, modelId: string): MirrorVisualCapabilitySetting {
@@ -95,6 +131,8 @@ export const useConsciousnessSettingsStore = defineStore('consciousness-settings
   async function resetState() {
     reasoning.value = false
     persistReasoning(false)
+    reasoningEffort.value = DEFAULT_REASONING_EFFORT
+    persistReasoningEffort(DEFAULT_REASONING_EFFORT)
     mirrorVisualCapabilities.value = {}
     persistMirrorVisualCapabilities({})
   }
@@ -102,6 +140,9 @@ export const useConsciousnessSettingsStore = defineStore('consciousness-settings
   return {
     reasoning,
     setReasoning,
+    reasoningEffort,
+    setReasoningEffort,
+    restorePersistedSettings,
     mirrorVisualCapabilities,
     getMirrorVisualCapability,
     setMirrorVisualCapability,
@@ -109,7 +150,7 @@ export const useConsciousnessSettingsStore = defineStore('consciousness-settings
   }
 }, {
   synced: {
-    actions: ['resetState', 'setMirrorVisualCapability', 'setReasoning'],
+    actions: ['resetState', 'setMirrorVisualCapability', 'setReasoning', 'setReasoningEffort'],
     state: true,
   },
 })

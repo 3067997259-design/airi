@@ -15,6 +15,7 @@ describe('consciousness settings', () => {
     const store = useConsciousnessSettingsStore()
 
     expect(store.reasoning).toBe(false)
+    expect(store.reasoningEffort).toBe('auto')
   })
 
   it('loads the persisted reasoning value', () => {
@@ -30,6 +31,26 @@ describe('consciousness settings', () => {
 
     expect(store.reasoning).toBe(true)
     expect(localStorage.getItem('settings/consciousness/reasoning')).toBe('true')
+  })
+
+  it('loads and persists the normalized reasoning effort preference', async () => {
+    localStorage.setItem('settings/consciousness/reasoning-effort', 'high')
+    const store = useConsciousnessSettingsStore()
+
+    expect(store.reasoningEffort).toBe('high')
+
+    await store.setReasoningEffort('low')
+
+    expect(store.reasoningEffort).toBe('low')
+    expect(localStorage.getItem('settings/consciousness/reasoning-effort')).toBe('low')
+  })
+
+  it('falls back to automatic effort for an invalid persisted value', () => {
+    localStorage.setItem('settings/consciousness/reasoning-effort', 'unsupported')
+
+    const store = useConsciousnessSettingsStore()
+
+    expect(store.reasoningEffort).toBe('auto')
   })
 
   it('ignores storage events because Pinia owns cross-window synchronization', () => {

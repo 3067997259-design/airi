@@ -58,8 +58,9 @@ describe('consciousness settings synchronization', () => {
     followerStore.$subscribe(() => followerMutations++, { flush: 'sync' })
     followerStore.$onAction(() => followerActions++)
 
-    leaderStore.reasoning = true
+    leaderStore.$patch({ reasoning: true, reasoningEffort: 'high' })
     await vi.waitFor(() => expect(followerStore.reasoning).toBe(true))
+    await vi.waitFor(() => expect(followerStore.reasoningEffort).toBe('high'))
     await new Promise(resolve => setTimeout(resolve, 50))
 
     expect(leaderMutations).toBe(1)

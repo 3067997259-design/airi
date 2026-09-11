@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ChatReasoningEffort, ChatReasoningPreference } from '@proj-airi/stage-ui/libs/providers/types'
+
 import { Alert, ErrorContainer, RadioCardManySelect, RadioCardSimple } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -17,9 +19,10 @@ const providerStore = useProviderConfigStore()
 const airiCardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const consciousnessSettingsStore = useConsciousnessSettingsStore()
+const EMPTY_REASONING_EFFORT_OPTIONS: Array<{ label: string, value: string }> = []
 const { configuredProviders } = storeToRefs(providerStore)
 const { moduleChatProvidersMetadata } = storeToRefs(providersStore)
-const { reasoning } = storeToRefs(consciousnessSettingsStore)
+const { reasoning, reasoningEffort } = storeToRefs(consciousnessSettingsStore)
 const {
   activeProvider,
   activeModel,
@@ -29,6 +32,7 @@ const {
   providerModels,
   isLoadingActiveProviderModels,
   activeProviderModelError,
+  activeReasoningCapability,
 } = storeToRefs(consciousnessStore)
 
 const { t } = useI18n()
@@ -67,6 +71,44 @@ function handleDeleteProvider(providerId: string) {
 async function updateReasoning(value: boolean) {
   await consciousnessSettingsStore.setReasoning(value)
 }
+
+const reasoningEnabled = computed(() => reasoning.value || activeReasoningCapability.value?.mandatory === true)
+
+const reasoningEffortOptions = computed(() => {
+  const efforts = activeReasoningCapability.value?.efforts
+  if (!efforts?.length)
+    return EMPTY_REASONING_EFFORT_OPTIONS
+
+  return [
+    {
+      label: t('settings.pages.modules.consciousness.sections.section.model-options.reasoning-effort.options.auto'),
+      value: 'auto',
+    },
+    ...efforts.map(effort => ({
+      label: t(`settings.pages.modules.consciousness.sections.section.model-options.reasoning-effort.options.${effort}`),
+      value: effort,
+    })),
+  ]
+})
+
+const selectedReasoningEffort = computed<ChatReasoningPreference>({
+  get() {
+    const capability = activeReasoningCapability.value
+    const selected = reasoningEffort.value
+    if (!capability?.efforts?.length || selected === 'auto')
+      return selected
+
+    if (capability.efforts.includes(selected as ChatReasoningEffort))
+      return selected
+
+    return capability.defaultEffort ?? 'auto'
+  },
+  set(value) {
+    const capability = activeReasoningCapability.value
+    if (value === 'auto' || capability?.efforts?.includes(value as ChatReasoningEffort))
+      void consciousnessSettingsStore.setReasoningEffort(value)
+  },
+})
 
 const mirrorVisualCapability = computed({
   get: () => consciousnessSettingsStore.getMirrorVisualCapability(activeProvider.value, activeModel.value),
@@ -304,9 +346,22 @@ const mirrorVisualCapability = computed({
       </h2>
 
       <FieldCheckbox
-        :model-value="reasoning"
+        :model-value="reasoningEnabled"
         :label="t('settings.pages.modules.consciousness.sections.section.model-options.thinking.label')"
+        :description="t(activeReasoningCapability?.mandatory === true
+          ? 'settings.pages.modules.consciousness.sections.section.model-options.thinking.mandatory-description'
+          : 'settings.pages.modules.consciousness.sections.section.model-options.thinking.description')"
+        :disabled="activeReasoningCapability?.mandatory === true"
         @update:model-value="updateReasoning"
+      />
+
+      <FieldCombobox
+        v-if="reasoningEffortOptions.length > 0"
+        v-model="selectedReasoningEffort"
+        :label="t('settings.pages.modules.consciousness.sections.section.model-options.reasoning-effort.label')"
+        :description="t('settings.pages.modules.consciousness.sections.section.model-options.reasoning-effort.description')"
+        :options="reasoningEffortOptions"
+        :disabled="!reasoningEnabled"
       />
 
       <FieldCombobox

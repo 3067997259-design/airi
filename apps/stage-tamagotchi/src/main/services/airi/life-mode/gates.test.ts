@@ -2,7 +2,7 @@ import type { LifeModeConfigContract } from '../../../../shared/eventa'
 
 import { describe, expect, it } from 'vitest'
 
-import { evaluateLifeTickGate, isInQuietHours } from './gates'
+import { evaluateLifeTickGate, isInQuietHours, resolveNextLifeHeartbeatAt } from './gates'
 
 const BASE_CONFIG: LifeModeConfigContract = {
   mode: 'autonomous',
@@ -100,5 +100,39 @@ describe('isInQuietHours', () => {
     expect(isInQuietHours(at(23), 23, 6)).toBe(true)
     expect(isInQuietHours(at(1), 23, 6)).toBe(true)
     expect(isInQuietHours(at(12), 23, 6)).toBe(false)
+  })
+})
+
+describe('resolveNextLifeHeartbeatAt', () => {
+  it('keeps a persisted future heartbeat across a restart', () => {
+    const now = new Date(2026, 8, 4, 12).getTime()
+    const persisted = now + 8 * 60_000
+
+    expect(resolveNextLifeHeartbeatAt(BASE_CONFIG, {
+      now,
+      persistedNextHeartbeatAt: persisted,
+      startupGraceMs: 30_000,
+    })).toBe(persisted)
+  })
+
+  it('schedules one overdue heartbeat after the startup grace', () => {
+    const now = new Date(2026, 8, 4, 12).getTime()
+
+    expect(resolveNextLifeHeartbeatAt(BASE_CONFIG, {
+      now,
+      persistedNextHeartbeatAt: now - HOUR,
+      startupGraceMs: 30_000,
+    })).toBe(now + 30_000)
+  })
+
+  it('moves a heartbeat out of quiet hours', () => {
+    const now = new Date(2026, 8, 4, 1).getTime()
+    const config = { ...BASE_CONFIG, quietHoursStart: 0, quietHoursEnd: 23 }
+
+    expect(resolveNextLifeHeartbeatAt(config, {
+      now,
+      persistedNextHeartbeatAt: now - HOUR,
+      startupGraceMs: 30_000,
+    })).toBe(new Date(2026, 8, 4, 23).getTime())
   })
 })

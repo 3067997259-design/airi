@@ -92,6 +92,45 @@ describe('consciousness store provider selection', () => {
     expect(enabledProvider.chat('test-model')).toMatchObject({ reasoningEffort: 'medium' })
   })
 
+  it('passes the selected effort to canonical Gemini models through OpenAI-compatible providers', async () => {
+    const providerConfigStore = useProviderConfigStore()
+    providerConfigStore.ensureProvider('openai-compatible', 'openai-compatible', {
+      apiKey: 'sk-test',
+      baseUrl: 'https://example.test/v1',
+    })
+    const consciousnessStore = useConsciousnessStore()
+    const settingsStore = useConsciousnessSettingsStore()
+    consciousnessStore.activeProvider = 'openai-compatible'
+    consciousnessStore.activeModel = 'gemini-3.8-flash'
+    await settingsStore.setReasoning(true)
+    await settingsStore.setReasoningEffort('high')
+
+    expect(consciousnessStore.activeReasoningCapability).toMatchObject({
+      efforts: ['low', 'medium', 'high'],
+      mandatory: true,
+    })
+
+    const provider = await consciousnessStore.getChatProviderInstance('openai-compatible')
+    expect(provider.chat('gemini-3.8-flash')).toMatchObject({ reasoningEffort: 'high' })
+  })
+
+  it('falls back to the model default when a persisted effort is unsupported', async () => {
+    const providerConfigStore = useProviderConfigStore()
+    providerConfigStore.ensureProvider('openai-compatible', 'openai-compatible', {
+      apiKey: 'sk-test',
+      baseUrl: 'https://example.test/v1',
+    })
+    const consciousnessStore = useConsciousnessStore()
+    const settingsStore = useConsciousnessSettingsStore()
+    consciousnessStore.activeProvider = 'openai-compatible'
+    consciousnessStore.activeModel = 'gemini-3.8-flash'
+    await settingsStore.setReasoning(true)
+    await settingsStore.setReasoningEffort('max')
+
+    const provider = await consciousnessStore.getChatProviderInstance('openai-compatible')
+    expect(provider.chat('gemini-3.8-flash')).toMatchObject({ reasoningEffort: 'medium' })
+  })
+
   // ROOT CAUSE:
   //
   // The model selection was only cleared on provider switches by a watcher in

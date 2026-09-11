@@ -76,3 +76,49 @@ export function isInQuietHours(now: number, start: number, end: number): boolean
     return hours >= start && hours < end
   return hours >= start || hours < end
 }
+
+export interface NextLifeHeartbeatInput {
+  now: number
+  persistedNextHeartbeatAt?: number
+  startupGraceMs: number
+}
+
+/**
+ * Resolves the first heartbeat time after service startup.
+ *
+ * A future persisted time keeps its remaining delay. An overdue time produces
+ * one heartbeat after the startup grace. Quiet hours move either result to the
+ * end of the current quiet window.
+ */
+export function resolveNextLifeHeartbeatAt(
+  config: LifeModeConfigContract,
+  input: NextLifeHeartbeatInput,
+): number | undefined {
+  if (config.mode === 'off')
+    return undefined
+
+  const intervalMs = Math.max(60_000, config.intervalMinutes * 60_000)
+  const persisted = input.persistedNextHeartbeatAt
+  const candidate = persisted == null
+    ? input.now + intervalMs
+    : persisted > input.now
+      ? persisted
+      : input.now + Math.max(0, input.startupGraceMs)
+
+  return moveOutsideQuietHours(candidate, config.quietHoursStart, config.quietHoursEnd)
+}
+
+function moveOutsideQuietHours(timestamp: number, start: number, end: number): number {
+  if (start === end || !isInQuietHours(timestamp, start, end))
+    return timestamp
+
+  const date = new Date(timestamp)
+  const hours = date.getHours() + date.getMinutes() / 60
+  const endDate = new Date(date)
+  endDate.setHours(end, 0, 0, 0)
+
+  if (start > end && hours >= start)
+    endDate.setDate(endDate.getDate() + 1)
+
+  return endDate.getTime()
+}
