@@ -16,6 +16,7 @@ import { useI18n } from 'vue-i18n'
 
 import onboardingLogo from '../../../../assets/onboarding.avif'
 
+import { restoredOwner } from '../../../../services/restore-gate'
 import { useAuthStore } from '../../../../stores/auth'
 import { useOnboardingStore } from '../../../../stores/onboarding'
 import { useSettingsGeneral } from '../../../../stores/settings'
@@ -35,6 +36,24 @@ const { language } = storeToRefs(settingsStore)
 const languages = computed(() => {
   return Object.entries(all).map(([value, label]) => ({ value, label }))
 })
+
+/**
+ * A restored profile whose owner is known must not be presented as a fresh
+ * install, even after adoption released the effect hold: the data is on disk
+ * but belongs to an account that has to sign in first (ACC-20260911 #11).
+ */
+const showRestoreNotice = computed(() =>
+  !!restoredOwner.value && !authStore.isAuthenticated,
+)
+const welcomeTitle = computed(() => showRestoreNotice.value
+  ? t('settings.dialogs.onboarding.restored.title')
+  : t('settings.dialogs.onboarding.title'))
+const welcomeDescription = computed(() => showRestoreNotice.value
+  ? t('settings.dialogs.onboarding.restored.description', { owner: restoredOwner.value ?? '' })
+  : t('settings.dialogs.onboarding.description'))
+const loginLabel = computed(() => showRestoreNotice.value
+  ? t('settings.dialogs.onboarding.restored.loginAction')
+  : t('settings.dialogs.onboarding.loginAction'))
 
 function handleLogin() {
   onboardingStore.showingSetup = false
@@ -114,7 +133,7 @@ function handleLocalSetup() {
         :duration="500"
         :class="['mb-0', 'text-3xl', 'text-neutral-800', 'font-bold', 'md:mb-2', 'dark:text-neutral-100']"
       >
-        {{ t('settings.dialogs.onboarding.title') }}
+        {{ welcomeTitle }}
       </h2>
       <p
         v-motion
@@ -124,7 +143,7 @@ function handleLocalSetup() {
         :delay="100"
         :class="['text-sm', 'text-neutral-600', 'md:text-lg', 'dark:text-neutral-400']"
       >
-        {{ t('settings.dialogs.onboarding.description') }}
+        {{ welcomeDescription }}
       </p>
     </div>
     <div :class="['flex', 'flex-col', 'gap-3', 'md:flex-row', 'm-2']">
@@ -137,12 +156,12 @@ function handleLocalSetup() {
         }"
         color="primary"
         variant="secondary"
-        :label="t('settings.dialogs.onboarding.loginAction')"
+        :label="loginLabel"
         :class="['flex-1']"
         @click="handleLogin"
       />
       <Button
-        v-if="props.customProviderSetupEnabled"
+        v-if="props.customProviderSetupEnabled && !showRestoreNotice"
         v-motion="{
           initial: { opacity: 0 },
           enter: { opacity: 1 },

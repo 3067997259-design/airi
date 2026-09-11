@@ -115,6 +115,30 @@ describe('useDuckDB (Singleton)', () => {
     await closeDb()
   })
 
+  it('checkpoints before closing the OPFS database', async () => {
+    const { getDb, closeDb } = useDuckDb()
+    const database = await getDb()
+    const execute = vi.mocked(database.value!.execute)
+
+    await closeDb()
+
+    const statements = execute.mock.calls.map(([statement]) => String(statement))
+    expect(statements.at(-1)).toBe('CHECKPOINT')
+  })
+
+  it('keeps a failed checkpoint visible and rejects closeDb', async () => {
+    const { getDb, closeDb, persistenceStatus } = useDuckDb()
+    const database = await getDb()
+    vi.mocked(database.value!.execute).mockRejectedValueOnce(new Error('checkpoint failed'))
+
+    await expect(closeDb()).rejects.toThrow('checkpoint failed')
+    expect(persistenceStatus.value).toMatchObject({
+      state: 'error',
+      pendingWrites: 1,
+      error: 'checkpoint failed',
+    })
+  })
+
   // Single-writer contract: a follower renderer must never open the OPFS
   // database, or it strips the leader's exclusive access handle.
   it('refuses to open the database in a follower renderer window', async () => {

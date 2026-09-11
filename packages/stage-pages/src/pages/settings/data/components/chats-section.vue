@@ -26,8 +26,13 @@ const {
   deleteAllChatSessions,
   exportChatSessions,
   importChatSessions,
+  exportBusinessSnapshot,
+  importBusinessSnapshot,
+  adoptRestoredProfile,
+  restoreEffectsHeld,
 } = useDataMaintenance()
 const { emitStatus, handleActionError } = createDataSettingsStatusHelpers(emit)
+const adoptingRestore = shallowRef(false)
 
 function triggerImportPicker() {
   importFileInput.value?.click()
@@ -47,6 +52,51 @@ async function triggerExport() {
   }
   catch (error) {
     handleActionError(error)
+  }
+}
+
+async function triggerBusinessExport() {
+  try {
+    const blob = await exportBusinessSnapshot()
+    const anchor = document.createElement('a')
+    anchor.href = URL.createObjectURL(blob)
+    anchor.download = `airi-backup-${new Date().toISOString()}.zip`
+    anchor.click()
+    URL.revokeObjectURL(anchor.href)
+    emitStatus(t('settings.pages.data.status.exported'))
+  }
+  catch (error) {
+    handleActionError(error)
+  }
+}
+
+async function handleBusinessImport(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file)
+    return
+  try {
+    await importBusinessSnapshot(new Uint8Array(await file.arrayBuffer()))
+    emitStatus(t('settings.pages.data.status.imported'))
+  }
+  catch (error) {
+    handleActionError(error)
+  }
+  finally {
+    ;(event.target as HTMLInputElement).value = ''
+  }
+}
+
+async function triggerRestoreAdoption() {
+  adoptingRestore.value = true
+  try {
+    await adoptRestoredProfile()
+    emitStatus(t('settings.pages.data.status.restore_adopted'))
+  }
+  catch (error) {
+    handleActionError(error)
+  }
+  finally {
+    adoptingRestore.value = false
   }
 }
 
@@ -105,6 +155,14 @@ async function handleImport(event: Event) {
           <Button @click="triggerImportPicker">
             {{ t('settings.pages.data.sections.chats.import') }}
           </Button>
+          <Button @click="triggerBusinessExport">
+            Backup ZIP
+          </Button>
+          <label>
+            <span class="sr-only">Restore backup ZIP</span>
+            <input type="file" accept="application/zip,.zip" class="hidden" @change="handleBusinessImport">
+            <Button as="span">Restore ZIP</Button>
+          </label>
         </div>
         <DoubleCheckButton @confirm="deleteChats">
           {{ t('settings.pages.data.sections.chats.delete') }}
@@ -121,5 +179,28 @@ async function handleImport(event: Event) {
     <p v-if="importError" :class="['text-sm text-red-500']">
       {{ importError }}
     </p>
+    <div
+      v-if="restoreEffectsHeld"
+      :class="[
+        'mt-4 flex flex-col gap-3 rounded-lg border border-amber-300/60 bg-amber-50/80 p-3',
+        'dark:border-amber-700/60 dark:bg-amber-950/30',
+      ]"
+    >
+      <div>
+        <div :class="['font-medium text-amber-900 dark:text-amber-100']">
+          {{ t('settings.pages.data.sections.chats.restore_title') }}
+        </div>
+        <p :class="['text-sm text-amber-800 dark:text-amber-200']">
+          {{ t('settings.pages.data.sections.chats.restore_description') }}
+        </p>
+      </div>
+      <Button
+        class="self-start"
+        :loading="adoptingRestore"
+        @click="triggerRestoreAdoption"
+      >
+        {{ t('settings.pages.data.sections.chats.restore_adopt') }}
+      </Button>
+    </div>
   </div>
 </template>

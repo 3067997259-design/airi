@@ -4,8 +4,10 @@ import { isStageTamagotchi } from '@proj-airi/stage-shared'
 import { useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
 import { useModelStore } from '@proj-airi/stage-ui-three'
 
+import { restoreEffectsHeld } from '../services/restore-gate'
 import { useChatStore } from '../stores/chat'
 import { useChatSessionStore } from '../stores/chat/session-store'
+import { useDataBackupStore } from '../stores/data-backup'
 import { useDisplayModelsStore } from '../stores/display-models'
 import { useMcpStore } from '../stores/mcp'
 import { useAiriCardStore } from '../stores/modules/airi-card'
@@ -44,6 +46,7 @@ export function useDataMaintenance() {
   const mcpStore = useMcpStore()
   const onboardingStore = useOnboardingStore()
   const airiCardStore = useAiriCardStore()
+  const dataBackupStore = useDataBackupStore()
 
   async function deleteAllModels() {
     await displayModelsStore.resetDisplayModels()
@@ -75,6 +78,24 @@ export function useDataMaintenance() {
   async function exportChatSessions() {
     const data = await chatStore.exportSessions()
     return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  }
+
+  /** Exports the complete business snapshot as a downloadable ZIP blob. */
+  async function exportBusinessSnapshot() {
+    const bytes = await dataBackupStore.exportSnapshot()
+    const copy = new ArrayBuffer(bytes.byteLength)
+    new Uint8Array(copy).set(bytes)
+    return new Blob([copy], { type: 'application/zip' })
+  }
+
+  /** Restores a validated business snapshot through every registered owner. */
+  async function importBusinessSnapshot(data: Uint8Array): Promise<void> {
+    await dataBackupStore.importSnapshot(data)
+  }
+
+  /** Resumes external effects after the restored profile has been reviewed. */
+  async function adoptRestoredProfile(): Promise<void> {
+    await dataBackupStore.adoptRestoredProfile()
   }
 
   function isChatSessionsPayload(payload: unknown): payload is ChatSessionsExport {
@@ -124,6 +145,10 @@ export function useDataMaintenance() {
     deleteAllChatSessions,
     exportChatSessions,
     importChatSessions,
+    exportBusinessSnapshot,
+    importBusinessSnapshot,
+    adoptRestoredProfile,
+    restoreEffectsHeld,
     deleteAllData,
     resetDesktopApplicationState,
   }
