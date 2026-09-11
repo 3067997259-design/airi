@@ -7,8 +7,11 @@ export type { ProjectionChangeListener, ProjectionSnapshot, ProjectionUnit, Tool
 export { createJournalStore, journalFromJSONL, journalToJSONL } from './store'
 export type { JournalStore, JournalStoreOptions } from './store'
 
+export { deriveTaskRuns, openTaskId } from './task-run'
 export { createBranch, createBranchStore, deserializeBranch, serializeBranch } from './tree'
+
 export type { CreateBranchOptions, JournalBranch } from './tree'
+export type { TaskRun, TaskRunActivity, TaskRunStatus } from './types'
 
 export { JOURNAL_EVENT_TYPES } from './types'
 export type {
@@ -22,10 +25,13 @@ export type {
   EventReactionJournalEvent,
   FlowEndEvent,
   FlowEndReason,
+  FlowResumeConfig,
+  FlowResumeContext,
   FlowStartEvent,
   FlowStepEvent,
   FlowTrigger,
   ForkPointEvent,
+  GoalUpdateEvent,
   JournalEvent,
   JournalEventInput,
   JournalEventType,

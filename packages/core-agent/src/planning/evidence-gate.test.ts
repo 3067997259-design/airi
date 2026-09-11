@@ -40,6 +40,29 @@ describe('evidence gate runtime', () => {
     expect(snapshot.steps['step-1']).toMatchObject({ status: 'completed' })
   })
 
+  it('closes a skipped step as a decision, without a blocker reason', () => {
+    // Supersession writes plan/update skipped for the replaced plan's open
+    // steps. The step can no longer collect evidence, so reporting it blocked
+    // would hold a flow open forever over work no one will run.
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      { type: 'plan/update', seq: 2, stepId: 'step-1', status: 'skipped', reason: 'superseded by a new plan' },
+    ]
+    const snapshot = projectStepGateStates(events, [step()])
+    expect(snapshot.steps['step-1']).toMatchObject({ status: 'skipped' })
+    expect(snapshot.steps['step-1']?.reason).toBeUndefined()
+  })
+
+  it('keeps gate evidence louder than a later skip', () => {
+    const events: JournalEvent[] = [
+      ...COMPLETED_JOURNEY,
+      { type: 'plan/update', seq: 3, stepId: 'step-1', status: 'skipped' },
+    ]
+    const snapshot = projectStepGateStates(events, [step()])
+    expect(snapshot.steps['step-1']).toMatchObject({ status: 'completed' })
+  })
+
   it('never completes a step on unreviewed self-authored evidence alone', () => {
     const events: JournalEvent[] = [
       { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
@@ -173,11 +196,20 @@ describe('evidence gate runtime', () => {
 
     const state = projectStepGateStates(events, [step()]).steps['step-1']
 
-    expect(state?.status).toBe('failed')
+    expect(state?.status).toBe('blocked')
     expect(state?.verdict?.passed).toBe(false)
   })
 
-  it('does not treat an exit-one bash result as mutation evidence', () => {
+  // ROOT CAUSE (FLOW-KNOWLEDGE principle one):
+  //
+  // A failed receipt used to flip the step (and through the terminal-status
+  // projection, the whole plan) to `failed` one event after creation. The
+  // 2026-09-03 acceptance run lost 35 iterations to exactly that: one
+  // `cd /d` probe stamped its failure onto step-1, the plan left the active
+  // set, and the evidence-stamping channel went deaf for the rest of the
+  // flow. A failed receipt is an observation — the step stays `blocked`
+  // until evidence lands or the model explicitly declares the step failed.
+  it('keeps a step blocked after a failed receipt instead of failing it', () => {
     const events: JournalEvent[] = [
       { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
       { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
@@ -193,6 +225,20 @@ describe('evidence gate runtime', () => {
     ]
 
     const state = projectStepGateStates(events, [step({ allowedTools: ['bash'] })]).steps['step-1']
+
+    expect(state?.status).toBe('blocked')
+    expect(state?.verdict?.passed).toBe(false)
+  })
+
+  it('fails a step only from a model-declared plan failure', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', ok: false, summary: 'write failed' }),
+      { type: 'plan/update', seq: 3, stepId: 'step-1', status: 'failed', reason: 'abandoned: wrong approach' },
+    ]
+
+    const state = projectStepGateStates(events, [step()]).steps['step-1']
 
     expect(state?.status).toBe('failed')
     expect(state?.verdict?.passed).toBe(false)
@@ -250,6 +296,32 @@ describe('evidence gate runtime', () => {
     ]
 
     expect(collectStepGateRefs(events, 'step-1')).toEqual([])
+  })
+
+  it('projects a rejected approval instead of hiding it behind a generic blocker', () => {
+    const events: JournalEvent[] = [
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      { type: 'approval/asked', seq: 2, requestId: 'a1', stepId: 'step-1', reason: 'write', riskLevel: 'high' },
+      { type: 'approval/decided', seq: 3, requestId: 'a1', decision: 'rejected' },
+    ]
+
+    expect(projectStepGateStates(events, [step({ approvalRequired: true })]).steps['step-1']).toMatchObject({
+      status: 'blocked',
+      reason: 'approval rejected: step-1',
+    })
+  })
+
+  it('projects a cancelled approval distinctly from a pending approval', () => {
+    const events: JournalEvent[] = [
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      { type: 'approval/asked', seq: 2, requestId: 'a1', stepId: 'step-1', reason: 'write', riskLevel: 'high' },
+      { type: 'approval/decided', seq: 3, requestId: 'a1', decision: 'cancelled' },
+    ]
+
+    expect(projectStepGateStates(events, [step({ approvalRequired: true })]).steps['step-1']).toMatchObject({
+      status: 'blocked',
+      reason: 'approval cancelled: step-1',
+    })
   })
 
   it('collects only refs bound to the step', () => {

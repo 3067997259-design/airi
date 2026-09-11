@@ -19,7 +19,9 @@ export const JOURNAL_EVENT_TYPES = [
   'flow/start',
   'flow/step',
   'flow/end',
+  'flow/resumed',
   'plan/update',
+  'goal/update',
   'plan/hint',
   'todo/write',
   'prompt/supplement-changed',
@@ -32,10 +34,19 @@ export const JOURNAL_EVENT_TYPES = [
   'review/decided',
   'user/asked',
   'user/answered',
+  'user/steering',
+  'flow/completion-review',
   'fork/point',
   'archived/pointer',
   'appearance/changed',
   'life/tick',
+  'life/heartbeat',
+  'life/decision',
+  'memory/retrieved',
+  'memory/applied',
+  'memory/dream',
+  'memory/migrated',
+  'memory/revised',
 ] as const
 
 export type JournalEventType = (typeof JOURNAL_EVENT_TYPES)[number]
@@ -58,8 +69,15 @@ export interface TurnStartEvent {
   timestamp: number
   planId?: string
   flowId?: string
+  /**
+   * Task this turn advances. Present on flow continuation turns; a flow may
+   * also start mid-turn, so ordinary turns only carry it when one is open.
+   */
+  taskId?: string
   iteration?: number
   maxSteps: number
+  /** Effective per-iteration step budget of a flow turn; `maxSteps` is only the provider cap. */
+  stepBudget?: number
 }
 
 export interface TurnEndEvent {
@@ -112,6 +130,8 @@ export interface ToolCallEvent {
   toolName: string
   args: unknown
   planId?: string
+  /** Open task this call belongs to; stamped by the runtime while a flow runs. */
+  taskId?: string
 }
 
 export interface ToolResultEvent {
@@ -130,12 +150,52 @@ export interface ToolResultEvent {
   stepId?: string
   /** Plan that owns the step when more than one plan is active. */
   planId?: string
+  /** Open task this result belongs to; stamped by the writer while a flow runs. */
+  taskId?: string
+  /**
+   * Wall-clock time the writing owner recorded the result. Optional because
+   * journals written before the field exist; social consideration uses it to
+   * age activity candidates instead of trusting the model's sense of "now".
+   */
+  timestamp?: number
+}
+
+/**
+ * Non-sensitive runtime configuration a restart needs to resume a flow in
+ * its original environment (TASK-RUN-AND-UI-PLAN batch D). Secrets, API keys,
+ * and full prompts never belong here — the resume send re-resolves the
+ * provider instance from the host, this snapshot only says WHICH one.
+ */
+export interface FlowResumeConfig {
+  providerId: string
+  model: string
+  profile: 'social' | 'work'
+  toolNames: string[]
+  workspaceRoot?: string
+}
+
+/**
+ * The full resume view of one flow, assembled from the journal at recovery
+ * time: the journaled configuration plus the identity and cursor fields the
+ * verifier needs before the loop may continue.
+ */
+export interface FlowResumeContext extends FlowResumeConfig {
+  taskId: string
+  flowId: string
+  sessionId: string
+  iteration: number
+  lastJournalSeq: number
+  status: 'running' | 'waiting-user' | 'interrupted' | 'ended'
 }
 
 export interface FlowStartEvent {
   type: 'flow/start'
   seq: number
   flowId: string
+  /** Task identity created with the flow; every later event of the run repeats it. */
+  taskId?: string
+  /** Non-sensitive environment snapshot a restart resumes from, when known. */
+  resume?: FlowResumeConfig
   trigger: FlowTrigger
   triggerDetail?: string
   timestamp: number
@@ -145,8 +205,13 @@ export interface FlowStepEvent {
   type: 'flow/step'
   seq: number
   flowId: string
+  taskId?: string
   iteration: number
   reason: 'continue'
+  /** Seq of the last journal event settled before this iteration started. */
+  lastJournalSeq?: number
+  /** Refreshed environment snapshot; the latest one on the run wins. */
+  resume?: FlowResumeConfig
   pending?: string
 }
 
@@ -154,10 +219,31 @@ export interface FlowEndEvent {
   type: 'flow/end'
   seq: number
   flowId: string
+  taskId?: string
   reason: FlowEndReason
   iterations: number
   timestamp: number
   detail?: string
+}
+
+/**
+ * Records that a flow was rebuilt from the journal after a restart.
+ *
+ * The run keeps its flow/task identity; this event marks the wall-clock and
+ * seq boundary between the interrupted attempt and the recovery actions, so
+ * ordinary turns can attribute evidence to the correct phase instead of
+ * guessing from message order (ACC-20260911 #9).
+ */
+export interface FlowResumedEvent {
+  type: 'flow/resumed'
+  seq: number
+  flowId: string
+  taskId?: string
+  /** Wall-clock time the renderer rebuilt the run. */
+  resumedAt: number
+  /** Highest journal seq of the interrupted attempt; events at or below it are pre-restart. */
+  resumedFromSeq: number
+  timestamp: number
 }
 
 export interface PlanUpdateEvent {
@@ -165,7 +251,9 @@ export interface PlanUpdateEvent {
   seq: number
   planId?: string
   stepId?: string
-  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused'
+  /** Task whose flow was open when the plan changed; absent for plan activity outside any flow. */
+  taskId?: string
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused' | 'cancelled'
   reason?: string
   /**
    * Set on model-declared completions that the evidence gate did not verify.
@@ -173,6 +261,8 @@ export interface PlanUpdateEvent {
    * and `human_approval` steps can never carry it.
    */
   unverified?: boolean
+  /** Wall-clock time the writing owner recorded the update; see {@link ToolResultEvent.timestamp}. */
+  timestamp?: number
 }
 
 export interface TaskUpdateEvent {
@@ -182,6 +272,8 @@ export interface TaskUpdateEvent {
   /** Full replace-self TaskMemory snapshot; the Nth update replaces the N-1th. */
   memory: Record<string, unknown>
   logRef?: string
+  /** Wall-clock time the writing owner recorded the update; see {@link ToolResultEvent.timestamp}. */
+  timestamp?: number
 }
 
 /**
@@ -288,6 +380,8 @@ export interface UserAskedEvent {
   requestId: string
   question: string
   choices?: string[]
+  /** Task that is waiting for this answer, when one is open. */
+  taskId?: string
   source?: 'user_ask' | 'btw'
 }
 
@@ -296,8 +390,47 @@ export interface UserAnsweredEvent {
   seq: number
   requestId: string
   answer: string
+  /** Task whose pending question this answer settles. */
+  taskId?: string
   channel?: 'choice' | 'text' | 'dismissed'
   source?: 'user_ask' | 'btw'
+}
+
+/**
+ * User text captured while a flow was running.
+ *
+ * During a flow every queued user send is steering, not a new turn: the text
+ * rides the next iteration's opening prompt instead of killing the loop.
+ */
+export interface UserSteeringEvent {
+  type: 'user/steering'
+  seq: number
+  text: string
+  flowId?: string
+  /** Task the steering feeds; steering never opens a task of its own. */
+  taskId?: string
+  /** This push displaced the oldest queued steering text (queue cap reached). */
+  droppedOldest?: boolean
+  timestamp: number
+}
+
+/**
+ * The outcome of a done-declaration check at the turn boundary.
+ *
+ * `gate` is the mechanical plan-step conjunction (L1); `review` is the
+ * host-supplied completion reviewer over the journal slice (L3). `rejected`
+ * keeps the flow running and feeds `feedback` to the next iteration.
+ */
+export interface FlowCompletionReviewEvent {
+  type: 'flow/completion-review'
+  seq: number
+  flowId: string
+  taskId?: string
+  layer: 'gate' | 'review'
+  verdict: 'pass' | 'rejected' | 'abstain'
+  blockers?: string[]
+  feedback?: string
+  timestamp: number
 }
 
 export interface ReviewAskedEvent {
@@ -371,6 +504,230 @@ export interface LifeTickEvent {
   timestamp: number
 }
 
+/** One observable scheduling opportunity before a model decision. */
+export interface LifeHeartbeatEvent {
+  type: 'life/heartbeat'
+  seq: number
+  heartbeatId: string
+  outcome: 'emitted' | 'gated' | 'no-stimulus' | 'tools-unavailable'
+  gate?: 'mode' | 'quiet-hours' | 'budget' | 'cooldown' | 'busy' | 'focused' | 'flow-active' | 'speech-active' | 'no-session' | 'no-stimulus' | 'stale-stimulus' | 'tools-unavailable' | 'stale-heartbeat' | 'respond'
+  nextHeartbeatAt?: number
+  timestamp: number
+}
+
+/** The explicit result of one social consideration round. */
+export interface LifeDecisionEvent {
+  type: 'life/decision'
+  seq: number
+  heartbeatId: string
+  decisionId: string
+  action: 'speak' | 'note' | 'silence' | 'discarded' | 'protocol-error' | 'provider-error'
+  text?: string
+  reason?: string
+  sourceRefs: string[]
+  consideredThroughSeq: number
+  timestamp: number
+}
+
+/** One bounded memory retrieval used to compose a prompt. */
+export interface MemoryRetrievedEvent {
+  type: 'memory/retrieved'
+  seq: number
+  sessionId: string
+  /** Turn whose prompt consumed the retrieval; empty when sent outside a turn. */
+  turnId?: string
+  memoryIds: string[]
+  query: string
+  /** Per-memory dual-query scores kept for retrieval diagnostics. */
+  scores?: Array<{
+    memoryId: string
+    score?: number
+    originalSimilarity?: number
+    normalizedSimilarity?: number
+    retrievalQuery?: 'original' | 'normalized' | 'both'
+  }>
+  timestamp: number
+}
+
+/** One durable lifecycle transition for a long-horizon goal. */
+export interface GoalUpdateEvent {
+  type: 'goal/update'
+  seq: number
+  goalId: string
+  lifecycle: import('../authority/contract').LongGoalLifecycle
+  reason: string
+  source: import('../authority/contract').LongGoalTransitionSource
+  constraintVersion: number
+  timestamp: number
+  revision?: boolean
+  taskId?: string
+  flowId?: string
+  nextReviewAt?: number
+  waitReason?: string
+  pendingQuestion?: import('../authority/contract').LongGoalPendingQuestion
+  run?: import('../authority/contract').LongGoalRunRecord
+  environment?: import('../authority/contract').LongGoalEnvironmentSnapshot
+}
+
+/**
+ * Whether the answered turn actually used its recalled memories.
+ *
+ * The marker-based detection separates parroting the current-session context
+ * from genuine cross-session recall (MEMORY-SEMANTICS-CORRECTION §5.2): an
+ * answer that never cites `[memory:<id>]` stays recorded with an empty
+ * `appliedMemoryIds`, so it can never serve as recall evidence.
+ */
+export interface MemoryAppliedEvent {
+  type: 'memory/applied'
+  seq: number
+  sessionId: string
+  turnId: string
+  retrievedMemoryIds: string[]
+  appliedMemoryIds: string[]
+  timestamp: number
+}
+
+/** One manual muscle-to-fact migration triggered from the memory browser. */
+export interface MemoryMigratedEvent {
+  type: 'memory/migrated'
+  seq: number
+  sessionId: string
+  /** Local id of the migrated fragment; the id is preserved by the migration. */
+  memoryId: string
+  fromType: string
+  toType: string
+  /** Whether the migrated fragment carried a usable trigger pattern. */
+  hadTriggerPattern: boolean
+  reviewStatus: string
+  timestamp: number
+}
+
+/**
+ * One user correction proposal against an existing claim. The revision stays
+ * pending until review; approving it supersedes the previous claim, so this
+ * event marks the moment the correction entered the pipeline.
+ */
+export interface MemoryRevisedEvent {
+  type: 'memory/revised'
+  seq: number
+  sessionId: string
+  /** Claim being corrected. */
+  memoryId: string
+  /** Newly created pending revision. */
+  revisionId: string
+  relation: 'supersedes' | 'disputes'
+  timestamp: number
+}
+
+/** One bounded automatic dreaming pass triggered by an eligible life heartbeat. */
+export interface MemoryDreamEvent {
+  type: 'memory/dream'
+  seq: number
+  heartbeatId: string
+  status: 'ran'
+  addedCount: number
+  timestamp: number
+}
+
+/**
+ * Lifecycle of one continuous piece of work, as the journal shows it.
+ *
+ * `running` covers every iteration of an open flow; `waiting-user` marks an
+ * open user question. The terminal statuses come from the `flow/end` reason,
+ * with one status per reason so no terminal state has to be guessed back out
+ * of `endDetail`.
+ */
+/**
+ * A bounded, serializable activity row for one task projection.
+ *
+ * The row crosses renderer boundaries in the synchronized task snapshot.
+ * It contains display data only, so it never replaces the journal as the
+ * source of truth.
+ */
+export type TaskRunActivity
+  = | {
+    kind: 'tool-call'
+    seq: number
+    toolName: string
+    args: string
+  }
+  | {
+    kind: 'tool-result'
+    seq: number
+    toolName: string
+    ok: boolean
+    outcome?: ToolResultOutcome
+    summary: string
+  }
+  | {
+    kind: 'narration'
+    seq: number
+    text: string
+  }
+  | {
+    kind: 'steering'
+    seq: number
+    text: string
+  }
+  | {
+    kind: 'plan-update'
+    seq: number
+    planId?: string
+    stepId?: string
+    status?: PlanUpdateEvent['status']
+    unverified?: boolean
+  }
+  | {
+    kind: 'completion-review'
+    seq: number
+    layer: FlowCompletionReviewEvent['layer']
+    verdict: FlowCompletionReviewEvent['verdict']
+    blockers?: string[]
+  }
+
+export type TaskRunStatus
+  = | 'running'
+    | 'waiting-user'
+    | 'completed'
+    | 'blocked'
+    | 'interrupted'
+    | 'budget'
+    | 'no-progress'
+
+/**
+ * The derived projection of one task run (TASK-RUN-AND-UI-PLAN batch A).
+ *
+ * A task is what one continuous piece of engineering work is called across
+ * its whole lifetime. It is not a second source of truth — every field is
+ * derived from journal events — and its identity never borrows another id:
+ * `taskId` is minted beside (never from) `flowId`, `planId`, or message ids,
+ * so an event can always be attributed by its own stamp instead of by
+ * scanning time windows.
+ */
+export interface TaskRun {
+  taskId: string
+  sessionId: string
+  flowId?: string
+  planIds: string[]
+  title: string
+  status: TaskRunStatus
+  startedAt: number
+  updatedAt: number
+  /** At most 40 rows, derived from the task window for cross-window display. */
+  activity: TaskRunActivity[]
+  currentIteration?: number
+  currentStepId?: string
+  pendingQuestion?: string
+  lastFailure?: string
+  endDetail?: string
+  /**
+   * Set on runs rebuilt from journals written before task stamps existed.
+   * Their identity is synthesized for display only, so they must never be
+   * resumed or continued under it.
+   */
+  legacy?: boolean
+}
+
 export type JournalEvent
   = | SessionHeaderEvent
     | TurnStartEvent
@@ -384,7 +741,9 @@ export type JournalEvent
     | FlowStartEvent
     | FlowStepEvent
     | FlowEndEvent
+    | FlowResumedEvent
     | PlanUpdateEvent
+    | GoalUpdateEvent
     | PlanHintEvent
     | TodoWriteEvent
     | PromptSupplementChangedEvent
@@ -397,10 +756,19 @@ export type JournalEvent
     | ReviewDecidedEvent
     | UserAskedEvent
     | UserAnsweredEvent
+    | UserSteeringEvent
+    | FlowCompletionReviewEvent
     | ForkPointEvent
     | ArchivePointerEvent
     | AppearanceChangedEvent
     | LifeTickEvent
+    | LifeHeartbeatEvent
+    | LifeDecisionEvent
+    | MemoryRetrievedEvent
+    | MemoryAppliedEvent
+    | MemoryDreamEvent
+    | MemoryMigratedEvent
+    | MemoryRevisedEvent
 
 /** Everything that identifies an event except the store-assigned sequence. */
 export type JournalEventInput = DistributiveOmit<JournalEvent, 'seq'>

@@ -27,6 +27,7 @@ export interface VerificationGateInput {
     /** Step intent, when the caller has it; feeds the verification-semantic check. */
     intent?: string
   }
+  /** Receipts in journal order; readback must follow the latest mutation. */
   refs: GateRef[]
 }
 
@@ -37,7 +38,7 @@ export interface VerificationGateSatisfied {
 
 export interface VerificationGateMissing {
   expected: PlanExpectedEvidence
-  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof' | 'not_verified_outcome' | 'not_diff_content'
+  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof' | 'not_verified_outcome' | 'not_diff_content' | 'not_observed_content'
 }
 
 export interface VerificationGateVerdict {
@@ -104,7 +105,9 @@ export function stepCanAct(step: VerificationGateInput['step']): boolean {
 // file (write/edit) never counts as running it.
 // Removal condition: when plan steps can declare structured verification
 // commands instead of free-text intent/description.
-const VERIFICATION_STEP_PATTERN = /test|verify|verification|build|lint|check|typecheck|检查|验证/i
+const VERIFICATION_STEP_PATTERN = /\b(?:tests?|testing|verify|verification|build|lint|check|typecheck)\b|检查|验证|测试|构建/i
+const EXECUTION_STEP_PATTERN = /\b(?:tests?|testing|build|lint|typecheck)\b|测试|构建/i
+const OBSERVATION_STEP_PATTERN = /\b(?:read|inspect|readback)\b|(?:check|verify|verification).*(?:file|content)|(?:file|content).*(?:check|verification)|读回|读取|查看|(?:检查|验证).*(?:文件|内容)/i
 const VERIFICATION_RECEIPT_PATTERN = /_test\.|\.test\.|\.spec\.|_spec\.|\b(?:test|tests|spec|verify|verification|vitest|jest|pytest|build|compile|lint|check|typecheck|tsc|eslint)\b/i
 /** Receipts that can carry verification semantics: execution tools only. */
 const VERIFICATION_RECEIPT_TOOLS = new Set(['bash', 'code_mode', 'job_output'])
@@ -119,12 +122,15 @@ const DIFF_RECEIPT_TOOLS = new Set(['bash', 'read', 'readRaw', 'job_output', 'co
 const DIFF_CONTENT_PATTERN = /diff --git\s+a\/\S+\s+b\/\S+|@@\s+-\d+(?:,\d+)?\s+\+\d+(?:,\d+)?\s+@@|(?:^|\\n|\r?\n)(?:---|\+\+\+)\s+(?:a\/|b\/)\S+/m
 
 function stepExpectsVerification(step: VerificationGateInput['step']): boolean {
-  return [step.intent ?? '', ...step.expectedEvidence.map(item => item.description)]
-    .some(text => VERIFICATION_STEP_PATTERN.test(text))
+  const text = [step.intent ?? '', ...step.expectedEvidence.map(item => item.description)].join(' ')
+  // Explicit test/build work still requires execution, even when the step
+  // also reads files. Generic file inspection does not imply a test run.
+  return EXECUTION_STEP_PATTERN.test(text)
+    || (VERIFICATION_STEP_PATTERN.test(text) && !OBSERVATION_STEP_PATTERN.test(text))
 }
 
 function refCarriesVerification(ref: GateRef): boolean {
-  if (ref.source !== 'tool_result')
+  if (ref.source !== 'tool_result' || (ref.outcome && ref.outcome !== 'ok'))
     return false
   if (ref.toolName !== undefined && !VERIFICATION_RECEIPT_TOOLS.has(ref.toolName))
     return false
@@ -162,10 +168,13 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
   const missing: VerificationGateMissing[] = []
 
   for (const expected of input.step.expectedEvidence) {
-    // A mutation-proving ref wins over an earlier matching ref of the same
-    // source: a step that ran bash (read-only) and then write has satisfied
-    // its evidence with the write, not with the read-only shell run.
-    const match = stepRefs.find(ref => ref.source === expected.source && refProvesMutation(ref))
+    // Prefer the execution receipt for test work. Otherwise prefer mutation
+    // proof over a generic source match. Independent checks below still
+    // require each promised behavior, even when one ref is shown here.
+    const verification = stepExpectsVerification(input.step)
+      ? stepRefs.find(ref => ref.source === expected.source && refCarriesVerification(ref))
+      : undefined
+    const match = verification ?? stepRefs.find(ref => ref.source === expected.source && refProvesMutation(ref))
       ?? stepRefs.find(ref => ref.source === expected.source)
 
     if (!match) {
@@ -184,7 +193,7 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
     stepHasSideEffects(input.step)
     && stepCanAct(input.step)
     && satisfied.length > 0
-    && !satisfied.some(({ ref }) => refProvesMutation(ref))
+    && !stepRefs.some(refProvesMutation)
   ) {
     const index = satisfied.findIndex(({ expected }) => expected.source === 'tool_result')
     const [unproven] = satisfied.splice(index >= 0 ? index : 0, 1)
@@ -203,7 +212,7 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
     stepExpectsVerification(input.step)
     && stepCanAct(input.step)
     && satisfied.length > 0
-    && !satisfied.some(({ ref }) => refCarriesVerification(ref))
+    && !stepRefs.some(refCarriesVerification)
   ) {
     const index = satisfied.findIndex(({ expected }) => expected.source === 'tool_result')
     const [unverified] = satisfied.splice(index >= 0 ? index : 0, 1)
@@ -212,6 +221,31 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
         expected: unverified.expected,
         reason: 'not_verified_outcome',
       })
+    }
+  }
+
+  const intent = [input.step.intent ?? '', ...input.step.expectedEvidence.map(item => item.description)].join(' ')
+  if (OBSERVATION_STEP_PATTERN.test(intent) && !stepExpectsDiff(input.step) && stepCanAct(input.step) && satisfied.length > 0) {
+    // A write receipt describes the mutation, not the resulting file. A
+    // pre-write read cannot prove the contents left by that mutation either.
+    const explicitReadback = /\bread[- ]?back\b|读回|写入后|写后/i.test(intent)
+    const mutationIndex = stepRefs.findLastIndex(ref => refProvesMutation(ref)
+      && (explicitReadback || (ref.toolName !== undefined && MUTATING_TOOL_NAMES.has(ref.toolName))))
+    const observed = stepRefs.some((ref, index) => index > mutationIndex
+      && ref.source === 'tool_result'
+      // An absent outcome means ok — the journal only carries the field on
+      // failures, matching collectStepGateRefs and refProvesMutation.
+      // Requiring the literal field here rejected every readback whose
+      // receipt came from the plain tool-result path.
+      && (ref.outcome ?? 'ok') === 'ok'
+      && (ref.toolName === 'read' || ref.toolName === 'readRaw')
+      && ref.summary.trim().length > 0)
+    if (!observed) {
+      const index = satisfied.findIndex(({ expected }) => expected.source === 'tool_result')
+      if (index >= 0) {
+        const [unread] = satisfied.splice(index, 1)
+        missing.push({ expected: unread!.expected, reason: 'not_observed_content' })
+      }
     }
   }
 

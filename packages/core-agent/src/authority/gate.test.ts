@@ -32,6 +32,43 @@ function makeRef(overrides: Partial<GateRef> = {}): GateRef {
 }
 
 describe('verification gate', () => {
+  // ROOT CAUSE:
+  // Generic check/verify wording required execution even for file observation.
+  // File receipts and test execution must remain separate evidence kinds.
+  it('accepts a successful read for a file inspection', () => {
+    const verdict = evaluateVerificationGate({
+      step: makeStep({ riskLevel: 'low', allowedTools: ['read'], intent: '检查文件内容', expectedEvidence: [{ source: 'tool_result', description: '验证文件内容' }] }),
+      refs: [makeRef({ toolName: 'read', outcome: 'ok', summary: 'notes.txt: expected content' })],
+    })
+    expect(verdict.passed).toBe(true)
+  })
+
+  it('requires an observation receipt after a write for readback', () => {
+    const step = makeStep({ allowedTools: ['write', 'read'], intent: '写入后读回检查文件内容' })
+    const write = makeRef({ toolName: 'write', outcome: 'ok' })
+    const read = makeRef({ toolName: 'read', outcome: 'ok', summary: 'notes.txt: expected content' })
+    expect(evaluateVerificationGate({ step, refs: [write] }).passed).toBe(false)
+    expect(evaluateVerificationGate({ step, refs: [read, write] }).passed).toBe(false)
+    expect(evaluateVerificationGate({ step, refs: [write, read] }).passed).toBe(true)
+  })
+
+  it('keeps file inspection distinct from the following test command', () => {
+    const step = makeStep({ riskLevel: 'low', allowedTools: ['read', 'bash'], intent: 'Read the file and run tests' })
+    const verdict = evaluateVerificationGate({ step, refs: [
+      makeRef({ toolName: 'read', outcome: 'ok', summary: 'notes.txt: expected contents' }),
+      makeRef({ toolName: 'bash', tier: 'medium', outcome: 'ok', summary: 'vitest passed' }),
+    ] })
+    expect(verdict.passed).toBe(true)
+    expect(verdict.satisfied[0]?.ref.toolName).toBe('bash')
+  })
+
+  it('does not count a written test or a failed execution as passing tests', () => {
+    const step = makeStep({ allowedTools: ['write', 'bash'], intent: '运行测试并验证' })
+    const write = makeRef({ toolName: 'write', outcome: 'ok', summary: 'wrote feature.test.ts' })
+    expect(evaluateVerificationGate({ step, refs: [write] }).passed).toBe(false)
+    expect(evaluateVerificationGate({ step, refs: [write, makeRef({ toolName: 'bash', outcome: 'failed', summary: 'vitest failed' })] }).passed).toBe(false)
+    expect(evaluateVerificationGate({ step, refs: [write, makeRef({ toolName: 'bash', outcome: 'ok', summary: 'vitest passed' })] }).passed).toBe(true)
+  })
   it('passes a side-effect step backed by mutation-provable evidence', () => {
     const verdict = evaluateVerificationGate({ step: makeStep(), refs: [makeRef()] })
     expect(verdict.passed).toBe(true)

@@ -7,10 +7,15 @@ export {
 export type { ApprovalConfig, BashRiskTier } from './approval'
 
 export {
+  applyLongGoalTransition,
   buildPlanningGuidanceBlock,
+  compareLongGoalEnvironment,
   comparePlanningAuthority,
+  createLongGoalState,
+  describeLongGoalEnvironmentChanges,
   getPlanningAuthorityRule,
   hasHigherPlanningAuthority,
+  normalizeLongGoalEnvironment,
   PLAN_LANES,
   PLAN_RECONCILER_DECISIONS,
   PLANNING_AUTHORITY_ORDER,
@@ -20,6 +25,16 @@ export {
   summarizePlanStateForProjection,
 } from './contract'
 export type {
+  LongGoalEnvironmentField,
+  LongGoalEnvironmentSnapshot,
+  LongGoalLifecycle,
+  LongGoalPendingQuestion,
+  LongGoalRunOutcome,
+  LongGoalRunRecord,
+  LongGoalState,
+  LongGoalTransitionInput,
+  LongGoalTransitionRecord,
+  LongGoalTransitionSource,
   PlanEvidenceRef,
   PlanExpectedEvidence,
   PlanLane,

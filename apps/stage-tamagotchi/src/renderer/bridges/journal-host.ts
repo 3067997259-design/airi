@@ -9,17 +9,19 @@ import type { JournalPersistencePort } from '@proj-airi/stage-ui/stores/journal'
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 
-import { journalHostAppend, journalHostRead } from '../../shared/eventa'
+import { journalHostAppend, journalHostExport, journalHostRead } from '../../shared/eventa'
 
 export function createJournalHostClient(): JournalPersistencePort {
   const context = getElectronEventaContext()
   const append = defineInvoke(context, journalHostAppend)
   const read = defineInvoke(context, journalHostRead)
+  const exportAll = defineInvoke(context, journalHostExport)
 
   return {
     append: async (sessionId, lines) => {
       await append({ sessionId, lines })
     },
     read: sessionId => read({ sessionId }),
+    exportAll,
   }
 }

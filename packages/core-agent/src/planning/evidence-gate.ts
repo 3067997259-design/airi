@@ -32,7 +32,7 @@ export interface StepGateSpec {
   intent?: string
 }
 
-export type StepGateStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed'
+export type StepGateStatus = 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed' | 'skipped'
 
 export interface StepGateState {
   status: StepGateStatus
@@ -116,7 +116,16 @@ export function verdictForStep(events: readonly JournalEvent[], step: StepGateSp
  * `pending`; `plan/update` moves it to `in_progress`; the gate verdict
  * decides `completed` vs `blocked` (missing evidence) / `failed`
  * (announced evidence contradicted). `plan/update.completed` announced by
- * the model is ignored — only the gate can complete a step.
+ * the model is ignored — only the gate can complete a step. A later
+ * `plan/update` skipped closes the step by decision (supersession): it can
+ * no longer collect evidence, so it leaves the gate instead of blocking a
+ * flow forever, unless evidence already completed it.
+ *
+ * A failed tool receipt is an observation, not a verdict: it leaves the step
+ * `blocked` (missing evidence, retry or re-route). `failed` comes only from
+ * a model-declared `plan/update` failure — one bad probe must never kill a
+ * plan and with it the evidence-stamping channel (FLOW-KNOWLEDGE principle
+ * one: the 2026-09-03 acceptance run lost 35 iterations to exactly that).
  */
 export function projectStepGateStates(events: readonly JournalEvent[], steps: readonly StepGateSpec[]): EvidenceGateSnapshot {
   const result: Record<string, StepGateState> = {}
@@ -134,11 +143,22 @@ export function projectStepGateStates(events: readonly JournalEvent[], steps: re
       continue
     }
 
+    if (latestPlan?.status === 'skipped') {
+      result[step.id] = { status: 'skipped', verdict }
+      continue
+    }
+
     if (step.approvalRequired && !hasAnyHumanApproval(events, step.id)) {
+      const approvalDecision = latestApprovalDecisionFor(events, step.id)
+      const reason = approvalDecision === 'rejected'
+        ? `approval rejected: ${step.id}`
+        : approvalDecision === 'cancelled'
+          ? `approval cancelled: ${step.id}`
+          : `approval required: ${step.id}`
       result[step.id] = {
         status: 'blocked',
         verdict,
-        reason: `approval required: ${step.id}`,
+        reason,
       }
       continue
     }
@@ -148,7 +168,7 @@ export function projectStepGateStates(events: readonly JournalEvent[], steps: re
       ? `missing ${missingItem.expected.source} evidence: ${missingItem.reason}`
       : 'gate not satisfied'
     result[step.id] = {
-      status: latestPlan?.status === 'failed' || latestToolResultFailed(events, step.id) ? 'failed' : 'blocked',
+      status: latestPlan?.status === 'failed' ? 'failed' : 'blocked',
       verdict,
       reason: stuckReason,
     }
@@ -177,11 +197,17 @@ function hasAnyHumanApproval(events: readonly JournalEvent[], stepId: string): b
   return collectStepGateRefs(events, stepId).some(ref => ref.source === 'human_approval')
 }
 
-function latestToolResultFailed(events: readonly JournalEvent[], stepId: string): boolean {
-  let latest: Extract<JournalEvent, { type: 'tool/result' }> | undefined
+function latestApprovalDecisionFor(events: readonly JournalEvent[], stepId: string): Extract<JournalEvent, { type: 'approval/decided' }>['decision'] | undefined {
+  const decisions = new Map<string, Extract<JournalEvent, { type: 'approval/decided' }>['decision'] | undefined>()
+  let latestRequestId: string | undefined
   for (const event of events) {
-    if (event.type === 'tool/result' && event.stepId === stepId)
-      latest = event
+    if (event.type === 'approval/asked' && event.stepId === stepId) {
+      latestRequestId = event.requestId
+      decisions.set(event.requestId, undefined)
+    }
+    else if (event.type === 'approval/decided' && decisions.has(event.requestId)) {
+      decisions.set(event.requestId, event.decision)
+    }
   }
-  return latest?.ok === false || (latest?.outcome !== undefined && latest.outcome !== 'ok')
+  return latestRequestId === undefined ? undefined : decisions.get(latestRequestId)
 }

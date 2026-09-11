@@ -7,14 +7,19 @@ export {
 export type { AttentionMode, TaskMemory } from './attention'
 
 export {
+  applyLongGoalTransition,
   bashApprovalRequired,
   buildPlanningGuidanceBlock,
   classifyBashCommand,
+  compareLongGoalEnvironment,
   comparePlanningAuthority,
+  createLongGoalState,
   DEFAULT_APPROVAL_REQUIRED_BY_RISK,
+  describeLongGoalEnvironmentChanges,
   evaluateVerificationGate,
   getPlanningAuthorityRule,
   hasHigherPlanningAuthority,
+  normalizeLongGoalEnvironment,
   PLAN_LANES,
   PLAN_RECONCILER_DECISIONS,
   PLANNING_AUTHORITY_ORDER,
@@ -31,6 +36,16 @@ export type {
   BashRiskTier,
   EvidenceRefLike,
   GateRef,
+  LongGoalEnvironmentField,
+  LongGoalEnvironmentSnapshot,
+  LongGoalLifecycle,
+  LongGoalPendingQuestion,
+  LongGoalRunOutcome,
+  LongGoalRunRecord,
+  LongGoalState,
+  LongGoalTransitionInput,
+  LongGoalTransitionRecord,
+  LongGoalTransitionSource,
   PlanEvidenceRef,
   PlanExpectedEvidence,
   PlanLane,
@@ -66,11 +81,13 @@ export {
   createTaskMemoryUnit,
   createToolEvidenceIndexUnit,
   DEFAULT_ARCHIVE_THRESHOLD_BYTES,
+  deriveTaskRuns,
   deserializeBranch,
   estimateJournalBytes,
   JOURNAL_EVENT_TYPES,
   journalFromJSONL,
   journalToJSONL,
+  openTaskId,
   ProjectionRegistry,
   serializeBranch,
   shouldArchiveJournal,
@@ -83,9 +100,12 @@ export type {
   CreateBranchOptions,
   FlowEndEvent,
   FlowEndReason,
+  FlowResumeConfig,
+  FlowResumeContext,
   FlowStartEvent,
   FlowStepEvent,
   FlowTrigger,
+  GoalUpdateEvent,
   JournalBranch,
   JournalEvent,
   JournalEventInput,
@@ -98,6 +118,9 @@ export type {
   ProjectionUnit,
   PromptSupplementChangedEvent,
   SessionHeaderEvent,
+  TaskRun,
+  TaskRunActivity,
+  TaskRunStatus,
   TodoItem,
   TodoWriteEvent,
   ToolEvidenceEntry,
@@ -124,6 +147,13 @@ export type {
 } from './messages/types'
 export { collectStepGateRefs, projectStepGateStates, verdictForStep } from './planning/evidence-gate'
 export type { EvidenceGateSnapshot, StepGateSpec, StepGateState, StepGateStatus } from './planning/evidence-gate'
+export { evaluateFlowCompletion, flowCompletionStepInputs, parseFlowReviewVerdict } from './planning/flow-completion'
+export type {
+  FlowCompletionBlocker,
+  FlowCompletionStepInput,
+  FlowCompletionVerdict,
+  FlowReviewVerdict,
+} from './planning/flow-completion'
 export { buildTurnProjection } from './planning/turn-projection'
 export type { TurnProjection, TurnProjectionInput } from './planning/turn-projection'
 export { createChatHooks } from './runtime/agent-hooks'
@@ -146,6 +176,8 @@ export type {
   ChatSendDelivery,
   ChatSendSource,
   FlowState,
+  FlowToolExecutionContext,
+  FlowToolExecutionDecision,
   QueuedSendSnapshot,
 } from './runtime/chat-orchestrator-runtime'
 export { createChatOrchestratorRuntime } from './runtime/chat-orchestrator-runtime'

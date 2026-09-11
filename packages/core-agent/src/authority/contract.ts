@@ -20,7 +20,7 @@ export type PlanLane = 'coding' | 'desktop' | 'browser_dom' | 'terminal' | 'huma
 
 export type PlanRiskLevel = 'low' | 'medium' | 'high'
 
-export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused'
+export type PlanStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped' | 'blocked' | 'paused' | 'cancelled'
 
 export type PlanReconcilerDecision
   = | 'continue'
@@ -50,6 +50,13 @@ export interface PlanSpec {
   horizon: 'session' | 'long'
   /** Optional target time for a long goal, as Unix milliseconds. */
   deadline?: number
+  /** User and character scope that owns a long goal. */
+  scope?: {
+    userId: string
+    characterId: string
+  }
+  /** Workspace selected when a long goal runs its work lane. */
+  workspaceRoot?: string
   steps: PlanSpecStep[]
 }
 
@@ -75,6 +82,263 @@ export interface PlanState {
    * plan card; `human_approval` steps can never land here.
    */
   unverifiedSteps?: string[]
+  /** Durable lifecycle projection for long-horizon goals. */
+  longGoal?: LongGoalState
+}
+
+export type LongGoalLifecycle
+  = | 'executable'
+    | 'running'
+    | 'waiting-condition'
+    | 'waiting-user'
+    | 'paused'
+    | 'completed'
+    | 'cancelled'
+    | 'failed'
+
+export type LongGoalTransitionSource = 'user' | 'scheduler' | 'flow' | 'system'
+
+export type LongGoalRunOutcome = 'completed' | 'blocked' | 'failed' | 'cancelled' | 'budget' | 'no-progress'
+
+export interface LongGoalRunRecord {
+  taskId: string
+  flowId: string
+  sessionId: string
+  startedAt: number
+  endedAt?: number
+  outcome?: LongGoalRunOutcome
+}
+
+/** Non-sensitive runtime identity that a long-goal run observed. */
+export interface LongGoalEnvironmentSnapshot {
+  providerId: string
+  modelId: string
+  workspaceRoot: string
+  toolNames: string[]
+}
+
+export type LongGoalEnvironmentField = 'provider' | 'model' | 'workspace' | 'tools'
+
+export interface LongGoalPendingQuestion {
+  requestId: string
+  question: string
+  choices?: string[]
+  askedAt: number
+}
+
+export interface LongGoalTransitionRecord {
+  lifecycle: LongGoalLifecycle
+  reason: string
+  source: LongGoalTransitionSource
+  constraintVersion: number
+  timestamp: number
+  taskId?: string
+  flowId?: string
+}
+
+export interface LongGoalState {
+  lifecycle: LongGoalLifecycle
+  /** Increments when the user revises the goal constraints. */
+  constraintVersion: number
+  /** Environment observed by the most recent accepted run. */
+  lastEnvironment?: LongGoalEnvironmentSnapshot
+  nextReviewAt?: number
+  waitReason?: string
+  pendingQuestion?: LongGoalPendingQuestion
+  activeRun?: LongGoalRunRecord
+  lastRun?: LongGoalRunRecord
+  lastTransition?: LongGoalTransitionRecord
+}
+
+export interface LongGoalTransitionInput {
+  lifecycle: LongGoalLifecycle
+  reason: string
+  source: LongGoalTransitionSource
+  timestamp: number
+  constraintVersion?: number
+  revision?: boolean
+  nextReviewAt?: number
+  waitReason?: string
+  pendingQuestion?: LongGoalPendingQuestion
+  run?: LongGoalRunRecord
+  environment?: LongGoalEnvironmentSnapshot
+}
+
+const LONG_GOAL_TERMINAL_STATES: readonly LongGoalLifecycle[] = Object.freeze(['completed', 'cancelled', 'failed'])
+
+const LONG_GOAL_ALLOWED_TRANSITIONS: Readonly<Record<LongGoalLifecycle, readonly LongGoalLifecycle[]>> = Object.freeze({
+  'executable': ['executable', 'running', 'waiting-condition', 'waiting-user', 'paused', 'completed', 'cancelled', 'failed'],
+  'running': ['executable', 'running', 'waiting-condition', 'waiting-user', 'paused', 'completed', 'cancelled', 'failed'],
+  'waiting-condition': ['executable', 'running', 'waiting-condition', 'waiting-user', 'paused', 'completed', 'cancelled', 'failed'],
+  'waiting-user': ['executable', 'running', 'waiting-condition', 'waiting-user', 'paused', 'completed', 'cancelled', 'failed'],
+  'paused': ['executable', 'paused', 'cancelled', 'failed'],
+  'completed': ['executable'],
+  'cancelled': ['executable'],
+  'failed': ['executable'],
+})
+
+/** Creates the initial durable state for a newly created long goal. */
+export function createLongGoalState(timestamp: number, legacy = false): LongGoalState {
+  return {
+    lifecycle: legacy ? 'waiting-condition' : 'executable',
+    constraintVersion: 1,
+    ...(legacy ? { waitReason: 'This goal has no execution scope. Review it before running.' } : { nextReviewAt: timestamp }),
+    lastTransition: {
+      lifecycle: legacy ? 'waiting-condition' : 'executable',
+      reason: legacy ? 'legacy goal requires an execution scope' : 'goal created',
+      source: 'system',
+      constraintVersion: 1,
+      timestamp,
+    },
+  }
+}
+
+/**
+ * Normalizes the non-sensitive environment identity stored with a goal.
+ *
+ * @example
+ * normalizeLongGoalEnvironment({ providerId: ' openai ', modelId: ' gpt ', workspaceRoot: 'D:/repo', toolNames: ['read', 'read'] })
+ * // => { providerId: 'openai', modelId: 'gpt', workspaceRoot: 'D:/repo', toolNames: ['read'] }
+ */
+export function normalizeLongGoalEnvironment(input: LongGoalEnvironmentSnapshot): LongGoalEnvironmentSnapshot {
+  return {
+    providerId: input.providerId.trim(),
+    modelId: input.modelId.trim(),
+    workspaceRoot: input.workspaceRoot.trim(),
+    toolNames: [...new Set(input.toolNames.map(toolName => toolName.trim()).filter(Boolean))].sort(),
+  }
+}
+
+/** Returns the environment dimensions that changed between two observations. */
+export function compareLongGoalEnvironment(
+  previous: LongGoalEnvironmentSnapshot,
+  current: LongGoalEnvironmentSnapshot,
+): LongGoalEnvironmentField[] {
+  const normalizedPrevious = normalizeLongGoalEnvironment(previous)
+  const normalizedCurrent = normalizeLongGoalEnvironment(current)
+  const changed: LongGoalEnvironmentField[] = []
+  if (normalizedPrevious.providerId !== normalizedCurrent.providerId)
+    changed.push('provider')
+  if (normalizedPrevious.modelId !== normalizedCurrent.modelId)
+    changed.push('model')
+  if (normalizedPrevious.workspaceRoot !== normalizedCurrent.workspaceRoot)
+    changed.push('workspace')
+  if (normalizedPrevious.toolNames.join('\u0000') !== normalizedCurrent.toolNames.join('\u0000'))
+    changed.push('tools')
+  return changed
+}
+
+/** Formats environment differences for a visible waiting reason. */
+export function describeLongGoalEnvironmentChanges(fields: readonly LongGoalEnvironmentField[]): string {
+  const labels: Record<LongGoalEnvironmentField, string> = {
+    provider: 'provider',
+    model: 'model',
+    workspace: 'workspace',
+    tools: 'available tools',
+  }
+  return fields.map(field => labels[field]).join(', ')
+}
+
+/**
+ * Applies one explicit long-goal lifecycle transition.
+ *
+ * Terminal goals need a revision before they can become executable again. The
+ * returned state is JSON-safe and keeps the last run for later review.
+ */
+export function applyLongGoalTransition(
+  current: LongGoalState,
+  input: LongGoalTransitionInput,
+): LongGoalState {
+  const transitionAlreadyApplied = current.lifecycle === input.lifecycle
+    && current.constraintVersion === (input.constraintVersion ?? current.constraintVersion)
+    && current.lastTransition?.timestamp === input.timestamp
+    && current.lastTransition?.reason === input.reason
+
+  // Journal replay and renderer retries can present the same transition more
+  // than once. Treat an exact replay as a no-op before validating terminal
+  // state rules.
+  if (transitionAlreadyApplied)
+    return current
+
+  const isTerminal = LONG_GOAL_TERMINAL_STATES.includes(current.lifecycle)
+  const targetIsTerminal = LONG_GOAL_TERMINAL_STATES.includes(input.lifecycle)
+  if (isTerminal && (!input.revision || input.lifecycle !== 'executable'))
+    throw new Error(`Long goal ${current.lifecycle} state cannot transition to ${input.lifecycle} without a revision.`)
+
+  if (!LONG_GOAL_ALLOWED_TRANSITIONS[current.lifecycle].includes(input.lifecycle))
+    throw new Error(`Long goal ${current.lifecycle} state cannot transition to ${input.lifecycle}.`)
+
+  if (input.lifecycle === 'running' && !input.run)
+    throw new Error('A running long goal requires a task and flow record.')
+  if (input.lifecycle === 'waiting-user' && !input.pendingQuestion && !current.pendingQuestion)
+    throw new Error('A long goal waiting for the user requires a pending question.')
+
+  const nextVersion = input.revision
+    ? Math.max(current.constraintVersion + 1, input.constraintVersion ?? 0)
+    : input.constraintVersion ?? current.constraintVersion
+  // Fallback order for `lastRun`:
+  // 1. A running transition keeps the previous record; the live run is `activeRun`.
+  // 2. A run record that already ended becomes `lastRun`.
+  // 3. A run this transition clears from `activeRun` becomes `lastRun` even
+  //    without `endedAt`. Its identity is what proves a later mutation from the
+  //    same flow is stale, so a constraint revision must not erase it.
+  // 4. Otherwise keep the previous `lastRun`.
+  let lastRun = current.lastRun
+  if (input.lifecycle !== 'running') {
+    if (input.run?.endedAt !== undefined)
+      lastRun = input.run
+    else if (current.activeRun && input.lifecycle !== 'waiting-user')
+      lastRun = current.activeRun
+    else if (current.activeRun?.endedAt !== undefined)
+      lastRun = current.activeRun
+  }
+
+  const next: LongGoalState = {
+    lifecycle: input.lifecycle,
+    constraintVersion: nextVersion,
+    ...(input.environment ? { lastEnvironment: normalizeLongGoalEnvironment(input.environment) } : current.lastEnvironment ? { lastEnvironment: normalizeLongGoalEnvironment(current.lastEnvironment) } : {}),
+    ...(input.nextReviewAt !== undefined ? { nextReviewAt: input.nextReviewAt } : {}),
+    ...(input.waitReason ? { waitReason: input.waitReason } : {}),
+    ...(input.pendingQuestion ? { pendingQuestion: input.pendingQuestion } : {}),
+    ...(input.lifecycle === 'running' && input.run ? { activeRun: input.run } : {}),
+    ...(input.lifecycle === 'waiting-user' && current.activeRun ? { activeRun: current.activeRun } : {}),
+    ...(lastRun ? { lastRun } : {}),
+    lastTransition: {
+      lifecycle: input.lifecycle,
+      reason: input.reason,
+      source: input.source,
+      constraintVersion: nextVersion,
+      timestamp: input.timestamp,
+      ...(input.run?.taskId ? { taskId: input.run.taskId } : current.activeRun?.taskId ? { taskId: current.activeRun.taskId } : {}),
+      ...(input.run?.flowId ? { flowId: input.run.flowId } : current.activeRun?.flowId ? { flowId: current.activeRun.flowId } : {}),
+    },
+  }
+
+  if (input.lifecycle === 'executable') {
+    delete next.waitReason
+    delete next.pendingQuestion
+    delete next.activeRun
+  }
+  if (input.lifecycle === 'running') {
+    delete next.nextReviewAt
+    delete next.waitReason
+    delete next.pendingQuestion
+  }
+  if (input.lifecycle === 'waiting-condition') {
+    delete next.pendingQuestion
+    delete next.activeRun
+  }
+  if (input.lifecycle === 'waiting-user') {
+    delete next.nextReviewAt
+  }
+  if (input.lifecycle === 'paused' || targetIsTerminal) {
+    delete next.nextReviewAt
+    delete next.waitReason
+    delete next.pendingQuestion
+    delete next.activeRun
+  }
+
+  return next
 }
 
 export interface PlanReconcilerDecisionRecord {
