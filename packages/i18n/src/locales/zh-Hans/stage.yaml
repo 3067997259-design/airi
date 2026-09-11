@@ -1,4 +1,10 @@
 chat:
+  long-goal-resumed: 已恢复长期目标。调度器会在执行条件满足后启动下一轮工作。
+  no-active-session: 当前没有可用的会话。请通过标题栏的会话入口新建或选择会话。
+  no-active-session-restored: 来自 {owner} 的数据已恢复。请登录 {owner} 以打开其会话。
+  no-provider: 还没有配置聊天服务商。请先选择服务商与模型再开始对话。
+  open-settings: 打开设置
+  send-failed: 消息未发送：{reason}
   actions:
     retry: 重试
   memory:
@@ -21,26 +27,54 @@ chat:
     horizon:
       session: 会话计划
       long: 长期目标
+      unattributed: 未归属
     status:
       pending: 待开始
       in_progress: 进行中
       blocked: 需要输入
+      paused: 已暂停
       completed: 已完成
       failed: 失败
+      cancelled: 已取消
     current-step: 当前步骤
     blockers: 卡在
     evidence: 证据
     deadline: 截止日期
     unverified: 未验证
+    wait-reason: 等待原因
+    next-review: 下次复查
+    pending-question: 待回答问题
+    run-now: 立即运行
+    run-now-queued: 已排入运行。她会为该目标启动一次有界心流。
+    run-now-blocked: 目标暂时无法启动，请看卡片上的等待原因。
+    keep-waiting: 继续排队
+    pause-goal: 暂停
+    cancel-goal: 取消
     persistence:
       failed: 计划没有被保存。工作会继续，但重启后不会留下。
       retry: 重试
+  plan-center:
+    title: 任务与计划
+    active-count: '活动 {count}'
+    waiting-count: '待处理 {count}'
+    unverified-count: '待验证 {count}'
+    history-count: '历史 {count}'
+    current-session: 当前会话
+    other-sessions: 其它会话
+    unattributed: 未归属
+    history: 历史
+    empty: 当前没有活动任务或计划。
+    open-source: '打开 {name}'
+    open-source-failed: '无法打开来源会话：{reason}'
+    unknown-session: 另一个会话
   todo-card:
     title: 任务清单
   btw-card:
     title: 干活时问一句
     placeholder: 随便问，她的活照跑…
     stop: 停止回答
+    collapse: 收起历史
+    expand: 展开历史
   approval-card:
     title: 需要批准
     expected-evidence: 预期证据
@@ -67,6 +101,8 @@ chat:
     title: 对话
     new: + 新建
     empty: 暂无对话
+    search-placeholder: 搜索对话
+    search-empty: 没有匹配的对话。
     cloud-badge: 已同步到云
     new-chat-fallback: 新建对话
     delete: 删除对话
@@ -83,9 +119,22 @@ turn:
   stop: 停止当前回合
   flow-active: 心流运行中 · 第 {iteration} 步
   flow-stop: 停止心流
-  steer-hint: Esc 打断 · Enter 插话 · Shift + Enter 排队
-  queued: 已排队
-  cancel-queued: 取消排队消息
+task-activity:
+  iteration: '第 {iteration} 轮'
+  tool-calls: '{count} 次工具调用'
+  steering: 用户插话
+  empty: 暂无动态
+  stop: 停止任务
+  pending-question: 等待你的回答
+  last-failure: 最近失败
+  status:
+    running: 进行中
+    waiting-user: 等待用户
+    completed: 已完成
+    blocked: 受阻
+    interrupted: 已中断
+    budget: 预算用尽
+    no-progress: 无进展
 approval-mode:
   title: Bash 审批模式
   require: 需要审核（中危与高危命令都等待）

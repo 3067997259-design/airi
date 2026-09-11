@@ -1,7 +1,7 @@
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 
 import { errorMessageFrom } from '@moeru/std'
-import { streamFrom } from '@proj-airi/core-agent'
+import { openTaskId, streamFrom } from '@proj-airi/core-agent'
 import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
@@ -236,10 +236,12 @@ export const useBtwStore = defineStore('runtime-btw', () => {
       ...(choices?.length ? { choices: choices.slice(0, 4) } : {}),
     }
     state.value = { ...state.value, pendingUserQuestion }
+    const taskId = openTaskId(journal.events)
     journal.appendActive({
       type: 'user/asked',
       requestId,
       question: trimmed,
+      ...(taskId ? { taskId } : {}),
       ...(pendingUserQuestion.choices ? { choices: pendingUserQuestion.choices } : {}),
       source: 'btw',
     })
@@ -252,11 +254,13 @@ export const useBtwStore = defineStore('runtime-btw', () => {
     if (!pending || pending.requestId !== requestId)
       return
     state.value = { ...state.value, pendingUserQuestion: undefined }
+    const taskId = openTaskId(journal.events)
     journal.appendActive({
       type: 'user/answered',
       requestId,
       answer,
       channel,
+      ...(taskId ? { taskId } : {}),
       source: 'btw',
     })
   }

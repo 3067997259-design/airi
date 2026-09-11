@@ -52,6 +52,25 @@ afterEach(() => {
 describe('expression tool exposure gating', () => {
   // ROOT CAUSE:
   //
+  // Stage tools execute in whichever window runs the turn; when that window
+  // does not display a model (chat-only window, or the main window switched
+  // away from the Stage), the tool returned the bare "No Live2D model is
+  // currently loaded." The user could not tell what to do about it
+  // (UI-SURFACE UI-H/UI-3).
+  //
+  // We fixed this by naming the missing capability and the recovery entry.
+  it('explains how to recover when no model is on the Stage', async () => {
+    const set = await toolNamed('expression_set')
+    const result = JSON.parse(await set.execute({ name: 'Sleep', value: true }) as string)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('No Live2D model is on the Stage right now')
+    expect(result.error).toContain('open the main window')
+    expect(result.error).toContain('chat-only window')
+  })
+
+  // ROOT CAUSE:
+  //
   // The tools only checked that a model was loaded. `isExposedToLlm` existed but
   // no tool consulted it, so the settings "Expose to LLM" choice changed
   // nothing: with the default mode of 'none' the model could still drive every

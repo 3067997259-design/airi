@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import type { ChatOrchestratorCompactionSnapshot } from '@proj-airi/core-agent'
+import type { ChatOrchestratorCompactionSnapshot, StreamingAssistantMessage, TaskRun } from '@proj-airi/core-agent'
 import type { VirtualizerHandle } from 'virtua/vue'
 
 import type { CharacterSparkNotifyReaction } from '../../../../stores/character'
 import type { PlanView } from '../../../../stores/plans'
 import type { AttentionTask } from '../../../../stores/tasks'
-import type { ChatHistoryItem, StreamingAssistantMessage } from '../../../../types/chat'
+import type { ChatHistoryItem, StreamingAssistantMessage as UIStreamingAssistantMessage } from '../../../../types/chat'
 import type { ChatToolCallRendererRegistry } from './tool-call-renderer'
 
+import { useEventListener } from '@vueuse/core'
 import { Virtualizer } from 'virtua/vue'
 import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -20,6 +21,7 @@ import ChatHistoryMessageFrame from './history-message-frame.vue'
 import ChatPlanLanes from './plan-lanes.vue'
 import ChatReactionLine from './reaction-line.vue'
 import ChatReviewCard from './review-card.vue'
+import ChatTaskActivityPanel from './task-activity-panel.vue'
 import ChatTaskCard from './task-card.vue'
 import ChatTodoCard from './todo-card.vue'
 import ChatUserItem from './user-item.vue'
@@ -54,7 +56,13 @@ interface TimelinePlanGroupItem {
   createdAt: number
 }
 
-type ChatTimelineItem = TimelineMessageItem | TimelineReactionItem | TimelineTaskItem | TimelinePlanGroupItem
+interface TimelineTaskActivityItem {
+  kind: 'task-activity'
+  task: TaskRun
+  createdAt: number
+}
+
+type ChatTimelineItem = TimelineMessageItem | TimelineReactionItem | TimelineTaskItem | TimelinePlanGroupItem | TimelineTaskActivityItem
 
 const props = withDefaults(defineProps<{
   messages: ChatHistoryItem[]
@@ -62,6 +70,12 @@ const props = withDefaults(defineProps<{
   reactions?: readonly CharacterSparkNotifyReaction[]
   tasks?: readonly AttentionTask[]
   plans?: readonly PlanView[]
+  /**
+   * Task runs of the session — the timeline's single task entry
+   * (TASK-RUN-AND-UI-PLAN batch B). A live task is pinned to the end of the
+   * timeline; finished ones stay openable as collapsed summaries.
+   */
+  taskRuns?: readonly TaskRun[]
   sending?: boolean
   assistantLabel?: string
   userLabel?: string
@@ -75,6 +89,7 @@ const props = withDefaults(defineProps<{
   reactions: () => Object.freeze([] as CharacterSparkNotifyReaction[]),
   tasks: () => Object.freeze([] as AttentionTask[]),
   plans: () => Object.freeze([] as PlanView[]),
+  taskRuns: () => Object.freeze([] as TaskRun[]),
   variant: 'desktop',
   toolCallRenderers: () => ({}),
 })
@@ -84,10 +99,14 @@ const emit = defineEmits<{
   (e: 'deleteMessage', payload: { message: ChatHistoryItem, index: number, key: string | number }): void
   (e: 'retryMessage', payload: { message: ChatHistoryItem, index: number, key: string | number }): void
   (e: 'toolCallRerun', payload: { message: ChatHistoryItem, index: number, key: string | number, toolCallId: string, toolName: string, args: string }): void
+  (e: 'stopTask'): void
 }>()
 
 /** Keeps about two mobile viewports ready so fast flicks do not expose an unmounted gap. */
 const CHAT_HISTORY_OVERSCAN = 600
+
+/** Finished task summaries kept openable in the timeline; older ones stay in the journal. */
+const ENDED_TASK_SUMMARY_LIMIT = 3
 
 const chatHistoryRef = useTemplateRef<HTMLDivElement>('chatHistory')
 const virtualizerRef = useTemplateRef<VirtualizerHandle>('virtualizer')
@@ -106,6 +125,32 @@ const showStreamingPlaceholder = computed(() => (streaming.value.slices?.length 
 function shouldShowPlaceholder(message: ChatHistoryItem) {
   return !!streaming.value.id && message.id === streaming.value.id
 }
+
+/**
+ * Tool activity of a flow iteration belongs to the task activity projection;
+ * the bubble keeps only her narration so one tool call renders once per
+ * projection. Non-flow turns own no task attribution and keep their blocks.
+ */
+const TIMELINE_TASK_STATUSES: ReadonlySet<TaskRun['status']> = new Set(['running', 'waiting-user'])
+
+const hasLiveTask = computed(() => props.taskRuns.some(task => TIMELINE_TASK_STATUSES.has(task.status)))
+
+function stopTaskOnEscape(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !hasLiveTask.value)
+    return
+
+  const target = event.target
+  if (target instanceof HTMLElement && target.closest('input, textarea, [contenteditable="true"]'))
+    return
+
+  event.preventDefault()
+  emit('stopTask')
+}
+
+// Escape is a global task stop shortcut so it remains available when the
+// bounded activity panel is collapsed. Text-entry controls keep Escape for
+// their own cancel/close behavior.
+useEventListener('keydown', stopTaskOnEscape)
 
 const timelineItems = computed<ChatTimelineItem[]>(() => {
   const items: Array<ChatTimelineItem & { order: number }> = props.messages.flatMap((message, messageIndex) => message.hiddenFromHistory
@@ -147,9 +192,31 @@ const timelineItems = computed<ChatTimelineItem[]>(() => {
     })
   }
 
+  // Finished tasks: collapsed summaries placed by their last update, so the
+  // record stays openable without pulling old activity into the live view.
+  const endedTasks = props.taskRuns
+    .filter(task => !TIMELINE_TASK_STATUSES.has(task.status))
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, ENDED_TASK_SUMMARY_LIMIT)
+  for (const task of endedTasks) {
+    items.push({
+      kind: 'task-activity',
+      task,
+      createdAt: task.updatedAt,
+      order: items.length,
+    })
+  }
+
   return items
     .sort((left, right) => (left.createdAt ?? Number.MAX_SAFE_INTEGER) - (right.createdAt ?? Number.MAX_SAFE_INTEGER) || left.order - right.order)
     .map(({ order: _order, ...item }) => item)
+    .concat(props.taskRuns
+      .filter(task => TIMELINE_TASK_STATUSES.has(task.status))
+      .map(task => ({
+        kind: 'task-activity' as const,
+        task,
+        createdAt: Number.MAX_SAFE_INTEGER,
+      })))
 })
 
 const renderItems = computed<ChatTimelineItem[]>(() => {
@@ -182,7 +249,14 @@ function getTimelineItemKey(item: ChatTimelineItem, _index: number): string | nu
     return `reaction:${item.reaction.id}`
   if (item.kind === 'task')
     return `task:${item.task.taskId}`
+  if (item.kind === 'task-activity')
+    return `task-run:${item.task.taskId}`
   return 'plan-group'
+}
+
+/** Flow-iteration bubbles render narration only; tools live in the activity panel. */
+function hideToolSlices(message: ChatHistoryItem): boolean {
+  return message.role === 'assistant' && !!(message as UIStreamingAssistantMessage).flowIteration
 }
 
 function canRetryMessage(messageIndex: number) {
@@ -284,6 +358,7 @@ function emitToolCallRerun(
             :show-placeholder="shouldShowPlaceholder(item.message) && showStreamingPlaceholder"
             :scroll-container="chatHistoryRef"
             :variant="variant"
+            :hide-tool-slices="hideToolSlices(item.message)"
             :tool-call-renderers="toolCallRenderers"
             @copy="emitCopyMessage(item.message, item.messageIndex)"
             @delete="emitDeleteMessage(item.message, item.messageIndex)"
@@ -309,6 +384,11 @@ function emitToolCallRerun(
           <ChatPlanLanes
             v-else-if="item.kind === 'plan-group'"
             :plans="item.plans"
+          />
+          <ChatTaskActivityPanel
+            v-else-if="item.kind === 'task-activity'"
+            :task="item.task"
+            @stop="emit('stopTask')"
           />
         </ChatHistoryMessageFrame>
       </template>

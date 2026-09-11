@@ -14,8 +14,12 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const sessionPlans = computed(() => props.plans.filter(plan => plan.spec.horizon === 'session'))
-const longPlans = computed(() => props.plans.filter(plan => plan.spec.horizon === 'long'))
+// The timeline receives only `current` and `unattributed` lanes, so the
+// horizon split applies to session-bound plans and everything without an
+// owner gets its own section instead of faking the current session.
+const sessionPlans = computed(() => props.plans.filter(plan => !!plan.sessionId && plan.spec.horizon === 'session'))
+const longPlans = computed(() => props.plans.filter(plan => !!plan.sessionId && plan.spec.horizon === 'long'))
+const unattributedPlans = computed(() => props.plans.filter(plan => !plan.sessionId))
 
 const retrying = ref(false)
 
@@ -83,6 +87,13 @@ async function retryPersistence() {
         {{ t('stage.chat.plan.horizon.long') }}
       </h3>
       <ChatPlanCard v-for="plan in longPlans" :key="plan.id" :plan="plan" />
+    </section>
+
+    <section v-if="unattributedPlans.length" class="flex flex-col gap-1.5" data-testid="chat-plan-unattributed">
+      <h3 class="px-1 text-xs text-neutral-500 font-medium dark:text-neutral-400">
+        {{ t('stage.chat.plan.horizon.unattributed') }}
+      </h3>
+      <ChatPlanCard v-for="plan in unattributedPlans" :key="plan.id" :plan="plan" />
     </section>
   </div>
 </template>

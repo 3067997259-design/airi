@@ -19,8 +19,20 @@ import { useExpressionStore } from '../stores/expression-store'
  */
 function ensureExpressionsAvailable(): ExpressionToolResult | null {
   const store = useExpressionStore()
-  if (!store.modelId || store.expressions.size === 0)
-    return { success: false, error: 'No Live2D model is currently loaded.' }
+  if (!store.modelId || store.expressions.size === 0) {
+    // The bare "No Live2D model is currently loaded." was unactionable: the
+    // model cannot tell whether the user closed the Stage window, switched
+    // the main window to the chat route, or never loaded a model. Name the
+    // capability and the recovery entry instead (UI-SURFACE UI-H/UI-3).
+    return {
+      success: false,
+      error: [
+        'No Live2D model is on the Stage right now, so expressions cannot run.',
+        'Stage tools only work in the window that displays the avatar: open the main window, load a Live2D model there, and keep that window on the Stage while this conversation runs.',
+        'A chat-only window cannot show expressions.',
+      ].join(' '),
+    }
+  }
 
   if (store.llmExposedGroups.length === 0) {
     return {

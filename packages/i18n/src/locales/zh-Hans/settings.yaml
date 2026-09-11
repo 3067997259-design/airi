@@ -44,6 +44,11 @@ dialogs:
     loginPrompt: 登录并使用 AIRI 官方提供的服务以获得最佳体验。
     loginAction: 登录
     setupWithoutSigningIn: 配置您自己的 AI 服务来源
+    restored:
+      title: 数据已恢复
+      description: >-
+        来自 {owner} 的数据已恢复到本设备。请登录 {owner} 以查看。
+      loginAction: 登录以查看数据
     flux: Flux 电量
     buyFlux: 补充 Flux 电量
     select-model: 选择模型
@@ -434,6 +439,9 @@ pages:
         export: 导出聊天记录
         import: 导入聊天记录
         delete: 删除所有聊天会话
+        restore_title: 恢复的 profile 已暂停
+        restore_description: 请先核对恢复的数据，再恢复外部副作用。
+        restore_adopt: 使用恢复的 profile
       models:
         title: 模型
         description: 删除导入的Live2D/VRM模型。
@@ -468,6 +476,7 @@ pages:
     status:
       exported: 聊天会话已导出。
       imported: 聊天会话已导入。
+      restore_adopted: 恢复的 profile 已启用。
       import_error: 无法导入聊天会话。请检查文件格式。
       chats_deleted: 聊天会话已删除。
       models_deleted: 模型已删除。
@@ -630,6 +639,19 @@ pages:
             title: 模型选项
             thinking:
               label: 思考
+              description: 在模型支持时启用思考。
+              mandatory-description: 此模型始终会思考，无法关闭思考。
+            reasoning-effort:
+              label: 思考强度
+              description: 选择此模型的思考强度。自动使用模型默认值。
+              options:
+                auto: 自动
+                minimal: 最低
+                low: 低
+                medium: 中
+                high: 高
+                xhigh: 特高
+                max: 最高
             mirror-visual:
               label: 镜像图片输入
               description: 选择此模型是否可以在同一轮对话中接收临时镜像图片。
@@ -648,6 +670,37 @@ pages:
       description: 自主心跳——她何时可以主动开口。
       title: 生命模式
       sections:
+        status:
+          title: 运行状态
+          description: 主进程调度状态，以及最近一次考量执行或未执行的原因。
+          next-heartbeat: 下一次心跳
+          budget: 今日已认领考量
+          budget-value: '{used} / {total}'
+          unlimited: 已使用 {used}，不限量
+          last-heartbeat: 上一次心跳
+          last-decision: 上一次认领考量
+          last-gate: 最近门控
+          never: 尚无
+          none: 无
+          test: 测试心跳
+          test-hint: 测试心跳会跳过调度和静默时段，但仍受模式限制；成功认领后会消耗每日预算。
+          test-emitted: 测试心跳已发出。模型完成后，决策会显示在下方。
+          test-gated: 测试心跳被门控：{gate}
+          gates:
+            mode: 模式已关闭
+            quiet-hours: 静默时段
+            budget: 每日预算已用尽
+            cooldown: 冷却中
+            busy: 聊天正忙
+            focused: 有专注任务
+            flow-active: 心流正在运行
+            speech-active: 助手语音正在播放
+            no-session: 没有活动会话
+            no-stimulus: 没有新刺激
+            stale-stimulus: 已丢弃过期刺激
+            tools-unavailable: 决策工具不可用
+            stale-heartbeat: 心跳已过期
+            respond: 只回应模式
         mode:
           title: 模式
           description: 生命模式决定她能否在没有输入时主动发起对话。
@@ -669,6 +722,19 @@ pages:
           start: 静默开始（小时，0-23）
           end: 静默结束（小时，0-23）
           hint: 时间使用本地 24 小时制；跨午夜的区间自动环绕。
+          warning-title: 静默窗口过长
+          long-warning: 这个静默窗口每天持续 {hours} 小时。AIRI 只能在窗口之外主动开口。
+        decisions:
+          title: 最近考量
+          description: 最近的显式社交决策，包括沉默与失败。
+          empty: 本会话尚未记录考量决策。
+          actions:
+            speak: 已开口
+            note: 私下记录
+            silence: 保持沉默
+            protocol-error: 决策协议错误
+            provider-error: 模型服务错误
+            discarded: 已丢弃过期刺激
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 异星工厂 Factorio
@@ -766,6 +832,11 @@ pages:
           approve: 批准
           reject: 拒绝
           hash: 内容哈希
+          view-source: 查看源码与自测
+          approve-requires-source: 请先查看源码与自测。批准会绑定你刚审阅的那份产物哈希。
+          re-review-source: 重新审阅当前源码
+          no-selftest: 此版本没有记录自测产物。
+          trace-count: '自测轨迹数量：{count}'
           sources: 外部来源
           compatibility: 兼容性探测
           dream: 回顾失败调用
@@ -774,6 +845,8 @@ pages:
           description: 开箱即用的工具骨架，可提交审阅。
           title: 目录
           submit: 提交审阅
+          in-review: 已提交，等待审阅。
+          submit-failed: '未提交：{reason}'
     coding:
       description: 由主进程编码宿主驱动的 Hashline 文件工具与 Code Mode 沙箱
       title: 编码
@@ -806,6 +879,21 @@ pages:
     memory-long-term:
       description: 长期记忆
       title: 长期记忆
+      database:
+        title: 本地记忆数据库
+        description: DuckDB 将本地记忆保存到浏览器 profile。
+        status:
+          idle: 未初始化
+          ready: 就绪
+          error: 错误
+          follower: 只读窗口
+        persistence:
+          idle: 暂无持久化操作
+          checkpointing: 正在保存 {count} 条待写入
+          complete: 最近一次 checkpoint 已完成
+          error: 持久化错误
+        migration: Embedding 迁移 {current}/{total}
+        reembed: 重新生成本地记忆向量
       remote:
         title: 长期存储（Postgres）
         description: 连接 Postgres（pgvector）数据库；晋升的记忆会镜像到这里，独立于本地数据库保存。
@@ -817,6 +905,11 @@ pages:
           ready: 已连接。晋升的记忆会镜像到该存储。
           unconfigured: 未连接。本地数据库仍是唯一数据源。
           error: 连接失败。
+        sync-enabled: 启用长期记忆远端同步
+        sync-enabled-description: 使用本地持久 outbox 并以幂等方式重试。开启此开关前，任何记忆都不会离开本机。
+        outbox: '{count} 条记忆等待同步'
+        retry: 重试同步
+        queue-existing: 将已有长期记忆加入同步队列
       sections:
         ranking:
           description: 调整记忆检索使用的五项评分因素。
@@ -857,6 +950,17 @@ pages:
       sessions: 个会话
       delete: 删除
       edit-label: 编辑记忆
+      fact-status:
+        active: 有效
+        superseded: 已被替代
+        disputed: 有争议
+      muscle-migration:
+        hint: 这条 muscle 记忆没有触发模式，永远不会触发，也无法被普通召回看到。
+        convert: 转为事实
+        keep: 保留为 muscle
+      revision-label: 拟议修订
+      revise: 提交修订
+      dispute: 标记为有争议
       save: 保存
     memory-short-term:
       description: 短期记忆
@@ -873,6 +977,20 @@ pages:
       model: 记忆模型
       model-description: 可选。用于抽取和摘要的低成本模型。
       model-placeholder: 使用当前对话模型
+      embedding-api-enabled: 使用 API embedding 模型
+      embedding-api-enabled-description: >-
+        通过 OpenAI 兼容端点生成记忆向量，而非本地模型。切换模型会对全部已存记忆重新生成一次向量。
+      embedding-base-url: Embedding 接口地址
+      embedding-base-url-description: >-
+        提供 embedding 的 OpenAI 兼容端点，需要带版本路径（如 https://api.example.com/v1/）。
+      embedding-base-url-placeholder: https://api.example.com/v1/
+      embedding-api-key: Embedding API 密钥
+      embedding-api-key-description: 在该端点具有 embedding 权限的密钥。与其他 provider 密钥一样仅存放在本地。
+      embedding-api-key-placeholder: sk-***
+      embedding-model: Embedding 模型
+      embedding-model-description: 必须能返回 768 维向量（例如把 dimensions 设为 768）。
+      embedding-model-placeholder: text-embedding-3-small
+      embedding-error: 'Embedding 来源错误：{error}'
       sections:
         runtime:
           description: 选择每轮对话结束后运行的记忆功能。
@@ -899,14 +1017,30 @@ pages:
       compact-now: 压缩当前会话
       initialize: 初始化记忆数据库
       dreaming-enabled: 启用梦境整理
-      dreaming-enabled-description: 允许受限的后台式流程提出短期想法。
+      dreaming-enabled-description: 允许受限流程提出短期想法；想法与事实和计划始终分离。
+      automatic-dreaming-enabled: 启用自动梦境整理
+      automatic-dreaming-enabled-description: 在符合条件的 life-mode 心跳中，于应用空闲且没有社交刺激时运行私有梦境整理。
+      dreaming-interval-hours: 最短间隔（小时）
+      dreaming-interval-hours-description: 自动整理两次运行之间至少等待这么长时间。
+      dreaming-daily-budget: 每日整理预算
+      dreaming-daily-budget-description: 每个本地日允许的自动整理次数；设为 0 表示不限次数。
+      dreaming-min-new-memory-count: 最少新增记忆数
+      dreaming-min-new-memory-count-description: 只有积累了这么多条新的、已批准事实记忆后才运行。
+      automatic-dreaming-status: '今日自动整理：{used} 次。上次运行：{lastRun}。'
+      automatic-dreaming-never: '今日自动整理：{used} 次。尚未运行过。'
       dream-now: 运行梦境整理
       dream-count: '{count} 个想法'
       excitement: '兴奋度 {value}/10'
+      dreaming-lifecycle-hint: 自动梦境整理只会由符合条件的 life-mode 心跳触发。这些按钮只记录想法状态，不会创建或执行计划。
+      idea-status:
+        new: 新想法
+        developing: 发展中
+        implemented: 已实现
+        abandoned: 已归档
       idea-actions:
-        develop: 开始发展
+        develop: 标记为发展中
         implement: 标记为已实现
-        abandon: 放弃
+        abandon: 归档
       database-status:
         idle: 数据库未初始化
         ready: 数据库已就绪

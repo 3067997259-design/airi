@@ -6,6 +6,22 @@ export interface RendererWindowContext {
   leadership: LeadershipMode
   /** Determines whether this renderer initializes Stage integrations. */
   stageRuntime: 'full' | 'minimal'
+  /** What surfaces this renderer owns, derived from the launch query. */
+  capabilities: RendererWindowCapabilities
+}
+
+/**
+ * Declares the surfaces one renderer owns.
+ *
+ * The role is fixed by the launch query, so this is read-only derived state,
+ * not a second synchronized store. `stage` marks the renderer that displays
+ * and drives an avatar model: the main window (leader, full runtime). The
+ * dedicated chat window runs the minimal runtime, so stage-bound tools can
+ * name the missing capability instead of failing with a raw "no model" error
+ * (UI-SURFACE UI-H/UI-3).
+ */
+export interface RendererWindowCapabilities {
+  stage: boolean
 }
 
 function normalizeRoutePath(routePath: string) {
@@ -30,7 +46,7 @@ export function resolveInitialRendererRoutePath(routePath: string, hash = global
  *
  * @example
  * resolveRendererWindowContext('?synced-leader=false&stage-runtime=minimal')
- * // => { leadership: 'follower-only', stageRuntime: 'minimal' }
+ * // => { leadership: 'follower-only', stageRuntime: 'minimal', capabilities: { stage: false } }
  */
 export function resolveRendererWindowContext(search = globalThis.location?.search ?? ''): RendererWindowContext {
   const query = new URLSearchParams(search)
@@ -44,8 +60,13 @@ export function resolveRendererWindowContext(search = globalThis.location?.searc
   if (stageRuntime !== null && stageRuntime !== 'minimal')
     throw new TypeError(`Invalid stage-runtime query: ${stageRuntime}`)
 
-  return {
-    leadership: syncedLeader === 'true' ? 'leader-only' : 'follower-only',
-    stageRuntime: stageRuntime === 'minimal' ? 'minimal' : 'full',
+  const leadership: LeadershipMode = syncedLeader === 'true' ? 'leader-only' : 'follower-only'
+  const runtime: RendererWindowContext['stageRuntime'] = stageRuntime === 'minimal' ? 'minimal' : 'full'
+  // Only the main window is leader and full-runtime, so it is the one window
+  // that mounts the avatar surface and the model tools bind to.
+  const capabilities: RendererWindowCapabilities = {
+    stage: leadership === 'leader-only' && runtime === 'full',
   }
+
+  return { leadership, stageRuntime: runtime, capabilities }
 }

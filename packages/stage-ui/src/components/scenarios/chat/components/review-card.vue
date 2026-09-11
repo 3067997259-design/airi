@@ -4,6 +4,8 @@ import { Button, Collapsible } from '@proj-airi/ui'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import SkillSourceReview from './skill-source-review.vue'
+
 const { t } = useI18n()
 
 // The card renders inside the chat timeline where Pinia is always installed.
@@ -23,6 +25,7 @@ const pending = computed(() => {
   return queue
     .filter(entry => entry.trust === 'probation')
     .map(entry => ({
+      entry,
       reviewRequestId: `review:${entry.toolId}`,
       toolId: entry.toolId,
       contentHash: entry.contentHash,
@@ -32,15 +35,6 @@ const pending = computed(() => {
       riskLevel: entry.riskLevel,
     }))
 })
-
-function approve(toolId: string): void {
-  try {
-    useSkillsReviewStore().approve(toolId)
-  }
-  catch {
-    // storeless test host — decision is a no-op there
-  }
-}
 
 function reject(toolId: string): void {
   try {
@@ -78,10 +72,8 @@ function reject(toolId: string): void {
           {{ t('stage.chat.review-card.content-hash') }}: {{ request.contentHash.slice(0, 12) }}… · {{ request.riskLevel }}
         </p>
 
+        <SkillSourceReview :entry="request.entry" />
         <div :class="['mt-3', 'flex', 'gap-2']">
-          <Button size="sm" variant="primary" @click="approve(request.toolId)">
-            {{ t('stage.chat.review-card.approve') }}
-          </Button>
           <Button size="sm" variant="secondary" @click="reject(request.toolId)">
             {{ t('stage.chat.review-card.reject') }}
           </Button>

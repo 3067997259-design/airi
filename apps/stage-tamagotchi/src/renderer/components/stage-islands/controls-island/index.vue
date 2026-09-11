@@ -79,10 +79,38 @@ defineExpose({
 const { isOutside } = useElectronMouseInElement(islandElement)
 const isOutsideAfter2seconds = refDebounced(isOutside, 1500)
 
+/** Minimum time the expanded panel stays open before an outside sample may close it. */
+const AUTO_COLLAPSE_GRACE_MS = 3_000
+const expandedAt = ref(0)
+/** Last time the outside signal changed to true. */
+let outsideObservedAt = 0
+
+watch(isOutside, (outside) => {
+  if (outside)
+    outsideObservedAt = Date.now()
+})
+
+/**
+ * Closes the panel only on an outside sample taken while it was open.
+ *
+ * The mouse signal starts as "outside" and stays stale when the OS cursor
+ * never moves (background window, automation driving the DOM): the panel used
+ * to open and collapse itself 1.5s later, so the expand button looked dead
+ * (ACC-20260911 #13). A real enter-then-leave still closes it.
+ */
+function collapseIfOutside() {
+  if (!expanded.value || isBlocked.value || !isOutside.value)
+    return
+  if (outsideObservedAt < expandedAt.value)
+    return
+  if (Date.now() - expandedAt.value < AUTO_COLLAPSE_GRACE_MS)
+    return
+  expanded.value = false
+}
+
 watch(isOutsideAfter2seconds, (outside) => {
-  if (outside && expanded.value && !isBlocked.value) {
-    expanded.value = false
-  }
+  if (outside)
+    collapseIfOutside()
 })
 
 watch(expanded, (isExpanded) => {
@@ -96,9 +124,7 @@ watch([expanded, isBlocked], ([isExpanded, isInteractionBlocked]) => {
 }, { immediate: true })
 
 useIntervalFn(() => {
-  if (expanded.value && isOutside.value && !isBlocked.value) {
-    expanded.value = false
-  }
+  collapseIfOutside()
 }, 1500)
 
 // Apply alwaysOnTop on mount and when it changes
@@ -112,6 +138,10 @@ function toggleAlwaysOnTop() {
 
 function toggleControls() {
   expanded.value = !expanded.value
+  if (expanded.value) {
+    expandedAt.value = Date.now()
+    outsideObservedAt = 0
+  }
 }
 
 // Grouped classes for icon / border / padding and combined style class
@@ -238,6 +268,7 @@ function resetMainWindowPosition() {
             <ControlButtonTooltip disable-hoverable-content>
               <ControlButton
                 v-track-button="{ name: 'controls_island_action', action: 'toggle_settings' }"
+                data-testid="controls-island-settings"
                 :button-style="adjustStyleClasses.button"
                 :aria-label="t('tamagotchi.stage.controls-island.open-settings')"
                 @click="openSettings({ route: '/settings' })"
@@ -362,6 +393,7 @@ function resetMainWindowPosition() {
               name: 'controls_island_action',
               action: expanded ? 'collapse_controls' : 'expand_controls',
             }"
+            data-testid="controls-island-expand"
             :button-style="adjustStyleClasses.button"
             :aria-label="expanded ? t('tamagotchi.stage.controls-island.collapse') : t('tamagotchi.stage.controls-island.expand')"
             @click="toggleControls"

@@ -1,3 +1,4 @@
+import { openTaskId } from '@proj-airi/core-agent'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
@@ -44,11 +45,13 @@ export const useUserAskStore = defineStore('runtime-user-ask', () => {
       resolvers.set(requestId, resolve)
     })
     pending.value = { requestId, question, ...(choices?.length ? { choices } : {}) }
+    const taskId = openTaskId(journal.events)
     journal.appendActive({
       type: 'user/asked',
       requestId,
       question,
       source: 'user_ask',
+      ...(taskId ? { taskId } : {}),
       ...(choices?.length ? { choices } : {}),
     })
     const answer = await promise
@@ -58,6 +61,7 @@ export const useUserAskStore = defineStore('runtime-user-ask', () => {
       answer: answer.answer,
       channel: answer.channel,
       source: 'user_ask',
+      ...(taskId ? { taskId } : {}),
     })
     return answer
   }

@@ -136,6 +136,19 @@ export const chatSessionsRepo = {
       await storage.setItemRaw(outboxKey(userId), next)
   },
 
+  /** Restores held delivery records without sending them. */
+  async restoreOutbox(userId: string, entries: unknown[], tombstones: unknown[]) {
+    const validEntries = entries.filter((entry): entry is ChatSendOutboxEntry => {
+      if (!entry || typeof entry !== 'object')
+        return false
+      const value = entry as Partial<ChatSendOutboxEntry>
+      return typeof value.messageId === 'string' && typeof value.sessionId === 'string'
+    })
+    const validTombstones = tombstones.filter((id): id is string => typeof id === 'string')
+    await storage.setItemRaw(outboxKey(userId), validEntries)
+    await storage.setItemRaw(tombstoneKey(userId), validTombstones)
+  },
+
   /** Remove every outbox entry for a session. Called when the session is deleted locally. */
   async dropOutboxForSession(userId: string, sessionId: string) {
     const current = await this.getOutbox(userId)

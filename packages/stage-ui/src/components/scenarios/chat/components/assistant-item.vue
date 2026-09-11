@@ -19,11 +19,18 @@ const props = withDefaults(defineProps<{
   scrollContainer?: HTMLElement | null
   showPlaceholder?: boolean
   variant?: 'desktop' | 'mobile'
+  /**
+   * Drops tool-call slices from the bubble. Flow-iteration turns use it: their
+   * tool activity is owned by the task activity panel, and rendering it here
+   * too would show the same call twice (TASK-RUN-AND-UI-PLAN batch B).
+   */
+  hideToolSlices?: boolean
   toolCallRenderers?: ChatToolCallRendererRegistry
 }>(), {
   showPlaceholder: false,
   scrollContainer: null,
   variant: 'desktop',
+  hideToolSlices: false,
   toolCallRenderers: () => ({}),
 })
 
@@ -34,21 +41,26 @@ const emit = defineEmits<{
 }>()
 
 const resolvedSlices = computed<ChatSlices[]>(() => {
+  let slices: ChatSlices[]
   if (props.message.slices?.length) {
-    return props.message.slices
+    slices = props.message.slices
   }
-
-  if (typeof props.message.content === 'string' && props.message.content.trim()) {
-    return [{ type: 'text', text: props.message.content } satisfies ChatSlicesText]
+  else if (typeof props.message.content === 'string' && props.message.content.trim()) {
+    slices = [{ type: 'text', text: props.message.content } satisfies ChatSlicesText]
   }
-
-  if (Array.isArray(props.message.content)) {
+  else if (Array.isArray(props.message.content)) {
     const textPart = props.message.content.find(part => 'type' in part && part.type === 'text') as { text?: string } | undefined
-    if (textPart?.text)
-      return [{ type: 'text', text: textPart.text } satisfies ChatSlicesText]
+    slices = textPart?.text
+      ? [{ type: 'text', text: textPart.text } satisfies ChatSlicesText]
+      : []
+  }
+  else {
+    slices = []
   }
 
-  return []
+  if (!props.hideToolSlices)
+    return slices
+  return slices.filter(slice => slice.type !== 'tool-call' && slice.type !== 'tool-call-result')
 })
 
 const toolResultById = computed(() => {

@@ -4,9 +4,11 @@ import type { ChatToolCallRendererRegistry } from '@proj-airi/stage-ui/component
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { errorMessageFrom } from '@moeru/std'
+import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
-import { ChatBtwCard, ChatHistory, ChatQuestionCard, JournalPreviewModal } from '@proj-airi/stage-ui/components'
+import { ChatBtwCard, ChatHistory, ChatPlanCenter, ChatQuestionCard, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
+import { restoredOwner } from '@proj-airi/stage-ui/services/restore-gate'
 import { useBackgroundStore } from '@proj-airi/stage-ui/stores/background'
 import { useCharacterStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
@@ -15,7 +17,8 @@ import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store
 import { CODING_APPROVAL_MODES, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { planSurfaceLanes, resolveFlowEvidencePlan, usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { useTaskStore } from '@proj-airi/stage-ui/stores/tasks'
 import { BasicTextarea, Button } from '@proj-airi/ui'
@@ -25,15 +28,17 @@ import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenu
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 
 import JournalToolCallBlock from './chat-tool-renderers/journal-tool-call-block.vue'
 import TriggerPanel from './trigger-panel.vue'
 
+import { electronOpenSettings } from '../../shared/eventa'
 import { createSlashTriggerProvider } from '../composables/slash-trigger-provider'
 import { useHearingInputChannel } from '../composables/use-hearing-input-channel'
 import { useTriggerPanel } from '../composables/use-trigger-panel'
 import { createWorkspaceTriggerProvider } from '../composables/workspace-trigger-provider'
-import { artistryToolReferences, githubReadToolReferences, skillAuthoringToolReferences, todoToolReferences, widgetToolReferences } from '../stores/tools'
+import { artistryToolReferences, githubReadToolReferences, skillAuthoringToolReferences, todoToolReferences, userAskToolReferences, widgetToolReferences } from '../stores/tools'
 
 const router = useRouter()
 const messageInput = ref('')
@@ -76,20 +81,42 @@ const planStore = usePlanStore()
 const backgroundStore = useBackgroundStore()
 const journalPreviewStore = useJournalPreviewStore()
 const airiCardStore = useAiriCardStore()
+const consciousnessStore = useConsciousnessStore()
+const openSettings = useElectronEventaInvoke(electronOpenSettings)
 
-const { activeSessionId, messages } = storeToRefs(chatSession)
+const { activeSessionId, messages, sessionMetas } = storeToRefs(chatSession)
 const { streamingMessage } = storeToRefs(chatStream)
-const { activeSendSessionId, activeStreamingMessage, compactions, queuedSends, sending } = storeToRefs(chatStore)
-const { flowStates } = storeToRefs(chatStore)
+const { activeSendSessionId, activeStreamingMessage, compactions, queuedSends, sending, flowStates } = storeToRefs(chatStore)
 const { reactions } = storeToRefs(useCharacterStore())
 const { tasks } = storeToRefs(useTaskStore())
 const { planViews: allPlanViews } = storeToRefs(planStore)
+// All plans scoped to this window: current session plus long goals of other
+// sessions, which are browsed from the plan center instead of the timeline.
 const planViews = computed(() => {
   const current = activeSessionId.value
   return allPlanViews.value.filter(plan =>
     plan.spec.horizon === 'long'
     || !plan.sessionId
     || plan.sessionId === current)
+})
+// The timeline only carries live work of the session this window shows, plus
+// unattributed plans in their own lane. Terminal records, other sessions'
+// live long goals, and session plans superseded by a newer plan in the same
+// lane move to the plan center (UI-2); before this, finished and superseded
+// cards accumulated in every chat until they filled the viewport
+// (2026-09-11 field report).
+const surfaceLanes = computed(() => planSurfaceLanes(planViews.value, activeSessionId.value))
+const timelinePlans = computed(() => planViews.value.filter((plan) => {
+  const lane = surfaceLanes.value.get(plan.id)
+  return lane === 'current' || lane === 'unattributed'
+}))
+const sessionLabels = computed<Record<string, string>>(() => {
+  const labels: Record<string, string> = {}
+  for (const meta of Object.values(sessionMetas.value)) {
+    if (meta.title)
+      labels[meta.sessionId] = meta.title
+  }
+  return labels
 })
 const { activeCard, activeCardId } = storeToRefs(airiCardStore)
 const { openImagePreview } = journalPreviewStore
@@ -154,6 +181,17 @@ async function handleSend(delivery: ChatSendDelivery = 'next-step') {
   // Keep one correlation key for both the send and its failure recovery.
   const targetSessionId = chatSession.activeSessionId
 
+  if (!targetSessionId) {
+    // A restored or signed-out profile has no selected session. Sending used
+    // to clear the draft and then silently restore it, so the user saw a dead
+    // input (ACC-20260911 #11). Name the reason and offer the same owner
+    // message the onboarding screen uses.
+    toast.warning(restoredOwner.value
+      ? t('stage.chat.no-active-session-restored', { owner: restoredOwner.value })
+      : t('stage.chat.no-active-session'))
+    return
+  }
+
   // optimistic clear
   messageInput.value = ''
   attachments.value = []
@@ -166,7 +204,7 @@ async function handleSend(delivery: ChatSendDelivery = 'next-step') {
       text: textToSend,
       attachments: attachmentsToSend,
       delivery,
-      tools: [...artistryToolReferences, ...githubReadToolReferences, ...skillAuthoringToolReferences, ...todoToolReferences],
+      tools: [...artistryToolReferences, ...githubReadToolReferences, ...skillAuthoringToolReferences, ...todoToolReferences, ...userAskToolReferences],
     })
 
     attachmentsToSend.forEach(att => URL.revokeObjectURL(att.url))
@@ -187,6 +225,10 @@ async function handleSend(delivery: ChatSendDelivery = 'next-step') {
       // URLs must be released instead of surviving until the window closes.
       attachmentsToSend.forEach(attachment => URL.revokeObjectURL(attachment.url))
     }
+    // The draft restoration above was the only feedback before; a failure the
+    // window does not own silently disappeared (ACC-20260911 #11).
+    if (!wasCancelledForDeletedSession)
+      toast.error(t('stage.chat.send-failed', { reason: errorMessage }))
   }
 }
 
@@ -198,9 +240,27 @@ function sendFromKeyboard(delivery: ChatSendDelivery = 'next-step') {
 // Declared above the keyboard handler: Enter steers or queues the active turn,
 // and Escape stops it, so both branches read this before the template does.
 const isActiveSessionSending = computed(() => sending.value && activeSendSessionId.value === activeSessionId.value)
+// Task projection for the timeline's activity panel (TASK-RUN-AND-UI-PLAN B).
+const activeTaskRuns = computed(() => chatStore.taskRuns)
+// The composer indicator reads the live runtime flow for the iteration number;
+// the timeline's activity panel is driven by the journal projection instead.
 const activeFlow = computed(() => {
   const flow = flowStates.value[activeSessionId.value]
   return flow?.status === 'running' ? flow : undefined
+})
+// The step she is on right now, so the indicator says what the flow is doing,
+// not only that it is running. Resolved through the same lane logic the
+// evidence channel and the prompt projection use: iterating every plan in the
+// store used to pick the focused step of some unrelated historical plan and
+// froze the indicator on an old goal's text (ACC-20260909 UI-2).
+const activeFlowStep = computed(() => {
+  if (!activeFlow.value)
+    return undefined
+  const plan = resolveFlowEvidencePlan(planViews.value, { sessionId: activeSessionId.value })
+  const stepId = plan?.state.currentStepId
+  if (!plan || !stepId)
+    return undefined
+  return plan.spec.steps.find(candidate => candidate.id === stepId)
 })
 
 function handleAbort() {
@@ -209,6 +269,23 @@ function handleAbort() {
 
 function handleFlowStop() {
   void chatStore.endFlow(activeSessionId.value, 'interrupted', 'flow stopped from the composer')
+}
+
+/**
+ * Navigates the window to the conversation that owns a plan.
+ *
+ * The plan center names the source on every foreign goal, so this is the
+ * recovery path from "what is she doing over there?". A deleted source session
+ * rejects the switch; the toast is the visible refusal the plan surface owes
+ * the user instead of a dead click.
+ */
+async function handleOpenPlanSource(sessionId: string) {
+  try {
+    await chatSession.setActiveSession(sessionId)
+  }
+  catch (error) {
+    toast.error(t('stage.chat.plan-center.open-source-failed', { reason: errorMessageFrom(error) ?? String(error) }))
+  }
 }
 
 // TUI convention (HARNESS-PLAN §3.1): Esc interrupts from anywhere, not only
@@ -330,6 +407,29 @@ const visibleStreamingMessage = computed(() => activeSendSessionId.value === act
 const activeCompaction = computed(() => compactions.value[activeSessionId.value])
 const activeQueuedSends = computed(() => queuedSends.value.filter(send => send.sessionId === activeSessionId.value))
 
+/**
+ * Why the composer cannot send right now, with the copy the notice shows.
+ *
+ * A restored signed-out profile used to keep an enabled input whose sends
+ * bounced silently (FIX-LIST #11 / UI-D). Both blockers now disable the input
+ * and name the reason plus the recovery entry. The toast in `handleSend`
+ * stays for the race where the session disappears after typing.
+ */
+const composerBlock = computed<{ reason: 'session' | 'provider', message: string } | undefined>(() => {
+  if (!activeSessionId.value) {
+    return {
+      reason: 'session',
+      message: restoredOwner.value
+        ? t('stage.chat.no-active-session-restored', { owner: restoredOwner.value })
+        : t('stage.chat.no-active-session'),
+    }
+  }
+  if (!consciousnessStore.configured) {
+    return { reason: 'provider', message: t('stage.chat.no-provider') }
+  }
+  return undefined
+})
+
 function cancelQueuedSend(id: string) {
   chatStore.cancelQueuedSend(id)
 }
@@ -390,7 +490,8 @@ async function handleCleanupMessages() {
         :messages="historyMessages"
         :reactions="reactions"
         :tasks="tasks"
-        :plans="planViews"
+        :plans="timelinePlans"
+        :task-runs="activeTaskRuns"
         :assistant-label="assistantLabel"
         :sending="isActiveSessionSending"
         :streaming-message="visibleStreamingMessage"
@@ -399,6 +500,7 @@ async function handleCleanupMessages() {
         @delete-message="handleDeleteMessage($event.index)"
         @retry-message="handleRetryMessage($event.index)"
         @tool-call-rerun="handleToolCallRerun"
+        @stop-task="handleFlowStop"
       />
     </div>
 
@@ -586,19 +688,56 @@ async function handleCleanupMessages() {
         @change="handleFileSelect"
       >
     </div>
-    <ChatBtwCard :active="isActiveSessionSending" />
-    <ChatQuestionCard />
+    <!-- Auxiliary surfaces share one budgeted zone: side channel, question
+         card, and the plan center scroll inside at most 40% of the chat area,
+         so the history and the composer stay in view (UI-SURFACE §4). -->
+    <div
+      data-testid="chat-auxiliary-surfaces"
+      class="max-h-[40%] w-full flex shrink-0 flex-col gap-1 overflow-y-auto"
+    >
+      <ChatQuestionCard />
+      <ChatBtwCard :active="isActiveSessionSending" />
+      <ChatPlanCenter
+        :plans="planViews"
+        :session-id="activeSessionId"
+        :session-labels="sessionLabels"
+        @open-session="handleOpenPlanSource"
+      />
+    </div>
     <div
       v-if="activeFlow"
       :class="['mb-1 flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs', 'bg-amber-50/80 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300']"
       data-testid="chat-flow-indicator"
     >
-      <span>{{ t('stage.turn.flow-active', { iteration: activeFlow.iteration }) }}</span>
+      <span>
+        {{ t('stage.turn.flow-active', { iteration: activeFlow.iteration }) }}
+        <template v-if="activeFlowStep">
+          · {{ activeFlowStep.intent }}
+        </template>
+      </span>
       <Button size="sm" variant="secondary" color="neutral" @click="handleFlowStop">
         {{ t('stage.turn.flow-stop') }}
       </Button>
     </div>
     <div class="relative w-full">
+      <div
+        v-if="composerBlock"
+        data-testid="chat-composer-blocked"
+        :class="['mb-1 flex items-center gap-2 rounded-lg px-2 py-1 text-xs', 'bg-amber-50/80 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300']"
+      >
+        <span class="i-solar:danger-circle-bold-duotone shrink-0" aria-hidden="true" />
+        <span class="min-w-0 flex-1">{{ composerBlock.message }}</span>
+        <Button
+          v-if="composerBlock.reason === 'provider'"
+          data-testid="chat-composer-open-settings"
+          size="sm"
+          variant="secondary"
+          color="neutral"
+          @click="openSettings({ route: '/settings/providers' })"
+        >
+          {{ t('stage.chat.open-settings') }}
+        </Button>
+      </div>
       <div
         v-if="activeQueuedSends.length > 0"
         :class="[
@@ -644,6 +783,8 @@ async function handleCleanupMessages() {
       />
       <BasicTextarea
         v-model="messageInput"
+        data-testid="chat-main-input"
+        :disabled="!!composerBlock"
         :submit-on-enter="false"
         :placeholder="t('stage.message')"
         :class="[

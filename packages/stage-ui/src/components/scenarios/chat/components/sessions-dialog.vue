@@ -17,15 +17,17 @@ interface Props {
   isDesktop: boolean
   isCreatingSession: boolean
   mobilePaddingBottom: string
+  query?: string
 }
 
-defineProps<Props>()
+withDefaults(defineProps<Props>(), { query: '' })
 
 const emit = defineEmits<{
   'deleteSession': [sessionId: string]
   'newSession': []
   'selectSession': [sessionId: string]
   'update:open': [open: boolean]
+  'update:query': [query: string]
 }>()
 
 const { t } = useI18n()
@@ -75,9 +77,23 @@ const { t } = useI18n()
               {{ t('stage.chat.sessions.new') }}
             </button>
           </div>
+          <div :class="['px-5 pb-3']">
+            <input
+              data-testid="sessions-search"
+              type="search"
+              :value="query"
+              :placeholder="t('stage.chat.sessions.search-placeholder')"
+              :class="[
+                'w-full rounded-lg border-2 border-solid px-3 py-2 text-sm outline-none',
+                'border-primary-100 bg-white/70 text-neutral-700 placeholder:text-neutral-400',
+                'dark:border-primary-900/60 dark:bg-neutral-900/70 dark:text-neutral-200 dark:placeholder:text-neutral-500',
+              ]"
+              @input="emit('update:query', ($event.target as HTMLInputElement).value)"
+            >
+          </div>
           <div :class="['flex-1 overflow-y-auto px-2 pb-4']">
             <div v-if="rows.length === 0" :class="['p-6 text-center text-sm text-neutral-500 dark:text-neutral-400']">
-              {{ t('stage.chat.sessions.empty') }}
+              {{ query.trim() ? t('stage.chat.sessions.search-empty') : t('stage.chat.sessions.empty') }}
             </div>
             <div
               v-for="row in rows"

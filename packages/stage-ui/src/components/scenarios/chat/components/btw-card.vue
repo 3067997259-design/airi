@@ -20,6 +20,8 @@ const props = defineProps<{
 const { t } = useI18n()
 const btw = useBtwStore()
 const question = ref('')
+/** Exchange history is scrollable and collapsible; the card must not push the composer out of view. */
+const historyOpen = ref(true)
 
 const state = computed(() => btw.state)
 const busy = computed(() => state.value.status === 'asking')
@@ -65,15 +67,31 @@ function answerUserText(event: KeyboardEvent) {
   <div
     v-if="visible"
     data-testid="chat-btw-card"
-    :class="['flex flex-col gap-2 rounded-lg p-2', 'bg-primary-50/40 dark:bg-primary-950/25']"
+    :class="['flex max-h-72 flex-col gap-2 overflow-hidden rounded-lg p-2', 'bg-primary-50/40 dark:bg-primary-950/25']"
   >
     <div :class="['flex items-center justify-between gap-2']">
       <span :class="['text-xs font-medium text-neutral-500 dark:text-neutral-400']">
         {{ t('stage.chat.btw-card.title') }}
       </span>
-      <Button v-if="busy" size="sm" variant="secondary" color="neutral" @click="btw.cancel()">
-        {{ t('stage.chat.btw-card.stop') }}
-      </Button>
+      <div :class="['flex shrink-0 items-center gap-1']">
+        <button
+          v-if="state.exchanges.length > 0"
+          type="button"
+          data-testid="chat-btw-toggle"
+          :aria-label="historyOpen ? t('stage.chat.btw-card.collapse') : t('stage.chat.btw-card.expand')"
+          :class="[
+            'h-6 w-6 flex items-center justify-center rounded-md',
+            'text-neutral-400 hover:bg-neutral-100/80 hover:text-neutral-600',
+            'dark:text-neutral-500 dark:hover:bg-neutral-800/80 dark:hover:text-neutral-300',
+          ]"
+          @click="historyOpen = !historyOpen"
+        >
+          <div :class="historyOpen ? 'i-solar:alt-arrow-up-line-duotone' : 'i-solar:alt-arrow-down-line-duotone'" />
+        </button>
+        <Button v-if="busy" size="sm" variant="secondary" color="neutral" @click="btw.cancel()">
+          {{ t('stage.chat.btw-card.stop') }}
+        </Button>
+      </div>
     </div>
 
     <div
@@ -104,15 +122,21 @@ function answerUserText(event: KeyboardEvent) {
       >
     </div>
 
-    <div v-for="(exchange, index) in state.exchanges" :key="index" :class="['flex flex-col gap-0.5 text-xs']">
-      <span :class="['text-neutral-400 dark:text-neutral-500']">{{ exchange.question }}</span>
-      <span :class="['text-neutral-700 dark:text-neutral-200']">{{ exchange.answer }}</span>
+    <div
+      v-show="historyOpen"
+      data-testid="chat-btw-history"
+      :class="['flex min-h-0 flex-col gap-0.5 overflow-y-auto text-xs']"
+    >
+      <div v-for="(exchange, index) in state.exchanges" :key="index" :class="['flex flex-col gap-0.5 text-xs']">
+        <span :class="['text-neutral-400 dark:text-neutral-500']">{{ exchange.question }}</span>
+        <span :class="['text-neutral-700 dark:text-neutral-200']">{{ exchange.answer }}</span>
+      </div>
     </div>
 
-    <span v-if="busy && state.streaming" :class="['text-xs text-neutral-700 dark:text-neutral-200']">
+    <span v-if="busy && state.streaming" :class="['shrink-0 text-xs text-neutral-700 dark:text-neutral-200']">
       {{ state.streaming }}
     </span>
-    <span v-if="state.status === 'failed'" :class="['text-xs text-red-600 dark:text-red-400']">
+    <span v-if="state.status === 'failed'" :class="['shrink-0 text-xs text-red-600 dark:text-red-400']">
       {{ state.error }}
     </span>
 
@@ -120,7 +144,7 @@ function answerUserText(event: KeyboardEvent) {
       v-model="question"
       :rows="1"
       :placeholder="t('stage.chat.btw-card.placeholder')"
-      :class="['text-xs']"
+      :class="['shrink-0 text-xs']"
       :submit-on-enter="false"
       @keydown="onKeydown"
     />

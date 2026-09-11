@@ -34,6 +34,10 @@ const { trackChatSessionSelected, trackChatSessionStarted } = useAnalytics()
 // Creating includes persistence and cloud reconciliation, so prevent a
 // second click from creating an orphan session while the first is pending.
 const isCreatingSession = ref(false)
+// Search is window-local UI state; it must not enter synchronized stores.
+const searchQuery = ref('')
+/** Message text is the expensive search field, so each session scans only its newest window. */
+const SEARCH_MESSAGE_SCAN_LIMIT = 100
 
 useResizeObserver(document.documentElement, () => screenSafeArea.update())
 onMounted(() => screenSafeArea.update())
@@ -103,7 +107,34 @@ function formatUpdatedAt(ts: number): string {
   return formatter.format(0, 'second')
 }
 
+/**
+ * Whether a row matches the search text.
+ *
+ * Matches the visible preview, the stored title, the session id, and the text
+ * of the newest messages. Message content matters most during acceptance
+ * work, where the goal is finding the session that mentioned a task id, not a
+ * session whose title was never set.
+ */
+function matchesQuery(row: SessionRow, query: string): boolean {
+  if (!query)
+    return true
+  if (row.preview.toLowerCase().includes(query))
+    return true
+  if (row.meta.title?.toLowerCase().includes(query))
+    return true
+  if (row.meta.sessionId.toLowerCase().includes(query))
+    return true
+
+  const messages = sessionMessages.value[row.meta.sessionId] ?? []
+  return messages.slice(-SEARCH_MESSAGE_SCAN_LIMIT).some((message) => {
+    if (message.role === 'system' || message.hiddenFromHistory)
+      return false
+    return extractMessageText(message).toLowerCase().includes(query)
+  })
+}
+
 const rows = computed<SessionRow[]>(() => {
+  const query = searchQuery.value.trim().toLowerCase()
   const list = ownedSessions.value
     .map<SessionRow>(meta => ({
       meta,
@@ -111,6 +142,7 @@ const rows = computed<SessionRow[]>(() => {
       isActive: meta.sessionId === activeSessionId.value,
       updatedAtLabel: formatUpdatedAt(meta.updatedAt),
     }))
+    .filter(row => matchesQuery(row, query))
   list.sort((a, b) => b.meta.updatedAt - a.meta.updatedAt)
   return list
 })
@@ -165,8 +197,12 @@ async function startNewSession() {
 let openGeneration = 0
 
 watch(showDialog, async (open) => {
-  if (!open)
+  if (!open) {
+    // Reopening starts from the full list; a stale search would hide the
+    // session the user is looking for.
+    searchQuery.value = ''
     return
+  }
   openGeneration += 1
   const myGeneration = openGeneration
   const knownSessionIds = ownedSessions.value.map(meta => meta.sessionId)
@@ -185,6 +221,7 @@ watch(showDialog, async (open) => {
 <template>
   <SessionsDialog
     v-model:open="showDialog"
+    v-model:query="searchQuery"
     :rows="rows"
     :is-desktop="isDesktop"
     :is-creating-session="isCreatingSession"

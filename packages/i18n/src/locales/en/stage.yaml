@@ -1,4 +1,10 @@
 chat:
+  long-goal-resumed: The long-term goal is resumed. The scheduler will start its next work run when the required conditions are met.
+  no-active-session: No chat session is available. Create or choose one from the conversation selector in the title bar.
+  no-active-session-restored: The data for {owner} was restored. Sign in as {owner} to open its chat sessions.
+  no-provider: No chat provider is configured. Choose a provider and a model to start chatting.
+  open-settings: Open settings
+  send-failed: 'Message not sent: {reason}'
   actions:
     retry: Retry
   memory:
@@ -21,26 +27,54 @@ chat:
     horizon:
       session: Session plans
       long: Long-term goals
+      unattributed: Unattributed
     status:
       pending: Pending
       in_progress: In progress
       blocked: Needs input
+      paused: Paused
       completed: Complete
       failed: Failed
+      cancelled: Cancelled
     current-step: Current step
     blockers: Blocked by
     evidence: Evidence
     deadline: Deadline
     unverified: Unverified
+    wait-reason: Waiting reason
+    next-review: Next review
+    pending-question: Pending question
+    run-now: Run now
+    run-now-queued: Run queued. One bounded Flow will start for this goal.
+    run-now-blocked: The goal cannot start yet. The waiting reason on this card explains why.
+    keep-waiting: Keep waiting
+    pause-goal: Pause
+    cancel-goal: Cancel
     persistence:
       failed: Plans are not being saved. Work continues, but it will not survive a restart.
       retry: Retry
+  plan-center:
+    title: Tasks & plans
+    active-count: '{count} active'
+    waiting-count: '{count} waiting'
+    unverified-count: '{count} unverified'
+    history-count: 'History {count}'
+    current-session: This conversation
+    other-sessions: Other conversations
+    unattributed: Unattributed
+    history: History
+    empty: No active tasks or plans.
+    open-source: 'Open {name}'
+    open-source-failed: 'Could not open the source conversation: {reason}'
+    unknown-session: Another conversation
   todo-card:
     title: Task list
   btw-card:
     title: Ask while she works
     placeholder: Ask something; her work keeps running…
     stop: Stop answering
+    collapse: Collapse history
+    expand: Expand history
   approval-card:
     title: Approval required
     expected-evidence: Expected evidence
@@ -67,6 +101,8 @@ chat:
     title: Conversations
     new: + New
     empty: No conversations yet
+    search-placeholder: Search conversations
+    search-empty: No conversations match your search.
     cloud-badge: Synced to cloud
     new-chat-fallback: New chat
     delete: Delete conversation
@@ -83,9 +119,22 @@ turn:
   stop: Stop the active turn
   flow-active: Flow is running · step {iteration}
   flow-stop: Stop flow
-  steer-hint: Esc interrupts · Enter steers · Shift + Enter queues
-  queued: Queued
-  cancel-queued: Cancel queued message
+task-activity:
+  iteration: 'Iteration {iteration}'
+  tool-calls: '{count} tool calls'
+  steering: Steering
+  empty: No activity yet
+  stop: Stop task
+  pending-question: 'Waiting for your answer'
+  last-failure: 'Last failure'
+  status:
+    running: Running
+    waiting-user: Waiting for you
+    completed: Completed
+    blocked: Blocked
+    interrupted: Interrupted
+    budget: Budget reached
+    no-progress: No progress
 approval-mode:
   title: Bash approval mode
   require: Require approval (medium and high-risk commands wait)

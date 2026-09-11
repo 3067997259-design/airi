@@ -21,6 +21,8 @@ function createTestI18n() {
               'empty': 'No chats',
               'delete': 'Delete',
               'cloud-badge': 'Cloud synced',
+              'search-placeholder': 'Search conversations',
+              'search-empty': 'No conversations match your search.',
             },
           },
         },

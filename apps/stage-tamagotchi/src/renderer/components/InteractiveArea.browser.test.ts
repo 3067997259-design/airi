@@ -9,6 +9,8 @@ import { PiniaColada } from '@pinia/colada'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store'
+import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
+import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { createPinia } from 'pinia'
 import { describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -18,6 +20,27 @@ import { createI18n } from 'vue-i18n'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import InteractiveArea from './InteractiveArea.vue'
+
+const toastMock = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+  warning: vi.fn(),
+}))
+
+const electronInvokeMock = vi.hoisted(() => vi.fn())
+
+vi.mock('vue-sonner', () => ({ toast: toastMock }))
+
+vi.mock('@proj-airi/electron-vueuse', async (importOriginal) => {
+  // The test graph also pulls bridge modules that import the raw context
+  // helper, so the mock keeps every real export and only replaces the invoke
+  // composable this component uses.
+  const actual = await importOriginal<typeof import('@proj-airi/electron-vueuse')>()
+  return {
+    ...actual,
+    useElectronEventaInvoke: () => electronInvokeMock,
+  }
+})
 
 function createTestI18n() {
   return createI18n({
@@ -45,6 +68,9 @@ async function renderArea(component: Component = InteractiveArea) {
   }
   const pinia = createPinia()
   pinia.state.value = {
+    // The composer requires a configured provider (UI-4); tests that need the
+    // blocked state clear this store explicitly.
+    'consciousness': { activeProvider: 'test-provider', activeModel: 'test-model' },
     'chat-session-selection': { activeSessionId: 'session-b' },
     'chat-session': {
       sessionMetas: { 'session-a': sessionA, 'session-b': sessionB },
@@ -68,7 +94,56 @@ async function renderArea(component: Component = InteractiveArea) {
     chat: useChatStore(pinia),
     chatSession: useChatSessionStore(pinia),
     chatStream: useChatStreamStore(pinia),
+    consciousness: useConsciousnessStore(pinia),
+    plan: usePlanStore(pinia),
     screen,
+  }
+}
+
+/**
+ * Builds one persisted plan row for the timeline/plan-center split tests.
+ *
+ * The state snapshot is the restart fallback; with an empty journal, the
+ * store projects the card straight from it.
+ */
+function planRecord(input: {
+  id: string
+  goal: string
+  horizon: 'session' | 'long'
+  sessionId?: string
+  lifecycle?: 'running' | 'completed'
+  updatedAt?: number
+}) {
+  const longGoal = input.horizon === 'long'
+    ? { lifecycle: input.lifecycle ?? ('running' as const), constraintVersion: 1 }
+    : undefined
+  return {
+    id: input.id,
+    spec: {
+      goal: input.goal,
+      horizon: input.horizon,
+      steps: [{
+        id: 'verify',
+        lane: 'coding' as const,
+        intent: 'Run the focused tests',
+        allowedTools: ['bash'],
+        expectedEvidence: [{ source: 'tool_result' as const, description: 'tests pass' }],
+        riskLevel: 'low' as const,
+        approvalRequired: false,
+      }],
+    },
+    stateSnapshot: {
+      currentStepId: 'verify',
+      completedSteps: [],
+      failedSteps: [],
+      skippedSteps: [],
+      evidenceRefs: [],
+      blockers: [],
+      ...(longGoal ? { longGoal } : {}),
+    },
+    ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+    createdAt: 1,
+    updatedAt: input.updatedAt ?? 1,
   }
 }
 
@@ -126,6 +201,86 @@ describe('interactive area synchronized state', () => {
       text: 'wait for the next turn',
       delivery: 'next-turn',
     })))
+  })
+
+  it('disables the composer with a readable reason when no session exists', async () => {
+    // ROOT CAUSE (#11/UI-4): with no active session the send promise rejected,
+    // the catch restored the draft, and the user saw an input that did
+    // nothing. The composer now disables and the notice names the reason and
+    // the recovery entry.
+    const { chatSession, screen } = await renderArea()
+    chatSession.activeSessionId = ''
+    await nextTick()
+
+    await expect.element(screen.getByTestId('chat-composer-blocked')).toBeVisible()
+    const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-main-input"]')
+    expect(input?.disabled).toBe(true)
+  })
+
+  it('disables the composer and opens provider settings when no provider is configured', async () => {
+    // UI-4: a missing provider used to look like a working composer whose
+    // sends failed upstream. The blocked notice names the recovery entry.
+    const { consciousness, screen } = await renderArea()
+    electronInvokeMock.mockClear()
+    consciousness.activeProvider = ''
+    await nextTick()
+
+    await expect.element(screen.getByTestId('chat-composer-blocked')).toBeVisible()
+    const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-main-input"]')
+    expect(input?.disabled).toBe(true)
+    await userEvent.click(screen.getByTestId('chat-composer-open-settings'))
+    expect(electronInvokeMock).toHaveBeenCalledWith({ route: '/settings/providers' })
+  })
+
+  it('marks the main composer so automation cannot target the btw side channel', async () => {
+    // #10/#20: with the side card open, the first textarea in the document is
+    // the btw input. Automation using `document.querySelector('textarea')`
+    // silently routed user revisions into the side channel.
+    const { chat } = await renderArea()
+    chat.$patch({ activeSendSessionId: 'session-b', sending: true })
+    await nextTick()
+
+    const main = document.querySelector('[data-testid="chat-main-input"]')
+    expect(main).not.toBeNull()
+    expect(document.querySelector('textarea')).not.toBe(main)
+    expect(main?.getAttribute('placeholder')).toBe('stage.message')
+  })
+
+  it('keeps finished, superseded, and other-session goals out of the timeline but reachable from the plan center', async () => {
+    // ROOT CAUSE:
+    //
+    // Chat rendered every plan the store held, so completed and cancelled
+    // long goals from many sessions accumulated in the timeline until they
+    // pushed the composer out of view (2026-09-11 field report). A second
+    // acceptance run found the same pile-up in the session lane: older
+    // session plans superseded by a newer plan and completed plans without
+    // verification still rendered as live work. The timeline now carries only
+    // work the lane still targets; the plan center keeps the rest, including
+    // the unverified marks and source navigation.
+    const { plan, screen } = await renderArea()
+    plan.$patch({
+      plans: [
+        planRecord({ id: 'session-superseded', goal: 'Superseded session plan', horizon: 'session', sessionId: 'session-b' }),
+        planRecord({ id: 'session-live', goal: 'Live session plan', horizon: 'session', sessionId: 'session-b' }),
+        planRecord({ id: 'long-finished', goal: 'Finished long goal', horizon: 'long', sessionId: 'session-b', lifecycle: 'completed' }),
+        planRecord({ id: 'long-other', goal: 'Other session goal', horizon: 'long', sessionId: 'session-a', lifecycle: 'running', updatedAt: 2 }),
+      ],
+    })
+    await nextTick()
+
+    await expect.element(screen.getByText('Live session plan')).toBeVisible()
+    await expect.element(screen.getByText('Superseded session plan')).not.toBeInTheDocument()
+    await expect.element(screen.getByText('Finished long goal')).not.toBeInTheDocument()
+    await expect.element(screen.getByText('Other session goal')).not.toBeInTheDocument()
+    await expect.element(screen.getByTestId('chat-plan-center')).toBeVisible()
+
+    await userEvent.click(screen.getByTestId('chat-plan-center-toggle'))
+    await expect.element(screen.getByTestId('chat-plan-center-other-sessions')).toBeVisible()
+    // The archive stays closed until asked; opening it proves the record and
+    // its evidence were kept, not deleted.
+    await userEvent.click(screen.getByTestId('chat-plan-history-toggle'))
+    await expect.element(screen.getByText('Finished long goal')).toBeVisible()
+    await expect.element(screen.getByText('Superseded session plan')).toBeVisible()
   })
 
   // https://github.com/moeru-ai/airi/pull/2086#discussion_r3743121861
@@ -272,6 +427,7 @@ describe('interactive area synchronized state', () => {
     const toolNames = payload?.tools?.map(tool => tool.name) ?? []
     expect(toolNames).toContain('github_list_task_issues')
     expect(toolNames).toContain('github_get_pr')
+    expect(toolNames).toContain('user_ask')
     expect(toolNames).not.toContain('github_post_pr_comment')
   })
 

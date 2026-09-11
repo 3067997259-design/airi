@@ -50,6 +50,12 @@ dialogs:
     loginPrompt: Sign in to use the official AIRI provider for the best experience.
     loginAction: Sign in
     setupWithoutSigningIn: Setup with your provider
+    restored:
+      title: Data restored
+      description: >-
+        Your data from {owner} was restored on this device. Sign in as {owner}
+        to view it.
+      loginAction: Sign in to view your data
     flux: Flux
     buyFlux: Charge Flux
     select-model: Choose model
@@ -458,6 +464,9 @@ pages:
         export: Export chats
         import: Import chats
         delete: Delete all chat sessions
+        restore_title: Restored profile is paused
+        restore_description: Review the restored data before external effects resume.
+        restore_adopt: Use restored profile
       models:
         title: Models
         description: Remove imported Live2D, VRM, Spine, and MMD models.
@@ -492,6 +501,7 @@ pages:
     status:
       exported: Chat sessions exported.
       imported: Chat sessions imported.
+      restore_adopted: Restored profile is active.
       import_error: Failed to import chat sessions. Please check the file format.
       chats_deleted: Chat sessions deleted.
       models_deleted: Models deleted.
@@ -659,6 +669,19 @@ pages:
             title: Model options
             thinking:
               label: Thinking
+              description: Enable model reasoning when supported.
+              mandatory-description: This model always uses thinking and cannot turn it off.
+            reasoning-effort:
+              label: Thinking effort
+              description: Choose the effort level for this model. Automatic uses the model default.
+              options:
+                auto: Automatic
+                minimal: Minimal
+                low: Low
+                medium: Medium
+                high: High
+                xhigh: Extra high
+                max: Maximum
             mirror-visual:
               label: Mirror image input
               description: Choose whether this model may receive the temporary mirror image in the same chat turn.
@@ -677,6 +700,37 @@ pages:
       description: Autonomous heartbeats — when she may speak on her own.
       title: Life Mode
       sections:
+        status:
+          title: Runtime status
+          description: The main-process schedule and the last reason a consideration did or did not run.
+          next-heartbeat: Next heartbeat
+          budget: Today's claimed decisions
+          budget-value: '{used} of {total}'
+          unlimited: '{used} used, unlimited'
+          last-heartbeat: Last heartbeat
+          last-decision: Last claimed decision
+          last-gate: Last gate
+          never: Not yet
+          none: None
+          test: Test heartbeat
+          test-hint: A test heartbeat skips the schedule and quiet hours, but still respects mode and consumes the daily budget when claimed.
+          test-emitted: Test heartbeat emitted. Its decision will appear below after the model finishes.
+          test-gated: 'Test heartbeat was gated: {gate}'
+          gates:
+            mode: Mode is off
+            quiet-hours: Quiet hours
+            budget: Daily budget reached
+            cooldown: Cooldown active
+            busy: Chat is busy
+            focused: Focused task active
+            flow-active: Flow is active
+            speech-active: Assistant speech is playing
+            no-session: No active chat session
+            no-stimulus: No new stimulus
+            stale-stimulus: Old stimulus was discarded
+            tools-unavailable: Decision tool unavailable
+            stale-heartbeat: Heartbeat expired
+            respond: Respond-only mode
         mode:
           title: Mode
           description: Life mode decides whether she can initiate conversation without input.
@@ -698,6 +752,19 @@ pages:
           start: Quiet starts at (hour, 0-23)
           end: Quiet ends at (hour, 0-23)
           hint: All times use your local 24h clock; a range crossing midnight wraps.
+          warning-title: Long quiet window
+          long-warning: This quiet window lasts {hours} hours each day. AIRI can initiate only outside it.
+        decisions:
+          title: Recent considerations
+          description: The last explicit social decisions, including silence and failures.
+          empty: No consideration decision has been recorded in this session.
+          actions:
+            speak: Spoke
+            note: Private note
+            silence: Stayed silent
+            protocol-error: Decision protocol error
+            provider-error: Provider error
+            discarded: Stale stimulus discarded
     gaming-factorio:
       description: Playing Factorio!
       title: Factorio
@@ -804,6 +871,11 @@ pages:
           approve: Approve
           reject: Reject
           hash: Content hash
+          view-source: Read source and self-test
+          approve-requires-source: Read the source and self-test first. Approval binds the exact artifact hash you reviewed.
+          re-review-source: Review the current source again
+          no-selftest: No self-test artifact is recorded for this revision.
+          trace-count: 'Recorded self-test traces: {count}'
           sources: External sources
           compatibility: Compatibility probe
           dream: Review failed calls
@@ -812,6 +884,8 @@ pages:
           description: Ready-made tool skeletons you can submit for review.
           title: Catalog
           submit: Submit for review
+          in-review: Submitted — waiting for review.
+          submit-failed: 'Not submitted: {reason}'
     coding:
       description: Hashline file tools and the Code Mode sandbox powered by the main process coding host
       title: Coding
@@ -844,6 +918,21 @@ pages:
     memory-long-term:
       description: Long-term memory specific settings and management
       title: Long-Term Memory
+      database:
+        title: Local memory database
+        description: DuckDB stores local memories in the browser profile.
+        status:
+          idle: Not initialized
+          ready: Ready
+          error: Error
+          follower: Read-only window
+        persistence:
+          idle: Persistence idle
+          checkpointing: Saving {count} pending write(s)
+          complete: Last checkpoint complete
+          error: Persistence error
+        migration: Embedding migration {current}/{total}
+        reembed: Re-embed local memories
       remote:
         title: Long-term store (Postgres)
         description: Connect a Postgres (pgvector) database; promoted memories mirror here and survive the local database.
@@ -855,6 +944,11 @@ pages:
           ready: Connected. Promoted memories mirror into this store.
           unconfigured: Not connected. The local database stays the source of truth.
           error: Connection failed.
+        sync-enabled: Enable long-term remote sync
+        sync-enabled-description: Keep a durable local outbox and retry idempotently. No memory leaves this device until you enable this switch.
+        outbox: '{count} memories waiting to sync'
+        retry: Retry sync
+        queue-existing: Queue existing long-term memories
       sections:
         ranking:
           description: Adjust the five ranking terms used by memory retrieval.
@@ -895,6 +989,17 @@ pages:
       sessions: sessions
       delete: Delete
       edit-label: Edit memory
+      fact-status:
+        active: Active
+        superseded: Superseded
+        disputed: Disputed
+      muscle-migration:
+        hint: This muscle memory has no trigger pattern, so it can never fire and stays invisible to ordinary recall.
+        convert: Convert to fact
+        keep: Keep as muscle
+      revision-label: Proposed revision
+      revise: Propose correction
+      dispute: Mark as disputed
       save: Save
     memory-short-term:
       description: Short-term memory specific settings and management
@@ -911,6 +1016,22 @@ pages:
       model: Memory model
       model-description: Optional low-cost model for extraction and summaries.
       model-placeholder: Use the active chat model
+      embedding-api-enabled: Use an API embedding model
+      embedding-api-enabled-description: >-
+        Embed memories through an OpenAI-compatible endpoint instead of the local worker.
+        Switching the model re-embeds every stored memory once.
+      embedding-base-url: Embedding base URL
+      embedding-base-url-description: >-
+        OpenAI-compatible endpoint that serves embeddings, including the version path
+        (e.g. https://api.example.com/v1/).
+      embedding-base-url-placeholder: https://api.example.com/v1/
+      embedding-api-key: Embedding API key
+      embedding-api-key-description: Key with embedding access on that endpoint. Stored locally like every provider key.
+      embedding-api-key-placeholder: sk-***
+      embedding-model: Embedding model
+      embedding-model-description: Must return 768-dim vectors (e.g. with dimensions set to 768).
+      embedding-model-placeholder: text-embedding-3-small
+      embedding-error: 'Embedding source error: {error}'
       sections:
         runtime:
           description: Choose which memory work runs after each chat turn.
@@ -937,14 +1058,30 @@ pages:
       compact-now: Compact active session
       initialize: Initialize memory database
       dreaming-enabled: Enable dreaming pass
-      dreaming-enabled-description: Allow a bounded background-style pass to propose short-term ideas.
+      dreaming-enabled-description: Allow a bounded pass to propose short-term ideas. Ideas stay separate from facts and plans.
+      automatic-dreaming-enabled: Enable automatic dreaming
+      automatic-dreaming-enabled-description: Run private dreaming during eligible life-mode heartbeats when the app is idle and there is no social stimulus.
+      dreaming-interval-hours: Minimum interval (hours)
+      dreaming-interval-hours-description: Wait at least this long between automatic passes.
+      dreaming-daily-budget: Daily pass budget
+      dreaming-daily-budget-description: Maximum automatic passes per local day. Set to zero for unlimited.
+      dreaming-min-new-memory-count: Minimum new memories
+      dreaming-min-new-memory-count-description: Run only after this many new approved factual memories are available.
+      automatic-dreaming-status: 'Automatic passes today: {used}. Last pass: {lastRun}.'
+      automatic-dreaming-never: 'Automatic passes today: {used}. No pass has run yet.'
       dream-now: Run dreaming pass
       dream-count: '{count} ideas'
       excitement: 'excitement {value}/10'
+      dreaming-lifecycle-hint: Automatic dreaming runs only from eligible life-mode heartbeats. These buttons record idea status only; they do not create or run a plan.
+      idea-status:
+        new: New idea
+        developing: Developing
+        implemented: Implemented
+        abandoned: Archived
       idea-actions:
-        develop: Develop
+        develop: Mark developing
         implement: Mark implemented
-        abandon: Abandon
+        abandon: Archive
       database-status:
         idle: Database is not initialized
         ready: Database is ready

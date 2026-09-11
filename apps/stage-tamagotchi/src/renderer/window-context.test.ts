@@ -36,6 +36,14 @@ describe('resolveRendererWindowContext', () => {
     expect(resolveRendererWindowContext('?synced-leader=false&stage-runtime=minimal').stageRuntime).toBe('minimal')
   })
 
+  it('declares the Stage capability only for the main window', () => {
+    // UI-3: the chat window cannot display a model, so stage-bound tools must
+    // be able to name the missing capability instead of reporting a raw
+    // "No Live2D model is currently loaded." error.
+    expect(resolveRendererWindowContext('?synced-leader=true').capabilities).toEqual({ stage: true })
+    expect(resolveRendererWindowContext('?synced-leader=false&stage-runtime=minimal').capabilities).toEqual({ stage: false })
+  })
+
   it('rejects a renderer URL without an explicit leadership query', () => {
     expect(() => resolveRendererWindowContext('')).toThrow('Missing synced-leader query')
     expect(() => resolveRendererWindowContext('?synced-leader=unknown')).toThrow('Invalid synced-leader query: unknown')

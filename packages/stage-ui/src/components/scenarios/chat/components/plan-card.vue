@@ -4,13 +4,24 @@ import type { PlanView } from '../../../../stores/plans'
 import { Collapsible } from '@proj-airi/ui'
 import { computed, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { toast } from 'vue-sonner'
+
+import { useLongGoalSchedulerStore } from '../../../../stores/modules/long-goals'
 
 const props = defineProps<{
   plan: PlanView
 }>()
 
 const { locale, t } = useI18n()
+const longGoalScheduler = useLongGoalSchedulerStore()
 const visible = shallowRef(props.plan.status === 'blocked')
+
+/** Answers the queue-depth question the scheduler raises on a busy Flow slot. */
+const GOAL_QUEUE_CHOICES = Object.freeze([
+  { value: 'keep-waiting' as const, label: 'stage.chat.plan.keep-waiting' },
+  { value: 'pause' as const, label: 'stage.chat.plan.pause-goal' },
+  { value: 'cancel' as const, label: 'stage.chat.plan.cancel-goal' },
+])
 
 watch(() => props.plan.status, (status, previousStatus) => {
   if (status === 'blocked' && previousStatus !== 'blocked')
@@ -24,15 +35,30 @@ const deadlineLabel = computed(() => {
     return undefined
   return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium' }).format(props.plan.spec.deadline)
 })
+const nextReviewLabel = computed(() => {
+  const timestamp = props.plan.state.longGoal?.nextReviewAt
+  if (timestamp === undefined)
+    return undefined
+  return new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(timestamp)
+})
 const statusIcon = computed(() => {
   if (props.plan.status === 'blocked')
     return 'i-solar:danger-circle-bold-duotone text-red-500'
   if (props.plan.status === 'completed')
     return 'i-solar:check-circle-bold-duotone text-emerald-500'
-  if (props.plan.status === 'failed')
+  if (props.plan.status === 'failed' || props.plan.status === 'cancelled')
     return 'i-solar:close-circle-bold-duotone text-red-500'
   return 'i-eos-icons:loading op-50'
 })
+
+/** A silent boolean return made "Run now" indistinguishable from a dead button. */
+async function handleRunNow() {
+  const queued = await longGoalScheduler.runNow(props.plan.id)
+  if (queued)
+    toast.success(t('stage.chat.plan.run-now-queued'))
+  else
+    toast.warning(t('stage.chat.plan.run-now-blocked'))
+}
 </script>
 
 <template>
@@ -67,6 +93,18 @@ const statusIcon = computed(() => {
         >
           {{ horizonLabel }}
         </span>
+        <!-- Keeps completed-without-evidence records from reading as clean
+             success inside the collapsed plan-center history (invariant 6). -->
+        <span
+          v-if="(plan.state.unverifiedSteps?.length ?? 0) > 0"
+          data-testid="chat-plan-unverified-flag"
+          :class="[
+            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+            'bg-amber-100 text-amber-700 dark:bg-amber-900/70 dark:text-amber-200',
+          ]"
+        >
+          {{ t('stage.chat.plan.unverified') }}
+        </span>
         <span class="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
           [{{ statusLabel }} · {{ plan.state.completedSteps.length }}/{{ plan.spec.steps.length }}]
         </span>
@@ -91,6 +129,48 @@ const statusIcon = computed(() => {
         <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.blockers') }}:</span>
         {{ plan.state.blockers.join(', ') }}
       </div>
+      <div v-if="plan.state.longGoal?.waitReason" class="mb-2 text-amber-700 dark:text-amber-300">
+        <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.wait-reason') }}:</span>
+        {{ plan.state.longGoal.waitReason }}
+      </div>
+      <div v-if="nextReviewLabel" class="mb-2 text-neutral-600 dark:text-neutral-300">
+        <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.next-review') }}:</span>
+        {{ nextReviewLabel }}
+      </div>
+      <div v-if="plan.state.longGoal?.pendingQuestion" class="mb-2 text-violet-700 dark:text-violet-300">
+        <span class="text-neutral-500 dark:text-neutral-400">{{ t('stage.chat.plan.pending-question') }}:</span>
+        {{ plan.state.longGoal.pendingQuestion.question }}
+      </div>
+      <div
+        v-if="plan.state.longGoal?.pendingQuestion"
+        class="mb-2 flex flex-wrap gap-1"
+        data-testid="chat-plan-pending-answer"
+      >
+        <button
+          v-for="choice in GOAL_QUEUE_CHOICES"
+          :key="choice.value"
+          type="button"
+          :class="[
+            'rounded-md px-2 py-1 text-xs font-medium',
+            'bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/70 dark:text-violet-200 dark:hover:bg-violet-900',
+          ]"
+          @click="void longGoalScheduler.answerPendingQuestion(plan.id, choice.value)"
+        >
+          {{ t(choice.label) }}
+        </button>
+      </div>
+      <button
+        v-if="plan.spec.horizon === 'long'"
+        type="button"
+        data-testid="chat-plan-run-now"
+        :class="[
+          'mb-2 rounded-md px-2 py-1 text-xs font-medium',
+          'bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-900/70 dark:text-violet-200 dark:hover:bg-violet-900',
+        ]"
+        @click="void handleRunNow()"
+      >
+        {{ t('stage.chat.plan.run-now') }}
+      </button>
       <div class="flex flex-col gap-1">
         <div v-for="step in plan.spec.steps" :key="step.id" class="flex items-center gap-2">
           <span
