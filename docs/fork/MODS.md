@@ -3,6 +3,13 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## B 波次三批契约规范定稿（2026-09-11）
+
+新增三份批次规范：[CP-0 契约规范](./cp-0-spec.md)、[EP-0 契约规范](./ep-0-spec.md)、[MC-0a 契约规范](./mc-0a-spec.md)。分工：三份执行计划管顺序与验收，三份规范管契约与不可协商值。
+用户四项选择落纸：每批一份规范；house 风格 + 编号设计不变量（不用 RFC-2119）；MC 走 HTTP/SSE 直连（不起子进程）；EP-0 做完整取消链路。
+规范钉死的关键值：`ForkProtocolDescriptor` 双发送路径穿透（含计划未提的 `extension-peer.ts`）+ 与休眠的 `module:compatibility:*` 的裁决（不复用）；`ToolRegistration` 进同步状态 + 双键唯一 + 四条注册路径（计划写三条，补 reviewed skills）+ 七个证据桶（含 `game_checked`）+ precedence 40-47 相邻关系 + 完整取消链路（注册项 abort/MCP requestId/插件 requestId/沙箱 signal/`revoked`）；mcp-config 判别联合（stdio 改名 + 四处影响面）+ loopback 守卫 + game-host 私有 session + 退役范围（两个 provider 测试须改夹具，minecraft 遗产标 dormant 不删）。
+三处对执行计划的更正：注册路径三条→四条；tools store 实体在 `stage-ui/stores/ai/chat-llm/tools.ts`（计划指向的是 barrel）；MC 拓扑 stdio 子进程→HTTP 直连。另纠正此前 P3-1/P3-2 已随 FLOW-KNOWLEDGE 落地的估计错误。本轮仅文档。
+
 ## B 波次计划定稿（2026-09-11）
 
 新增 [B 波次执行计划](./wave-b-execution-plan.md)：三线首批（EP-0 工具标识与证据来源 ∥ CP-0 契约纪律与版本协商 ∥ MC-0a 固定候选与双环境）的顺序、切入口与通过条件。
