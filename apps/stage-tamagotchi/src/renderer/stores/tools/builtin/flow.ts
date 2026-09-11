@@ -34,7 +34,7 @@ export function executeBtwAsk(input: { question: string, choices?: string[] }): 
 const tools: Promise<Tool>[] = [
   tool({
     name: 'flow_update',
-    description: 'Declare flow control. Use start when work needs more than one turn. Use done only after the task is complete. Use blocked only after you ask the user with btw_ask or user_ask.',
+    description: 'Declare flow control. Use start when work needs more than one turn. "done" is a claim the harness verifies at the turn boundary: every plan step must hold evidence or be closed with a stated reason, and a reviewer checks your claim against the tool receipts — a rejected claim keeps the flow running and tells you why. Analysis-only tasks may declare done without any file change. Use blocked only after you ask the user with btw_ask or user_ask.',
     execute: executeFlowUpdate,
     parameters: flowUpdateParams,
   }),

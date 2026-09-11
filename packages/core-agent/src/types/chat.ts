@@ -39,6 +39,13 @@ export interface ChatAssistantMessage extends AssistantMessage {
     speech: string
     reasoning: string
   }
+  /**
+   * Flow iteration this assistant message belongs to (FLOW-KNOWLEDGE
+   * principle four). Flow work messages render in the chat timeline like any
+   * assistant bubble; the marker only gates cloud sync, because the
+   * synthetic continuation prompt that triggered the turn is not persisted.
+   */
+  flowIteration?: number
 }
 
 export type ChatMessage = ChatAssistantMessage | SystemMessage | ToolMessage | UserMessage

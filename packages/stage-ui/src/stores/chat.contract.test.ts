@@ -1,4 +1,4 @@
-import type { StreamOptions } from '@proj-airi/core-agent'
+import type { StreamOptions, TaskRun, TaskRunActivity } from '@proj-airi/core-agent'
 import type { ChatProvider } from '@xsai-ext/providers/utils'
 import type { Message, Tool } from '@xsai/shared-chat'
 
@@ -212,6 +212,7 @@ vi.mock('./modules/consciousness', () => ({
     activeProvider: activeProviderRef,
     getChatProviderInstance: (providerId: string) => getChatProviderInstanceMock(providerId, {
       reasoning: useConsciousnessSettingsStore().reasoning ? 'enabled' : 'disabled',
+      reasoningEffort: useConsciousnessSettingsStore().reasoningEffort,
     }),
   }),
 }))
@@ -306,12 +307,101 @@ describe('chat store contract', () => {
     })
 
     expect(getChatProviderInstanceMock).toHaveBeenCalledTimes(2)
-    expect(getChatProviderInstanceMock).toHaveBeenCalledWith('mock-provider', { reasoning: 'disabled' })
+    expect(getChatProviderInstanceMock).toHaveBeenCalledWith('mock-provider', { reasoning: 'disabled', reasoningEffort: 'auto' })
     expect(() => structuredClone(result)).not.toThrow()
     expect(resolvedToolNames).toEqual([
       ['stage_widgets'],
       ['stage_widgets'],
     ])
+  })
+
+  it('suppresses a control turn and publishes approved speech through normal hooks', async () => {
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      expect(options.toolChoice).toBe('required')
+      expect(options.maxSteps).toBe(1)
+      const tools = typeof options.tools === 'function' ? await options.tools() : options.tools
+      expect(tools.map((candidate: Tool) => candidate.function.name)).toEqual(['self_decide'])
+      await options.onStreamEvent({ type: 'text-delta', text: 'raw control text' })
+      await options.onStreamEvent({
+        type: 'tool-call',
+        toolCallId: 'decision-call',
+        toolCallType: 'function',
+        toolName: 'self_decide',
+        args: '{"action":"speak","text":"Hello on my own.","reason":"Worth sharing."}',
+      })
+      await options.onStreamEvent({
+        type: 'tool-result',
+        toolCallId: 'decision-call',
+        result: '{"accepted":true,"action":"speak"}',
+      })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'tool-calls' })
+    })
+
+    const store = useChatStore()
+    const hookOrder: string[] = []
+    store.onBeforeMessageComposed(async () => {
+      hookOrder.push('before-compose')
+    })
+    store.onAfterMessageComposed(async () => {
+      hookOrder.push('after-compose')
+    })
+    store.onBeforeSend(async () => {
+      hookOrder.push('before-send')
+    })
+    store.onTokenLiteral(async () => {
+      hookOrder.push('token-literal')
+    })
+    store.onStreamEnd(async () => {
+      hookOrder.push('stream-end')
+    })
+    store.onAssistantResponseEnd(async () => {
+      hookOrder.push('assistant-end')
+    })
+    store.onAfterSend(async () => {
+      hookOrder.push('after-send')
+    })
+    store.onAssistantMessage(async () => {
+      hookOrder.push('assistant-message')
+    })
+
+    const controlResult = await store.send({
+      sessionId: 'session-1',
+      text: 'typed facts',
+      source: 'self-initiative',
+      selfInitiativeMode: 'social',
+      tools: [{ name: 'self_decide' }],
+      toolChoice: 'required',
+      maxSteps: 1,
+      presentation: 'control',
+    })
+
+    expect(hookOrder).toEqual([])
+    expect(controlResult.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: '',
+      hiddenFromHistory: true,
+    })
+
+    await store.publishAssistantMessage({
+      sessionId: 'session-1',
+      source: 'self-initiative',
+      text: 'Hello on my own.',
+    })
+
+    expect(hookOrder).toEqual([
+      'before-compose',
+      'after-compose',
+      'before-send',
+      'token-literal',
+      'stream-end',
+      'assistant-end',
+      'after-send',
+      'assistant-message',
+    ])
+    expect(sessionMessages['session-1']?.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Hello on my own.',
+    })
   })
 
   it('pauses an active plan on a stop instruction and resumes only on an explicit continue instruction', async () => {
@@ -367,6 +457,40 @@ describe('chat store contract', () => {
     expect(userText).toContain('Keep the workspace healthy')
     expect(userText).not.toContain('/goal')
     expect(toolNames).toContain('plan_update')
+  })
+
+  it('tells a fresh /goal how many goals already queue for the single Flow slot', async () => {
+    // R5: the scheduler runs one Flow at a time, so a second live goal must
+    // not read as instantly runnable work.
+    const planStore = usePlanStore()
+    await planStore.start({
+      goal: 'Watch the workspace',
+      horizon: 'long',
+      scope: { userId: 'local', characterId: 'default' },
+      workspaceRoot: 'goal-workspace',
+      steps: [{
+        id: 'watch',
+        lane: 'coding',
+        intent: 'Inspect notes',
+        allowedTools: ['read'],
+        expectedEvidence: [{ source: 'tool_result', description: 'file contents' }],
+        riskLevel: 'low',
+        approvalRequired: false,
+      }],
+    }, 'queued-goal', { sessionId: 'session-1' })
+
+    let systemText = ''
+    llmStreamMock.mockImplementationOnce(async (_model: string, _chatProvider: ChatProvider, messages: Message[], options: any) => {
+      systemText = String(messages[0]?.content)
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await useChatStore().send({
+      sessionId: 'session-1',
+      text: '/goal Also keep the docs tidy',
+    })
+
+    expect(systemText).toContain('1 live long-term goal already queue')
   })
 
   it('turns a successful self_speak call into a visible assistant message', async () => {
@@ -437,7 +561,7 @@ describe('chat store contract', () => {
     const store = useChatStore()
     await store.send({ sessionId: 'session-1', text: 'reply without changing provider defaults' })
 
-    expect(getChatProviderInstanceMock).toHaveBeenCalledWith('mock-provider', { reasoning: 'enabled' })
+    expect(getChatProviderInstanceMock).toHaveBeenCalledWith('mock-provider', { reasoning: 'enabled', reasoningEffort: 'auto' })
     await settings.setReasoning(false)
   })
 
@@ -782,9 +906,41 @@ describe('chat store contract', () => {
     const systemMessage = llmStreamMock.mock.calls[0]?.[2]?.[0] as any
     const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
     expect(systemText).toContain('system prompt')
+    expect(systemText).toContain('## Persona Continuity')
     expect(systemText).toContain('## Stage Control')
     expect(systemText).toContain('## Output Formatting')
     expect(systemText).toContain('Plugin toolset guidance.')
+  })
+
+  it('repeats the recovery boundary in ordinary turn supplements', async () => {
+    // ROOT CAUSE (#9): the boundary existed only in the flow iteration
+    // prompts, so an ordinary follow-up after a restart narrated recovery
+    // actions as pre-interrupt evidence.
+    cardStoreState.systemPrompt = 'A plain character prompt.'
+    llmStreamMock.mockImplementation(async (_model: string, _chatProvider: ChatProvider, _messages: Message[], options: any) => {
+      await options.onStreamEvent({ type: 'text-delta', text: 'ok' })
+      await options.onStreamEvent({ type: 'finish', finishReason: 'stop' })
+    })
+    useJournalStore().append('session-1', {
+      type: 'flow/resumed',
+      flowId: 'flow-restart',
+      taskId: 'task-restart',
+      resumedAt: Date.UTC(2026, 8, 10, 15, 8),
+      resumedFromSeq: 6478,
+      timestamp: Date.UTC(2026, 8, 10, 15, 8),
+    })
+
+    const store = useChatStore()
+    await store.ingest('这个任务是在中断后如何恢复的？', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      profile: 'social',
+    })
+
+    const systemMessage = llmStreamMock.mock.calls[0]?.[2]?.[0] as any
+    const systemText = typeof systemMessage.content === 'string' ? systemMessage.content : systemMessage.content.map((p: any) => p.text).join('')
+    expect(systemText).toContain('## Recovery Boundary')
+    expect(systemText).toContain('6478')
   })
 
   it('keeps the work-turn prefix free of stage sections and carries plan state at the tail', async () => {
@@ -813,11 +969,14 @@ describe('chat store contract', () => {
 
     expect(systemText).not.toContain('## Stage Control')
     expect(systemText).not.toContain('## Mode')
+    expect(systemText).toContain('## Persona Continuity')
     expect(systemText).toContain('## Environment')
     expect(systemText).toContain('- workspaceRoot: unavailable')
     expect(systemText).toContain('- shell: unavailable')
     expect(systemText).toContain('## Agent Role')
     expect(systemText).toContain('Your expression may have personality')
+    // The workspace root belongs to the user (#14).
+    expect(systemText).toContain('workspace root is set by the user')
     // Safety and formatting stay: they describe how to read tool output.
     expect(systemText).toContain('## Workspace Content Safety')
   })
@@ -957,6 +1116,30 @@ describe('chat store contract', () => {
     expect(store.sending).toBe(true)
     expect(store.activeSendSessionId).toBe('session-b')
     expect(store.activeStreamingMessage?.content).toBe('authority stream')
+  })
+
+  it('publishes bounded task activity as a structured-clone-safe follower snapshot', async () => {
+    const activity: TaskRunActivity[] = [
+      { kind: 'tool-call', seq: 2, toolName: 'read', args: '{"path":"README.md"}' },
+      { kind: 'tool-result', seq: 3, toolName: 'read', ok: true, outcome: 'ok', summary: 'read 1 file' },
+    ]
+    const task: TaskRun = {
+      taskId: 'task-follower',
+      sessionId: 'session-follower',
+      flowId: 'flow-follower',
+      planIds: [],
+      title: 'Read the project guide',
+      status: 'running',
+      startedAt: 1,
+      updatedAt: 3,
+      activity,
+    }
+    const store = useChatStore()
+
+    await store.publishTaskRuns([task])
+
+    expect(structuredClone(task)).toEqual(task)
+    expect(store.taskRuns).toEqual([task])
   })
 
   it('does not end the owned IO turn span when external sending mirror is cleared mid-send', async () => {

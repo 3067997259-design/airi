@@ -6,7 +6,8 @@ import type { CodingApprovalDecisionPayload, PlanApprovalAskPayload } from '../.
 import { defineInvoke } from '@moeru/eventa'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
-import { usePlanStore } from '@proj-airi/stage-ui/stores/plans'
+import { useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
+import { hasOpenPlanSteps, usePlanStore } from '@proj-airi/stage-ui/stores/plans'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
 
@@ -73,7 +74,9 @@ export function installPlanSessionProvider(next: PlanSessionProvider | undefined
   planSessionProvider = next
 }
 
-function currentPlanSession(): string | undefined {
+function currentPlanSession(explicitSessionId?: string): string | undefined {
+  if (explicitSessionId)
+    return explicitSessionId
   if (planSessionProvider)
     return planSessionProvider()
   return useChatSessionStore().activeSessionId
@@ -103,9 +106,11 @@ export async function executePlanUpdate(input: {
   steps?: PlanStepInput[]
   stepId?: string
   rationale?: string
+  /** Runtime-only session binding; never appears in the provider schema. */
+  __airiSessionId?: string
 }): Promise<string> {
   const planStore = usePlanStore()
-  const currentSession = currentPlanSession()
+  const currentSession = currentPlanSession(input.__airiSessionId)
 
   if (input.action === 'start') {
     if (!input.goal?.trim() || !input.steps?.length)
@@ -117,18 +122,49 @@ export async function executePlanUpdate(input: {
     }
 
     const horizon = input.horizon ?? 'session'
-    // Session plans supersede only the current session plan. A long goal is
-    // a separate rolling lane and keeps its stable id across replans.
-    const previous = horizon === 'session' ? planStore.activeSessionPlan : undefined
-    if (previous) {
-      const previousStepId = previous.state.currentStepId ?? previous.spec.steps[0]?.id
-      if (previousStepId)
-        await planStore.updateStep(previous.id, previousStepId, 'blocked', 'superseded by a new plan')
+    // A new plan retires the whole session lane behind it, whatever its own
+    // horizon: every older session plan is replaced by definition, and its
+    // open steps can no longer be reached by focus or complete. The steps are
+    // skipped, not blocked — a skipped step is closed by decision and leaves
+    // the completion gate, while a blocked one held every later Flow open
+    // over work no one would run (ACC-20260909 FIX1 and its retest). Long
+    // plans are NOT folded here: another live goal can run in parallel, and
+    // skipping its steps would close work that belongs to it; the completion
+    // gate's lane rule keeps non-standing long plans out instead.
+    const replacedSessionPlans = planStore.scopedActivePlans(currentSession)
+      .filter(plan => plan.spec.horizon === 'session' && hasOpenPlanSteps(plan))
+    for (const replaced of replacedSessionPlans) {
+      const openSteps = replaced.spec.steps.filter(step =>
+        !replaced.state.completedSteps.includes(step.id)
+        && !replaced.state.failedSteps.includes(step.id)
+        && !replaced.state.skippedSteps.includes(step.id))
+      for (const step of openSteps)
+        await planStore.updateStep(replaced.id, step.id, 'skipped', 'superseded by a new plan')
     }
 
+    const codingStore = horizon === 'long' ? useCodingToolsStore() : undefined
+    // A long goal persists the workspace it is allowed to touch. The cached
+    // renderer status can lag behind a host root switch, so creation must read
+    // the host again before capturing that boundary.
+    const codingStatus = horizon === 'long'
+      ? await codingStore?.refreshStatus()
+      : undefined
+    const sessionStore = horizon === 'long' && !planSessionProvider ? useChatSessionStore() : undefined
+    const characterId = sessionStore?.sessionMetas[currentSession ?? '']?.characterId
+      ?? globalThis.localStorage?.getItem('airi-card-active-id')
+      ?? 'default'
     const spec: PlanSpec = {
       goal: input.goal.trim(),
       horizon,
+      ...(horizon === 'long'
+        ? {
+            scope: {
+              userId: sessionStore?.index?.userId ?? 'local',
+              characterId,
+            },
+            ...(codingStatus?.workspaceRoot ? { workspaceRoot: codingStatus.workspaceRoot } : {}),
+          }
+        : {}),
       steps: input.steps.map(step => ({
         id: step.id,
         lane: step.lane,
@@ -143,7 +179,18 @@ export async function executePlanUpdate(input: {
     return `Plan ${planId} created with ${spec.steps.length} step(s). Focus: "${spec.steps[0].id}". Tool results only count as evidence for the focused step's allowed tools. Keep executing steps within this turn until blocked or finished.`
   }
 
-  const plan = planStore.scopedActivePlans(currentSession).at(-1)
+  // The completion gate holds a Flow open on the newest plan of each lane,
+  // and a newer long plan can sit in front of the standing session plan.
+  // Resolving focus and complete against only the single newest scoped plan
+  // made steps of the other lane unreachable ("Unknown stepId") while the
+  // gate demanded exactly those steps (ACC-20260909 FIX1 retest). The target
+  // is the newest steerable plan that owns the step id, falling back to the
+  // newest scoped plan for the message surface.
+  const scopedPlans = planStore.scopedActivePlans(currentSession)
+  const plan = (input.stepId
+    ? [...scopedPlans].reverse().find(candidate => candidate.spec.steps.some(step => step.id === input.stepId))
+    : undefined)
+  ?? scopedPlans.at(-1)
 
   if (input.action === 'focus') {
     if (!plan)
@@ -183,6 +230,10 @@ export async function executePlanUpdate(input: {
 
   if (!plan)
     return 'No active plan in this session to cancel.'
+  if (plan.spec.horizon === 'long') {
+    await planStore.cancelLongGoal(plan.id)
+    return 'Plan cancelled.'
+  }
   const stepId = plan.state.currentStepId ?? plan.spec.steps[0]?.id
   if (stepId)
     await planStore.updateStep(plan.id, stepId, 'failed', 'cancelled by the model')
@@ -192,7 +243,7 @@ export async function executePlanUpdate(input: {
 const tools: Promise<Tool>[] = [
   tool({
     name: 'plan_update',
-    description: 'Create or steer the plan for a multi-step task. Steps complete when their declared evidence exists in the journal (an allowed-tool result, a verification, or a decided approval card). action "complete" lets you finish a step without evidence, flagged unverified on the plan card; human_approval steps always require the approval card. Keep plans small: one plan per task, one focused step at a time, and keep executing steps within the turn until blocked or finished.',
+    description: 'Create or steer the plan for a multi-step task. Steps complete when their declared evidence exists in the journal (an allowed-tool result, a verification, or a decided approval card). action "complete" lets you finish a step without evidence, but you must state the reason and the step is flagged unverified — it will be named in the flow wrap-up; human_approval steps always require the approval card. allowedTools steers which tools count as evidence for a step; exploration tools (read/grep/list) are always allowed regardless of it. Keep plans small: one plan per task, one focused step at a time, and keep executing steps within the turn until blocked or finished.',
     execute: executePlanUpdate,
     parameters: params,
   }),

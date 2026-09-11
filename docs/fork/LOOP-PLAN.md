@@ -709,3 +709,11 @@ runtime 的预算规则如下：
 
 验收必须确认：第五步工具结果已落 journal 和 provider transcript，且第六步不会启动。
 非心流 work 轮不得因为心流预算而提前停止。
+
+## §14 心流自主化（FLOW-AUTONOMY，2026-09-03）
+
+第三轮修复的设计与实施记录见 `FLOW-AUTONOMY-PLAN.md`。要点：外硬内软（过程还模型、
+边界留 harness）；停滞检测替代 no-progress（新观察 = 进展）；迭代开场契约（步预算 2 +
+开场叙述）；完成权威三层（L1 步骤门合取 → L2 语义正则 → L3 done 边界 LLM 评审）；
+steering 并入（心流期间用户文本 = steering，不再杀 flow）；时间线卡与 wrap-up 可见性。
+§12(2)（续跑消息角色形态）随该计划 F4 定案关闭：保持合成 user-role。

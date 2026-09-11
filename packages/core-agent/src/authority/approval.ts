@@ -75,6 +75,9 @@ const HIGH_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   new RegExp(`${POWERSHELL_COMMAND_START}(enter-pssession|new-pssession|invoke-command)\\b`, 'i'),
 ])
 
+/** Segment-start anchor shared by every list that must match a command position, not an argument. */
+const INTERPRETER_SEGMENT_START = String.raw`(?:^|[;|&(])\s*`
+
 const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   // dependency installation
   /\b(npm|pnpm|yarn|bun)\s+(install|add|remove|ci|update|upgrade|link)\b/,
@@ -82,7 +85,17 @@ const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
   /\bgit\s+(commit|add|reset|rebase|merge|checkout|switch|restore|stash|fetch|pull|clone)\b/,
   // file creation / movement / redirect writes
   /\b(mkdir|touch|mv|cp|tee|head\s+-c)\b/,
-  /(>>|>\s+)/,
+  // file metadata and link changes mutate the filesystem without touching content
+  /\b(chmod|chown|chgrp|ln|truncate)\b/,
+  // in-place text edits: `sed -i` / `sed --in-place` rewrite the input files;
+  // a bare `sed 's/a/b/'` only writes stdout and stays read-only
+  new RegExp(`${INTERPRETER_SEGMENT_START}sed\\b(?=[^;|&]*(?:\\s-i\\b|--in-place\\b))`),
+  // gawk's in-place extension: `awk -i inplace` (or `in-place`) rewrites input files
+  new RegExp(`${INTERPRETER_SEGMENT_START}awk\\b(?=[^;|&]*\\s-i\\s+(?:inplace|in-place)\\b)`),
+  // redirect writes. The leading class keeps `->` (pointer/arrow text) from
+  // matching; the trailing lookahead admits both `> file` and `>file`, and
+  // fd forms like `1>log`. `2>&1` duplicates a descriptor, it writes no file.
+  /(?:^|[\s&0-9])>{1,2}(?![>&])(?=\s*\S)/,
   // builds (write artifacts)
   /\b(npm|pnpm|yarn|bun)\s+(run\s+)?build\b/,
   // PowerShell file creation, movement and writes (cmdlets and aliases)
@@ -90,17 +103,43 @@ const MEDIUM_COMMAND_PATTERNS: readonly RegExp[] = Object.freeze([
 ])
 
 /**
+ * Interpreters and script runners count as mutating regardless of what the
+ * script does. A `python -m pkg import-candidates` can write a database and
+ * a `node script.js` anything; the read-only default could not see that (the
+ * 2026-09-03 run performed real imports classified read-only, which starved
+ * the mutation evidence counters). Medium keeps the default no-approval UX —
+ * this tier only corrects the evidence accounting — while genuinely
+ * destructive operations inside the script are the sandbox's problem, not
+ * this list's. Shell-launcher wrappers (`powershell -Command "…"`,
+ * `cmd.exe /c "…"`) join the list for the same reason: the payload after
+ * the flag is opaque to static matching, and the cmdlet-word patterns only
+ * fire when the cmdlet itself sits at a command position (2026-09-04 run:
+ * `powershell -Command "Remove-Item …"` fell through to read-only).
+ */
+const INTERPRETER_COMMAND_PATTERN = new RegExp(`${INTERPRETER_SEGMENT_START}(?:python[0-9.]*|py|node|deno|bun|ruby|perl|php|bash|sh|zsh|powershell[0-9.]*(?:\\.exe)?|pwsh(?:\\.exe)?|cmd(?:\\.exe)?|\\./[^;|&\\s]+)\\b`)
+/** `node --version` and `python --help` probe the toolchain; they execute no project code. */
+const INTERPRETER_VERSION_PROBE = /\s(?:--version|--help|-V|-h)\s*$/
+
+/**
  * Classifies a `bash` command into the static risk tier.
  *
  * Test / typecheck / lint / query commands fall through to the read-only
  * default; anything not explicitly matched stays read-only by rule
- * (`docs/fork/CODING-HARNESS-DESIGN.md` §11.5), with the sandbox as the real fence.
+ * (`docs/fork/CODING-HARNESS-DESIGN.md` §11.5), with the sandbox as the real
+ * fence. An interpreter or script invocation upgrades the command to medium:
+ * its effect is opaque to static matching — except a bare version or help
+ * probe, which runs no project code. In-place text mutators (`sed -i`,
+ * `awk -i inplace`), file metadata changes, and redirect writes are medium
+ * for the same reason: the files on disk change while the command shape
+ * looks like text processing.
  */
 export function classifyBashCommand(command: string): BashRiskTier {
   const normalized = command.replace(/\s+/g, ' ').trim()
   if (HIGH_COMMAND_PATTERNS.some(pattern => pattern.test(normalized)))
     return 'high'
   if (MEDIUM_COMMAND_PATTERNS.some(pattern => pattern.test(normalized)))
+    return 'medium'
+  if (INTERPRETER_COMMAND_PATTERN.test(normalized) && !INTERPRETER_VERSION_PROBE.test(normalized))
     return 'medium'
   return 'read-only'
 }
