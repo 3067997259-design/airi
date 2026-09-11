@@ -1062,3 +1062,15 @@ describe('chat-session-store · synchronized data actions', () => {
     expect(store.getSnapshot().index?.characters.default?.activeSessionId).toBe('persisted-session')
   })
 })
+
+describe('chat-session-store · createSession input contract', () => {
+  it('rejects a non-string character id before creating a session', async () => {
+    // ROOT CAUSE (#17): a mistyped characterId became session metadata
+    // verbatim, and long goals built from that session failed every wake with
+    // a generic "outside the goal scope" reason.
+    const store = useChatSessionStore()
+
+    await expect(store.createSession({} as never)).rejects.toThrow('non-empty character id')
+    expect(Object.keys(store.sessionMetas)).toHaveLength(0)
+  })
+})

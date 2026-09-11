@@ -239,7 +239,7 @@ export interface ProviderDefinition<TConfig extends any = any> {
   }
   capabilities?: {
     chat?: {
-      reasoning?: ChatReasoningCapability
+      reasoning?: ChatReasoningSupport
       /** Whether the provider definition accepts image content in chat messages. */
       imageInput?: boolean
     }
@@ -295,14 +295,34 @@ export interface ProviderDefinition<TConfig extends any = any> {
 /** Reasoning modes that AIRI can request from a chat provider. */
 export type ChatReasoningMode = 'disabled' | 'enabled'
 
+/** Common names for effort levels that providers can map to their wire values. */
+export type ChatReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+/** User-selected effort policy. `auto` leaves the choice to the model. */
+export type ChatReasoningPreference = 'auto' | ChatReasoningEffort
+
 /** User-selected options that a provider applies to one chat request. */
 export interface ChatRequestOptions {
   /** Requested reasoning mode. */
   reasoning: ChatReasoningMode
+  /** Requested effort. Providers map this value to their own request fields. */
+  reasoningEffort?: ChatReasoningPreference
 }
 
-/** Describes the reasoning controls that AIRI implements for a provider. */
+/** Describes the reasoning controls that AIRI implements for one model. */
 export interface ChatReasoningCapability {
   /** Modes that AIRI can pass to the provider. */
   modes: readonly ChatReasoningMode[]
+  /** Effort levels that the selected model accepts. */
+  efforts?: readonly ChatReasoningEffort[]
+  /** Model default used when the user selects an unsupported or empty effort. */
+  defaultEffort?: ChatReasoningEffort
+  /** Whether the model always reasons and cannot honor `disabled`. */
+  mandatory?: boolean
 }
+
+/** Resolves model-specific reasoning controls for providers with mixed catalogs. */
+export type ChatReasoningCapabilityResolver = (model: string) => ChatReasoningCapability | undefined
+
+/** Static or model-specific reasoning controls owned by a provider definition. */
+export type ChatReasoningSupport = ChatReasoningCapability | ChatReasoningCapabilityResolver

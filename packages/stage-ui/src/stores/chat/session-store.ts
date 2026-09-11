@@ -25,6 +25,7 @@ import {
   reconcileLocalAndRemote,
 } from '../../libs/chat-sync'
 import { SERVER_URL } from '../../libs/server'
+import { areRestoreEffectsHeld, isRestoreActive, waitForRestore } from '../../services/restore-gate'
 import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules/airi-card'
 import { mergeLoadedSessionMessages } from './session-message-merge'
@@ -203,6 +204,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   function refreshActiveSessionSystemMessage() {
+    // Restore publishes identity and session selection in separate owner
+    // writes. Preserve the archived history until those writes are complete.
+    if (isRestoreActive())
+      return
     const sessionId = activeSessionId.value
     const meta = sessionMetas.value[sessionId]
 
@@ -468,6 +473,11 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    *   also made the active one.
    */
   async function createSession(characterId: string, options?: { setActive?: boolean, messages?: ChatHistoryItem[], title?: string }) {
+    // A non-string id used to become the session's `characterId` verbatim,
+    // which later produced long goals whose broken scope every wake rejected
+    // as "outside the goal scope" (ACC-20260911 #17). Reject it at the source.
+    if (typeof characterId !== 'string' || characterId.trim().length === 0)
+      throw new TypeError('createSession requires a non-empty character id string.')
     const currentUserId = getCurrentUserId()
     const sessionId = nanoid()
     const now = Date.now()
@@ -625,7 +635,14 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     // Persisted character fallback is shared, but live selection is local to
     // the window that was displaying the deleted session.
     if (fallbackId && characterIndex) {
-      characterIndex.activeSessionId = fallbackId
+      // Move the shared pointer only when the deletion orphans it: it was
+      // cleared to '' above because it named the deleted session, or this
+      // window was displaying that session. Deleting a background session
+      // must leave the pointer on the conversation the user is reading —
+      // writing the oldest survivor here yanked every later index-driven
+      // restore back to that survivor.
+      if (wasActive || !characterIndex.activeSessionId)
+        characterIndex.activeSessionId = fallbackId
       if (wasActive) {
         activeSessionId.value = fallbackId
         await loadSession(fallbackId)
@@ -778,6 +795,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    * pass is scheduled in `finally` so catch-up pulls do not get lost.
    */
   async function reconcileCloudSessions(): Promise<void> {
+    await waitForRestore()
+    if (areRestoreEffectsHeld())
+      return
     if (!ownsCloudSync)
       return
     if (cloudReconcileTask) {
@@ -1156,7 +1176,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     // Opportunistic immediate send. Skip if WS not open or cloudChatId not
     // yet bound — drainOutbox will pick it up on the next reconcile.
-    if (!wsClient || wsClient.status() !== 'open')
+    if (areRestoreEffectsHeld() || !wsClient || wsClient.status() !== 'open')
       return
     if (!entry.cloudChatId)
       return
@@ -1196,6 +1216,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    * can see them via `outboxPendingCount`. They are NOT dropped silently.
    */
   async function drainOutbox(): Promise<void> {
+    await waitForRestore()
+    if (areRestoreEffectsHeld())
+      return
     if (outboxDrainTask)
       return outboxDrainTask
     outboxDrainTask = (async () => {
@@ -1273,6 +1296,8 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    * we just missed the original response.
    */
   async function drainTombstones(): Promise<void> {
+    if (areRestoreEffectsHeld())
+      return
     const userId = getCurrentUserId()
     if (userId === 'local')
       return
@@ -1303,6 +1328,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   }
 
   async function initialize() {
+    await waitForRestore()
     if (ready.value) {
       return
     }
@@ -1513,6 +1539,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   async function exportSessions(): Promise<ChatSessionsExport> {
     if (!ready.value)
       await initialize()
+    await persistQueue
 
     if (!index.value) {
       return {
@@ -1609,8 +1636,30 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     // every follower would fan one deletion out into several empty chats.
   })
 
-  watch([activeCardId, index], () => {
+  // A character switch must re-target this window even when the previous
+  // selection is still known: the new character's session is the target.
+  watch(activeCardId, () => {
     if (!ready.value)
+      return
+
+    if (!ownsCloudSync) {
+      selectWindowSessionFromIndex()
+      return
+    }
+
+    void ensureActiveSessionForCharacter()
+  })
+
+  // Index replications and mutations must not yank a known selection: this
+  // restore re-derives the selection from the shared pointer, so an unrelated
+  // index change (another window creating or deleting background sessions,
+  // metadata ripples, a stale leader snapshot) would pull the view back to an
+  // older conversation. Only fill a selection that is empty or no longer
+  // points at a known session.
+  watch(index, () => {
+    if (!ready.value)
+      return
+    if (activeSessionId.value && hasKnownSession(activeSessionId.value))
       return
 
     if (!ownsCloudSync) {

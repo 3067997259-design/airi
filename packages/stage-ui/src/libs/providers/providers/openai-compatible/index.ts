@@ -1,3 +1,5 @@
+import type { ChatReasoningCapability, ChatRequestOptions } from '../../types'
+
 import { createOpenAI } from '@xsai-ext/providers/create'
 import { z } from 'zod'
 
@@ -17,6 +19,19 @@ const openAICompatibleConfigSchema = z.object({
 
 type OpenAICompatibleConfig = z.input<typeof openAICompatibleConfigSchema>
 
+function resolveOpenAICompatibleReasoningCapability(model: string): ChatReasoningCapability | undefined {
+  const normalizedModel = model.trim().toLowerCase()
+  if (!/^gemini-3\.8-flash(?:-preview)?$/.test(normalizedModel))
+    return undefined
+
+  return {
+    modes: ['enabled'],
+    efforts: ['low', 'medium', 'high'],
+    defaultEffort: 'medium',
+    mandatory: true,
+  }
+}
+
 export const providerOpenAICompatible = defineProvider<OpenAICompatibleConfig>({
   id: 'openai-compatible',
   order: 4,
@@ -26,6 +41,11 @@ export const providerOpenAICompatible = defineProvider<OpenAICompatibleConfig>({
   descriptionLocalize: ({ t }) => t('settings.pages.providers.provider.openai-compatible.description'),
   tasks: ['chat'],
   icon: 'i-lobe-icons:openai',
+  capabilities: {
+    chat: {
+      reasoning: resolveOpenAICompatibleReasoningCapability,
+    },
+  },
 
   createProviderConfig: ({ t }) => openAICompatibleConfigSchema.extend({
     apiKey: openAICompatibleConfigSchema.shape.apiKey.meta({
@@ -41,7 +61,17 @@ export const providerOpenAICompatible = defineProvider<OpenAICompatibleConfig>({
     }),
   }),
   createProvider(config) {
-    return createOpenAI(config.apiKey as string, config.baseUrl)
+    const provider = createOpenAI(config.apiKey as string, config.baseUrl)
+    return {
+      ...provider,
+      chat(model: string, options?: ChatRequestOptions) {
+        const request = provider.chat(model)
+        if (options?.reasoning !== 'enabled' || !options.reasoningEffort || options.reasoningEffort === 'auto')
+          return request
+
+        return { ...request, reasoningEffort: options.reasoningEffort }
+      },
+    }
   },
 
   validationRequiredWhen(config) {

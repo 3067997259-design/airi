@@ -65,6 +65,7 @@ describe('createMirrorVisualAdapter', () => {
       expect.objectContaining({ type: 'text' }),
       { type: 'image_url', image_url: { url: 'data:image/png;base64,AAAA' } },
     ])
+    expect(await adapter.prepareStep(prepareInput())).toEqual({})
 
     adapter.dispose()
     const afterDispose = await adapter.prepareStep(prepareInput())
@@ -81,6 +82,41 @@ describe('createMirrorVisualAdapter', () => {
     expect(sanitized?.result).toContain('visualStatus: unavailable')
     expect(sanitized?.result).toContain('configured as text-only')
     expect(sanitized?.result).not.toContain('data:image/png')
+    expect(await adapter.prepareStep(prepareInput())).toEqual({})
+  })
+
+  it('does not reuse a previous frame after a later mirror call fails', async () => {
+    const adapter = createMirrorVisualAdapter({ capability: 'image-input' })
+    await adapter.postToolCall(mirrorToolResult(), {
+      messages: [],
+      toolCallId: 'mirror-call-1',
+    })
+
+    await adapter.postToolCall({
+      args: {},
+      result: 'mirror timed out',
+      toolCallId: 'mirror-call-2',
+      toolName: 'mirror',
+      isError: true,
+    }, {
+      messages: [],
+      toolCallId: 'mirror-call-2',
+    })
+
+    expect(await adapter.prepareStep(prepareInput())).toEqual({})
+  })
+
+  it('releases the frame when downstream processing fails', async () => {
+    const downstreamPostToolCall = vi.fn().mockRejectedValue(new Error('downstream failed'))
+    const adapter = createMirrorVisualAdapter({
+      capability: 'image-input',
+      postToolCall: downstreamPostToolCall,
+    })
+
+    await expect(adapter.postToolCall(mirrorToolResult(), {
+      messages: [],
+      toolCallId: 'mirror-call-1',
+    })).rejects.toThrow('downstream failed')
     expect(await adapter.prepareStep(prepareInput())).toEqual({})
   })
 })

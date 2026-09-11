@@ -11,7 +11,16 @@ import type {
 import type {} from 'pinia-plugin-synced'
 
 import type { ProviderMetadata, ProviderValidationPlan } from '../../libs/providers'
-import type { ChatRequestOptions, ModelInfo, ProviderDefinition, ProviderInstance, VoiceInfo } from '../../libs/providers/types'
+import type {
+  ChatReasoningCapability,
+  ChatReasoningEffort,
+  ChatReasoningSupport,
+  ChatRequestOptions,
+  ModelInfo,
+  ProviderDefinition,
+  ProviderInstance,
+  VoiceInfo,
+} from '../../libs/providers/types'
 
 import { errorMessageFrom } from '@moeru/std'
 import { isCustomProvidersDisabled } from '@proj-airi/stage-shared'
@@ -61,6 +70,33 @@ function withChatRequestOptions(
   }
 
   return decorated
+}
+
+function resolveChatReasoningCapability(
+  support: ChatReasoningSupport | undefined,
+  model: string,
+): ChatReasoningCapability | undefined {
+  if (!support)
+    return undefined
+
+  return typeof support === 'function' ? support(model) : support
+}
+
+function normalizeChatRequestOptions(
+  options: ChatRequestOptions,
+  capability: ChatReasoningCapability,
+): ChatRequestOptions {
+  const selectedEffort = options.reasoningEffort
+  if (!capability.efforts?.length || !selectedEffort || selectedEffort === 'auto')
+    return options
+
+  if (capability.efforts.includes(selectedEffort as ChatReasoningEffort))
+    return options
+
+  return {
+    ...options,
+    reasoningEffort: capability.defaultEffort ?? 'auto',
+  }
 }
 
 // Only the provider data plane crosses renderer boundaries. Async derived refs
@@ -188,6 +224,11 @@ export const useProviderStore = defineStore('provider', () => {
     if (!providerId)
       return undefined
     return providerDefinitions[getProviderDefinitionId(providerId)]
+  }
+
+  function getChatReasoningCapability(providerId: string, model = '') {
+    const support = findProviderDefinition(providerId)?.capabilities?.chat?.reasoning
+    return resolveChatReasoningCapability(support, model)
   }
 
   function getProviderDefinition(providerId: string) {
@@ -817,14 +858,14 @@ export const useProviderStore = defineStore('provider', () => {
   async function getChatProviderInstance(
     providerId: string,
     options: ChatRequestOptions,
+    model = '',
   ): Promise<ChatProvider> {
     const provider = await getProviderInstance<ChatProviderWithExtraOptions<string, ChatRequestOptions>>(providerId)
-    const definition = findProviderDefinition(providerId)
-    const reasoning = definition?.capabilities?.chat?.reasoning
+    const reasoning = getChatReasoningCapability(providerId, model)
     if (!reasoning?.modes.includes(options.reasoning))
       return provider
 
-    return withChatRequestOptions(provider, options)
+    return withChatRequestOptions(provider, normalizeChatRequestOptions(options, reasoning))
   }
 
   async function disposeProviderInstance(providerId: string) {
@@ -976,6 +1017,7 @@ export const useProviderStore = defineStore('provider', () => {
     providerAvailabilityOverrides,
     getProviderDefinition,
     findProviderDefinition,
+    getChatReasoningCapability,
     getDefaultProviderConfig,
     validateProviderConfig,
     hasManualProviderValidators,

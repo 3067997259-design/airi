@@ -188,3 +188,160 @@ describe('chat session synchronization', () => {
     expect(leaderMutations).toBe(0)
   })
 })
+
+function buildSessionMeta(sessionId: string, updatedAt: number): ChatSessionMeta {
+  return {
+    sessionId,
+    userId: 'cloud-user',
+    characterId: 'default',
+    createdAt: updatedAt,
+    updatedAt,
+  }
+}
+
+// Insertion order matters for the delete-fallback regression: the bug picked
+// the first surviving key of the index map, which is the oldest session.
+function buildSeedIndex(activeSessionId: string) {
+  const sessions = {
+    'session-old': buildSessionMeta('session-old', 1),
+    'session-mid': buildSessionMeta('session-mid', 2),
+    'session-new': buildSessionMeta('session-new', 3),
+  }
+  return {
+    index: {
+      userId: 'cloud-user',
+      characters: {
+        default: {
+          activeSessionId,
+          sessions,
+        },
+      },
+    },
+    sessionMetas: { ...sessions },
+    sessionMessages: {
+      'session-old': [{ id: 'message-old', role: 'user' as const, content: 'Old' }],
+      'session-mid': [{ id: 'message-mid', role: 'user' as const, content: 'Mid' }],
+      'session-new': [{ id: 'message-new', role: 'user' as const, content: 'New' }],
+    },
+  }
+}
+
+describe('chat session selection stability', () => {
+  async function createLeader(namespace: string) {
+    const context = createSyncedContext(namespace, 'leader-only')
+    await vi.waitFor(() => expect(context.runtime.isLeader()).toBe(true))
+    setActivePinia(context.pinia)
+    useTestAuthStore().userId = 'cloud-user'
+    const chatStore = useChatSessionStore()
+    return { context, chatStore }
+  }
+
+  // Mirrors the desktop chat window: a follower that owns no synchronized
+  // writes and derives its window-local selection from the shared index.
+  async function createInitializedFollower(context: ReturnType<typeof createSyncedContext>) {
+    setActivePinia(context.pinia)
+    const chatStore = useChatSessionStore()
+    chatStore.setCloudSyncOwnership(false)
+    await vi.waitFor(() => expect(useTestAuthStore().userId).toBe('cloud-user'))
+    await chatStore.initialize()
+    return chatStore
+  }
+
+  it('keeps the window on the active conversation when a background session is deleted', async () => {
+    // ROOT CAUSE:
+    //
+    // `deleteSession` unconditionally rewrote the shared character index
+    // pointer to the first surviving session, even when the deleted session
+    // was not the one on screen. In a three-session index (old, mid, new) the
+    // rewrite targeted `session-old` while the window showed `session-new`.
+    // The `watch([activeCardId, index])` restore then re-derived the window
+    // selection from that pointer and the view jumped back to the older
+    // conversation. Observed live: the flip landed within 300ms of the
+    // delete, and the `[chat-session] selection restored from index:` probe
+    // logged the new -> old transition.
+    const namespace = `chat-session:${crypto.randomUUID()}`
+    const { chatStore: leaderChatStore } = await createLeader(namespace)
+    leaderChatStore.$patch(buildSeedIndex('session-new'))
+
+    const followerContext = createSyncedContext(namespace, 'follower-only')
+    const followerChatStore = await createInitializedFollower(followerContext)
+    await vi.waitFor(() => expect(followerChatStore.activeSessionId).toBe('session-new'))
+
+    await followerChatStore.deleteSession('session-mid')
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(followerChatStore.activeSessionId).toBe('session-new')
+    expect(followerChatStore.index?.characters.default.activeSessionId).toBe('session-new')
+    expect(leaderChatStore.index?.characters.default.activeSessionId).toBe('session-new')
+  })
+
+  it('does not re-derive a still-known selection from a stale index pointer', async () => {
+    // ROOT CAUSE:
+    //
+    // Any index mutation re-ran the selection restore. A stale pointer
+    // arriving through synchronization (a leader snapshot that missed the
+    // latest local selection, as with `createSession(setActive: false)` plus
+    // a turn-end `persistSession` in the leader) pulled the window back to
+    // the pointer target. Selection belongs to the window, so a known
+    // selection must survive pointer updates.
+    const namespace = `chat-session:${crypto.randomUUID()}`
+    const { chatStore: leaderChatStore } = await createLeader(namespace)
+    leaderChatStore.$patch(buildSeedIndex('session-new'))
+
+    const followerContext = createSyncedContext(namespace, 'follower-only')
+    const followerChatStore = await createInitializedFollower(followerContext)
+    await vi.waitFor(() => expect(followerChatStore.activeSessionId).toBe('session-new'))
+
+    const staleSnapshot = buildSeedIndex('session-old')
+    leaderChatStore.$patch({ index: staleSnapshot.index })
+    await vi.waitFor(() => expect(followerChatStore.index?.characters.default.activeSessionId).toBe('session-old'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(followerChatStore.activeSessionId).toBe('session-new')
+  })
+
+  it('still re-derives an empty selection from the index pointer', async () => {
+    // Guards the known-selection gate against overcorrection: the restore
+    // must stay alive for the boot race where the replicated index lands
+    // while the window selection is still empty.
+    const namespace = `chat-session:${crypto.randomUUID()}`
+    const { chatStore: leaderChatStore } = await createLeader(namespace)
+    leaderChatStore.$patch(buildSeedIndex('session-new'))
+
+    const followerContext = createSyncedContext(namespace, 'follower-only')
+    const followerChatStore = await createInitializedFollower(followerContext)
+    await vi.waitFor(() => expect(followerChatStore.activeSessionId).toBe('session-new'))
+
+    // Selection is window-local state, not part of the synchronized store.
+    // Reset it through the selection store to replay the post-boot state in
+    // which the window has not picked a conversation yet.
+    const selectionStore = followerContext.pinia._s.get('chat-session-selection')
+    if (!selectionStore)
+      throw new Error('Expected the chat-session-selection store to exist.')
+    selectionStore.activeSessionId = ''
+
+    const reroutedSnapshot = buildSeedIndex('session-old')
+    leaderChatStore.$patch({ index: reroutedSnapshot.index })
+    await vi.waitFor(() => expect(followerChatStore.activeSessionId).toBe('session-old'))
+  })
+
+  it('falls back to the oldest surviving session when the active session is deleted', async () => {
+    // Preservation test: deleting the session the window is displaying must
+    // still move both the shared pointer and the local selection to a
+    // surviving session.
+    const namespace = `chat-session:${crypto.randomUUID()}`
+    const { chatStore: leaderChatStore } = await createLeader(namespace)
+    leaderChatStore.$patch(buildSeedIndex('session-new'))
+
+    const followerContext = createSyncedContext(namespace, 'follower-only')
+    const followerChatStore = await createInitializedFollower(followerContext)
+    await vi.waitFor(() => expect(followerChatStore.activeSessionId).toBe('session-new'))
+
+    await followerChatStore.deleteSession('session-new')
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(followerChatStore.activeSessionId).toBe('session-old')
+    expect(followerChatStore.index?.characters.default.activeSessionId).toBe('session-old')
+    expect(leaderChatStore.index?.characters.default.activeSessionId).toBe('session-old')
+  })
+})

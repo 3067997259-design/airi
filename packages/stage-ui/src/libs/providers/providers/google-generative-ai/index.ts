@@ -1,4 +1,4 @@
-import type { ChatRequestOptions } from '../../types'
+import type { ChatReasoningCapability, ChatRequestOptions } from '../../types'
 
 import { createGoogleGenerativeAI } from '@xsai-ext/providers/create'
 import { z } from 'zod'
@@ -18,6 +18,19 @@ const googleGenerativeConfigSchema = z.object({
 
 type GoogleGenerativeConfig = z.input<typeof googleGenerativeConfigSchema>
 
+function resolveGoogleReasoningCapability(model: string): ChatReasoningCapability | undefined {
+  const normalizedModel = model.trim().toLowerCase()
+  if (!/^gemini-3\.8-flash(?:-preview)?$/.test(normalizedModel))
+    return { modes: ['enabled', 'disabled'] }
+
+  return {
+    modes: ['enabled'],
+    efforts: ['low', 'medium', 'high'],
+    defaultEffort: 'medium',
+    mandatory: true,
+  }
+}
+
 export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>({
   id: 'google-generative-ai',
   order: 8,
@@ -28,7 +41,7 @@ export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>
   tasks: ['chat'],
   capabilities: {
     chat: {
-      reasoning: { modes: ['enabled', 'disabled'] },
+      reasoning: resolveGoogleReasoningCapability,
       imageInput: true,
     },
   },
@@ -54,6 +67,14 @@ export const providerGoogleGenerativeAI = defineProvider<GoogleGenerativeConfig>
       ...provider,
       chat(model: string, options?: ChatRequestOptions) {
         const request = provider.chat(model)
+        const capability = resolveGoogleReasoningCapability(model)
+        if (capability?.mandatory === true) {
+          if (options?.reasoning !== 'enabled' || !options.reasoningEffort || options.reasoningEffort === 'auto')
+            return request
+
+          return { ...request, reasoningEffort: options.reasoningEffort }
+        }
+
         if (!options?.reasoning)
           return request
 

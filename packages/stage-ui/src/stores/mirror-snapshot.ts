@@ -25,7 +25,17 @@ export async function captureMirrorSnapshot(): Promise<MirrorSnapshotResult | nu
   if (!hasStageCapture())
     return null
 
-  const blob = await captureStageFrame()
+  let blob: Blob | null
+  try {
+    blob = await captureStageFrame()
+  }
+  catch (error) {
+    // A renderer can lose its stage capture surface while a model turn is in
+    // flight. Keep the mirror call useful as a text-only observation instead
+    // of turning a transient canvas failure into a failed tool call.
+    console.warn('[Mirror] Failed to capture the temporary frame.', error)
+    return null
+  }
   if (!blob)
     return null
 

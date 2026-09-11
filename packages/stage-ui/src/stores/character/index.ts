@@ -1,3 +1,4 @@
+import type { MemoryScope } from '@proj-airi/memory-core'
 import type { IntentHandle } from '@proj-airi/pipelines-audio'
 
 import { nanoid } from 'nanoid'
@@ -5,6 +6,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, reactive, ref } from 'vue'
 
 import { useLlmmarkerParser } from '../../composables/llm-marker-parser'
+import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules'
 import { useMemoryStore } from '../modules/memory'
 import { useSpeechRuntimeStore } from '../speech-runtime'
@@ -35,10 +37,15 @@ export function setCharacterLlmMarkerParserFactoryForTest(factory: ParserFactory
 }
 
 export const useCharacterStore = defineStore('character', () => {
-  const { activeCard, systemPrompt } = storeToRefs(useAiriCardStore())
+  const { activeCard, activeCardId, systemPrompt } = storeToRefs(useAiriCardStore())
+  const { userId } = storeToRefs(useAuthStore())
 
   const name = computed(() => activeCard.value?.name ?? '')
   const ownerId = computed(() => activeCard.value?.name ?? 'default')
+  const memoryScope = computed<MemoryScope>(() => ({
+    userId: userId.value,
+    characterId: activeCardId.value || 'default',
+  }))
 
   const reactions = ref<CharacterSparkNotifyReaction[]>([])
   const streamingReactions = ref<Map<string, StreamingReactionState>>(new Map())
@@ -133,7 +140,7 @@ export const useCharacterStore = defineStore('character', () => {
         eventId: sparkEventId,
         metadata: options?.metadata,
       },
-    })
+    }, memoryScope.value)
   }
 
   function appendReaction(sparkEventId: string, message: string, options?: { metadata?: Record<string, unknown> }): boolean {
@@ -170,6 +177,7 @@ export const useCharacterStore = defineStore('character', () => {
     name,
     reactions,
     systemPrompt,
+    memoryScope,
 
     recordSparkNotifyReaction,
     recordEventReaction,

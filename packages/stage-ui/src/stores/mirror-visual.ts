@@ -84,8 +84,8 @@ function mirrorParts(result: unknown): CommonContentPart[] | undefined {
   return parts
 }
 
-function latestMirrorFrame(frames: Map<string, MirrorFrame>): MirrorFrame | undefined {
-  return [...frames.values()].at(-1)
+function latestMirrorFrame(frames: Map<string, MirrorFrame>, latestToolCallId: string | undefined): MirrorFrame | undefined {
+  return latestToolCallId ? frames.get(latestToolCallId) : undefined
 }
 
 function frameMessage(frame: MirrorFrame): Message {
@@ -120,16 +120,25 @@ async function sanitizeMirrorResult(
   result: CompletionToolResult,
   capability: MirrorVisualCapability,
   frames: Map<string, MirrorFrame>,
+  setLatestToolCallId: (toolCallId: string | undefined) => void,
 ): Promise<CompletionToolResult> {
   if (result.toolName !== 'mirror')
     return result
 
   const parts = mirrorParts(result.result)
   const image = parts?.find(isImagePart)
-  if (!parts || !image)
+  if (!parts || !image) {
+    // A failed, cancelled, or timed-out mirror must invalidate the previous
+    // frame. Otherwise a later provider step could accidentally reuse an
+    // older appearance as if the failed call had succeeded.
+    frames.clear()
+    setLatestToolCallId(undefined)
     return result
+  }
 
   if (capability === 'image-input') {
+    frames.clear()
+    setLatestToolCallId(result.toolCallId)
     frames.set(result.toolCallId, {
       dataUrl: image.image_url.url,
       toolCallId: result.toolCallId,
@@ -144,17 +153,29 @@ async function sanitizeMirrorResult(
 
 function createPostToolCall(
   frames: Map<string, MirrorFrame>,
+  setLatestToolCallId: (toolCallId: string | undefined) => void,
   options: MirrorVisualAdapterOptions,
 ): PostToolCall {
   return async (result, toolOptions: ToolExecuteOptions) => {
-    const sanitized = await sanitizeMirrorResult(result, options.capability, frames)
-    const downstream = await options.postToolCall?.(sanitized, toolOptions)
-    return downstream ?? sanitized
+    const sanitized = await sanitizeMirrorResult(result, options.capability, frames, setLatestToolCallId)
+    try {
+      const downstream = await options.postToolCall?.(sanitized, toolOptions)
+      return downstream ?? sanitized
+    }
+    catch (error) {
+      if (result.toolName === 'mirror') {
+        frames.clear()
+        setLatestToolCallId(undefined)
+      }
+      throw error
+    }
   }
 }
 
 function createPrepareStep(
   frames: Map<string, MirrorFrame>,
+  getLatestToolCallId: () => string | undefined,
+  setLatestToolCallId: (toolCallId: string | undefined) => void,
   options: MirrorVisualAdapterOptions,
 ): PrepareStep {
   return async (stepOptions) => {
@@ -162,7 +183,7 @@ function createPrepareStep(
     if (options.capability !== 'image-input')
       return prepared ?? {}
 
-    const frame = latestMirrorFrame(frames)
+    const frame = latestMirrorFrame(frames, getLatestToolCallId())
     if (!frame)
       return prepared ?? {}
 
@@ -171,9 +192,18 @@ function createPrepareStep(
       toolCallId: frame.toolCallId,
     })
     const preparedInput = prepared?.input ?? stepOptions.input
-    return {
-      ...prepared,
-      input: [...preparedInput, frameMessage(frame)],
+    try {
+      return {
+        ...prepared,
+        input: [...preparedInput, frameMessage(frame)],
+      }
+    }
+    finally {
+      // The frame is a one-step transport slot. Durable tool output already
+      // contains only text/status, so retaining it would leak pixels into a
+      // later unrelated provider request.
+      frames.clear()
+      setLatestToolCallId(undefined)
     }
   }
 }
@@ -184,12 +214,14 @@ function createPrepareStep(
  */
 export function createMirrorVisualAdapter(options: MirrorVisualAdapterOptions) {
   const frames = new Map<string, MirrorFrame>()
+  let latestToolCallId: string | undefined
 
   return {
-    postToolCall: createPostToolCall(frames, options),
-    prepareStep: createPrepareStep(frames, options),
+    postToolCall: createPostToolCall(frames, toolCallId => latestToolCallId = toolCallId, options),
+    prepareStep: createPrepareStep(frames, () => latestToolCallId, toolCallId => latestToolCallId = toolCallId, options),
     dispose() {
       frames.clear()
+      latestToolCallId = undefined
     },
   }
 }
