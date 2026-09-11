@@ -129,6 +129,7 @@ async function getChannelServerConfig(): Promise<ElectronServerChannelConfig> {
     hostname: config.hostname || '127.0.0.1',
     authToken: config.authToken || '',
     tlsConfig: config.tlsConfig || null,
+    port: getServerChannelPort(),
   }
 }
 
