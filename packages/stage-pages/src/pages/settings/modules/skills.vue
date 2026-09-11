@@ -1,12 +1,35 @@
 <script setup lang="ts">
+import type { ReviewQueueSubmission } from '@proj-airi/stage-ui/stores/skills'
+
+import { SkillSourceReview } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
+import { ref, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const skillsStore = useSkillsReviewStore()
-const { queue, catalog, probationCount, canSubmitMore, revisionBatch } = storeToRefs(skillsStore)
+const { queue, catalog, probationCount, canSubmitMore, revisionBatch, persistenceError } = storeToRefs(skillsStore)
+
+/** Visible outcome of the last catalog submission, keyed by tool id. */
+const catalogFeedback = ref<{ toolId: string, message: string, failed: boolean }>()
+
+function isInQueue(toolId: string): boolean {
+  return queue.value.some(item => item.toolId === toolId)
+}
+
+async function submitCatalogEntry(entry: ReviewQueueSubmission) {
+  // Catalog entries are reactive in this renderer. The submission crosses the
+  // synced-store BroadcastChannel, so every nested field must be a plain,
+  // structured-cloneable value before the leader receives it.
+  const result = await skillsStore.submit(structuredClone(toRaw(entry)))
+  // A rejected submission used to leave the page unchanged; name the reason
+  // and, on success, mark the entry as in review (ACC-20260911 #19).
+  catalogFeedback.value = result.accepted
+    ? { toolId: entry.toolId, message: t('settings.pages.modules.skills.sections.catalog.in-review'), failed: false }
+    : { toolId: entry.toolId, message: t('settings.pages.modules.skills.sections.catalog.submit-failed', { reason: result.reason ?? 'unknown' }), failed: true }
+}
 
 const RISK_STYLE: Record<string, string> = {
   low: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400',
@@ -25,6 +48,9 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
 
 <template>
   <div :class="['flex', 'flex-col', 'gap-6']">
+    <p v-if="persistenceError" role="alert" :class="['text-sm', 'text-red-600 dark:text-red-400']">
+      {{ persistenceError }}
+    </p>
     <section :class="['rounded-xl', 'bg-neutral-50', 'p-4', 'dark:bg-[rgba(0,0,0,0.3)]']">
       <div :class="['flex', 'flex-col', 'gap-4']">
         <div>
@@ -61,6 +87,9 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
         </div>
 
         <div v-for="entry in queue" :key="entry.toolId" :class="['rounded-lg', 'border', 'border-neutral-200', 'p-3', 'dark:border-neutral-700']">
+          <p v-if="entry.artifactError" role="status" :class="['mb-2 text-sm', 'text-amber-600 dark:text-amber-400']">
+            {{ entry.artifactError }}
+          </p>
           <div :class="['flex', 'items-center', 'gap-2']">
             <span :class="['font-mono', 'text-sm']">{{ entry.name }}</span>
             <span :class="['rounded-full', 'px-2', 'py-0.5', 'text-xs', RISK_STYLE[entry.riskLevel]]">
@@ -95,10 +124,8 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
             </div>
           </div>
 
+          <SkillSourceReview :entry="entry" />
           <div v-if="entry.trust === 'probation'" :class="['mt-3', 'flex', 'gap-2']">
-            <Button size="sm" variant="primary" @click="skillsStore.approve(entry.toolId)">
-              {{ t('settings.pages.modules.skills.sections.queue.approve') }}
-            </Button>
             <Button size="sm" variant="secondary" @click="skillsStore.reject(entry.toolId)">
               {{ t('settings.pages.modules.skills.sections.queue.reject') }}
             </Button>
@@ -117,10 +144,23 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
       <div v-for="entry in catalog" :key="entry.toolId" :class="['mt-3', 'rounded-lg', 'border', 'border-neutral-200', 'p-3', 'dark:border-neutral-700']">
         <div :class="['flex', 'items-center', 'justify-between']">
           <span :class="['font-mono', 'text-sm']">{{ entry.name }}</span>
-          <Button size="sm" variant="secondary" @click="skillsStore.submit({ ...entry })">
+          <span
+            v-if="isInQueue(entry.toolId)"
+            :class="['rounded-full', 'bg-emerald-100', 'px-2', 'py-0.5', 'text-xs', 'text-emerald-700', 'dark:bg-emerald-500/15', 'dark:text-emerald-400']"
+          >
+            {{ t('settings.pages.modules.skills.sections.catalog.in-review') }}
+          </span>
+          <Button v-else size="sm" variant="secondary" @click="submitCatalogEntry(entry)">
             {{ t('settings.pages.modules.skills.sections.catalog.submit') }}
           </Button>
         </div>
+        <p
+          v-if="catalogFeedback?.toolId === entry.toolId"
+          role="alert"
+          :class="['mt-1', 'text-xs', catalogFeedback.failed ? 'text-amber-600 dark:text-amber-400' : 'text-neutral-500 dark:text-neutral-400']"
+        >
+          {{ catalogFeedback.message }}
+        </p>
         <p :class="['mt-1', 'text-xs', 'text-neutral-500', 'dark:text-neutral-400']">
           {{ entry.description }}
         </p>

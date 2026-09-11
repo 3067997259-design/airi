@@ -3,7 +3,7 @@ import type { ReviewQueueSubmission } from '@proj-airi/stage-ui/stores/skills'
 import type { Tool } from '@xsai/shared-chat'
 
 import { errorMessageFrom } from '@moeru/std'
-import { analyzeSkillSource, classifyToolRisk, contentHashOf, validateDeclaration } from '@proj-airi/skill-forge'
+import { analyzeSkillSource, classifyToolRisk, contentHashOf, validateDeclaration, validateToolInputSchema } from '@proj-airi/skill-forge'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
@@ -90,6 +90,15 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
   const riskLevel = classifyToolRisk(staticAnalysis)
   const contentHash = contentHashOf(input.source)
   const artifactDir = `skills/${input.toolId}`
+  const parameters = input.parameters ?? {
+    type: 'object',
+    properties: {},
+    required: [],
+    additionalProperties: false,
+  }
+  const schemaError = validateToolInputSchema(parameters)
+  if (schemaError)
+    return `skill_submit rejected: invalid input schema: ${schemaError}`
 
   try {
     await deps.writeFile({ path: `${artifactDir}/source.mjs`, content: input.source })
@@ -157,12 +166,7 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
       ownerExtensionId: 'airi',
       name: input.name,
       description: input.description,
-      parameters: (input.parameters as { type: 'object', properties: Record<string, unknown>, required: string[], additionalProperties: boolean } | undefined) ?? {
-        type: 'object',
-        properties: {},
-        required: [],
-        additionalProperties: false,
-      },
+      parameters,
     },
     activation: {
       keywords: input.activationKeywords ?? [],
@@ -177,9 +181,10 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
     staticAnalysis,
     externalSources: input.externalSources ?? [],
     reason: 'self_tested',
+    ...(selftestEvidence && input.selftest ? { selftest: { contentHash: contentHashOf(input.selftest), logs: selftestEvidence.logs, traceCount: selftestEvidence.traceCount } } : {}),
   }
 
-  const outcome = skillsStore.submit(entry)
+  const outcome = await skillsStore.submit(entry)
   if (!outcome.accepted)
     return `skill_submit rejected: ${outcome.reason ?? 'unknown reason'}`
 

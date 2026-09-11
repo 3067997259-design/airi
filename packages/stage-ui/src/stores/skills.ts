@@ -1,35 +1,34 @@
+import type { MemoryScope } from '@proj-airi/memory-core'
 import type {
-  SelfAuthoredSkill,
   SkillRevisionProposal,
-  StaticFindings,
-  ToolRiskLevel,
 } from '@proj-airi/skill-forge'
 
+import type { ReviewQueueEntry } from '../types/skill-review'
 import type { ExecutableTool } from './ai/chat-llm/tools'
 
+import { errorMessageFrom } from '@moeru/std'
 import {
   applyLifecycleAction,
   canEnterProbation,
   contentHashOf,
   MAX_PROBATION_TOOLS,
+  validateToolInput,
+  validateToolInputSchema,
 } from '@proj-airi/skill-forge'
-import { defineStore } from 'pinia'
-import { computed, ref, toRaw } from 'vue'
+import { defineStore, getActivePinia } from 'pinia'
+import { computed, ref, shallowRef, toRaw } from 'vue'
 
+import * as v from 'valibot'
+
+import { areRestoreEffectsHeld, waitForRestore } from '../services/restore-gate'
+import { builtInSkillArtifact } from '../services/skill-artifacts'
+import { skillReviewSchema } from '../types/skill-review'
 import { useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
 import { useJournalStore } from './journal'
 import { useMemoryStore } from './modules/memory'
 
-/** Static review data projected beside the canonical skill contract. */
-export interface ReviewQueueEntry extends SelfAuthoredSkill {
-  toolId: string
-  name: string
-  description: string
-  riskLevel: ToolRiskLevel
-  staticAnalysis: StaticFindings
-  reason: 'self_tested' | 'compatibility_mismatch'
-}
+export type { ReviewQueueEntry } from '../types/skill-review'
 
 export type ReviewQueueSubmission = Omit<ReviewQueueEntry, 'trust' | 'review' | 'quarantine'>
 
@@ -58,12 +57,23 @@ export type SkillRuntimeProgramResult
     | { ok: false, failure: { kind: string, message: string, logs: string[] } }
 
 export interface SkillRuntimePort {
+  readSource?: (toolId: string, workspaceRoot?: string) => Promise<string>
+  readSelftest?: (toolId: string, workspaceRoot?: string) => Promise<string>
+  getWorkspaceRoot?: () => Promise<string>
+  getMemoryScope?: () => MemoryScope
   runCommand: (params: { command: string, approvalRequired?: boolean }) => Promise<SkillRuntimeCommandResult>
   /** Shared Code Mode sandbox, used by the generic reviewed-skill executor. */
-  runProgram?: (params: { program: string, timeoutMs?: number }) => Promise<SkillRuntimeProgramResult>
+  runProgram?: (params: { program: string, timeoutMs?: number, expectedWorkspaceRoot?: string }) => Promise<SkillRuntimeProgramResult>
 }
 
 let skillRuntime: SkillRuntimePort | undefined
+
+/** Exact artifacts displayed to a reviewer; approval rechecks both hashes. */
+export interface SkillReviewArtifacts {
+  contentHash: string
+  source: string
+  selftest?: { contentHash: string, source: string, logs: string[], traceCount: number }
+}
 
 /** Installs the host command port used by reviewed self-authored skills. */
 export function installSkillRuntime(next: SkillRuntimePort | undefined): void {
@@ -100,13 +110,7 @@ export const OPENCODE_ADAPTER_SKELETON: ReviewQueueSubmission = {
     id: 'opencode-adapter',
     content: 'Use the reviewed opencode adapter for delegated coding tasks.',
   },
-  contentHash: contentHashOf([
-    '// opencode adapter skeleton',
-    'export async function run(rawArgs: string[]) {',
-    '  const args = parseArgs(rawArgs)',
-    '  return await execCommand(\'opencode \' + args.join(\' \'))',
-    '}',
-  ].join('\n')),
+  contentHash: builtInSkillArtifact.contentHash,
   riskLevel: 'high',
   staticAnalysis: {
     networkEgress: false,
@@ -127,17 +131,71 @@ export const OPENCODE_ADAPTER_SKELETON: ReviewQueueSubmission = {
   reason: 'self_tested',
 }
 
+const SKILLS_QUEUE_STORAGE_KEY = 'skills/review-queue'
+
+/** Toolset prompt provider for reviewed skills that are currently not callable. */
+const UNAVAILABLE_SKILLS_PROMPT_PROVIDER = 'self-authored-skills-unavailable'
+/** Bound the unavailable list so the toolset section cannot grow with the queue. */
+const UNAVAILABLE_SKILLS_PROMPT_MAX = 10
+
+/**
+ * Reads and validates the durable registry. Invalid bytes remain in storage
+ * and block writes until the user repairs or restores the registry.
+ */
+function hydrateQueueFromStorage(): ReviewQueueEntry[] {
+  if (typeof localStorage === 'undefined')
+    return []
+  const raw = localStorage.getItem(SKILLS_QUEUE_STORAGE_KEY)
+  if (raw === null)
+    return []
+  return v.parse(v.array(skillReviewSchema), JSON.parse(raw))
+}
+
+function persistQueueAndTrim(entries: ReviewQueueEntry[]): void {
+  // Non-renderer callers have no durable storage owner.
+  if (typeof localStorage !== 'undefined')
+    localStorage.setItem(SKILLS_QUEUE_STORAGE_KEY, JSON.stringify(entries))
+}
+
 /** Human review queue for self-authored skills. */
 export const useSkillsReviewStore = defineStore('skills-review', () => {
+  const pinia = getActivePinia()
   const llmToolsStore = useLlmToolsStore()
   const toolsetPromptsStore = useLlmToolsetPromptsStore()
   const journalStore = useJournalStore()
   const memoryStore = useMemoryStore()
   const queue = ref<ReviewQueueEntry[]>([])
+  const persistenceError = shallowRef<string>()
+  try {
+    queue.value = hydrateQueueFromStorage().map(entry => ({
+      ...entry,
+      artifactError: entry.trust === 'reviewed' ? 'Artifact verification is pending.' : entry.artifactError,
+    }))
+  }
+  catch (error) {
+    // Keep the original bytes intact. A damaged registry must not become an
+    // empty registry that the next review silently overwrites.
+    persistenceError.value = errorMessageFrom(error) ?? 'Cannot read the skill registry.'
+  }
   const catalog = ref<ReviewQueueSubmission[]>([OPENCODE_ADAPTER_SKELETON])
   const revisionBatch = ref<SkillRevisionCandidate[]>([])
   const runtimeToolIds = new Set<string>()
   const reviewRequestIds = new Map<string, string>()
+
+  function persist() {
+    if (persistenceError.value)
+      throw new Error(persistenceError.value)
+    try {
+      persistQueueAndTrim(queue.value)
+    }
+    catch (error) {
+      persistenceError.value = errorMessageFrom(error) ?? 'Cannot save the skill registry.'
+      throw error
+    }
+  }
+
+  // Received snapshots must not write storage. Only the explicit review
+  // actions below persist, after the leader applies a complete transition.
 
   const probationCount = computed(() => queue.value.filter(entry => entry.trust === 'probation').length)
   const canSubmitMore = computed(() => canEnterProbation(queue.value))
@@ -150,14 +208,58 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   })))
 
   function activeEntries() {
-    return queue.value.filter(entry => entry.trust === 'reviewed' && !entry.quarantine)
+    return queue.value.filter((entry) => {
+      if (persistenceError.value || entry.trust !== 'reviewed' || entry.quarantine || entry.artifactError || entry.reviewedHash !== entry.contentHash)
+        return false
+      return validateToolInputSchema(entry.tool.parameters) === undefined
+    })
   }
 
-  function syncRuntimeTools() {
+  /**
+   * Explains to the model why a reviewed skill is excluded from the tool list.
+   *
+   * A filtered-out skill used to be invisible except by its absence, so the
+   * model could only answer "not in the tool list" or guess at unrelated
+   * discovery tools (ACC-20260910 R05). Name the entry and its reason instead.
+   */
+  function registerUnavailableSkillsPrompt(): void {
+    const unavailable = queue.value.filter(entry => entry.trust === 'reviewed' && !activeEntries().includes(entry))
+    if (unavailable.length === 0) {
+      toolsetPromptsStore.clearToolsetPrompts(UNAVAILABLE_SKILLS_PROMPT_PROVIDER)
+      return
+    }
+
+    const listed = unavailable.slice(0, UNAVAILABLE_SKILLS_PROMPT_MAX)
+    const content = [
+      'These reviewed self-authored skills are not callable right now. Do not call them and do not invent their results. Tell the user the reason below and ask them to re-verify the skill in Settings → Modules → Skills.',
+      ...listed.map(entry => `- ${entry.name} (${entry.toolId}): ${unavailableSkillReason(entry)}`),
+      ...(unavailable.length > listed.length ? [`- and ${unavailable.length - listed.length} more unavailable reviewed skills.`] : []),
+    ].join('\n')
+    toolsetPromptsStore.registerToolsetPrompts(UNAVAILABLE_SKILLS_PROMPT_PROVIDER, [{
+      id: 'self-authored-skills-unavailable',
+      title: 'Unavailable reviewed skills',
+      content,
+    }])
+  }
+
+  function unavailableSkillReason(entry: ReviewQueueEntry): string {
+    if (persistenceError.value)
+      return persistenceError.value
+    if (entry.quarantine)
+      return 'quarantined after a failed compatibility check'
+    if (entry.reviewedHash !== entry.contentHash)
+      return 'the reviewed hash does not match the current source'
+    if (entry.artifactError)
+      return entry.artifactError
+    return validateToolInputSchema(entry.tool.parameters) ?? 'the review is no longer valid'
+  }
+
+  async function syncRuntimeTools() {
+    toolsetPromptsStore.clearToolsetPrompts('self-authored-skills')
     const nextIds = new Set(activeEntries().map(entry => `self-authored:${entry.toolId}`))
     for (const id of runtimeToolIds) {
       if (!nextIds.has(id))
-        llmToolsStore.removeToolById(id)
+        await llmToolsStore.removeToolById(id)
     }
     runtimeToolIds.clear()
 
@@ -174,12 +276,77 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       // boundary. prepareForPrompt still injects the skill's guidance when a
       // keyword/pattern matches.
       defaultActive: true,
-      execute: input => executeSkill(entry, input),
+      execute: input => useSkillsReviewStore(pinia).executeReviewedSkill(entry.toolId, input),
     }))
     if (tools.length > 0)
-      llmToolsStore.addTools(...tools)
+      await llmToolsStore.addTools(...tools)
     for (const id of nextIds)
       runtimeToolIds.add(id)
+    registerUnavailableSkillsPrompt()
+  }
+
+  /**
+   * Re-registers runtime tools from the persisted queue after a restart.
+   *
+   * The queue is durable in localStorage, but `trust`/`review`/`quarantine`
+   * only re-inflate into runtime tools when this runs. Idempotent: repeated
+   * calls must not duplicate tool registration, re-create muscle memory, or
+   * re-emit a review notice. The leader boot path calls this once after the
+   * journal replays (see apps/stage-tamagotchi/src/renderer/main.ts).
+   */
+  async function restore(): Promise<void> {
+    await waitForRestore()
+    // A restored profile remains inert until the user adopts it. Keep
+    // imported reviewed entries quarantined while the durable effect hold is
+    // active; the adoption event calls this method again after release.
+    if (areRestoreEffectsHeld())
+      return
+    for (const entry of queue.value) {
+      if (entry.trust === 'reviewed' && await verifySource(entry) === undefined)
+        await retireMuscle(entry)
+    }
+    await syncRuntimeTools()
+  }
+
+  /** Replaces the durable review queue during an isolated profile restore. */
+  async function restoreQueue(entries: ReviewQueueEntry[]): Promise<void> {
+    // Preserve review evidence, but require startup source verification in the
+    // restored workspace before any imported tool becomes executable.
+    queue.value = entries.map(entry => ({
+      ...entry,
+      artifactError: entry.trust === 'reviewed' ? 'Artifact verification is pending.' : entry.artifactError,
+    }))
+    persist()
+    await syncRuntimeTools()
+  }
+
+  async function verifySource(entry: ReviewQueueEntry): Promise<string | undefined> {
+    if (entry.trust === 'reviewed' && entry.reviewedHash !== entry.contentHash) {
+      entry.artifactError = 'The review does not identify this source. Review the skill again.'
+      return
+    }
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(entry.toolId)) {
+      entry.artifactError = 'Invalid skill artifact identifier.'
+      return
+    }
+    if (entry.toolId === OPENCODE_ADAPTER_SKELETON.toolId && entry.contentHash === OPENCODE_ADAPTER_SKELETON.contentHash) {
+      entry.artifactError = undefined
+      return builtInSkillArtifact.source
+    }
+    try {
+      if (skillRuntime?.getWorkspaceRoot && entry.workspaceRoot !== await skillRuntime.getWorkspaceRoot())
+        throw new Error('This skill belongs to a different workspace. Return to its workspace before use.')
+      if (!skillRuntime?.readSource)
+        throw new Error('Skill artifact reader is unavailable.')
+      const source = await skillRuntime.readSource(entry.toolId, entry.workspaceRoot)
+      if (contentHashOf(source) !== entry.contentHash)
+        throw new Error('Skill source changed. Submit the new source for review.')
+      entry.artifactError = undefined
+      return source
+    }
+    catch (error) {
+      entry.artifactError = errorMessageFrom(error) ?? 'Skill artifact verification failed.'
+    }
   }
 
   function activatedEntries(text: string) {
@@ -218,15 +385,30 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     if (!skillRuntime)
       return `Skill "${entry.toolId}" is unavailable because the coding host is not installed.`
 
-    // Generic executor for submitted skills: run the reviewed source inside
-    // the shared Code Mode sandbox. The sandbox read is the provenance root —
-    // what executes is exactly the reviewed artifact on disk, not a copy.
+    const source = await verifySource(entry)
+    if (source === undefined || !activeEntries().includes(entry)) {
+      await syncRuntimeTools()
+      await retireMuscle(entry)
+      return `Skill "${entry.toolId}" is blocked: ${entry.artifactError ?? 'review is no longer valid'}`
+    }
+
+    // Pass the input unchanged: coercing `null` or `undefined` to `{}` would
+    // let a non-object argument satisfy an object schema with no required
+    // fields, so the "input must be an object" contract would never apply.
+    const inputError = validateToolInput(entry.tool.parameters, input)
+    if (inputError)
+      return `Skill "${entry.toolId}" rejected the input: ${inputError}`
+
+    // The sandbox receives the verified bytes. Its bridge stays bound to the
+    // workspace checked by the main process at invocation time.
     if (entry.toolId !== OPENCODE_ADAPTER_SKELETON.toolId) {
       if (!skillRuntime.runProgram)
         return `Skill "${entry.toolId}" cannot run because the sandbox executor is not installed.`
-      const invocation = JSON.stringify(input ?? {})
+      const invocation = JSON.stringify(input)
       const program = [
-        `const raw = (await bridge('readRaw', ['skills/${entry.toolId}/source.mjs'])).content`,
+        // Execute the checked bytes so a later filesystem edit cannot replace
+        // the artifact between verification and sandbox evaluation.
+        `const raw = ${JSON.stringify(source)}`,
         // Strip ESM export keywords so the source evaluates as a plain script
         // (submitted sources are authored as `export function run(input)` or
         // `export default function run(input)`).
@@ -243,10 +425,10 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         toolName: entry.tool.name,
         args: input,
       })
-      const run = await skillRuntime.runProgram({ program })
+      const run = await skillRuntime.runProgram({ program, expectedWorkspaceRoot: entry.workspaceRoot })
       const ok = run.ok
       const summary = ok
-        ? `sandbox ok: ${JSON.stringify(run.value).slice(0, 200)}`
+        ? `sandbox ok: ${JSON.stringify(run.value ?? null).slice(0, 200)}`
         : `[${run.failure.kind}] ${run.failure.message.slice(0, 200)}`
       journalStore.appendActive({
         type: 'tool/result',
@@ -277,7 +459,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         }
       }
       if (!compatible) {
-        quarantine(entry.toolId)
+        await quarantine(entry.toolId)
         return {
           status: 'quarantined',
           reason: 'compatibility_mismatch',
@@ -291,6 +473,19 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       : []
     const command = ['opencode', 'run', '--json', quoteCommandArgument(task), ...extraArgs.map(quoteCommandArgument)].join(' ')
     return await runSkillCommand(entry, command, [task, ...extraArgs])
+  }
+
+  /** Executes through the leader so verification and revocation have one owner. */
+  async function executeReviewedSkill(toolId: string, input: unknown): Promise<unknown> {
+    const entry = queue.value.find(item => item.toolId === toolId)
+    if (!entry)
+      return `Skill "${toolId}" has no active review.`
+    const schemaError = validateToolInputSchema(entry.tool.parameters)
+    if (schemaError)
+      return `Skill "${toolId}" is blocked: invalid input schema: ${schemaError}`
+    if (!activeEntries().includes(entry))
+      return `Skill "${toolId}" has no active review.`
+    return executeSkill(entry, input)
   }
 
   async function runSkillCommand(entry: ReviewQueueEntry, command: string, args: unknown[]) {
@@ -312,14 +507,21 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   }
 
   /** Submits a freshly written tool to probation. */
-  function submit(entry: ReviewQueueSubmission): { accepted: boolean, reason?: string } {
+  async function submit(entry: ReviewQueueSubmission): Promise<{ accepted: boolean, reason?: string }> {
+    if (persistenceError.value)
+      return { accepted: false, reason: persistenceError.value }
+    v.parse(skillReviewSchema, { ...entry, trust: 'draft' })
+    const schemaError = validateToolInputSchema(entry.tool.parameters)
+    if (schemaError)
+      return { accepted: false, reason: `invalid input schema: ${schemaError}` }
+    const workspaceRoot = await skillRuntime?.getWorkspaceRoot?.()
     if (queue.value.some(existing => existing.toolId === entry.toolId))
       return { accepted: false, reason: 'duplicate toolId' }
 
     if (!canEnterProbation(queue.value))
       return { accepted: false, reason: `probation capped at ${MAX_PROBATION_TOOLS}; graduate or reject first` }
 
-    const draft: ReviewQueueEntry = { ...entry, trust: 'draft' }
+    const draft: ReviewQueueEntry = { ...entry, workspaceRoot, trust: 'draft', reviewedHash: undefined, artifactError: undefined }
     queue.value.push(applyLifecycleAction(draft, 'promote_to_probation') as ReviewQueueEntry)
     const reviewRequestId = `review:${entry.toolId}:${Date.now()}`
     reviewRequestIds.set(entry.toolId, reviewRequestId)
@@ -330,33 +532,96 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       contentHash: entry.contentHash,
       reason: 'self-authored tool entered probation',
     })
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
     return { accepted: true }
   }
 
   /** Applies a content change and invalidates any review bound to the old hash. */
-  function applyContentChange(toolId: string, source: string): void {
+  async function applyContentChange(toolId: string, source: string): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry)
       return
 
+    const contentHash = contentHashOf(source)
     queue.value[index] = applyLifecycleAction(entry, 'content_changed', {
-      newContentHash: contentHashOf(source),
+      newContentHash: contentHash,
     }) as ReviewQueueEntry
-    syncRuntimeTools()
+    queue.value[index]!.reviewedHash = undefined
+    queue.value[index]!.artifactError = undefined
+    const reviewRequestId = `review:${toolId}:${Date.now()}`
+    reviewRequestIds.set(toolId, reviewRequestId)
+    journalStore.appendActive({
+      type: 'review/asked',
+      reviewRequestId,
+      toolId,
+      contentHash,
+      reason: 'skill source changed and entered probation for a new review',
+    })
+    persist()
+    await syncRuntimeTools()
+    await retireMuscle(entry)
   }
 
-  /** Binds reviewer approval to the entry's current content hash. */
-  function approve(toolId: string, reviewer = 'you', rationale = 'reviewed the source'): void {
+  /** Reads the current workspace source and moves it into a fresh review. */
+  async function requeueChangedSourceForReview(toolId: string): Promise<void> {
+    const entry = queue.value.find(item => item.toolId === toolId)
+    if (!entry)
+      throw new Error('The skill is no longer in the review queue.')
+    if (entry.toolId === OPENCODE_ADAPTER_SKELETON.toolId && entry.contentHash === OPENCODE_ADAPTER_SKELETON.contentHash) {
+      await applyContentChange(toolId, builtInSkillArtifact.source)
+      return
+    }
+    if (skillRuntime?.getWorkspaceRoot && entry.workspaceRoot !== await skillRuntime.getWorkspaceRoot())
+      throw new Error('This skill belongs to a different workspace. Return to its workspace before review.')
+    if (!skillRuntime?.readSource)
+      throw new Error('Skill artifact reader is unavailable.')
+    const source = await skillRuntime.readSource(toolId, entry.workspaceRoot)
+    await applyContentChange(toolId, source)
+  }
+
+  /** Reads the recorded workspace revision without running its code. */
+  async function readForReview(toolId: string): Promise<SkillReviewArtifacts> {
+    const entry = queue.value.find(item => item.toolId === toolId)
+    if (!entry)
+      throw new Error('The skill is no longer in the review queue.')
+    const source = await verifySource(entry)
+    if (source === undefined)
+      throw new Error(entry.artifactError ?? 'The skill source is unavailable.')
+    let selftest: SkillReviewArtifacts['selftest']
+    if (entry.selftest) {
+      if (!skillRuntime?.readSelftest)
+        throw new Error('The self-test reader is unavailable.')
+      const source = await skillRuntime.readSelftest(toolId, entry.workspaceRoot)
+      if (contentHashOf(source) !== entry.selftest.contentHash)
+        throw new Error('The self-test changed. Submit the new artifacts for review.')
+      selftest = { ...entry.selftest, logs: [...entry.selftest.logs], source }
+    }
+    if (!queue.value.includes(entry))
+      throw new Error('The review entry changed. Open the source again.')
+    return { source, contentHash: entry.contentHash, ...(selftest ? { selftest } : {}) }
+  }
+
+  /** Approves only the artifact hashes supplied by the displayed review. */
+  async function approve(toolId: string, viewed: Pick<SkillReviewArtifacts, 'contentHash' | 'selftest'>, reviewer = 'you', rationale = 'reviewed the source'): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry || entry.trust !== 'probation')
       return
 
+    if (!viewed || viewed.contentHash !== entry.contentHash || viewed.selftest?.contentHash !== entry.selftest?.contentHash)
+      throw new Error('The review entry changed. Open the source again.')
+    await readForReview(toolId)
+    // Another decision can arrive while the artifact is read. Never approve
+    // an entry that has since been replaced, removed, or already approved.
+    if (queue.value[index] !== entry || entry.trust !== 'probation')
+      return
+
     queue.value[index] = applyLifecycleAction(entry, 'approve_review', {
       review: { reviewer, rationale, reviewedAt: Date.now() },
     }) as ReviewQueueEntry
+    queue.value[index]!.reviewedHash = entry.contentHash
     journalStore.appendActive({
       type: 'review/decided',
       reviewRequestId: reviewRequestIds.get(toolId) ?? `review:${toolId}`,
@@ -365,18 +630,45 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       reviewer,
       rationale,
     })
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
+    const scope = skillRuntime?.getMemoryScope?.()
+    if (!scope)
+      return
     const triggerPattern = entry.activation.patterns[0] ?? entry.activation.keywords[0] ?? entry.tool.name
-    void memoryStore.rememberMuscle({
+    const muscle = await memoryStore.rememberMuscle({
       content: entry.tool.description,
       triggerPattern,
+      scope,
     }).catch((error) => {
       console.warn('[Skills] Muscle memory write failed.', error)
     })
+    const approved = queue.value[index]
+    if (muscle && approved?.trust === 'reviewed' && approved.reviewedHash === entry.contentHash) {
+      approved.muscleMemoryId = muscle.id
+      persist()
+    }
+    else if (muscle) {
+      // A revocation can overtake embedding. Do not leave a late trigger for
+      // a review that no longer exists.
+      await memoryStore.remove(muscle.id)
+    }
+  }
+
+  async function retireMuscle(entry: ReviewQueueEntry) {
+    if (!entry.muscleMemoryId)
+      return
+    await memoryStore.remove(entry.muscleMemoryId)
+    const current = queue.value.find(item => item.toolId === entry.toolId)
+    if (current?.muscleMemoryId === entry.muscleMemoryId) {
+      current.muscleMemoryId = undefined
+      persist()
+    }
   }
 
   /** Removes a rejected entry from the queue. */
-  function reject(toolId: string): void {
+  async function reject(toolId: string): Promise<void> {
+    const rejected = queue.value.find(item => item.toolId === toolId)
     if (queue.value.some(item => item.toolId === toolId)) {
       const reviewRequestId = reviewRequestIds.get(toolId) ?? `review:${toolId}`
       journalStore.appendActive({
@@ -389,11 +681,14 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     }
     queue.value = queue.value.filter(item => item.toolId !== toolId)
     reviewRequestIds.delete(toolId)
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
+    if (rejected)
+      await retireMuscle(rejected)
   }
 
   /** Returns a non-draft skill to probation after a compatibility mismatch. */
-  function quarantine(toolId: string): void {
+  async function quarantine(toolId: string): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry || entry.trust === 'draft')
@@ -402,11 +697,13 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     queue.value[index] = applyLifecycleAction(entry, 'compatibility_mismatch', {
       detectedAt: Date.now(),
     }) as ReviewQueueEntry
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
+    await retireMuscle(entry)
   }
 
   /** Clears quarantine after the author fixes the compatibility probe. */
-  function clearQuarantine(toolId: string): void {
+  async function clearQuarantine(toolId: string): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry)
@@ -415,11 +712,12 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     queue.value[index] = applyLifecycleAction(entry, 'reset_fix', {
       fixedAt: Date.now(),
     }) as ReviewQueueEntry
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
   }
 
   /** Batches failed reviewed-tool calls and returns those tools to probation. */
-  function dreamRevisionBatch(): SkillRevisionCandidate[] {
+  async function dreamRevisionBatch(): Promise<SkillRevisionCandidate[]> {
     const candidates: SkillRevisionCandidate[] = []
     const seen = new Set<string>()
     for (const event of journalStore.events) {
@@ -457,12 +755,19 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         reason: `dreaming pass: ${candidate.failureSummary.slice(0, 180)}`,
       })
     }
-    syncRuntimeTools()
+    persist()
+    await syncRuntimeTools()
+    for (const candidate of revisionBatch.value) {
+      const entry = queue.value.find(item => item.toolId === candidate.toolId)
+      if (entry)
+        await retireMuscle(entry)
+    }
     return revisionBatch.value
   }
 
   return {
     queue,
+    persistenceError,
     catalog,
     revisionBatch,
     probationCount,
@@ -471,12 +776,17 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     submit,
     applyContentChange,
     approve,
+    readForReview,
+    requeueChangedSourceForReview,
     reject,
     quarantine,
     clearQuarantine,
     dreamRevisionBatch,
     prepareForPrompt,
     syncRuntimeTools,
+    restore,
+    restoreQueue,
+    executeReviewedSkill,
   }
 }, {
   synced: {
@@ -485,7 +795,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     // the skills settings page render in any window. All entries are plain
     // data (structuredClone-safe). User decisions route to the leader.
     state: true,
-    actions: ['submit', 'applyContentChange', 'approve', 'reject', 'quarantine', 'clearQuarantine', 'dreamRevisionBatch'],
+    actions: ['submit', 'applyContentChange', 'approve', 'readForReview', 'requeueChangedSourceForReview', 'reject', 'quarantine', 'clearQuarantine', 'dreamRevisionBatch', 'restore', 'restoreQueue', 'executeReviewedSkill'],
   },
 })
 

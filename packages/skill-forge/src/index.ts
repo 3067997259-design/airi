@@ -1,5 +1,7 @@
 export { CONTENT_HASH_SEED_A, CONTENT_HASH_SEED_B, contentHashOf } from './hash'
 
+export { validateToolInput, validateToolInputSchema } from './input-validation'
+
 export { applyLifecycleAction, canEnterProbation, canTransition, lifecycleActionOf } from './lifecycle'
 export type { ApproveReviewInput, CompatibilityMismatchInput, ContentChangeInput, EmptyActionInput, ResetFixInput, RevisionProposalInput, SkillLifecycleAction, SkillLifecycleActionInput } from './lifecycle'
 

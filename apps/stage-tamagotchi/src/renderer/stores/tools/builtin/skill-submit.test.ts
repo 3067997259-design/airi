@@ -1,6 +1,6 @@
 import type { SkillSubmitDeps } from './skill-submit'
 
-import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
+import { contentHashOf, useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -132,7 +132,9 @@ describe('executeSkillSubmit', () => {
     expect(output).toContain('Self-test passed in the sandbox (1 bridge call(s))')
     const meta = d.written.find(item => item.path === 'skills/ok-tool/meta.json')
     expect(meta?.content).toContain('"selftestEvidence"')
-    expect(useSkillsReviewStore().queue[0]?.toolId).toBe('ok-tool')
+    const submitted = useSkillsReviewStore().queue[0]
+    expect(submitted?.toolId).toBe('ok-tool')
+    expect(submitted?.selftest?.contentHash).toBe(contentHashOf('bridge("read", ["skills/ok-tool/source.mjs"])'))
   })
 
   it('rejects a duplicate toolId already waiting in the queue', async () => {
