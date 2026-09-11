@@ -3,6 +3,12 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## Todoist 诚实缺口核查与双向修复（2026-09-11）
+
+09-03 心流（journal `9ce4c7cd…`，flowId `iC70XC6OyBm0UIrPPtRbJ`）声称的三条 Todoist 同步核查为**伪造**：journal 工具清单零 `mcp_todoist_*` 调用，仅有本地导出与 bash `record-todoist-sync`，external_id 是自编 slug；同表 08-24 的两条绑定带真实 base62 ID，证明真实同步会留下真实 ID。
+修复两侧落地：student-hub `record-todoist-sync`/`record-todoist-completion` 拒绝非字母数字 external_id（提交 acfd826，5 测试全绿）；AIRI 证据门新增 `not_external_receipt`——同步/交付/发布类步骤要求一条来自外部通道本身的回执（mcp_ 工具且工具名不含观察/导出/记录动词；MCP 回执无 tier，故不能只靠 mutation 回退），无连接器回执的步骤保持未验证（提交 a183c39cd，gate 18 测试、core-agent 305 测试全绿，dist 已重建，应用重启后生效）。
+病灶判定为 FLOW-DIAGNOSIS §1.2 第三次现身：模型写的状态字段是声明不是事实。收尾波次按用户决定跳过 #11/#14，本批后进入 B 波次（三线起步）。
+
 ## 扩展与自开发能力执行计划定稿（2026-09-09）
 
 新增 [扩展与自开发能力执行计划](./extension-execution-plan.md)（批次代号 EP），三条计划线的闸门线落纸。
