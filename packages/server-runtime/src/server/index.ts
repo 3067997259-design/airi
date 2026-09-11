@@ -2,6 +2,8 @@ import type { H3CrossWsApp, H3CrossWsResponse } from '@proj-airi/better-ws/serve
 
 import type { AppOptions } from '..'
 
+import process from 'node:process'
+
 import { isIP } from 'node:net'
 import { networkInterfaces } from 'node:os'
 
@@ -165,7 +167,11 @@ export function createServer(opts?: ServerOptions): Server {
         port,
         hostname,
         tls: options?.tlsConfig || undefined,
-        reusePort: true,
+        // SO_REUSEPORT is a Linux/macOS feature: on Windows Node throws
+        // `listen ENOTSUP` for every attempt with it, which silently killed
+        // the whole server channel on Windows desktops (no port ever
+        // listened, 2026-09-04).
+        ...(process.platform !== 'win32' ? { reusePort: true } : {}),
         silent: true,
         manual: true,
         gracefulShutdown: {

@@ -156,23 +156,14 @@ describe('resolveLlmTools', () => {
       expect(names[0]).toBe('built_in_tool')
     })
 
-    it('suppresses the default mcp proxy tools once native mcp_* runtime tools are active', async () => {
-      const nativeTool = createTool('mcp_filesystem_search')
-
-      const tools = await resolveLlmTools({
-        debugTools: [],
-        sparkCommandTools: [],
-        webSearchTools: [],
-        activeTools: [nativeTool],
-      })
-
-      const names = tools.map(tool => toolNameFrom(tool))
-      expect(names).toContain('mcp_filesystem_search')
-      expect(names).not.toContain('builtIn_mcpListTools')
-      expect(names).not.toContain('builtIn_mcpCallTool')
-    })
-
-    it('keeps the default mcp proxy tools when no native mcp_* runtime tool is active', async () => {
+    it('never injects the legacy mcp proxy tools by default', async () => {
+      // ROOT CAUSE:
+      //
+      // A default copy of builtIn_mcpListTools / builtIn_mcpCallTool was
+      // injected whenever no native mcp_* tool was active. With no MCP servers
+      // the proxy had nothing to reach, yet the model used it as a generic
+      // "find a tool" entry and silently failed on self-authored skills
+      // (ACC-20260910 R05). The runtime MCP store is now the only producer.
       const runtimeTool = createTool('runtime_play_chess_match')
 
       const tools = await resolveLlmTools({
@@ -183,8 +174,22 @@ describe('resolveLlmTools', () => {
       })
 
       const names = tools.map(tool => toolNameFrom(tool))
-      expect(names).toContain('builtIn_mcpListTools')
-      expect(names).toContain('builtIn_mcpCallTool')
+      expect(names).toContain('runtime_play_chess_match')
+      expect(names).not.toContain('builtIn_mcpListTools')
+      expect(names).not.toContain('builtIn_mcpCallTool')
+    })
+
+    it('passes through proxy tools the runtime MCP store registered for booting servers', async () => {
+      const proxyTool = createTool('builtIn_mcpListTools', 'Runtime proxy.')
+
+      const tools = await resolveLlmTools({
+        debugTools: [],
+        sparkCommandTools: [],
+        webSearchTools: [],
+        activeTools: [proxyTool],
+      })
+
+      expect(tools.map(tool => toolNameFrom(tool))).toContain('builtIn_mcpListTools')
     })
 
     it('honors an explicit builtInTools override even when native mcp_* tools are active', async () => {

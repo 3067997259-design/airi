@@ -95,7 +95,7 @@ export const CODING_TOOL_META = {
 /** Model-facing control for an explicit change of the workspace boundary. */
 export const WORKSPACE_ROOT_TOOL_META = {
   name: 'setWorkspaceRoot',
-  description: 'Switch the coding workspace to an explicit absolute directory. Use this once when the requested repository is outside the current workspace root, then use paths relative to the new root. The host validates the directory and keeps read/write tools contained inside it.',
+  description: 'Switch the coding workspace to an explicit absolute directory. Use this once when the user asks to work in a repository outside the current workspace root, then use paths relative to the new root. Do not switch the root to repair a missing path or to restore a previous root on your own: report the mismatch and the current root instead. The host validates the directory and keeps read/write tools contained inside it.',
   parameterDescriptions: {
     root: 'Absolute directory to use as the workspace root. The directory must already exist and be writable.',
   },

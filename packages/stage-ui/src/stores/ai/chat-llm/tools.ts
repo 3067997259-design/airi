@@ -24,12 +24,38 @@ function unavailableToolResult(name: string) {
   return `Tool "${name}" is not available now.`
 }
 
+function mergeToolDefinitions(current: ToolDefinition[], next: ToolDefinition[]) {
+  const definitions = [...current]
+
+  for (const definition of next) {
+    const existingIndex = definitions.findIndex(item => item.id === definition.id)
+    if (existingIndex >= 0) {
+      definitions[existingIndex] = definition
+      continue
+    }
+
+    definitions.push(definition)
+  }
+
+  return definitions
+}
+
+function toToolDefinition(tool: ExecutableTool): ToolDefinition {
+  return structuredClone<ToolDefinition>({
+    id: tool.id,
+    type: tool.type,
+    function: tool.function,
+    ...(tool.defaultActive === undefined ? {} : { defaultActive: tool.defaultActive }),
+  })
+}
+
 /**
- * Stores serializable tool definitions and leader-local executors.
+ * Stores serializable tool definitions and runtime-local executors.
  *
- * The Pinia state contains definitions only. Call {@link addTools} from an
- * action that already runs in the elected leader. The executor map never
- * enters synchronized state.
+ * The Pinia state contains definitions only. The executor map never enters
+ * synchronized state. `addTools` and the removal methods register or remove
+ * executors in the calling runtime, then route only serializable definitions
+ * through the elected leader.
  */
 export const useLlmToolsStore = defineStore('llm-tools', () => {
   const tools = ref<ToolDefinition[]>([])
@@ -58,38 +84,37 @@ export const useLlmToolsStore = defineStore('llm-tools', () => {
     })
   }
 
+  /** Commits serializable tool definitions in the elected leader. */
+  async function commitToolDefinitions(nextDefinitions: ToolDefinition[]) {
+    tools.value = mergeToolDefinitions(tools.value, nextDefinitions)
+  }
+
+  /** Removes serializable tool definitions in the elected leader. */
+  async function commitToolRemovals(ids: string[]) {
+    if (ids.length === 0)
+      return
+
+    const idSet = new Set(ids)
+    tools.value = tools.value.filter(tool => !idSet.has(tool.id))
+  }
+
   /** Adds tools or replaces existing tools that have the same application id. */
-  function addTools(...nextTools: ExecutableTool[]) {
-    const definitions = [...tools.value]
-
-    for (const tool of nextTools) {
-      const definition = structuredClone<ToolDefinition>({
-        id: tool.id,
-        type: tool.type,
-        function: tool.function,
-        ...(tool.defaultActive === undefined ? {} : { defaultActive: tool.defaultActive }),
-      })
-      const existingIndex = definitions.findIndex(item => item.id === tool.id)
-
+  async function addTools(...nextTools: ExecutableTool[]) {
+    const definitions = nextTools.map((tool) => {
       executors.set(tool.id, tool.execute)
-      if (existingIndex >= 0) {
-        definitions[existingIndex] = definition
-        continue
-      }
+      return toToolDefinition(tool)
+    })
 
-      definitions.push(definition)
-    }
-
-    tools.value = definitions
+    await commitToolDefinitions(definitions)
   }
 
   /** Removes one tool definition and its local executor. */
-  function removeToolById(id: string) {
-    removeToolsByIds(id)
+  async function removeToolById(id: string) {
+    await removeToolsByIds(id)
   }
 
   /** Removes tool definitions and their local executors. */
-  function removeToolsByIds(...ids: string[]) {
+  async function removeToolsByIds(...ids: string[]) {
     if (ids.length === 0)
       return
 
@@ -97,12 +122,14 @@ export const useLlmToolsStore = defineStore('llm-tools', () => {
     for (const id of idSet)
       executors.delete(id)
 
-    tools.value = tools.value.filter(tool => !idSet.has(tool.id))
+    await commitToolRemovals(ids)
   }
 
   return {
     activeTools,
     addTools,
+    commitToolDefinitions,
+    commitToolRemovals,
     getToolsByNames,
     removeToolById,
     removeToolsByIds,
@@ -111,11 +138,9 @@ export const useLlmToolsStore = defineStore('llm-tools', () => {
 }, {
   synced: {
     state: true,
-    // Registration mutates the whole `tools` array, and the array is synced
-    // state: an unlisted mutation in any follower would ship that window's
-    // full (and possibly not-yet-populated) list as a state proposal and wipe
-    // the leader's registry - observed live as all 57 mcp_* tools vanishing
-    // mid-session. Route every mutation through the elected leader.
-    actions: ['addTools', 'removeToolById', 'removeToolsByIds'],
+    // Synchronized action arguments must be structured-cloneable. Executors
+    // are functions, so callers register them locally and route only these
+    // serializable definition/removal actions through the elected leader.
+    actions: ['commitToolDefinitions', 'commitToolRemovals'],
   },
 })

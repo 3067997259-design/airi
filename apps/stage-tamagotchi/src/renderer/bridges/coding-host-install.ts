@@ -1,3 +1,5 @@
+import { defineInvoke } from '@moeru/eventa'
+import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 import { installAppearanceJournalPort } from '@proj-airi/stage-ui-live2d/stores/custom-parameters'
 import { installExpressionJournalPort } from '@proj-airi/stage-ui-live2d/stores/expression-store'
 /**
@@ -8,22 +10,61 @@ import { installExpressionJournalPort } from '@proj-airi/stage-ui-live2d/stores/
  * (stage, settings, ...). The client shapes mirror the stage-ui port types
  * structurally — the shared Eventa contracts stay in the app shell.
  */
+import { installLongGoalSchedulerPort } from '@proj-airi/stage-ui/services/long-goal-scheduler'
+import { releaseRestoreEffectHold } from '@proj-airi/stage-ui/services/restore-gate'
 import { installApprovalsBridge } from '@proj-airi/stage-ui/stores/approvals'
+import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { installCodingHostClient, useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
+import { installDataBackupPort } from '@proj-airi/stage-ui/stores/data-backup'
 import { installJournalPersistence, useJournalStore } from '@proj-airi/stage-ui/stores/journal'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { installLifeModePort } from '@proj-airi/stage-ui/stores/modules/life-mode'
+import { useLongGoalSchedulerStore } from '@proj-airi/stage-ui/stores/modules/long-goals'
 import { installMemoryHostPort } from '@proj-airi/stage-ui/stores/modules/memory'
-import { installSkillRuntime } from '@proj-airi/stage-ui/stores/skills'
+import { installSkillRuntime, useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { installFetchTextPort } from '@proj-airi/stage-ui/tools/fetch'
 
+import { backupAdopt, backupAdopted, backupPrepare, backupRelaunch, backupSave } from '../../shared/eventa'
 import { createCodingHostClient } from './coding-host'
 import { createJournalHostClient } from './journal-host'
 import { createLifeModeClient } from './life-mode'
+import { createLongGoalSchedulerClient } from './long-goal'
 import { createMemoryHostClient } from './memory-host'
 import { createWebFetchClient } from './web-fetch'
 
 export function installCodingHostBridge(): void {
   const client = createCodingHostClient()
+  installDataBackupPort({
+    buildId: async () => {
+      const status = await client.listTools()
+      return `workspace:${status.workspaceRoot}`
+    },
+    readArtifact: async (path, workspaceRoot) => (await client.readFile({ path, expectedWorkspaceRoot: workspaceRoot })).content,
+    stageRestore: async (data) => {
+      const context = getElectronEventaContext()
+      const save = defineInvoke(context, backupSave)
+      const prepare = defineInvoke(context, backupPrepare)
+      const stored = await save({ data })
+      if (!stored)
+        throw new Error('The backup archive was not stored.')
+      return (await prepare({ token: stored.split(/[\\/]/).pop() ?? stored })).profilePath
+    },
+    relaunchRestore: async (profilePath) => {
+      const context = getElectronEventaContext()
+      await defineInvoke(context, backupRelaunch)({ profilePath })
+    },
+    adoptRestore: async () => {
+      const context = getElectronEventaContext()
+      await defineInvoke(context, backupAdopt)()
+    },
+  })
+  getElectronEventaContext().on(backupAdopted, () => {
+    releaseRestoreEffectHold()
+    void useSkillsReviewStore().restore().catch(error => console.warn('[Skills] Adopted profile verification failed.', error))
+    // Boot skips scheduler initialization while restore effects are held.
+    // The scheduler rejects followers and makes repeated adoption idempotent.
+    void useLongGoalSchedulerStore().initialize().catch(error => console.warn('[LongGoal] Adopted profile initialization failed.', error))
+  })
   installCodingHostClient({
     listDir: params => client.listDir(params),
     readFile: params => client.readFile(params),
@@ -34,6 +75,10 @@ export function installCodingHostBridge(): void {
     setWorkspaceRoot: params => client.setWorkspaceRoot(params),
   })
   installSkillRuntime({
+    readSource: async (toolId, expectedWorkspaceRoot) => (await client.readFile({ path: `skills/${toolId}/source.mjs`, expectedWorkspaceRoot })).content,
+    readSelftest: async (toolId, expectedWorkspaceRoot) => (await client.readFile({ path: `skills/${toolId}/selftest.mjs`, expectedWorkspaceRoot })).content,
+    getWorkspaceRoot: async () => (await client.listTools()).workspaceRoot,
+    getMemoryScope: () => ({ userId: useAuthStore().userId, characterId: useAiriCardStore().activeCardId || 'default' }),
     runCommand: params => client.runCommand(params),
     runProgram: async (params) => {
       const result = await client.runProgram(params)
@@ -54,12 +99,14 @@ export function installCodingHostBridge(): void {
   // before the app installs Pinia.
   client.onWorkspaceRootChanged(() => {
     void useCodingToolsStore().refreshStatus()
+    void useSkillsReviewStore().restore().catch(error => console.warn('[Skills] Workspace verification failed.', error))
   })
   // The journal becomes durable here: the store keeps owning the live stream
   // and only mirrors it, so a renderer without this port behaves as before.
   installJournalPersistence(createJournalHostClient())
   installFetchTextPort(createWebFetchClient())
   installLifeModePort(createLifeModeClient())
+  installLongGoalSchedulerPort(createLongGoalSchedulerClient())
   installAppearanceJournaling()
   installMemoryHostBridge()
   restoreApprovalMode()
@@ -115,5 +162,7 @@ function installMemoryHostBridge(): void {
     list: params => client.list(params),
     search: params => client.search(params),
     insert: params => client.insert(params),
+    update: params => client.update(params),
+    remove: params => client.remove(params),
   })
 }

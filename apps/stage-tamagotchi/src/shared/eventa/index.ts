@@ -2,6 +2,7 @@ import type { Locale } from '@intlify/core'
 import type { WorkspaceGrepQuery, WorkspaceGrepResult } from '@proj-airi/coding-harness/tools/grep'
 import type { CommandJobSnapshot } from '@proj-airi/coding-harness/tools/jobs'
 import type { WorkspaceShell, WorkspaceShellKind } from '@proj-airi/coding-harness/tools/shell'
+import type { MemoryEmbeddingMetadata, MemoryEmbeddingQueryMetadata, MemoryScope, MemorySourceContext } from '@proj-airi/memory-core'
 import type {
   GameletIframeRequestPayload as GameletIframeInvokePayload,
   GameletIframeResponsePayload,
@@ -53,8 +54,17 @@ export interface ElectronServerChannelConfig {
   tlsConfig?: ServerOptions['tlsConfig'] | null
   authToken: string
   hostname: string
+  /**
+   * Resolved listen port of the server channel. The renderer must build its
+   *  client URL from this instead of a baked-in constant: the port moves when
+   *  SERVER_CHANNEL_PORT is set, and a stale baked value then points at a
+   *  port nobody listens on.
+   */
+  port?: number
 }
 export const electronGetServerChannelConfig = defineInvokeEventa<ElectronServerChannelConfig>('eventa:invoke:electron:server-channel:get-config')
+
+export * from './data-backup'
 export const electronApplyServerChannelConfig = defineInvokeEventa<ElectronServerChannelConfig, Partial<ElectronServerChannelConfig>>('eventa:invoke:electron:server-channel:apply-config')
 export const electronGetServerChannelQrPayload = defineInvokeEventa<ServerChannelQrPayload>('eventa:invoke:electron:server-channel:get-qr-payload')
 
@@ -514,6 +524,8 @@ export const i18nGetLocale = defineInvokeEventa<string | undefined>('eventa:invo
 
 export interface CodingFsReadParams {
   path: string
+  /** Refuse a skill read if a workspace switch overtook the request. */
+  expectedWorkspaceRoot?: string
 }
 export interface CodingFsReadResult {
   content: string
@@ -594,6 +606,8 @@ export type CodingCodeRunResult
 export interface CodingCodeRunParams {
   program: string
   timeoutMs?: number
+  /** Bind reviewed skill IO to the workspace where its source was checked. */
+  expectedWorkspaceRoot?: string
 }
 
 export interface CodingToolAvailability {
@@ -626,16 +640,26 @@ export interface JournalAppendParams {
 }
 export interface JournalAppendResult {
   appended: number
+  /** Lines skipped because their seq was already persisted (receipt-loss retries). */
+  skipped: number
 }
 export interface JournalReadParams {
   sessionId: string
-  /** Newest events to return. @default 2000 */
+  /** Newest events to return. @default 50000 */
   limit?: number
 }
 export interface JournalReadResult {
   lines: string[]
   /** Whether older events exist on disk beyond the returned window. */
   truncated: boolean
+  /** Highest seq found in the file; -1 when the file is missing or empty. */
+  lastSeq: number
+  /** Seq values missing between 0 and lastSeq (survivors of a lost write batch). */
+  gaps: number[]
+  /** Lines that are not valid JSON (counted, never rewritten). */
+  corruptLines: number
+  /** Lines repeating a seq that was already seen in the file. */
+  duplicateLines: number
 }
 export interface JournalClearParams {
   sessionId: string
@@ -738,8 +762,7 @@ export const codingHostGetApprovalMode = defineInvokeEventa<{ mode: CodingApprov
 export const codingApprovalRequested = defineEventa<CodingApprovalRequestPayload>('eventa:event:electron:coding-host:approval:requested')
 export const codingApprovalDecided = defineEventa<CodingApprovalDecisionPayload>('eventa:event:electron:coding-host:approval:decided')
 
-// Plan-step approval: same card channel as bash approvals, but without a
-// timeout — a plan step may legitimately wait for the user indefinitely.
+// Plan-step approval uses the same card channel and timeout as bash.
 // Focusing an `approvalRequired` step raises the card; the decision lands in
 // every window's journal as approval/asked + approval/decided, which is what
 // the plan evidence gate requires for `human_approval`.
@@ -759,7 +782,11 @@ export interface MemoryHostListParams {
   memoryType?: string
   reviewStatus?: string
   limit?: number
+  scope?: MemoryScope
 }
+
+/** Full durable archives, captured by the journal owner after pending writes. */
+export const journalHostExport = defineInvokeEventa<{ files: Array<{ name: string, content: string }> }, void>('eventa:invoke:electron:journal-host:export')
 
 export interface MemoryHostSearchParams {
   embedding: number[]
@@ -771,6 +798,8 @@ export interface MemoryHostSearchParams {
     accessCount?: number
     moodCongruence?: number
   }
+  embeddingMetadata?: MemoryEmbeddingQueryMetadata
+  scope?: MemoryScope
 }
 
 export interface MemoryHostInsertParams {
@@ -782,9 +811,17 @@ export interface MemoryHostInsertParams {
   arousal?: number
   halfLifeHours?: number
   sessionId?: string
+  scope?: MemoryScope
+  sourceContext?: MemorySourceContext
   reviewStatus?: string
+  factStatus?: string
+  supersedesId?: string
+  conflictGroup?: string
   embedding?: number[]
+  embeddingMetadata?: MemoryEmbeddingMetadata
   now?: number
+  /** Stable local memory id used to make remote mirroring idempotent. */
+  originId?: string
 }
 
 export interface MemoryHostFragment {
@@ -796,9 +833,44 @@ export interface MemoryHostFragment {
   createdAt: number
   lastAccessed: number
   accessCount: number
+  scope?: MemoryScope
+  sourceContext?: MemorySourceContext
   reviewStatus?: string
+  factStatus?: string
+  supersedesId?: string
+  conflictGroup?: string
   sessionIds?: string[]
+  originId?: string
+  embeddingProvider?: string
+  embeddingModel?: string
+  embeddingDimensions?: number
+  embeddingInputType?: 'query' | 'document'
+  embeddingSourceFingerprint?: string
+  embeddedAt?: number
+  embeddingStatus?: 'active' | 'stale'
   score?: number
+}
+
+/** Patch carried by a mirroring update op; fields absent from it stay untouched. */
+export interface MemoryHostUpdatePatch {
+  content?: string
+  category?: string
+  importance?: number
+  reviewStatus?: string
+  factStatus?: string
+  supersedesId?: string
+  conflictGroup?: string
+  embedding?: number[]
+  embeddingMetadata?: MemoryEmbeddingMetadata
+}
+
+export interface MemoryHostUpdateParams {
+  originId: string
+  patch: MemoryHostUpdatePatch
+}
+
+export interface MemoryHostRemoveParams {
+  originId: string
 }
 
 export const memoryHostConfigure = defineInvokeEventa<MemoryHostStatus, { connectionString?: string }>('eventa:invoke:electron:memory-host:configure')
@@ -806,6 +878,8 @@ export const memoryHostGetStatus = defineInvokeEventa<MemoryHostStatus, void>('e
 export const memoryHostList = defineInvokeEventa<MemoryHostFragment[], MemoryHostListParams | void>('eventa:invoke:electron:memory-host:list')
 export const memoryHostSearch = defineInvokeEventa<MemoryHostFragment[], MemoryHostSearchParams>('eventa:invoke:electron:memory-host:search')
 export const memoryHostInsert = defineInvokeEventa<MemoryHostFragment, MemoryHostInsertParams>('eventa:invoke:electron:memory-host:insert')
+export const memoryHostUpdate = defineInvokeEventa<MemoryHostFragment | undefined, MemoryHostUpdateParams>('eventa:invoke:electron:memory-host:update')
+export const memoryHostRemove = defineInvokeEventa<{ removed: boolean }, MemoryHostRemoveParams>('eventa:invoke:electron:memory-host:remove')
 
 // -- Web fetch (CAPABILITY-PLAN §二 fetch) --
 // The main process owns the SSRF-hardened fetcher: `node:dns` resolution
@@ -842,21 +916,118 @@ export interface LifeModeConfigContract {
   cooldownMinutes: number
 }
 
-export interface LifeTickEventPayload {
-  tickId: string
-  reason: string
+export type LifeModeGate
+  = | 'mode'
+    | 'quiet-hours'
+    | 'budget'
+    | 'cooldown'
+    | 'busy'
+    | 'focused'
+    | 'flow-active'
+    | 'speech-active'
+    | 'no-session'
+    | 'no-stimulus'
+    | 'stale-stimulus'
+    | 'tools-unavailable'
+    | 'stale-heartbeat'
+    | 'respond'
+
+export interface LifeModeRuntimeSnapshotContract {
+  config: LifeModeConfigContract
+  revision: number
+  budgetUsed: number
+  budgetDateKey: string
+  nextHeartbeatAt?: number
+  lastHeartbeatAt?: number
+  lastDecisionAt?: number
+  lastGate?: LifeModeGate
+}
+
+export interface LifeHeartbeatEventPayload {
+  heartbeatId: string
+  reason: 'schedule' | 'manual-test'
   timestamp: number
 }
 
-export interface LifeTickConsumePayload {
-  /** Identifies the emitted tick that started one autonomous round. */
-  tickId: string
+export interface LifeDecisionClaimPayload {
+  heartbeatId: string
 }
 
-export const lifeModeGetConfig = defineInvokeEventa<LifeModeConfigContract, void>('eventa:invoke:electron:life-mode:config:get')
-export const lifeModeSetConfig = defineInvokeEventa<LifeModeConfigContract, LifeModeConfigContract>('eventa:invoke:electron:life-mode:config:set')
-export const lifeModeConsumeTick = defineInvokeEventa<void, LifeTickConsumePayload>('eventa:invoke:electron:life-mode:tick:consume')
-export const lifeTickEmitted = defineEventa<LifeTickEventPayload>('eventa:event:electron:life-mode:tick')
+export interface LifeDecisionClaimResult {
+  claimed: boolean
+  gate?: LifeModeGate
+  snapshot: LifeModeRuntimeSnapshotContract
+}
+
+export interface LifeModeSetConfigPayload {
+  patch: Partial<LifeModeConfigContract>
+}
+
+export interface LifeModeTestHeartbeatResult {
+  emitted: boolean
+  gate?: LifeModeGate
+  snapshot: LifeModeRuntimeSnapshotContract
+}
+
+export interface LifeModeRecordGatePayload {
+  gate: LifeModeGate
+}
+
+export const lifeModeGetSnapshot = defineInvokeEventa<LifeModeRuntimeSnapshotContract, void>('eventa:invoke:electron:life-mode:snapshot:get')
+export const lifeModeSetConfig = defineInvokeEventa<LifeModeRuntimeSnapshotContract, LifeModeSetConfigPayload>('eventa:invoke:electron:life-mode:config:set')
+export const lifeModeClaimDecision = defineInvokeEventa<LifeDecisionClaimResult, LifeDecisionClaimPayload>('eventa:invoke:electron:life-mode:decision:claim')
+export const lifeModeRequestTestHeartbeat = defineInvokeEventa<LifeModeTestHeartbeatResult, void>('eventa:invoke:electron:life-mode:heartbeat:test')
+/**
+ * Mirrors a renderer-decided gate into the main-process snapshot. Most gates
+ * (busy, focused, flow-active, speech-active, no-session, stale-stimulus) are
+ * decided in the leader renderer, and a follower settings window reads only
+ * the main-process snapshot (S03-S18, 2026-09-10).
+ */
+export const lifeModeRecordGate = defineInvokeEventa<LifeModeRuntimeSnapshotContract, LifeModeRecordGatePayload>('eventa:invoke:electron:life-mode:gate:record')
+export const lifeModeSnapshotChanged = defineEventa<LifeModeRuntimeSnapshotContract>('eventa:event:electron:life-mode:snapshot:changed')
+export const lifeHeartbeatEmitted = defineEventa<LifeHeartbeatEventPayload>('eventa:event:electron:life-mode:heartbeat')
+
+// -- Long-horizon goals (LONG-HORIZON-GOALS-PLAN LG-2) --
+// The main process owns only the wake clock and the single-run lease. The
+// leader renderer still owns goal state, Flow, model calls, and tool policy.
+
+export interface LongGoalSchedulePayload {
+  goalId: string
+  nextReviewAt: number
+}
+
+export interface LongGoalUnschedulePayload {
+  goalId: string
+}
+
+export interface LongGoalWakeEventPayload {
+  goalId: string
+  wakeId: string
+  reason: 'schedule' | 'retry' | 'startup'
+  timestamp: number
+}
+
+export interface LongGoalClaimPayload {
+  goalId: string
+  wakeId: string
+}
+
+export interface LongGoalClaimResult {
+  claimed: boolean
+  leaseId?: string
+  reason?: 'stale-wake' | 'already-running' | 'unknown-goal'
+}
+
+export interface LongGoalReleasePayload {
+  goalId: string
+  leaseId: string
+}
+
+export const longGoalSchedule = defineInvokeEventa<void, LongGoalSchedulePayload>('eventa:invoke:electron:long-goal:schedule')
+export const longGoalUnschedule = defineInvokeEventa<void, LongGoalUnschedulePayload>('eventa:invoke:electron:long-goal:unschedule')
+export const longGoalClaim = defineInvokeEventa<LongGoalClaimResult, LongGoalClaimPayload>('eventa:invoke:electron:long-goal:claim')
+export const longGoalRelease = defineInvokeEventa<void, LongGoalReleasePayload>('eventa:invoke:electron:long-goal:release')
+export const longGoalWakeEmitted = defineEventa<LongGoalWakeEventPayload>('eventa:event:electron:long-goal:wake')
 
 export { electron } from '@proj-airi/electron-eventa'
 export * from '@proj-airi/electron-eventa/electron-updater'

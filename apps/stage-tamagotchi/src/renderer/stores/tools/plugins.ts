@@ -58,13 +58,13 @@ export const useTamagotchiPluginToolsStore = defineStore('tamagotchi-plugin-tool
       id: `${toolIdPrefix}${definition.ownerExtensionId}:${definition.name}`,
     }))
 
-    llmToolsStore.removeToolsByIds(...registeredToolIds())
-    llmToolsStore.addTools(...tools)
+    await llmToolsStore.removeToolsByIds(...registeredToolIds())
+    await llmToolsStore.addTools(...tools)
   }
 
-  function dispose() {
-    llmToolsStore.removeToolsByIds(...registeredToolIds())
+  async function dispose() {
     llmToolsetPromptsStore.clearToolsetPrompts('plugin-tools')
+    await llmToolsStore.removeToolsByIds(...registeredToolIds())
   }
 
   return {

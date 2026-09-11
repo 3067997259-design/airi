@@ -454,6 +454,13 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
       await serverChannelStore.ensureConnected()
 
       registerConsumers()
+      // The channel client can report connected before the server has marked
+      // the peer authenticated; register frames landing in that window are
+      // dropped with notAuthenticated and never retried, leaving input:text
+      // with no chat-ingestion consumer for the whole session (2026-09-04).
+      // A delayed second pass closes that race; onReconnected keeps covering
+      // genuine reconnects.
+      setTimeout(registerConsumers, 2000)
       disposeHookFns.value.push(serverChannelStore.onReconnected(() => registerConsumers()))
 
       let isProcessingRemoteStream = false
@@ -811,7 +818,8 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         void memoryStore.captureEvent({
           type: 'task:done',
           data: event.data,
-        })
+          sessionId: chatSession.activeSessionId,
+        }, characterStore.memoryScope)
       }))
       disposeHookFns.value.push(serverChannelStore.onEvent('event:reaction', (event) => {
         journalStore.appendActive({
@@ -832,7 +840,8 @@ export const useContextBridgeStore = defineStore('mods:api:context-bridge', () =
         void memoryStore.captureEvent({
           type: 'event:reaction',
           data: event.data,
-        })
+          sessionId: chatSession.activeSessionId,
+        }, characterStore.memoryScope)
       }))
 
       disposeHookFns.value.push(

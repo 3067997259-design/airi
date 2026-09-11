@@ -217,7 +217,9 @@ describe('isToolRelatedError', () => {
 
     const firstCallTools = streamTextMock.mock.calls[0]?.[0]?.tools
     expect(Array.isArray(firstCallTools)).toBe(true)
-    expect(mcpMock).toHaveBeenCalledTimes(1)
+    // The legacy mcp proxy tools are no longer injected by default; the
+    // runtime MCP store is their only producer (ACC-20260910 R05).
+    expect(mcpMock).not.toHaveBeenCalled()
     expect(debugMock).toHaveBeenCalledTimes(1)
     expect(firstCallTools?.map(toolNameFrom)).toContain('custom-tool')
     expect(firstCallTools?.map(toolNameFrom)).toContain('runtime_play_chess_match')
@@ -293,7 +295,7 @@ describe('isToolRelatedError', () => {
       execute: vi.fn(async () => ({ ok: true })),
     } satisfies ExecutableTool
 
-    mcpMock.mockResolvedValueOnce([builtinTool] as Tool[])
+    debugMock.mockResolvedValueOnce([builtinTool] as Tool[])
     llmToolsStore.addTools(runtimeTool)
 
     streamTextMock.mockImplementationOnce(() => createMockStreamResult())

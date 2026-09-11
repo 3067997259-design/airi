@@ -50,35 +50,51 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
       callTool: payload => callMcpTool(payload),
     }
 
-    // Prefer one native tool per MCP tool so the model calls them directly;
-    // fall back to the two list/call proxy tools when discovery yields
-    // nothing usable (no servers configured, or listing failed).
-    let tools: Tool[]
-    let descriptors: Awaited<ReturnType<typeof runtime.listTools>> = []
     let runtimeStatus: Awaited<ReturnType<typeof getMcpRuntimeStatus>> | undefined
     try {
-      const [descriptorList, status] = await Promise.all([
-        runtime.listTools(),
-        getMcpRuntimeStatus().catch(() => undefined),
-      ])
-      descriptors = descriptorList
-      runtimeStatus = status
-      tools = descriptors.length > 0
-        ? createMcpNativeTools(descriptors, runtime)
-        : await Promise.all(createMcpTools(runtime))
+      runtimeStatus = await getMcpRuntimeStatus()
+    }
+    catch (error) {
+      console.warn('[tamagotchi-mcp-tools] getRuntimeStatus failed:', error)
+    }
+
+    let descriptors: Awaited<ReturnType<typeof runtime.listTools>> = []
+    try {
+      descriptors = await runtime.listTools()
+    }
+    catch (error) {
+      console.warn('[tamagotchi-mcp-tools] listTools failed:', error)
+    }
+
+    // Prefer one native tool per MCP tool so the model calls them directly.
+    // The proxy tools remain only for configured servers whose discovery has
+    // not landed yet (boot race); with no configured server they can reach
+    // nothing, and models treated them as a generic "find a tool" entry and
+    // used them to hunt for self-authored skills (ACC-20260910 R05).
+    const hasConfiguredServers = (runtimeStatus?.servers.length ?? 0) > 0
+    let tools: Tool[]
+    if (descriptors.length > 0) {
+      tools = createMcpNativeTools(descriptors, runtime)
+    }
+    else if (hasConfiguredServers) {
+      tools = await Promise.all(createMcpTools(runtime))
+    }
+    else {
+      tools = []
+    }
+
+    if (tools.length === 0) {
+      llmToolsetPromptsStore.clearToolsetPrompts('mcp-tools')
+    }
+    else {
       const runningServers = (runtimeStatus?.servers ?? [])
         .filter(server => server.state === 'running')
         .map(server => ({ name: server.name, instructions: server.instructions }))
       registerMcpToolsetPrompt(descriptors.map(descriptor => descriptor.serverName), runningServers)
     }
-    catch (error) {
-      console.warn('[tamagotchi-mcp-tools] listTools failed, falling back to proxy tools:', error)
-      tools = await Promise.all(createMcpTools(runtime))
-      registerMcpToolsetPrompt([], [])
-    }
 
-    llmToolsStore.removeToolsByIds(...registeredToolIds())
-    llmToolsStore.addTools(...tools.map(tool => ({
+    await llmToolsStore.removeToolsByIds(...registeredToolIds())
+    await llmToolsStore.addTools(...tools.map(tool => ({
       ...tool,
       id: `${toolIdPrefix}${tool.function.name}`,
     } satisfies ExecutableTool)))
@@ -113,9 +129,9 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
     }, delay)
   }
 
-  function dispose() {
-    llmToolsStore.removeToolsByIds(...registeredToolIds())
+  async function dispose() {
     llmToolsetPromptsStore.clearToolsetPrompts('mcp-tools')
+    await llmToolsStore.removeToolsByIds(...registeredToolIds())
   }
 
   return {

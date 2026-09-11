@@ -65,6 +65,21 @@ describe('useTamagotchiMcpToolsStore', async () => {
         properties: { query: { type: 'string' } },
       },
     }])
+    invokeMocks.getRuntimeStatus.mockReset()
+    invokeMocks.getRuntimeStatus.mockResolvedValue({
+      path: 'C:\\mcp.json',
+      updatedAt: 1,
+      servers: [
+        {
+          name: 'filesystem',
+          state: 'running',
+          command: 'node',
+          args: [],
+          pid: 1,
+          instructions: 'Present every search result to the user before acting on it.',
+        },
+      ],
+    })
     invokeMocks.callMcpTool.mockClear()
   })
 
@@ -138,5 +153,23 @@ describe('useTamagotchiMcpToolsStore', async () => {
       .map(tool => tool.function.name)
       .sort()
     expect(names).toEqual(['builtIn_mcpCallTool', 'builtIn_mcpListTools'])
+  })
+
+  it('exposes no mcp tools when no server is configured', async () => {
+    // ROOT CAUSE:
+    //
+    // With no configured server the proxy tools can reach nothing, but they
+    // were still registered. The model then used builtIn_mcpListTools as a
+    // generic "find a tool" entry to search for a self-authored skill and
+    // silently failed (ACC-20260910 R05).
+    invokeMocks.listMcpTools.mockResolvedValue([])
+    invokeMocks.getRuntimeStatus.mockResolvedValue({ path: 'C:\\mcp.json', updatedAt: 1, servers: [] })
+    const llmToolsStore = useLlmToolsStore()
+    const store = useTamagotchiMcpToolsStore()
+
+    await store.refresh()
+
+    expect(llmToolsStore.tools.filter(tool => tool.id.startsWith('mcp:'))).toEqual([])
+    expect(useLlmToolsetPromptsStore().activeToolsetPrompt).not.toContain('builtIn_mcp')
   })
 })

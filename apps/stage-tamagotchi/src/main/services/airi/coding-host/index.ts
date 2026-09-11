@@ -152,21 +152,28 @@ export async function setupCodingHost(
   const autoApproveAll = () => policy.mode === 'full'
 
   let nextRequestId = 1
-  const pendingApprovals = new Map<string, { resolve: (decision: CodingApprovalDecisionPayload['decision']) => void, planId?: string }>()
+  // A request ID owns one settlement. Remove it before broadcasting so echoed
+  // decisions and responses after the deadline cannot settle it again.
+  const pendingApprovals = new Map<string, { resolve: (decision: CodingApprovalDecisionPayload['decision']) => void, planId?: string, timeout?: ReturnType<typeof setTimeout> }>()
 
-  context.on(codingApprovalDecided, (event) => {
-    if (!event.body)
-      return
-    const { requestId, decision } = event.body
+  function settleApproval({ requestId, decision }: CodingApprovalDecisionPayload) {
     const pending = pendingApprovals.get(requestId)
+    // The request already ended, or this response belongs to another host.
     if (!pending)
       return
     pendingApprovals.delete(requestId)
+    if (pending.timeout !== undefined)
+      clearTimeout(pending.timeout)
     pending.resolve(decision)
     // Re-broadcast so every window's journal records the decision (the plan
     // evidence gate reads the leader window's journal, the click may happen
     // in any window). Journal dedupe keeps single-window appends singular.
-    ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalDecided, { ...event.body, planId: pending.planId })
+    ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalDecided, { requestId, decision, planId: pending.planId })
+  }
+
+  context.on(codingApprovalDecided, (event) => {
+    if (event.body)
+      settleApproval(event.body)
   })
 
   /** Ask every renderer for approval; unanswered requests reject to denied. */
@@ -175,7 +182,8 @@ export async function setupCodingHost(
       return { approved: true, requestId: `auto-approval-${nextRequestId++}` }
     const requestId = `coding-approval-${nextRequestId++}`
     const decision = await new Promise<CodingApprovalDecisionPayload['decision']>((resolve) => {
-      pendingApprovals.set(requestId, { resolve })
+      const timeout = setTimeout(settleApproval, APPROVAL_TIMEOUT_MS, { requestId, decision: 'rejected' })
+      pendingApprovals.set(requestId, { resolve, timeout })
       ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalRequested, {
         requestId,
         subject: command,
@@ -183,10 +191,6 @@ export async function setupCodingHost(
         riskLevel: tier === 'high' ? 'high' : 'medium',
         expectedEvidence: 'tool_result (command output)',
       })
-      setTimeout(() => {
-        if (pendingApprovals.delete(requestId))
-          resolve('rejected')
-      }, APPROVAL_TIMEOUT_MS)
     })
     return { approved: decision === 'approved', requestId }
   }
@@ -221,13 +225,13 @@ export async function setupCodingHost(
     policy.mode = mode
   })
 
-  // Plan-step approval: same card broadcast as bash, but no timeout — the
-  // step may legitimately wait for the user far longer than a command run.
-  // The decision broadcast loops back through every window's approvals
+  // Plan-step approval uses the same timeout and decision broadcast as bash.
+  // The decision loops back through every window's approvals
   // bridge, which journals approval/asked + approval/decided for the gate.
   defineInvokeHandler(context, planApprovalAsk, async ({ requestId, planId, stepId, subject, reason, riskLevel }) => {
     const decision = await new Promise<CodingApprovalDecisionPayload['decision']>((resolve) => {
-      pendingApprovals.set(requestId, { resolve, planId })
+      const timeout = setTimeout(settleApproval, APPROVAL_TIMEOUT_MS, { requestId, decision: 'rejected' })
+      pendingApprovals.set(requestId, { resolve, planId, timeout })
       ;(options.broadcast?.broadcast ?? context.emit)(codingApprovalRequested, {
         requestId,
         subject,
@@ -243,7 +247,11 @@ export async function setupCodingHost(
 
   defineInvokeHandler(context, codingHostGetApprovalMode, () => ({ mode: policy.mode }))
 
-  defineInvokeHandler(context, codingHostFsRead, async ({ path }) => workspace.host.readFile(path))
+  defineInvokeHandler(context, codingHostFsRead, async ({ path, expectedWorkspaceRoot }) => {
+    if (expectedWorkspaceRoot !== undefined && expectedWorkspaceRoot !== workspace.root)
+      throw new Error('Workspace changed before the artifact read.')
+    return workspace.host.readFile(path)
+  })
 
   defineInvokeHandler(context, codingHostFsList, async ({ path }) => ({ entries: await workspace.host.listDir(path) }))
 
@@ -293,8 +301,13 @@ export async function setupCodingHost(
     outcome: workspace.host.jobs.kill(jobId),
   }))
 
-  defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs }) =>
-    workspace.codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined))
+  defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs, expectedWorkspaceRoot }) => {
+    if (expectedWorkspaceRoot !== undefined && expectedWorkspaceRoot !== workspace.root)
+      throw new Error('Workspace changed before skill execution.')
+    // The runtime captures this workspace for the entire program. Later root
+    // switches cannot redirect bridge calls from an already running skill.
+    return workspace.codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined)
+  })
 
   defineInvokeHandler(context, codingHostListTools, async () => ({
     workspaceRoot: workspace.root,

@@ -1,4 +1,4 @@
-import type { Tool } from '@xsai/shared-chat'
+import type { Tool, ToolExecuteOptions } from '@xsai/shared-chat'
 
 import type { CodingShellDescriptor } from '../../../../shared/eventa'
 import type { CodingHostClient } from '../../../bridges/coding-host'
@@ -78,12 +78,18 @@ const writeParams = z.object({
   baseHash: z.string().nullable().describe(CODING_TOOL_META.write.parameterDescriptions.baseHash),
 })
 
-async function executeWrite(input: { path: string, content: string, baseHash: string | null }): Promise<string> {
+async function executeWrite(input: { path: string, content: string, baseHash: string | null }, executeOptions?: ToolExecuteOptions): Promise<string> {
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('write')
+
   const client = createCodingHostClient()
   // Read before writing so the result can show what changed. Whole-file writes
   // are the path a model actually takes, and "wrote <path>" gave the user no
   // way to review it (HARNESS-PLAN §9.1).
   const before = input.baseHash === null ? [] : await readLinesOrEmpty(client, input.path)
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('write')
+
   const result = await client.writeFileIfUnchanged(input)
   if (result.status === 'state_changed')
     return JSON.stringify({ path: input.path, ...result })
@@ -114,9 +120,15 @@ const editParams = z.object({
   newContent: z.string().describe(CODING_TOOL_META.edit.parameterDescriptions.newContent),
 })
 
-async function executeEdit(input: { path: string, operation: 'replace' | 'insertAfter', startSignature?: string, endSignature?: string, afterSignature?: string, expectedPrefix: string, newContent: string }): Promise<string> {
+async function executeEdit(input: { path: string, operation: 'replace' | 'insertAfter', startSignature?: string, endSignature?: string, afterSignature?: string, expectedPrefix: string, newContent: string }, executeOptions?: ToolExecuteOptions): Promise<string> {
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('edit')
+
   const client = createCodingHostClient()
   const file = await client.readFile({ path: input.path })
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('edit')
+
   const snapshot = parseTextFile(file.content)
   const outcome = input.operation === 'replace'
     ? applyHashlineEdit({
@@ -139,6 +151,9 @@ async function executeEdit(input: { path: string, operation: 'replace' | 'insert
     return `edit rejected: ${JSON.stringify(outcome.result)}`
   }
 
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('edit')
+
   const write = await client.writeFileIfUnchanged({
     path: input.path,
     content: joinTextFile(outcome.lines, snapshot.lineEnding),
@@ -156,6 +171,15 @@ function requiredSignature(value: string | undefined, name: string): string {
   if (!value)
     throw new Error(`${name} is required for this edit operation`)
   return value
+}
+
+function flowInterruptedResult(toolName: string): string {
+  return JSON.stringify({
+    status: 'blocked',
+    reason: 'flow_interrupted',
+    toolName,
+    message: 'This mutation was cancelled because its owning Flow was interrupted.',
+  })
 }
 
 const bashParams = z.object({
@@ -187,7 +211,10 @@ async function executeJobKill(input: { jobId: string }): Promise<string> {
   return `job ${result.jobId} ${result.outcome}`
 }
 
-async function executeBash(input: { command: string, mediumApprovalRequired?: boolean, runInBackground?: boolean }): Promise<string> {
+async function executeBash(input: { command: string, mediumApprovalRequired?: boolean, runInBackground?: boolean }, executeOptions?: ToolExecuteOptions): Promise<string> {
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('bash')
+
   const result = await createCodingHostClient().runCommand({
     command: input.command,
     mediumApprovalRequired: input.mediumApprovalRequired,
@@ -226,7 +253,10 @@ export function codeModeResultToText(result: Awaited<ReturnType<CodingHostClient
   return lines.join('\n')
 }
 
-async function executeCodeMode(input: { program: string, timeoutMs?: number }): Promise<string> {
+async function executeCodeMode(input: { program: string, timeoutMs?: number }, executeOptions?: ToolExecuteOptions): Promise<string> {
+  if (executeOptions?.abortSignal?.aborted)
+    return flowInterruptedResult('code_mode')
+
   const timeoutMs = input.timeoutMs === undefined
     ? undefined
     : Math.min(Math.max(Math.round(input.timeoutMs), CODE_MODE_MIN_TIMEOUT_MS), CODE_MODE_MAX_TIMEOUT_MS)

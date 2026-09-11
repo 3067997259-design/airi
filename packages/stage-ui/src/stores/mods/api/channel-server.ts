@@ -103,6 +103,13 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
   async function initialize(options?: {
     token?: string
+    /**
+     * Explicit channel URL, wins over the localStorage setting. Callers that
+     * know the real channel endpoint (the desktop renderer reading the main
+     * process config) must pass it: a localStorage value pinned to an old port
+     * otherwise points the client at a port nobody listens on.
+     */
+    url?: string
     possibleEvents?: Array<keyof WebSocketEvents>
     connector?: TextConnectorFactory
   }) {
@@ -112,7 +119,7 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
 
     const requestedConnection: ChannelConnectionIdentity = {
       token: options?.token ?? (websocketAuthToken.value || undefined),
-      url: websocketUrl.value || defaultWebSocketUrl,
+      url: options?.url ?? (websocketUrl.value || defaultWebSocketUrl),
     }
     const isSameConnection = connectionIdentity?.url === requestedConnection.url
       && connectionIdentity.token === requestedConnection.token

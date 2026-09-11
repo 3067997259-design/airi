@@ -83,6 +83,14 @@ export const flowToolReferences = [
 ] satisfies ChatToolReference[]
 
 /**
+ * Blocking question channel for ordinary chat turns. The model can use this
+ * when it needs a user decision before it can answer or continue safely.
+ */
+export const userAskToolReferences = [
+  { name: 'user_ask' },
+] satisfies ChatToolReference[]
+
+/**
  * Delegated read-only search. Mounted with work turns, where a wide search
  * would otherwise crowd out the task itself.
  */
@@ -211,7 +219,7 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
     registerPlanningToolsetPrompt()
     registerGithubWatchToolsetPrompt()
     registerSkillSubmitToolsetPrompt()
-    skillsStore.syncRuntimeTools()
+    await skillsStore.syncRuntimeTools()
 
     // The coding host bridge can be transiently unavailable (main process
     // not ready, provisioning failed); register the four tools only when it
@@ -260,8 +268,8 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
       Promise.resolve(selfTools),
     ])).flat()
 
-    llmToolsStore.removeToolsByIds(...registeredToolIds())
-    llmToolsStore.addTools(...tools.map(tool => ({
+    await llmToolsStore.removeToolsByIds(...registeredToolIds())
+    await llmToolsStore.addTools(...tools.map(tool => ({
       ...tool,
       defaultActive: false,
       id: `${toolIdPrefix}${tool.function.name}`,

@@ -83,6 +83,7 @@
     "@tresjs/cientos": "catalog:",
     "@tresjs/core": "catalog:",
     "@unocss/reset": "catalog:",
+    "@vscode/ripgrep": "catalog:",
     "@vueuse/core": "catalog:",
     "@vueuse/motion": "catalog:",
     "@vueuse/shared": "catalog:",

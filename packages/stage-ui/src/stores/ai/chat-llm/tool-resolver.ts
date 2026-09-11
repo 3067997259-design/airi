@@ -4,7 +4,7 @@ import type { Tool } from '@xsai/shared-chat'
 
 import { uniqBy } from 'es-toolkit'
 
-import { createFetchTools, createSparkCommandTool, createWebSearchTools, debug, mcp } from '../../../tools'
+import { createFetchTools, createSparkCommandTool, createWebSearchTools, debug } from '../../../tools'
 import { useModsServerChannelStore } from '../../mods/api/channel-server'
 import { useWebSearchStore } from '../../modules/web-search'
 import { useLlmToolsStore } from './tools'
@@ -146,11 +146,12 @@ async function resolveWebSearchTools(webSearchTools?: ToolSource): Promise<Tool[
  */
 export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Promise<Tool[]> {
   const activeTools = await resolveActiveTools(options.activeTools)
-  // Native per-tool MCP registrations (mcp_* names) replace the two list/call
-  // proxy tools. Keeping both would re-introduce the two-hop, double-encoded
-  // calling convention the native tools exist to remove. An explicit
-  // builtInTools override still wins over this suppression.
-  const hasNativeMcpTools = activeTools.some(tool => toolNameFrom(tool)?.startsWith('mcp_'))
+  // The legacy two-hop `builtIn_mcp*` proxies are never injected by default.
+  // The runtime MCP store is their only producer: it registers native tools,
+  // or its own runtime-backed proxies while configured servers are still
+  // booting. A default copy exposed a dead "find a tool" entry to models with
+  // no MCP servers, and they used it to search for self-authored skills
+  // (ACC-20260910 R05). An explicit builtInTools override still wins.
   const [
     builtInTools,
     debugTools,
@@ -159,7 +160,7 @@ export async function resolveLlmTools(options: ResolveLlmToolsOptions = {}): Pro
     fetchTools,
     customTools,
   ] = await Promise.all([
-    resolveToolSource(options.builtInTools ?? (hasNativeMcpTools ? [] : mcp)),
+    resolveToolSource(options.builtInTools ?? []),
     resolveToolSource(options.debugTools ?? debug),
     resolveSparkCommandTools(options.sparkCommandTools),
     resolveWebSearchTools(options.webSearchTools),

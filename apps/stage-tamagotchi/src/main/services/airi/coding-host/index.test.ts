@@ -8,16 +8,21 @@ import { createContext, defineInvoke } from '@moeru/eventa'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  codingApprovalDecided,
+  codingApprovalRequested,
   codingHostCodeRun,
+  codingHostExecRun,
   codingHostFsRead,
   codingHostListTools,
   codingHostSetWorkspaceRoot,
+  planApprovalAsk,
 } from '../../../../shared/eventa'
 import { setupCodingHost } from './index'
 
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
+  vi.useRealTimers()
   await Promise.all(temporaryDirectories.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
 })
 
@@ -39,17 +44,35 @@ async function createHost() {
   await setupCodingHost(context, { workspaceRoot: firstRoot, broadcast }, userData)
 
   return {
+    context,
     broadcast,
     firstRoot,
     userData,
     listTools: defineInvoke(context, codingHostListTools),
     readFile: defineInvoke(context, codingHostFsRead),
     runProgram: defineInvoke(context, codingHostCodeRun),
+    runCommand: defineInvoke(context, codingHostExecRun),
+    askPlanApproval: defineInvoke(context, planApprovalAsk),
     setWorkspaceRoot: defineInvoke(context, codingHostSetWorkspaceRoot),
   }
 }
 
 describe('setupCodingHost workspace root', () => {
+  it('rejects a skill read and invocation whose workspace was replaced', async () => {
+    // ROOT CAUSE:
+    // Source verification and sandbox execution use separate IPC requests.
+    // A workspace switch between them could redirect relative skill IO.
+    const host = await createHost()
+    const expectedWorkspaceRoot = (await host.listTools()).workspaceRoot
+    const secondRoot = await temporaryDirectory('airi-skill-workspace-')
+    await host.setWorkspaceRoot({ root: secondRoot })
+
+    await expect(host.readFile({ path: 'marker.txt', expectedWorkspaceRoot })).rejects.toThrow('Workspace changed')
+    await expect(host.runProgram({ program: 'return 1', expectedWorkspaceRoot })).rejects.toThrow('Workspace changed')
+    const result = await host.runProgram({ program: 'return 1', expectedWorkspaceRoot: (await host.listTools()).workspaceRoot })
+    expect(result.ok).toBe(true)
+  })
+
   it('switches every root-bound part, including the Code Mode runtime', async () => {
     // ROOT CAUSE:
     //
@@ -104,5 +127,75 @@ describe('setupCodingHost workspace root', () => {
     const listTools = defineInvoke(context, codingHostListTools)
 
     expect((await listTools()).workspaceRoot).toContain('airi-coding-host-remembered-')
+  })
+})
+
+describe('coding approval settlement', () => {
+  it('broadcasts timeout rejection and ignores a late approval', async () => {
+    // ROOT CAUSE:
+    // Command timeout resolved the executor without publishing a decision.
+    // Other windows kept an unanswered approval card and journal entry.
+    const host = await createHost()
+    vi.useFakeTimers()
+    const result = host.runCommand({ command: 'echo approval-test', approvalRequired: true })
+    await vi.waitFor(() => expect(host.broadcast.broadcast).toHaveBeenCalledWith(
+      codingApprovalRequested,
+      expect.objectContaining({ requestId: 'coding-approval-1' }),
+    ))
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(result).resolves.toMatchObject({ status: 'denied', requestId: 'coding-approval-1', stdout: '' })
+    expect(host.broadcast.broadcast).toHaveBeenCalledWith(codingApprovalDecided, {
+      requestId: 'coding-approval-1',
+      decision: 'rejected',
+      planId: undefined,
+    })
+    const count = host.broadcast.broadcast.mock.calls.length
+    host.context.emit(codingApprovalDecided, { requestId: 'coding-approval-1', decision: 'approved' })
+    expect(host.broadcast.broadcast).toHaveBeenCalledTimes(count)
+  })
+
+  it('settles rejection once and cancels its deadline', async () => {
+    const host = await createHost()
+    vi.useFakeTimers()
+    const result = host.runCommand({ command: 'echo approval-test', approvalRequired: true })
+    await vi.waitFor(() => expect(host.broadcast.broadcast).toHaveBeenCalledWith(
+      codingApprovalRequested,
+      expect.objectContaining({ requestId: 'coding-approval-1' }),
+    ))
+    host.context.emit(codingApprovalDecided, { requestId: 'coding-approval-1', decision: 'rejected' })
+    await expect(result).resolves.toMatchObject({ status: 'denied', requestId: 'coding-approval-1' })
+    expect(vi.getTimerCount()).toBe(0)
+    const count = host.broadcast.broadcast.mock.calls.length
+    await vi.advanceTimersByTimeAsync(60_000)
+    host.context.emit(codingApprovalDecided, { requestId: 'coding-approval-1', decision: 'approved' })
+    expect(host.broadcast.broadcast).toHaveBeenCalledTimes(count)
+  })
+
+  it('times out a plan approval with a rejection and ignores a late grant', async () => {
+    const host = await createHost()
+    vi.useFakeTimers()
+    const result = host.askPlanApproval({
+      requestId: 'plan-approval-1',
+      planId: 'plan-1',
+      stepId: 'step-1',
+      subject: 'Update the workspace',
+      reason: 'The plan step needs approval.',
+      riskLevel: 'high',
+    })
+    await vi.waitFor(() => expect(host.broadcast.broadcast).toHaveBeenCalledWith(
+      codingApprovalRequested,
+      expect.objectContaining({ requestId: 'plan-approval-1', planId: 'plan-1', stepId: 'step-1' }),
+    ))
+
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(result).resolves.toEqual({ requestId: 'plan-approval-1', decision: 'rejected', planId: 'plan-1' })
+    expect(host.broadcast.broadcast).toHaveBeenCalledWith(codingApprovalDecided, {
+      requestId: 'plan-approval-1',
+      decision: 'rejected',
+      planId: 'plan-1',
+    })
+    const count = host.broadcast.broadcast.mock.calls.length
+    host.context.emit(codingApprovalDecided, { requestId: 'plan-approval-1', decision: 'approved', planId: 'plan-1' })
+    expect(host.broadcast.broadcast).toHaveBeenCalledTimes(count)
   })
 })
