@@ -69,6 +69,44 @@ describe('verification gate', () => {
     expect(evaluateVerificationGate({ step, refs: [write, makeRef({ toolName: 'bash', outcome: 'failed', summary: 'vitest failed' })] }).passed).toBe(false)
     expect(evaluateVerificationGate({ step, refs: [write, makeRef({ toolName: 'bash', outcome: 'ok', summary: 'vitest passed' })] }).passed).toBe(true)
   })
+
+  // ROOT CAUSE:
+  //
+  // If an external-delivery step can complete from local receipts, a run with
+  // zero connector calls can report delivery as done. On 2026-09-03 three
+  // Todoist items were marked `synced` via the local record CLI with invented
+  // external ids; the receipts were a read-only local export over MCP and a
+  // local bash write, and the mutation proof was satisfied by the local write.
+  //
+  // We fixed this by requiring one receipt from the external channel where
+  // the delivery tool itself ran: an mcp_ tool whose name carries no
+  // observe/list/export/record verb.
+  it('does not complete an external delivery from local records and connector reads', () => {
+    const step = makeStep({ allowedTools: ['bash'], intent: '同步待办至 Todoist' })
+    const localRecord = makeRef({ toolName: 'bash', tier: 'medium', outcome: 'ok', summary: 'record-todoist-sync item ok' })
+    const connectorRead = makeRef({ toolName: 'mcp_student_hub_export_todoist_jobs', outcome: 'ok', summary: '{"count":0,"unchanged":3}' })
+    const verdict = evaluateVerificationGate({ step, refs: [localRecord, connectorRead] })
+    expect(verdict.passed).toBe(false)
+    expect(verdict.missing.some(item => item.reason === 'not_external_receipt')).toBe(true)
+  })
+
+  it('completes an external delivery with a connector write receipt', () => {
+    const step = makeStep({ allowedTools: ['bash'], intent: '同步待办至 Todoist' })
+    const localRecord = makeRef({ toolName: 'bash', tier: 'medium', outcome: 'ok', summary: 'record-todoist-sync item ok' })
+    const connectorWrite = makeRef({ toolName: 'mcp_todoist_add_task', outcome: 'ok', summary: '{"id":"6hM9PRpfGMphg2wX"}' })
+    const verdict = evaluateVerificationGate({ step, refs: [localRecord, connectorWrite] })
+    expect(verdict.passed).toBe(true)
+    expect(verdict.missing).toEqual([])
+  })
+
+  it('keeps a delivery step unverified when the connector tool only records locally', () => {
+    const step = makeStep({ allowedTools: ['bash'], intent: 'deliver items and record each success' })
+    const localRecord = makeRef({ toolName: 'bash', tier: 'medium', outcome: 'ok', summary: 'record-todoist-sync item ok' })
+    const mirrorRecord = makeRef({ toolName: 'mcp_student_hub_record_todoist_sync', outcome: 'ok', summary: 'binding stored' })
+    const verdict = evaluateVerificationGate({ step, refs: [localRecord, mirrorRecord] })
+    expect(verdict.passed).toBe(false)
+    expect(verdict.missing.some(item => item.reason === 'not_external_receipt')).toBe(true)
+  })
   it('passes a side-effect step backed by mutation-provable evidence', () => {
     const verdict = evaluateVerificationGate({ step: makeStep(), refs: [makeRef()] })
     expect(verdict.passed).toBe(true)

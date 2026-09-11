@@ -38,7 +38,7 @@ export interface VerificationGateSatisfied {
 
 export interface VerificationGateMissing {
   expected: PlanExpectedEvidence
-  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof' | 'not_verified_outcome' | 'not_diff_content' | 'not_observed_content'
+  reason: 'no_ref' | 'wrong_source' | 'not_mutation_proof' | 'not_verified_outcome' | 'not_diff_content' | 'not_observed_content' | 'not_external_receipt'
 }
 
 export interface VerificationGateVerdict {
@@ -154,6 +154,37 @@ function refCarriesDiffContent(ref: GateRef): boolean {
   return DIFF_CONTENT_PATTERN.test(ref.summary)
 }
 
+// External-delivery semantics (Todoist honesty gap, 2026-09-11): a step that
+// delivers items to an external service must not complete from receipts that
+// only observe or record the delivery locally. In the 2026-09-03 flow, three
+// items were marked `synced` via the local record CLI with invented external
+// ids while zero connector tools ran; every receipt was either a read-only
+// local export over MCP or a local bash write. The external channel is
+// recognizable by the mcp_ tool prefix; within it, observe/list/export/record
+// verbs never carry the delivery itself. MCP results carry no tier, so the
+// read-verb check cannot be left to refProvesMutation's fallback. Steps that
+// name a system with no connector stay unverified for an explicit close —
+// the honest outcome for a delivery no external receipt can prove.
+// Removal condition: when receipts carry declared effect targets, match the
+// step's target system directly instead of tool-name verbs.
+const EXTERNAL_DELIVERY_STEP_PATTERN = /\b(?:sync|synchroniz\w+|deliver\w*|publish\w*)\b|同步|发布|交付/i
+const EXTERNAL_DELIVERY_OBSERVE_VERB_PATTERN = /(?:^|_)(?:get|list|search|read|view|export|dashboard|preview|describe|browse|query|fetch|inspect|check|status|record)(?:$|_)/i
+
+function stepExpectsExternalDelivery(step: VerificationGateInput['step']): boolean {
+  const text = [step.intent ?? '', ...step.expectedEvidence.map(item => item.description)].join(' ')
+  return EXTERNAL_DELIVERY_STEP_PATTERN.test(text)
+}
+
+function refCarriesExternalDelivery(ref: GateRef): boolean {
+  if (ref.source !== 'tool_result' || (ref.outcome && ref.outcome !== 'ok'))
+    return false
+  if (ref.toolName === undefined || !ref.toolName.startsWith('mcp_'))
+    return false
+  if (EXTERNAL_DELIVERY_OBSERVE_VERB_PATTERN.test(ref.toolName))
+    return false
+  return refProvesMutation(ref)
+}
+
 /**
  * Evaluates the verification gate for one step. A matching ref with the
  * wrong source (e.g. a `runtime_trace` where `tool_result` was announced)
@@ -267,6 +298,27 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
         missing.push({
           expected: unread.expected,
           reason: 'not_diff_content',
+        })
+      }
+    }
+  }
+
+  // Independent of mutation proof: an external-delivery step owes a receipt
+  // from the external channel where the delivery tool itself ran. Local
+  // records and connector reads leave the step unverified otherwise.
+  if (
+    stepExpectsExternalDelivery(input.step)
+    && stepCanAct(input.step)
+    && satisfied.length > 0
+    && !stepRefs.some(refCarriesExternalDelivery)
+  ) {
+    const index = satisfied.findIndex(({ expected }) => expected.source === 'tool_result')
+    if (index >= 0) {
+      const [unreceipted] = satisfied.splice(index, 1)
+      if (unreceipted) {
+        missing.push({
+          expected: unreceipted.expected,
+          reason: 'not_external_receipt',
         })
       }
     }
