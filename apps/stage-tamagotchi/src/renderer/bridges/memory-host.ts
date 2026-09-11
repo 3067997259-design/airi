@@ -2,8 +2,10 @@ import type {
   MemoryHostFragment,
   MemoryHostInsertParams,
   MemoryHostListParams,
+  MemoryHostRemoveParams,
   MemoryHostSearchParams,
   MemoryHostStatus,
+  MemoryHostUpdateParams,
 } from '../../shared/eventa'
 
 import { defineInvoke } from '@moeru/eventa'
@@ -20,7 +22,9 @@ import {
   memoryHostGetStatus,
   memoryHostInsert,
   memoryHostList,
+  memoryHostRemove,
   memoryHostSearch,
+  memoryHostUpdate,
 } from '../../shared/eventa'
 
 export interface MemoryHostClient {
@@ -29,6 +33,8 @@ export interface MemoryHostClient {
   list: (params?: MemoryHostListParams) => Promise<MemoryHostFragment[]>
   search: (params: MemoryHostSearchParams) => Promise<MemoryHostFragment[]>
   insert: (params: MemoryHostInsertParams) => Promise<MemoryHostFragment>
+  update: (params: MemoryHostUpdateParams) => Promise<MemoryHostFragment | undefined>
+  remove: (params: MemoryHostRemoveParams) => Promise<{ removed: boolean }>
 }
 
 let cachedClient: MemoryHostClient | undefined
@@ -48,5 +54,7 @@ function createMemoryHostClientInner(): MemoryHostClient {
     list: defineInvoke(context, memoryHostList),
     search: defineInvoke(context, memoryHostSearch),
     insert: defineInvoke(context, memoryHostInsert),
+    update: defineInvoke(context, memoryHostUpdate),
+    remove: defineInvoke(context, memoryHostRemove),
   }
 }

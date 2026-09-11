@@ -15,7 +15,7 @@
  */
 import type { createContext as createMainEventaContext } from '@moeru/eventa/adapters/electron/main'
 
-import type { MemoryHostFragment, MemoryHostInsertParams, MemoryHostListParams, MemoryHostSearchParams, MemoryHostStatus } from '../../../../shared/eventa'
+import type { MemoryHostFragment, MemoryHostInsertParams, MemoryHostListParams, MemoryHostRemoveParams, MemoryHostSearchParams, MemoryHostStatus, MemoryHostUpdateParams } from '../../../../shared/eventa'
 
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -29,7 +29,9 @@ import {
   memoryHostGetStatus,
   memoryHostInsert,
   memoryHostList,
+  memoryHostRemove,
   memoryHostSearch,
+  memoryHostUpdate,
 } from '../../../../shared/eventa'
 
 export interface MemoryHostOptions {
@@ -41,14 +43,43 @@ export interface MemoryHostOptions {
 
 interface MemoryHostConnection {
   repository: {
-    search: (input: { embedding: number[], limit?: number, weights?: Record<string, number> }) => Promise<MemoryHostFragment[]>
-    insert: (input: MemoryHostInsertParams) => Promise<MemoryHostFragment>
+    search: (input: { embedding: number[], limit?: number, weights?: Record<string, number>, embeddingMetadata?: MemoryHostSearchParams['embeddingMetadata'], scope?: MemoryHostSearchParams['scope'] }) => Promise<MemoryHostFragment[]>
+    insert: (input: MemoryHostRepositoryInsertParams) => Promise<MemoryHostFragment>
     list: (input?: MemoryHostListParams) => Promise<MemoryHostFragment[]>
+    updateByOriginId: (originId: string, patch: MemoryHostUpdateParams['patch']) => Promise<MemoryHostFragment | undefined>
+    removeByOriginId: (originId: string) => Promise<void>
   }
   close: () => Promise<void>
 }
 
+type MemoryHostRepositoryInsertParams = MemoryHostInsertParams & { tags: string[] }
+
 const PERSISTED_FILE_NAME = 'memory-host.json'
+
+function memoryScopeOf(value: unknown): MemoryHostFragment['scope'] {
+  if (typeof value !== 'object' || value === null)
+    return undefined
+  const scope = value as Record<string, unknown>
+  if (typeof scope.userId !== 'string' || typeof scope.characterId !== 'string')
+    return undefined
+  return { userId: scope.userId, characterId: scope.characterId }
+}
+
+function memorySourceContextOf(value: unknown): MemoryHostFragment['sourceContext'] {
+  if (typeof value !== 'object' || value === null)
+    return undefined
+  const source = value as Record<string, unknown>
+  if (typeof source.sessionId !== 'string' || !Array.isArray(source.neighbors))
+    return undefined
+  const neighbors = source.neighbors.filter((neighbor): neighbor is string => typeof neighbor === 'string')
+  return {
+    sessionId: source.sessionId,
+    ...(typeof source.messageId === 'string' ? { messageId: source.messageId } : {}),
+    ...(typeof source.sourceEventId === 'string' ? { sourceEventId: source.sourceEventId } : {}),
+    ...(typeof source.sourceType === 'string' ? { sourceType: source.sourceType } : {}),
+    neighbors,
+  }
+}
 
 function persistencePathFor(userDataDir: string): string {
   return join(userDataDir, PERSISTED_FILE_NAME)
@@ -95,6 +126,8 @@ export async function setupMemoryHost(
   let lastError: string | undefined
 
   function fragmentToHost(fragment: Record<string, unknown>): MemoryHostFragment {
+    const scope = memoryScopeOf(fragment.scope)
+    const sourceContext = memorySourceContextOf(fragment.sourceContext)
     return {
       id: String(fragment.id),
       content: String(fragment.content),
@@ -105,7 +138,20 @@ export async function setupMemoryHost(
       lastAccessed: Number(fragment.lastAccessed),
       accessCount: Number(fragment.accessCount),
       ...(fragment.reviewStatus ? { reviewStatus: String(fragment.reviewStatus) } : {}),
+      ...(fragment.factStatus ? { factStatus: String(fragment.factStatus) } : {}),
+      ...(fragment.supersedesId ? { supersedesId: String(fragment.supersedesId) } : {}),
+      ...(fragment.conflictGroup ? { conflictGroup: String(fragment.conflictGroup) } : {}),
+      ...(fragment.originId ? { originId: String(fragment.originId) } : {}),
+      ...(scope ? { scope } : {}),
+      ...(sourceContext ? { sourceContext } : {}),
       ...(Array.isArray(fragment.sessionIds) ? { sessionIds: fragment.sessionIds.map(String) } : {}),
+      ...(fragment.embeddingProvider ? { embeddingProvider: String(fragment.embeddingProvider) } : {}),
+      ...(fragment.embeddingModel ? { embeddingModel: String(fragment.embeddingModel) } : {}),
+      ...(fragment.embeddingDimensions ? { embeddingDimensions: Number(fragment.embeddingDimensions) } : {}),
+      ...(fragment.embeddingInputType ? { embeddingInputType: String(fragment.embeddingInputType) as 'query' | 'document' } : {}),
+      ...(fragment.embeddingSourceFingerprint ? { embeddingSourceFingerprint: String(fragment.embeddingSourceFingerprint) } : {}),
+      ...(fragment.embeddedAt ? { embeddedAt: Number(fragment.embeddedAt) } : {}),
+      ...(fragment.embeddingStatus ? { embeddingStatus: String(fragment.embeddingStatus) as 'active' | 'stale' } : {}),
       ...(fragment.score !== undefined ? { score: Number(fragment.score) } : {}),
     }
   }
@@ -158,6 +204,8 @@ export async function setupMemoryHost(
       embedding: params.embedding,
       ...(params.limit ? { limit: params.limit } : {}),
       ...(params.weights ? { weights: params.weights } : {}),
+      ...(params.embeddingMetadata ? { embeddingMetadata: params.embeddingMetadata } : {}),
+      ...(params.scope ? { scope: params.scope } : {}),
     })
     return scored.map(fragment => fragmentToHost(fragment as unknown as Record<string, unknown>))
   })
@@ -165,8 +213,24 @@ export async function setupMemoryHost(
   defineInvokeHandler(context, memoryHostInsert, async (params: MemoryHostInsertParams) => {
     if (!connection)
       throw new Error('Memory host is not configured')
-    const fragment = await connection.repository.insert(params)
+    // The renderer mirror contract intentionally carries no tag projection;
+    // the repository insert contract still expects a concrete tag list.
+    const fragment = await connection.repository.insert({ ...params, tags: [] })
     return fragmentToHost(fragment as unknown as Record<string, unknown>)
+  })
+
+  defineInvokeHandler(context, memoryHostUpdate, async ({ originId, patch }: MemoryHostUpdateParams) => {
+    if (!connection)
+      throw new Error('Memory host is not configured')
+    const fragment = await connection.repository.updateByOriginId(originId, patch)
+    return fragment ? fragmentToHost(fragment as unknown as Record<string, unknown>) : undefined
+  })
+
+  defineInvokeHandler(context, memoryHostRemove, async ({ originId }: MemoryHostRemoveParams) => {
+    if (!connection)
+      throw new Error('Memory host is not configured')
+    await connection.repository.removeByOriginId(originId)
+    return { removed: true }
   })
 
   // Boot order: explicit env override wins, then the persisted connection

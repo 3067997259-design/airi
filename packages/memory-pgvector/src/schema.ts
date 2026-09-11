@@ -1,4 +1,7 @@
-import { bigint, index, integer, jsonb, pgTable, real, text, uuid, vector } from 'drizzle-orm/pg-core'
+import type { MemoryScope } from '@proj-airi/memory-core'
+
+import { sql } from 'drizzle-orm'
+import { bigint, index, integer, jsonb, pgTable, real, text, uniqueIndex, uuid, vector } from 'drizzle-orm/pg-core'
 
 /** Postgres tables owned by the memory module. */
 export const memoryFragmentsTable = pgTable('memory_fragments', {
@@ -15,6 +18,18 @@ export const memoryFragmentsTable = pgTable('memory_fragments', {
   trigger_pattern: text(),
   last_intruded_at: bigint({ mode: 'number' }),
   review_status: text().notNull().default('pending'),
+  fact_status: text().notNull().default('active'),
+  supersedes_id: text(),
+  conflict_group: text(),
+  origin_id: text(),
+  scope: jsonb().$type<MemoryScope>(),
+  embedding_provider: text(),
+  embedding_model: text(),
+  embedding_dimensions: integer(),
+  embedding_input_type: text(),
+  embedding_source_fingerprint: text(),
+  embedded_at: bigint({ mode: 'number' }),
+  embedding_status: text(),
   created_at: bigint({ mode: 'number' }).notNull().default(0),
   last_accessed: bigint({ mode: 'number' }).notNull().default(0),
   access_count: integer().notNull().default(1),
@@ -32,6 +47,9 @@ export const memoryFragmentsTable = pgTable('memory_fragments', {
   index('memory_items_importance_index').on(table.importance),
   index('memory_items_created_at_index').on(table.created_at),
   index('memory_items_last_accessed_index').on(table.last_accessed),
+  // Declared to mirror the authoritative DDL in `ensureMemorySchema`; the
+  // insert conflict target repeats this predicate to infer the index.
+  uniqueIndex('memory_items_origin_id_unique_index').on(table.origin_id).where(sql`${table.origin_id} IS NOT NULL AND ${table.deleted_at} IS NULL`),
 ])
 
 export const memoryTagsTable = pgTable('memory_tags', {

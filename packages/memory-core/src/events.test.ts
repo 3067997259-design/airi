@@ -4,9 +4,15 @@ import { memoryEventToExtraction } from './events'
 
 describe('memory event subscription filter', () => {
   it('accepts task conclusions and reactions', () => {
-    expect(memoryEventToExtraction({ type: 'task:done', data: { conclusion: 'The task is complete' }, sessionId: 's1' })).toMatchObject({
+    expect(memoryEventToExtraction({ type: 'task:done', data: { conclusion: 'The task is complete', taskId: 'task-1' }, sessionId: 's1' })).toMatchObject({
       content: 'The task is complete',
       sessionId: 's1',
+      sourceContext: {
+        sessionId: 's1',
+        sourceEventId: 'task-1',
+        sourceType: 'task:done',
+        neighbors: [],
+      },
     })
     expect(memoryEventToExtraction({ type: 'event:reaction', data: { reaction: 'That surprised me' } })?.content).toBe('That surprised me')
   })

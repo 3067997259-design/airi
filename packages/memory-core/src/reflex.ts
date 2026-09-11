@@ -36,9 +36,32 @@ export function selectIntrusiveMemory(input: {
   return candidates[0]
 }
 
-/** Matches a muscle-memory trigger as a regular expression or exact text. */
+/**
+ * Whether a fragment may influence behavior right now.
+ *
+ * An `undefined` review or fact status marks rows that predate the review
+ * gate; those count as approved and active (MEMORY-DESIGN §11.2). Explicit
+ * `pending` or `rejected` rows are not confirmed facts yet, and `superseded`
+ * or `disputed` rows lost their claim, so none of them may enter a behavior
+ * prompt or fire a reflex.
+ */
+export function isActionableMemoryFragment(fragment: Pick<MemoryFragment, 'reviewStatus' | 'factStatus'>): boolean {
+  const reviewed = fragment.reviewStatus === undefined || fragment.reviewStatus === 'approved'
+  const active = fragment.factStatus === undefined || fragment.factStatus === 'active'
+  return reviewed && active
+}
+
+/**
+ * Matches a muscle-memory trigger as a regular expression or exact text.
+ *
+ * Only an approved, still-active muscle may fire: a pending or rejected one
+ * has no human confirmation and a superseded or disputed one lost its claim,
+ * so none of them act even when the pattern matches the input.
+ */
 export function matchesMuscleMemory(fragment: MemoryFragment, text: string): boolean {
-  if (fragment.memoryType !== 'muscle' || !fragment.triggerPattern)
+  if (fragment.memoryType !== 'muscle' || !fragment.triggerPattern?.trim())
+    return false
+  if (!isActionableMemoryFragment(fragment))
     return false
 
   try {

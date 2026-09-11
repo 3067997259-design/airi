@@ -21,4 +21,18 @@ describe('parseMemorySourceContext', () => {
     expect(parseMemorySourceContext({ sessionId: 'session-1', neighbors: 'not-an-array' })).toBeUndefined()
     expect(parseMemorySourceContext(undefined)).toBeUndefined()
   })
+
+  it('keeps non-chat event provenance fields', () => {
+    expect(parseMemorySourceContext({
+      sessionId: 'session-1',
+      sourceEventId: 'task-1',
+      sourceType: 'task:done',
+      neighbors: [],
+    })).toEqual({
+      sessionId: 'session-1',
+      sourceEventId: 'task-1',
+      sourceType: 'task:done',
+      neighbors: [],
+    })
+  })
 })

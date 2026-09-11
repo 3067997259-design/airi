@@ -26,6 +26,8 @@ export function memoryEventToExtraction(event: MemorySubscriptionEvent): MemoryE
   if (!content)
     return undefined
 
+  const sourceEventId = textField(data, ['eventId', 'id', 'taskId', 'logRef'])
+
   return {
     content,
     category: event.type === 'task:done' ? 'life' : 'chat',
@@ -35,5 +37,15 @@ export function memoryEventToExtraction(event: MemorySubscriptionEvent): MemoryE
     arousal: event.type === 'task:done' ? 0.5 : 0.4,
     tags: [event.type],
     sessionId: event.sessionId,
+    ...(event.sessionId
+      ? {
+          sourceContext: {
+            sessionId: event.sessionId,
+            ...(sourceEventId ? { sourceEventId } : {}),
+            sourceType: event.type,
+            neighbors: [],
+          },
+        }
+      : {}),
   }
 }

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createDuckDbMemoryRepository } from './local-memory'
 
-const EMBEDDING = Array.from(new Uint8Array(768))
+const EMBEDDING = Array.from({ length: 768 }, (_, index) => (index % 7) + 1)
 
 function memoryRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -82,7 +82,7 @@ describe('createDuckDbMemoryRepository', () => {
   })
 
   it('restores source-turn neighbors from persisted search rows', async () => {
-    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => query.includes('SELECT * FROM') ? [memoryRow()] : [])
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => query.includes('FROM memory_fragments') ? [memoryRow()] : [])
     const repository = createDuckDbMemoryRepository({ execute })
 
     const results = await repository.search({
@@ -95,6 +95,49 @@ describe('createDuckDbMemoryRepository', () => {
       messageId: 'message-1',
       neighbors: ['Assistant: Earlier context'],
     })
+  })
+
+  it('excludes pending memories from behavior retrieval', async () => {
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => query.includes('FROM memory_fragments') ? [memoryRow({ review_status: 'pending' })] : [])
+    const repository = createDuckDbMemoryRepository({ execute })
+
+    await repository.search({ embedding: EMBEDDING, now: 1 })
+
+    const searchQuery = execute.mock.calls.find(([query]) => query.includes('review_status'))?.[0]
+    expect(searchQuery).toBeDefined()
+    expect(searchQuery).toContain('review_status = \'approved\'')
+  })
+
+  it('returns only facts from the active user and character scope', async () => {
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => query.includes('FROM memory_fragments')
+      ? [
+          memoryRow({ id: 'character-a', scope_json: JSON.stringify({ userId: 'user-1', characterId: 'character-a' }) }),
+          memoryRow({ id: 'character-b', scope_json: JSON.stringify({ userId: 'user-1', characterId: 'character-b' }) }),
+        ]
+      : [])
+    const repository = createDuckDbMemoryRepository({ execute })
+
+    const results = await repository.search({
+      embedding: EMBEDDING,
+      now: 1,
+      scope: { userId: 'user-1', characterId: 'character-a' },
+    })
+
+    expect(results.map(result => result.id)).toEqual(['character-a'])
+  })
+
+  it('pushes shareable-fact eligibility into the query', async () => {
+    // ROOT CAUSE (#12): the store filtered a page ordered by last access in
+    // memory, so an eligible fact outside that page was never a candidate.
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async () => [])
+    const repository = createDuckDbMemoryRepository({ execute })
+
+    await repository.list({ limit: 5, scope: { userId: 'user-1', characterId: 'character-a' }, shareable: true })
+
+    const query = execute.mock.calls[0]?.[0] ?? ''
+    expect(query).toContain('json_extract_string(source_context_json')
+    expect(query).toContain('review_status')
+    expect(query).toContain('fact_status')
   })
 
   it('writes source-turn neighbors with the memory fragment', async () => {
@@ -133,6 +176,57 @@ describe('createDuckDbMemoryRepository', () => {
     expect(execute.mock.calls.some(([query]) => query.includes('INSERT INTO memory_episodic'))).toBe(true)
   })
 
+  it('stores and filters embedding source metadata', async () => {
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (query: string) => {
+      if (query.includes('FROM memory_fragments')) {
+        return [memoryRow({
+          embedding_provider: 'voyage',
+          embedding_model: 'voyage-4-large',
+          embedding_dimensions: 768,
+          embedding_input_type: 'document',
+          embedding_source_fingerprint: 'voyage-space',
+          embedded_at: 10,
+          embedding_status: 'active',
+        })]
+      }
+      return []
+    })
+    const repository = createDuckDbMemoryRepository({ execute })
+    const metadata = {
+      embeddingProvider: 'voyage',
+      embeddingModel: 'voyage-4-large',
+      embeddingDimensions: 768,
+      embeddingInputType: 'document' as const,
+      embeddingSourceFingerprint: 'voyage-space',
+      embeddedAt: 10,
+      embeddingStatus: 'active' as const,
+    }
+
+    const fragment = await repository.insert({
+      content: 'A voyage fact',
+      category: 'chat',
+      memoryType: 'short_term',
+      importance: 5,
+      valence: 0,
+      arousal: 0,
+      tags: [],
+      embedding: EMBEDDING,
+      embeddingMetadata: metadata,
+      now: 10,
+    })
+    await repository.search({
+      embedding: EMBEDDING,
+      embeddingMetadata: { ...metadata, embeddingInputType: 'query' },
+    })
+
+    const insertQuery = execute.mock.calls.find(([query]) => query.includes('INSERT INTO memory_fragments'))?.[0]
+    const searchQuery = execute.mock.calls.find(([query]) => query.includes('SELECT id') && query.includes('embedding_source_fingerprint'))?.[0]
+    expect(insertQuery).toContain('voyage-4-large')
+    expect(fragment.embeddingSourceFingerprint).toBe('voyage-space')
+    expect(searchQuery).toContain('embedding_input_type = \'document\'')
+    expect(searchQuery).toContain('embedding_source_fingerprint = \'voyage-space\'')
+  })
+
   // ROOT CAUSE:
   //
   // Editing memory content changed only the text column. Semantic retrieval
@@ -148,7 +242,7 @@ describe('createDuckDbMemoryRepository', () => {
 
     const updateQuery = execute.mock.calls.find(([query]) => query.includes('UPDATE memory_fragments SET'))?.[0]
     expect(updateQuery).toContain('content = \'Updated fact\'')
-    expect(updateQuery).toContain('content_vector_768 = [')
+    expect(updateQuery).toContain(`content_vector_json = '[1,2,3`)
   })
 
   it('keeps dream ideas in their own short-term table', async () => {
@@ -156,6 +250,7 @@ describe('createDuckDbMemoryRepository', () => {
       ? [{
           id: 'idea-1',
           content: 'Try a smaller build loop',
+          scope_json: JSON.stringify({ userId: 'local', characterId: 'card-a' }),
           source_type: 'dream-pass',
           source_id: 'memory-1',
           status: 'new',
@@ -169,6 +264,7 @@ describe('createDuckDbMemoryRepository', () => {
 
     const idea = await repository.addDreamIdea({
       content: 'Try a smaller build loop',
+      scope: { userId: 'local', characterId: 'card-a' },
       sourceType: 'dream-pass',
       sourceId: 'memory-1',
       excitement: 7,
@@ -177,9 +273,12 @@ describe('createDuckDbMemoryRepository', () => {
     })
 
     expect(idea.status).toBe('new')
+    expect(idea.scope).toEqual({ userId: 'local', characterId: 'card-a' })
     expect(idea.sourceType).toBe('dream-pass')
     expect(execute.mock.calls.some(([query]) => query.includes('INSERT INTO memory_short_term_ideas'))).toBe(true)
     expect((await repository.listDreamIdeas())[0]?.content).toBe('Try a smaller build loop')
+    expect((await repository.listDreamIdeas({ scope: { userId: 'local', characterId: 'card-a' } }))[0]?.scope).toEqual({ userId: 'local', characterId: 'card-a' })
+    expect(execute.mock.calls.at(-1)?.[0]).toContain('json_extract_string(scope_json, \'$.characterId\') = \'card-a\'')
   })
 
   // ROOT CAUSE:

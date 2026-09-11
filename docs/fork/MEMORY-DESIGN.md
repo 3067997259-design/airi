@@ -21,6 +21,16 @@
 > （批准/拒绝）。剩余实测项不变：nomic 中文表现、权重调参
 > （见 `WIRING-BACKLOG.md` §6）。
 
+> **实现补充（2026-09-04）**：受限 dreaming pass 已接入 `MemoryDreamAgent`。
+> 自动整理不直接写事实记忆，也不执行想法；它只在 life-mode 的 leader 心跳处于
+> 空闲、没有社交刺激时运行，并单独受最短间隔、每日预算和“新增且已批准事实数”
+> 门控。每次成功运行都写入 `memory/dream` journal 事件；手动按钮仍可单独运行。
+
+> **实现补充（2026-09-05）**：长期镜像改为本地持久 outbox + `origin_id` 幂等写入，
+> 断线时指数退避，重启后继续 reconcile；远端同步默认关闭，必须由用户显式开启。
+> 事实支持 pending 修订、superseded/disputed 状态，只有批准修订才会改变旧事实。
+> 新增分层中文检索评估 harness 和 Electron renderer/CDP 启动 smoke 脚本。
+
 ---
 
 ## 0. 一句话概括
@@ -305,6 +315,20 @@ run(api):   把 m 注入下一轮 context，并写 last_intruded_at = now
 同样实现为 `ReflexBehavior`：`when` = 模式命中，`run` = 注入固定响应。
 零 token、零延迟，对应 DevLog 的"已形成的条件反射"。
 
+**语义纠偏（MEMORY-SEMANTICS-CORRECTION 批次 A/B，2026-09-05）**：muscle 不是
+"重要的长期事实"，它是零 token 的精确触发通道。因此：
+
+- 普通抽取永远只能产生 `short_term` 事实；模型误标为 `muscle` 的条目会被
+  纠正为待审核事实（`parseMemoryTurnExtractions`），不会成为反射。
+- `rememberMuscle()` 是唯一的 muscle 写入入口，必须有非空 `trigger_pattern`、
+  事实内容与明确的审核状态，否则不落库。
+- 只有 `approved` 且 `fact_status = 'active'` 的 muscle 才能触发
+  （`matchesMuscleMemory` 内置门控）；pending/rejected/superseded/disputed
+  一律不触发。
+- 无有效触发模式的历史 muscle 无法触发、也进不了普通召回，记忆浏览器提供
+  人工三选：转为事实（保留 id 与访问史，重置为 pending 重新审核）、保留为
+  muscle、删除；迁移动作写入 `memory/migrated` journal 事件。
+
 ### 4.3 情绪从哪来
 
 - **写入时**：后台整合 agent（§5）在抽取记忆时同时打 `valence`/`arousal` 标签。
@@ -332,7 +356,7 @@ run(api):   把 m 注入下一轮 context，并写 last_intruded_at = now
 interface MemoryExtraction {
   content: string // 陈述句形式的事实，而非原始对话
   category: string // 'chat' | 'relationships' | 'people' | 'life' | ...
-  memory_type: 'short_term' | 'muscle' // long_term 只能由晋升产生，不能直接写
+  memory_type: 'short_term' // 普通抽取只产生事实；muscle 只能由 rememberMuscle 显式创建
   importance: number // 1-10
   valence: number // -1..1
   arousal: number // 0..1
@@ -356,9 +380,14 @@ interface MemoryExtraction {
 
 ### 与 dreaming agent 的关系
 
-`source_type: 'dream'` 留给未来的空闲期 agent：在用户不交互时回顾旧记忆、
-产生 `memory_short_term_ideas` 条目、并根据近期经历修正旧记忆的分数
-（DevLog 结尾的设想）。**本期不实现**，但 schema 已支持，不需要迁移。
+`source_type: 'dream'` 由空闲期 `MemoryDreamAgent` 使用：它只接收已批准的短期/长期
+事实，产生 `memory_short_term_ideas` 条目，并保留来源记忆 ID。想法必须经过人工
+生命周期操作才会进入“发展中”或“已实现”；dreaming pass 本身不会写入事实、创建
+计划或执行工具。
+
+自动整理复用 life-mode 的心跳作为机会信号，但使用独立预算。响应模式下没有社交
+模型回合，因此允许私有整理；自主模式只有在没有社交 stimulus 时才整理，避免同一
+心跳并发两次模型调用。忙碌、活跃心流和 focused 状态仍然阻断整理。
 
 ---
 
@@ -501,7 +530,8 @@ Stage 使用 §1.4 的持久化 DuckDB-WASM（已验证 `array_cosine_similarity
 **短期记忆页**
 - 后台整合 agent 的模型选择 + 开关
 - 压缩阈值（默认 0.70）、`contextLength` 手动覆盖（应对上报 `0` 的 provider）
-- 手动"整理记忆"按钮（探究阶段方便观察压缩质量）
+- 手动"运行梦境整理"按钮（探究阶段方便观察建议质量）
+- 自动梦境整理开关、最短间隔、每日预算（0 = 不限）和新增记忆门槛
 
 **长期记忆页**
 - 重排公式五个权重的滑杆（1.20 / 0.20 / 0.30 / 0.15 / 0.25）
@@ -510,6 +540,8 @@ Stage 使用 §1.4 的持久化 DuckDB-WASM（已验证 `array_cosine_similarity
 - PTSD 闯入：总开关、`INTRUSION_BASE_RATE`、冷却时长
 - 记忆浏览器：列表 + 当前实时分数 + 手动编辑/删除
   （对应作者 playground 里的 "simulate retrieval"，探究阶段最有价值的一个界面）
+- 远端同步显式开关、本地 outbox 数量、重试和已有长期记忆入队
+- 事实修订/争议提案；提案先进入待确认队列，不直接替换旧事实
 
 ---
 
@@ -529,7 +561,8 @@ Stage 使用 §1.4 的持久化 DuckDB-WASM（已验证 `array_cosine_similarity
 **第四期 — 情绪与反射**
 mood-congruence 项、PTSD 闯入通道、muscle memory 精确匹配。
 
-**未来** — dreaming agent（schema 已支持，无需迁移）。
+**已接入** — dreaming agent、可靠长期同步、事实修订和中文评估 harness；真实中文
+embedding 分数、Postgres 断线恢复长跑和带 provider 的 EXE 行为仍需现场数据验收。
 
 每期都能独立跑起来、独立观察效果，这符合"探究项目、不急着收口"的定位。
 

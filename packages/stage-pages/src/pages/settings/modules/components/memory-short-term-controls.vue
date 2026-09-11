@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { MemoryFragment } from '@proj-airi/memory-core'
+import type { MemoryDreamIdeaStatus, MemoryFragment } from '@proj-airi/memory-core'
 
+import { isSameMemoryScope } from '@proj-airi/memory-core'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useMemoryStore } from '@proj-airi/stage-ui/stores/modules/memory'
 import { Button, FieldCheckbox, FieldInput, FieldRange } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
-import { onMounted, shallowRef } from 'vue'
+import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -23,11 +24,39 @@ const {
   databaseStatus,
   databaseError,
   dreamingEnabled,
-  dreamIdeas,
+  automaticDreamingEnabled,
+  dreamingIntervalHours,
+  dreamingDailyBudget,
+  dreamingMinNewMemoryCount,
+  lastDreamAt,
+  dreamingBudgetUsed,
   dreaming,
   isLeader,
+  embeddingSource,
+  embeddingBaseUrl,
+  embeddingApiKey,
+  embeddingModel,
+  embeddingError,
 } = storeToRefs(memoryStore)
 const compacting = shallowRef(false)
+const dreamIdeas = computed(() => memoryStore.dreamIdeas.filter(idea => isSameMemoryScope(idea.scope, chatStore.memoryScope)))
+watch(() => chatStore.memoryScope, async () => {
+  await loadDreamIdeas()
+})
+
+const embeddingApiEnabled = computed({
+  get: () => embeddingSource.value === 'api',
+  set: (value: boolean) => {
+    embeddingSource.value = value ? 'api' : 'local'
+  },
+})
+
+const automaticDreamingStatus = computed(() => lastDreamAt.value > 0
+  ? t('settings.pages.modules.memory-short-term.automatic-dreaming-status', {
+      used: dreamingBudgetUsed.value,
+      lastRun: new Date(lastDreamAt.value).toLocaleString(),
+    })
+  : t('settings.pages.modules.memory-short-term.automatic-dreaming-never', { used: dreamingBudgetUsed.value }))
 
 const pendingFragments = shallowRef<MemoryFragment[]>([])
 const reviewingId = shallowRef<string>()
@@ -37,7 +66,7 @@ async function loadPending() {
 }
 
 async function loadDreamIdeas() {
-  await memoryStore.refreshDreamIdeas()
+  await memoryStore.refreshDreamIdeas({ ...chatStore.memoryScope })
 }
 
 async function decide(id: string, status: 'approved' | 'rejected') {
@@ -70,11 +99,15 @@ async function compactNow() {
 }
 
 async function dreamNow() {
-  await memoryStore.dream()
+  await memoryStore.dream({ ...chatStore.memoryScope })
 }
 
 async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemented' | 'abandoned') {
-  await memoryStore.updateDreamIdea(id, { status })
+  await memoryStore.updateDreamIdea(id, { status }, { ...chatStore.memoryScope })
+}
+
+function dreamIdeaStatusLabel(status: MemoryDreamIdeaStatus): string {
+  return t(`settings.pages.modules.memory-short-term.idea-status.${status}`)
 }
 </script>
 
@@ -121,6 +154,38 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
             :placeholder="t('settings.pages.modules.memory-short-term.model-placeholder')"
           />
         </div>
+
+        <div :class="['border-t', 'border-neutral-200', 'pt-4', 'dark:border-neutral-700']">
+          <FieldCheckbox
+            v-model="embeddingApiEnabled"
+            :label="t('settings.pages.modules.memory-short-term.embedding-api-enabled')"
+            :description="t('settings.pages.modules.memory-short-term.embedding-api-enabled-description')"
+          />
+          <div v-if="embeddingApiEnabled" :class="['mt-4', 'grid', 'gap-4', 'md:grid-cols-2']">
+            <FieldInput
+              v-model="embeddingBaseUrl"
+              :label="t('settings.pages.modules.memory-short-term.embedding-base-url')"
+              :description="t('settings.pages.modules.memory-short-term.embedding-base-url-description')"
+              :placeholder="t('settings.pages.modules.memory-short-term.embedding-base-url-placeholder')"
+            />
+            <FieldInput
+              v-model="embeddingApiKey"
+              type="password"
+              :label="t('settings.pages.modules.memory-short-term.embedding-api-key')"
+              :description="t('settings.pages.modules.memory-short-term.embedding-api-key-description')"
+              :placeholder="t('settings.pages.modules.memory-short-term.embedding-api-key-placeholder')"
+            />
+            <FieldInput
+              v-model="embeddingModel"
+              :label="t('settings.pages.modules.memory-short-term.embedding-model')"
+              :description="t('settings.pages.modules.memory-short-term.embedding-model-description')"
+              :placeholder="t('settings.pages.modules.memory-short-term.embedding-model-placeholder')"
+            />
+          </div>
+          <p v-if="embeddingError" :class="['mt-3', 'text-sm', 'text-red-500']">
+            {{ t('settings.pages.modules.memory-short-term.embedding-error', { error: embeddingError }) }}
+          </p>
+        </div>
       </div>
     </section>
 
@@ -133,6 +198,9 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
           <p :class="['text-sm', 'text-neutral-400', 'dark:text-neutral-500']">
             {{ t('settings.pages.modules.memory-short-term.sections.dreaming.description') }}
           </p>
+          <p :class="['text-xs', 'text-neutral-400', 'dark:text-neutral-500']">
+            {{ t('settings.pages.modules.memory-short-term.dreaming-lifecycle-hint') }}
+          </p>
         </div>
 
         <FieldCheckbox
@@ -140,6 +208,38 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
           :label="t('settings.pages.modules.memory-short-term.dreaming-enabled')"
           :description="t('settings.pages.modules.memory-short-term.dreaming-enabled-description')"
         />
+        <FieldCheckbox
+          v-model="automaticDreamingEnabled"
+          :label="t('settings.pages.modules.memory-short-term.automatic-dreaming-enabled')"
+          :description="t('settings.pages.modules.memory-short-term.automatic-dreaming-enabled-description')"
+          :disabled="!enabled || !dreamingEnabled"
+        />
+        <div v-if="automaticDreamingEnabled" :class="['grid', 'gap-4', 'md:grid-cols-3']">
+          <FieldInput
+            v-model="dreamingIntervalHours"
+            type="number"
+            min="1"
+            :label="t('settings.pages.modules.memory-short-term.dreaming-interval-hours')"
+            :description="t('settings.pages.modules.memory-short-term.dreaming-interval-hours-description')"
+          />
+          <FieldInput
+            v-model="dreamingDailyBudget"
+            type="number"
+            min="0"
+            :label="t('settings.pages.modules.memory-short-term.dreaming-daily-budget')"
+            :description="t('settings.pages.modules.memory-short-term.dreaming-daily-budget-description')"
+          />
+          <FieldInput
+            v-model="dreamingMinNewMemoryCount"
+            type="number"
+            min="1"
+            :label="t('settings.pages.modules.memory-short-term.dreaming-min-new-memory-count')"
+            :description="t('settings.pages.modules.memory-short-term.dreaming-min-new-memory-count-description')"
+          />
+        </div>
+        <p v-if="automaticDreamingEnabled" :class="['text-xs', 'text-neutral-400', 'dark:text-neutral-500']">
+          {{ automaticDreamingStatus }}
+        </p>
         <div :class="['flex', 'flex-wrap', 'items-center', 'gap-3']">
           <Button
             :loading="dreaming"
@@ -163,16 +263,31 @@ async function setDreamIdeaStatus(id: string, status: 'developing' | 'implemente
             {{ idea.content }}
           </p>
           <div :class="['mt-2', 'text-xs', 'text-neutral-400', 'dark:text-neutral-500']">
-            {{ idea.status }} · {{ t('settings.pages.modules.memory-short-term.excitement', { value: idea.excitement }) }}
+            {{ dreamIdeaStatusLabel(idea.status) }} · {{ t('settings.pages.modules.memory-short-term.excitement', { value: idea.excitement }) }}
           </div>
           <div :class="['mt-3', 'flex', 'flex-wrap', 'gap-2']">
-            <Button size="sm" variant="secondary" @click="setDreamIdeaStatus(idea.id, 'developing')">
+            <Button
+              size="sm"
+              variant="secondary"
+              :disabled="idea.status !== 'new'"
+              @click="setDreamIdeaStatus(idea.id, 'developing')"
+            >
               {{ t('settings.pages.modules.memory-short-term.idea-actions.develop') }}
             </Button>
-            <Button size="sm" color="primary" @click="setDreamIdeaStatus(idea.id, 'implemented')">
+            <Button
+              size="sm"
+              color="primary"
+              :disabled="idea.status !== 'developing'"
+              @click="setDreamIdeaStatus(idea.id, 'implemented')"
+            >
               {{ t('settings.pages.modules.memory-short-term.idea-actions.implement') }}
             </Button>
-            <Button size="sm" variant="secondary" @click="setDreamIdeaStatus(idea.id, 'abandoned')">
+            <Button
+              size="sm"
+              variant="secondary"
+              :disabled="idea.status === 'implemented' || idea.status === 'abandoned'"
+              @click="setDreamIdeaStatus(idea.id, 'abandoned')"
+            >
               {{ t('settings.pages.modules.memory-short-term.idea-actions.abandon') }}
             </Button>
           </div>

@@ -25,10 +25,18 @@ export function parseMemorySourceContext(value: unknown): MemorySourceContext | 
   const messageId = typeof value.messageId === 'string' && value.messageId.length > 0
     ? value.messageId
     : undefined
+  const sourceEventId = typeof value.sourceEventId === 'string' && value.sourceEventId.length > 0
+    ? value.sourceEventId
+    : undefined
+  const sourceType = typeof value.sourceType === 'string' && value.sourceType.length > 0
+    ? value.sourceType
+    : undefined
 
   return {
     sessionId: value.sessionId,
     ...(messageId ? { messageId } : {}),
+    ...(sourceEventId ? { sourceEventId } : {}),
+    ...(sourceType ? { sourceType } : {}),
     neighbors,
   }
 }
