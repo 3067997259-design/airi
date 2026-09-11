@@ -13,6 +13,7 @@ import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
+import { useCodingToolsStore } from '@proj-airi/stage-ui/stores/coding'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
@@ -80,6 +81,7 @@ const { language, themeColorsHue, themeColorsHueDynamic } = storeToRefs(settings
 const router = useRouter()
 const route = useRoute()
 const chatSessionStore = useChatSessionStore()
+const codingToolsStore = useCodingToolsStore()
 const context = useElectronEventaContext()
 const getMainLocale = useElectronEventaInvoke(i18nGetLocale)
 const setLocale = useElectronEventaInvoke(i18nSetLocale)
@@ -286,8 +288,14 @@ function createFullStageRuntime() {
       serverChannelSettingsStore.hostname = serverChannelConfig.hostname
       serverChannelSettingsStore.authToken = serverChannelConfig.authToken
 
+      // The channel URL comes from the main process config: the port moves
+      // with SERVER_CHANNEL_PORT, and a stale value (settings UI or an old
+      // baked default) would point the chat-ingestion consumer at a port
+      // nobody listens on, silently dropping every external input:text.
+      const serverChannelUrl = `ws://${serverChannelConfig.hostname}:${serverChannelConfig.port ?? 6121}/ws`
       await serverChannelStore.initialize({
         token: serverChannelConfig.authToken || undefined,
+        url: serverChannelUrl,
         possibleEvents: ['ui:configure'],
       }).catch(err => console.error('Failed to initialize Mods Server Channel in App.vue:', err))
       contextBridgeStore.initialize()
@@ -352,6 +360,17 @@ onMounted(async () => {
   await restoreLocale()
 
   await chatSessionStore.initialize()
+  // Flow recovery compares the persisted workspace and host capabilities.
+  // Refresh before the runtime can resume a journaled flow so a missing or
+  // changed coding surface becomes a visible wait reason.
+  try {
+    await codingToolsStore.refreshStatus()
+  }
+  catch (error) {
+    // The verifier treats an absent snapshot as an unavailable coding host;
+    // keep the renderer bootable so recovery can show that wait reason.
+    console.warn('[App] Failed to refresh coding host status:', error)
+  }
 
   await fullStageRuntime?.initialize()
 })
@@ -367,6 +386,9 @@ watch(themeColorsHueDynamic, () => {
 onUnmounted(() => {
   stopLeadershipListener?.()
   fullStageRuntime?.dispose()
+  if (windowContext.leadership === 'leader-only') {
+    void import('@proj-airi/stage-ui/composables/use-duck-db').then(({ useDuckDb }) => useDuckDb().closeDb()).catch(error => console.warn('[App] Memory database close failed.', error))
+  }
 })
 </script>
 

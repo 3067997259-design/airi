@@ -9,6 +9,8 @@ import { trackButtonPlugin } from '@proj-airi/stage-ui/directives/track-button'
 import { configureAnalyticsAdapter } from '@proj-airi/stage-ui/libs/analytics'
 import { browserAuthorizationHandler, registerAuthorizationHandler } from '@proj-airi/stage-ui/libs/auth'
 import { piniaPluginTracing, setupSynced } from '@proj-airi/stage-ui/libs/pinia'
+import { beginRestoreGate, completeRestoreGate, setRestoredOwner, waitForRestore } from '@proj-airi/stage-ui/services/restore-gate'
+import { profileSnapshotBarrier } from '@proj-airi/stage-ui/services/snapshot-barrier'
 import { MotionPlugin } from '@vueuse/motion'
 import { createPinia } from 'pinia'
 import { setupLayouts } from 'virtual:generated-layouts'
@@ -19,6 +21,7 @@ import { handleHotUpdate, routes } from 'vue-router/auto-routes'
 import App from './App.vue'
 
 import { installCodingHostBridge } from './bridges/coding-host-install'
+import { createDataBackupBootstrapClient } from './bridges/data-backup'
 import { i18n } from './modules/i18n'
 import { resolveRendererWindowContext } from './window-context'
 
@@ -53,6 +56,12 @@ const synced = setupSynced({
   leadership: resolveRendererWindowContext().leadership,
 })
 pinia.use(synced.pinia)
+pinia.use(profileSnapshotBarrier.plugin)
+
+// Every window waits for the host's durable restore decision. Only the leader
+// imports data; followers must not initialize against partial shared state.
+beginRestoreGate()
+void restorePendingProfile()
 if (import.meta.env.DEV)
   pinia.use(piniaPluginTracing)
 
@@ -61,10 +70,19 @@ if (import.meta.env.DEV)
 // click. Follower windows no-op through the same guards inside the stores.
 if (resolveRendererWindowContext().leadership === 'leader-only') {
   void (async () => {
+    // Arm journal replay and hydrate owners only after the archive import has
+    // returned and the host has persisted its completion receipt.
+    await waitForRestore()
+    // Settings windows route backup actions to this owner, even before the
+    // leader opens a data page. Registration does not start an export.
+    const { useDataBackupStore } = await import('@proj-airi/stage-ui/stores/data-backup')
+    useDataBackupStore(pinia)
     const { useMemoryStore } = await import('@proj-airi/stage-ui/stores/modules/memory')
     const { usePlanStore } = await import('@proj-airi/stage-ui/stores/plans')
+    const { useLongGoalSchedulerStore } = await import('@proj-airi/stage-ui/stores/modules/long-goals')
     const { useJournalStore } = await import('@proj-airi/stage-ui/stores/journal')
     const { useChatSessionStore } = await import('@proj-airi/stage-ui/stores/chat/session-store')
+    const { useDuckDb } = await import('@proj-airi/stage-ui/composables/use-duck-db')
     try {
       // Session selection restores asynchronously from its synced snapshot, so
       // the active session id is still empty at this point. Replay whatever
@@ -87,6 +105,14 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
           await useChatStore().resumeFlowAfterRestart(sessionId)
         }).catch(error => console.warn('[Boot] Flow resume failed.', error))
       }, { immediate: true })
+
+      // Best-effort drain on close: a graceful unload delivers the queued
+      // batches; a forced kill is covered by the host's gap detection on the
+      // next boot.
+      window.addEventListener('beforeunload', () => {
+        void journalStore.flushNow()
+        void useDuckDb().closeDb().catch(error => console.warn('[Boot] Memory database close failed.', error))
+      })
     }
     catch (error) {
       console.warn('[Boot] Journal replay failed.', error)
@@ -98,10 +124,23 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
       console.warn('[Boot] Plan store hydration failed.', error)
     }
     try {
+      const { useSkillsReviewStore } = await import('@proj-airi/stage-ui/stores/skills')
+      await useSkillsReviewStore().restore()
+    }
+    catch (error) {
+      console.warn('[Boot] Skill review queue restore failed.', error)
+    }
+    try {
       await useMemoryStore().initialize()
     }
     catch (error) {
       console.warn('[Boot] Memory database initialization failed.', error)
+    }
+    try {
+      await useLongGoalSchedulerStore().initialize()
+    }
+    catch (error) {
+      console.warn('[Boot] Long-goal scheduler initialization failed.', error)
     }
   })()
 }
@@ -109,6 +148,33 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
 // Every renderer process installs the coding host bridge (main process
 // Eventa contracts); the stage-ui store consumes it from any window.
 installCodingHostBridge()
+
+// A restore profile remains inert until its leader acknowledges the imported
+// bytes. The owner stores decide how to consume the validated archive.
+async function restorePendingProfile(): Promise<void> {
+  const leader = resolveRendererWindowContext().leadership === 'leader-only'
+  await createDataBackupBootstrapClient().bootstrap({ leader }).then(async (result) => {
+    // The onboarding surface must be able to name the restored owner even
+    // before it is allowed to import the archive (ACC-20260910 R03).
+    setRestoredOwner(result.restored ? result.ownerId : undefined)
+    if (!result.restored || !result.data) {
+      completeRestoreGate(result.restored && (result.effectsHeld ?? result.restored))
+      return
+    }
+    const { inspectDataBackup } = await import('@proj-airi/stage-ui/services/data-backup')
+    const inspected = await inspectDataBackup(result.data)
+    const { useDataBackupStore } = await import('@proj-airi/stage-ui/stores/data-backup')
+    await useDataBackupStore().importSnapshot(result.data, { staged: true })
+    await createDataBackupBootstrapClient().complete({ snapshotId: inspected.manifest.snapshotId })
+    completeRestoreGate(true)
+  }).catch((error) => {
+    // A damaged archive or interrupted import must not deadlock every owner.
+    // Release local initialization while retaining the durable effect hold;
+    // the profile remains inert until the user reviews or discards it.
+    completeRestoreGate(true)
+    console.warn('[Boot] Isolated restore is pending:', error)
+  })
+}
 
 const router = createRouter({
   history: createWebHashHistory(),

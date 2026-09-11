@@ -26,9 +26,13 @@ export default defineConfig({
     '**/drizzle/**',
     '**/.astro/**',
     'docs/superpowers/**',
+    // Acceptance captures include hash-bound source and sandbox programs.
+    // Their original bytes are evidence, not ordinary modules to format.
+    'docs/fork/evidence/short-scenarios/**',
     '.agents/**',
     '.github/**',
     '.zcode/**', // Local agent session state, not repository code
+    'skills/acc-20260909-dedupe/**', // Hash-bound reviewed artifact; preserve its source bytes
     'CLAUDE.md', // Skip the symbolic link
   ],
 }, {

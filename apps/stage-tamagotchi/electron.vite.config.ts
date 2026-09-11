@@ -44,6 +44,7 @@ export default defineConfig({
           '@proj-airi/core-agent',
           '@proj-airi/memory-core',
           '@proj-airi/memory-pgvector',
+          '@proj-airi/skill-forge',
           // The web-fetch main service imports the fetch tool surface. Exclude
           // entries match whole package names only, so the entry must be the
           // bare scope package; the resolve.alias below still narrows the
@@ -56,6 +57,12 @@ export default defineConfig({
           'electron-click-drag-plugin',
           'uiohook-napi',
           '@xsai-apple-speech/transcription-native',
+          // The coding harness imports this lazily. Keeping it external makes
+          // the runtime resolve the app's own copy (and its platform binary)
+          // from out/main; bundling it rewrote import.meta.url into a chunk
+          // path that could not see the platform package, so grep silently
+          // fell back to the Node walk (C1, 2026-09-09).
+          '@vscode/ripgrep',
         ],
       },
     },
@@ -109,6 +116,11 @@ export default defineConfig({
         // carries a standalone-client side effect (void main()).
         '@proj-airi/memory-pgvector/repository': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-pgvector', 'src', 'repository.ts')),
         '@proj-airi/memory-core': resolve(join(import.meta.dirname, '..', '..', 'packages', 'memory-core', 'src', 'index.ts')),
+        // Data-backup is bundled into the main process and reaches the skill
+        // review schema through stage-ui. Bundle this source package too;
+        // leaving it external makes Electron resolve extensionless workspace
+        // imports such as `./hash` at runtime.
+        '@proj-airi/skill-forge': resolve(join(import.meta.dirname, '..', '..', 'packages', 'skill-forge', 'src', 'index.ts')),
         '@proj-airi/stage-ui/tools/fetch': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'tools', 'fetch.ts')),
         '@proj-airi/stage-ui/tools/fetch-ssrf': resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'tools', 'fetch-ssrf.ts')),
         '@proj-airi/i18n': resolve(join(import.meta.dirname, '..', '..', 'packages', 'i18n', 'src')),

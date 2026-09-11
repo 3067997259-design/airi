@@ -32,10 +32,12 @@ import { createI18n } from './libs/i18n'
 import { setupAppleSpeechTranscriptionService } from './services/airi/apple-speech-transcription'
 import { setupServerChannel } from './services/airi/channel-server'
 import { setupCodingHost } from './services/airi/coding-host'
+import { setupDataBackupHost } from './services/airi/data-backup'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupBuiltInServer } from './services/airi/http-server'
 import { setupJournalHost } from './services/airi/journal-host'
 import { setupLifeMode } from './services/airi/life-mode'
+import { setupLongGoalScheduler } from './services/airi/long-goal'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupMemoryHost } from './services/airi/memory-host'
 import { setupExtensionHost } from './services/airi/plugins'
@@ -68,6 +70,27 @@ setElectronMainDirname(dirname(fileURLToPath(import.meta.url)))
 setGlobalFormat(Format.Pretty)
 setGlobalLogLevel(LogLevel.Log)
 setupDebugger()
+
+// NOTICE: When the main process is launched under a pipeline (e.g. agent-browser
+// captures stdout/stderr), the reading end may close while the app keeps logging.
+// Any later console.write then throws EPIPE: broken pipe. left uncaught, Electron
+// surfaces it as a "JavaScript error occurred in the main process" dialog and can
+// take down the whole main process. Swallow write errors on the standard streams
+// so a closed log pipe can never crash the app. Logging still goes to the file
+// hook, so the only loss is console output after the pipe closes.
+function installStdioErrorGuard(): void {
+  const handleStreamError = (stream: NodeJS.WriteStream) => {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') {
+        return
+      }
+      console.error('[main] stdout/stderr write error:', error)
+    })
+  }
+  handleStreamError(process.stdout)
+  handleStreamError(process.stderr)
+}
+installStdioErrorGuard()
 
 const log = useLogg('main').useGlobalConfig()
 
@@ -278,8 +301,22 @@ app.whenReady().then(async () => {
     },
   })
 
+  const dataBackupHost = injeca.provide('modules:data-backup-host', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupDataBackupHost(context, app.getPath('userData'), { broadcast: eventaBroadcast })
+    },
+  })
+
+  const longGoalScheduler = injeca.provide('modules:long-goal-scheduler', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupLongGoalScheduler(context, { broadcast: eventaBroadcast }, app.getPath('userData'))
+    },
+  })
+
   const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, journalHost, memoryHost, webFetch, lifeMode },
+    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, dataBackupHost, journalHost, memoryHost, webFetch, lifeMode, longGoalScheduler },
     build: async ({ dependsOn }) => setupMainWindow({
       ...dependsOn,
       onWindowCreated: (window) => {

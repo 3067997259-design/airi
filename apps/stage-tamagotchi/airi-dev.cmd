@@ -2,7 +2,10 @@
 rem AIRI desktop launcher for the source build (stage-tamagotchi).
 rem Resolves the pnpm-managed electron.exe so the shortcut survives
 rem dependency version bumps; starts the app without a lingering console.
+rem The server channel must move off 6121: that port fails to bind on this
+rem machine (ENOTSUP), which kills the AIRI server channel at every launch.
 cd /d "%~dp0"
+set "SERVER_CHANNEL_PORT=6221"
 set "ELECTRON_EXE="
 for /d %%D in ("%~dp0..\node_modules\.pnpm\electron@*") do if exist "%%~fD\dist\electron.exe" set "ELECTRON_EXE=%%~fD\dist\electron.exe"
 if defined ELECTRON_EXE (

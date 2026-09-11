@@ -2,7 +2,12 @@
 rem AIRI desktop launcher that rebuilds first: use this after pulling or
 rem changing source code, so the desktop shortcut never runs a stale build.
 rem Daily quick launches can keep using the plain AIRI shortcut.
+rem Both values must stay in sync: the server channel port (set at runtime for
+rem the app, dodges the 6121 ENOTSUP bind failure) and the renderer-side
+rem server-channel URL (baked in at build time).
 cd /d "%~dp0"
+set "SERVER_CHANNEL_PORT=6221"
+set "VITE_AIRI_WS_URL=ws://127.0.0.1:6221/ws"
 echo Building stage-tamagotchi (electron-vite build)...
 call pnpm --dir "%~dp0..\.." --filter @proj-airi/stage-tamagotchi build
 if errorlevel 1 (

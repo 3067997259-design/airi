@@ -30,6 +30,7 @@ const showToolCalls = ref(true)
 const showToolResults = ref(true)
 const showPlanEvents = ref(true)
 const showApprovals = ref(true)
+const showFlowEvents = ref(true)
 const showOthers = ref(false)
 const filterText = ref('')
 
@@ -53,6 +54,8 @@ function typeAllowed(event: JournalEvent) {
     return showPlanEvents.value
   if (event.type.startsWith('approval/'))
     return showApprovals.value
+  if (event.type === 'flow/start' || event.type === 'flow/step' || event.type === 'flow/end' || event.type === 'flow/completion-review' || event.type === 'user/steering')
+    return showFlowEvents.value
   return showOthers.value
 }
 
@@ -68,6 +71,16 @@ function eventTitle(event: JournalEvent) {
       return `approval/asked ${event.requestId}`
     case 'approval/decided':
       return `approval/decided ${event.requestId}`
+    case 'flow/start':
+      return `flow/start ${event.flowId} (${event.trigger})`
+    case 'flow/step':
+      return `flow/step iteration ${event.iteration}`
+    case 'flow/end':
+      return `flow/end ${event.reason} · ${event.iterations} iteration(s)`
+    case 'flow/completion-review':
+      return `flow/completion-review ${event.layer} → ${event.verdict}`
+    case 'user/steering':
+      return `user/steering ${event.text.slice(0, 60)}`
     default:
       return event.type
   }
@@ -240,6 +253,9 @@ onMounted(() => {
             <input v-model="showApprovals" type="checkbox"> approval/*
           </label>
           <label :class="['flex', 'items-center', 'gap-1']">
+            <input v-model="showFlowEvents" type="checkbox"> flow/*
+          </label>
+          <label :class="['flex', 'items-center', 'gap-1']">
             <input v-model="showOthers" type="checkbox"> other
           </label>
           <input
@@ -252,6 +268,17 @@ onMounted(() => {
         <div :class="['flex', 'flex-col', 'gap-1']">
           <div :class="['text-xs', 'text-neutral-400']">
             {{ shownEvents.length }} / {{ events.length }} events
+          </div>
+          <div
+            :class="['text-xs', journal.persistenceStatus.complete ? 'text-neutral-400' : 'text-orange-500']"
+            :title="`pending=${journal.persistenceStatus.pendingCount} lastSeq=${journal.persistenceStatus.lastSeq} gaps=${journal.persistenceStatus.gaps.length} corrupt=${journal.persistenceStatus.corruptLines} duplicates=${journal.persistenceStatus.duplicateLines}`"
+          >
+            <template v-if="journal.persistenceStatus.complete">
+              journal persisted
+            </template>
+            <template v-else>
+              journal persistence degraded: pending {{ journal.persistenceStatus.pendingCount }}<span v-if="journal.persistenceStatus.lastError">, {{ journal.persistenceStatus.lastError }}</span><span v-if="journal.persistenceStatus.gaps.length">, {{ journal.persistenceStatus.gaps.length }} seq gaps</span><span v-if="journal.persistenceStatus.identityBrokenFrom !== undefined">, identity broken from seq {{ journal.persistenceStatus.identityBrokenFrom }}</span><span v-if="journal.persistenceStatus.corruptLines">, {{ journal.persistenceStatus.corruptLines }} corrupt lines</span><span v-if="journal.persistenceStatus.truncated">, replay truncated</span>
+            </template>
           </div>
           <details
             v-for="event in shownEvents.slice(-300)"
