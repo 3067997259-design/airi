@@ -3,6 +3,12 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## B 波次计划定稿（2026-09-11）
+
+新增 [B 波次执行计划](./wave-b-execution-plan.md)：三线首批（EP-0 工具标识与证据来源 ∥ CP-0 契约纪律与版本协商 ∥ MC-0a 固定候选与双环境）的顺序、切入口与通过条件。
+**修正一处旧估计**：P3-1 环境块与 P3-2 角色锚已随 FLOW-KNOWLEDGE 落地（`chat.ts:1068-1076` 的 `## Environment`、`chat.ts:173-186` 的 `WORK_AGENT_ROLE_SECTION`，含 P3-3…P3-9 全部条款），B 波次由四项收为三项，P3 改为验收时顺带核对。
+锚点均为当日工作区实际位置（EP-0 落 `tools.ts`/`provenance.ts:14`/`contract.ts` 权威表/`chat.ts:921`；CP-0 落 `plugin-protocol` announce 字段与 COMPAT 台账；MC-0a 含 fork 置于仓库外、双环境、退役 spark 入口）。本轮仅文档。
+
 ## Todoist 诚实缺口核查与双向修复（2026-09-11）
 
 09-03 心流（journal `9ce4c7cd…`，flowId `iC70XC6OyBm0UIrPPtRbJ`）声称的三条 Todoist 同步核查为**伪造**：journal 工具清单零 `mcp_todoist_*` 调用，仅有本地导出与 bash `record-todoist-sync`，external_id 是自编 slug；同表 08-24 的两条绑定带真实 base62 ID，证明真实同步会留下真实 ID。
