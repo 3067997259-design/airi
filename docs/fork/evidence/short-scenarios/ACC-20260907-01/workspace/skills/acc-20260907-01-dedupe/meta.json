@@ -1,0 +1,31 @@
+{
+  "toolId": "acc-20260907-01-dedupe",
+  "name": "acc_20260907_01_dedupe",
+  "description": "Trim array elements, remove empty strings, and deduplicate preserving first-seen order.",
+  "sourcePath": "skills/acc-20260907-01-dedupe/source.mjs",
+  "contentHash": "88fe448d51d2d2ab",
+  "riskLevel": "low",
+  "staticAnalysis": {
+    "networkEgress": false,
+    "workspaceWrites": false,
+    "subprocess": false,
+    "readOnlySubprocess": false,
+    "credentialedAccess": false,
+    "destructiveOps": false
+  },
+  "declared": {
+    "credentialedAccess": false,
+    "destructiveOps": false,
+    "networkEgress": false,
+    "subprocess": false,
+    "workspaceWrites": false
+  },
+  "externalSources": [],
+  "selftestPath": "skills/acc-20260907-01-dedupe/selftest.mjs",
+  "selftestEvidence": {
+    "ok": true,
+    "logs": [],
+    "traceCount": 1
+  },
+  "submittedAt": 1788806326979
+}

@@ -1,7 +1,469 @@
-# AIRI fork mods（本地魔改记录）
+﻿# AIRI fork mods（本地魔改记录）
 
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
+
+## 扩展与自开发能力执行计划定稿（2026-09-09）
+
+新增 [扩展与自开发能力执行计划](./extension-execution-plan.md)（批次代号 EP），三条计划线的闸门线落纸。
+四项决策：证据信任跟随执行来源不跟随包装（注册记录携带执行链）；单一所有者迁移即换防；EP-2 首批为声明式包（无任意 Node 入口，执行走 coding-host 沙箱，worker 隔离等 CP-2）；批准绑定内容哈希（单技能沿用 SG-1，插件包扩展为整包摘要）。
+定稿 EP-0 注册记录与证据作者映射（新增 `untrusted_plugin` 与 `game` 桶）、在途撤销三步语义（撤工具面/终止在途/迟到回执标 revoked）、EP-1 首闭环七步与 EP-2a/b 分相交付。本轮仅文档。
+
+## 插件平台野心线计划定稿（2026-09-09）
+
+新增 [插件平台野心线执行计划](./capability-platform-plan.md)（批次代号 CP），把上游作者在插件平台设计文档中声明、从未实现的野心落成 fork 探索批次。
+定位依据：作者对 50K star/5K fork 社区负责须谨慎，fork 只对自己负责、第一意义是探索（先例：记忆系统即在她的底子上由 fork 实现）。
+四项决策：以已发布契约为 spec（manifest v1、作者面 API、plugin-protocol 事件名、CapabilityRecord、kit 命名哲学）；加法纪律 + `fork:` 命名空间 + 第一天版本协商；消费者先行（每个组件带真实消费者，禁止平台先行于消费者）；按锚定度排序 CP-0 契约纪律 → CP-1 能力注册表与 waiting-deps/degraded → CP-2 权限策略与 node-worker 隔离 → CP-3 websocket 远程插件统一两半球 → CP-4 数据面搁置。
+含断层地图与作者意图重建、兼容分层判断（作者面 API > 事件名 > 宿主内部）、COMPAT 台账与 rebase 纪律。本轮仅文档。
+
+## Minecraft 执行计划定稿（2026-09-09）
+
+新增 [Minecraft 接入执行计划](./minecraft-execution-plan.md)，把 Fabric 方向落成可执行批次。
+四项决策经用户确认：适配 MCPFabric（fork 固定 commit）、独立客户端离线身份双环境（本地 offline 服 + LAN 联机）、首批完整生存反射（新增 MC-0d 批）、1.21.1 起步且版本改动限制在 mod 层。
+定稿命令信封与状态机、六工具面与 MCPFabric 能力映射、反射契约、fork 补丁清单 P1–P4、旧 spark 入口退役项、TS 侧代码落点与批次依赖（MC-0c 前置 EP-0）。
+本轮仅文档；未安装外部依赖、未编写 Java、未运行游戏。
+
+## Minecraft 开源路线研究（2026-09-09）
+
+新增 [Fabric 实现方向与分批验证](./minecraft-fabric-implementation-direction.md)。
+对照 Mindcraft、Voyager、MCPFabric、AIBot、Easy LLM 和 STEVE-1，建议保留 AIRI 核心，通过固定适配器接入 Fabric 客户端。
+记录导航启动与完成的区别、网络超时与游戏取消的区别，以及 MCP 来源到领域证据的接线缺口。
+细化 MC-0/MC-1 与 EP、LG、MQ、PC、SG 批次关系；组件选型待定，外部项目未安装，游戏验收未开始。
+
+## 插件、自开发能力与 Minecraft 勘探（2026-09-09）
+
+新增 [兼容边界与后续批次](./extension-and-minecraft-exploration.md)，记录技能/插件的工具声明共性，以及权限、证据、生命周期和备份缺口。
+区分 Fabric 迁移的代码依据与架构推测，确定个人 fork 可先做固定适配器和本地游戏桥接。
+记录用户接受的任务 UI 方案及跨会话显示的隔离复现；本轮仅勘探，未安装插件、修改产品实现或操作主实例。
+
+## 复核发现 1、2 修复（2026-09-09）
+
+新增 [修复与回归记录](./evidence/short-scenarios/ACC-20260907-01/review-findings-1-2-repairs-20260909.md)。
+技能 Schema 改为显式支持集合并拒绝未执行的关键字，`uniqueItems`/`minProperties`/`maxProperties`/`multipleOf` 真正生效，`executeSkill` 不再把 `null` 折成 `{}`。
+长期目标在约束修订清空 `activeRun` 时保留 `lastRun` 运行身份，Flow 授权改为按持久运行身份解析所属长期计划，修订后的迟到写入会走到 `stale_plan_run`。
+验证：skill-forge 42、core-agent authority 51、stage-ui skills 19、stage-ui plans 25、stage-ui chat 92 全绿；三包 typecheck 与改动文件 eslint 退出码 0。未重建 Electron，运行态复验列为下一批。未创建提交。
+
+## UI 表面与反馈契约设计定稿（2026-09-11）
+
+新增 [UI-SURFACE-PLAN](./UI-SURFACE-PLAN.md)：把 [插件与 Minecraft 勘探](./extension-and-minecraft-exploration.md) 里与两个宏大方向并列的「已确认的 UI 方向」独立成篇，并绑定实际验收中观察到的 UI 缺陷。
+结论把 UI 工作定为三件事：**反馈契约**（用户动作在 300 ms 内必须有可见结果或可见拒绝理由，静默按缺陷处理）、**表面预算**（一个窗口一个主输入位，辅助表面合计不超过聊天区可视高度的 40%）、**归属与来源**（正文只展示当前会话，跨会话走全局入口，不伪造来源、不因完成删证据）。给出 9 条可检验不变量、6 类动作的最低反馈表、`UI-0…UI-4` 五个批次（反馈清零 / 单输入位与预算 / 会话与任务归属 / 窗口角色与跨窗口能力 / 首屏与不可用状态），并逐条映射到验收证据（UI-A btw 侧通道静默错投、UI-B 控制岛展开失效、UI-C 技能页静默按钮、UI-D 未登录副本静默弹回、UI-H 主窗离开舞台后 Live2D 工具静默失效等）。原勘探文档该节已加指向本文件的说明并保留为历史记录。本轮仅文档，未改产品代码。
+
+## M08 回切复核通过（2026-09-11）
+
+用户重新用 GitHub 登录账户 A 后逐项核对：`userId`/scope/`activeCardId` 回到原值，会话 **121**、记忆片段 **79（A 68 / local 9 / 无 scope 2）**、`shareable` 仍是 `656b0f6f`/`4c211389`/`17edcfbe` 三条、按 scope 查 A 仍 **59**、dream ideas 0、DB `ready` —— **与切换前基线完全一致**。换账户再换回来是非破坏性且可逆的，M08 第二账户变体完整闭环。证据追加在 [M08-second-account-20260911.md](./evidence/short-scenarios/ACC-20260907-01/M08-second-account-20260911.md)。语音相关的官方链路（TTS/STT）按用户意见不纳入本次魔改验收范围。
+
+## M08 第二账户隔离 + S09 speech-active 通过（2026-09-11）
+
+记录：[M08-second-account-20260911.md](./evidence/short-scenarios/ACC-20260907-01/M08-second-account-20260911.md)、[S09-speech-active-20260911.md](./evidence/short-scenarios/ACC-20260907-01/S09-speech-active-20260911.md)。
+用户在「设置 → 账号」登出 GitHub 账户 A、改用 Google 登录账户 B（150 Flux），两件事都在 B 上完成。
+**M08 第二账户变体 PASS（隔离）**：`userId`/scope 切到 B 后，A 的记忆在 `listShareableFacts`（`[]`）、一次真实提问的 `memory/retrieved`（`memoryIds: []`）、按 scope 直查库（B → 0 行、A → 59 行）、会话索引（121 → 1）四条路径上都不可见；库内总量始终 79（A 68 / local 9 / 无 scope 2），**A 的数据只被挡住、未被改动**；B 侧 `runAutomaticDreaming` 因 cooldown 跳过、手动 `dream` 无产出，A 的片段同样未被触碰。
+**S09 speech-active 门 PASS**：官方语音来源在 B 下不再 401（`speechProviderError` 为空），轮询到 `nowSpeaking=true` 且 `sending=false` 时触发心跳 → `life/heartbeat gate=speech-active`，其后 journal 无任何 `turn/start`/`assistant/*`（无插入发言、无重叠播放、无模型调用）。
+顺带记录：同一会话第一条消息以 `turn/end error: Remote sent 403 insufficient balance` 结束，来源是用户自建的 chat provider（`direct.linkai.pics`），与官方语音不是同一链路，第二次调用成功，记录备查。未创建提交。
+
+## S13 真实 30 分钟窗口通过（2026-09-11）
+
+记录：[S13-realtime-window-20260911.md](./evidence/short-scenarios/ACC-20260907-01/S13-realtime-window-20260911.md)。
+不用时钟推进，真的等满 30 分钟：第 1 跳把 `LoveButton` 的候选消费掉（`seq=22 refs=appearance:8`，窗口从 00:53:48 起算）；第 2 跳重新设同一个值（新事件 `seq=32`，同一 novelty key）后，心跳决定只带 `appearance:29`（angry），**同值被去重**；第 3 跳在 01:27（窗口 01:23:48 已过期）再次设同值，决定里 `refs=appearance:57,appearance:54` —— **同值重新可用**。三次决定均为 `silence`，即口头层没有重复表达。心跳间隔测试期间临时设 60 分钟、结束已改回 15。
+
+## 验收结果汇总（2026-09-11）
+
+新增 [测试结果汇总](./evidence/short-scenarios/ACC-20260907-01/TEST-SUMMARY-20260911.md)：把 62 个短场景的当前状态、本轮新跑通的项、未关闭项与原因、20 条待修清单、复跑方法与证据索引收到一处。要点：B/D/M/V 组全通过；L 组剩 L04 的普通追问归因；S 组剩 S08/S09（外部条件）与 S13（30 分钟窗口进行中）；K 组剩 K07 的竞态取证；R 组剩 R06 完整次序。历史计数（22 PASS / 18 FAIL / 22 BLOCKED）不改写，追加状态以汇总文件与状态对齐表为准。未创建提交。
+
+## L07 双窗口竞争通过 + K07 部分（2026-09-11）
+
+用户手动打开设置窗口后，同一 profile 下同时有 follower 设置窗与 leader 主窗，两者都导航到 `#/chat` 后各有真实输入框。记录追加在 [L07-K07-L02-20260910.md](./evidence/short-scenarios/ACC-20260907-01/L07-K07-L02-20260910.md)。
+**L07 PASS**：主窗 `/flow` 起一条 `sleep 90` 打头的有界 Flow，等待期间从两个窗口的主输入框各发一条同样的修订（间隔 0.43 秒）。journal `abfa404f…` 记录了两条 `user/steering`（seq 28/29），单条 Flow `sYW0Solw` 走完 `flow/step`×2 → `flow/completion-review` → `flow/end done`；工作区只有 `brief.txt` 与 `revised-result.txt`，**旧目标零写入**，模型收尾明确说明转向结果。
+**K07 部分**：跨窗口机制已验——设置窗（follower）点「批准」后，决策经 leader 落地，两个窗口的 `skills-review` 状态一致（probation → reviewed，`probationCount` 1→0）。但真正的竞态没造出来：唯一可操作的 probation 条目在准备阶段就被批准，而重建条目的两条公开路径都是**静默空操作**（未读源码时点「批准」、对已审阅条目点「提交审阅」），记为待修第 19 条。
+副产物：本轮第一次发修订时输入落进了 btw 侧通道（`#/chat` 有两个 `textarea`，`querySelector` 命中的是侧通道），journal 里既无 `user/message` 也无 `user/steering`——补强待修第 10/20 条（侧通道会静默错投输入）。收尾：技能队列已恢复为 `acc-20260909-dedupe:reviewed`，两个窗口路由复位，DB/life-mode/模型/embedding 均保持原值。未创建提交。
+
+## R04 adoption 后恰好一次有界 Flow（2026-09-10）
+
+用户配合完成登录与 provider 配置。记录：[R04-adoption-and-flow-20260910.md](./evidence/short-scenarios/ACC-20260907-01/R04-adoption-and-flow-20260910.md)。
+把副本 coding 根切到 `D:/airi`（与目标 `spec.workspaceRoot` 一致）后等调度器唤醒：00:30:08 目标 `430613eb` 认领 Flow 槽并跑 Flow `6izmfCPf`（3 轮，`flow/end done`，`outcome=completed`）；00:31:38 目标 `598e975d` 接上跑 Flow `FaSIR8xe`（同样 `done`）。两个目标各**恰好一次**有界 Flow、按单槽串行、结算后 `schedules` 清空、`runningGoalId` 归零、lifecycle 均 `completed`。**R04 关闭条件满足，PASS。**
+但发现一个高优先问题（待修第 18 条）：这次运行的事件链**只在内存**，副本 `journal\` 最新写入仍是恢复时刻 14:46:53，整个 profile 树下 15 分钟内没有任何 `*.jsonl` 被修改；会话内 journal 还从 seq 0 重新开始而不是续上恢复文件的 0..4838，渲染端警告 `[Flow] Journal replay is incomplete; flow rebuild is suppressed for this session.`。恢复副本目前等于运行在「无证据链」状态。未创建提交。
+
+## R01 变体：写入进行中导出（2026-09-10）
+
+用户配合执行。记录：[R01-export-during-write-20260910.md](./evidence/short-scenarios/ACC-20260907-01/R01-export-during-write-20260910.md)。
+制造真实在途写入：切换 embedding 模型触发 77 条片段的重新向量化（`embeddingMigration.state=running`），在迁移窗口内点可见的 `Backup ZIP`，共两次。
+两份归档（13.8 MB / 13.7 MB）**manifest 154 条逐条哈希核对全部一致，0 缺失 0 不匹配**，`credentials: excluded`、`outbox: held` 不变；导出 2 的窗口内迁移索引没有推进（点击前后均 `0/77`，落盘 9 秒后仍 `0/77`），迁移随后恢复并 `complete 77/77`。判定 PASS：写入进行中导出得到自洽归档。
+观察：`data-backup.ts:57` 的闸门只覆盖 `chat.sending`／运行中的 Flow／`dreaming`，不含迁移；第二道防线是 `:109` 的 `before !== after` 状态比对（含 `embedding` 状态），两次都没触发，与「窗口内无推进」一致；`snapshot-barrier.ts` 只跟踪 store action，后台 IO 不在其内。收尾：模型已切回 `voyage-4-large`。未创建提交。
+
+## L07/K07 受阻 + L02 第二模型变体（2026-09-10）
+
+记录：[L07-K07-L02-20260910.md](./evidence/short-scenarios/ACC-20260907-01/L07-K07-L02-20260910.md)。
+**L07「双窗口竞争」/ K07「两窗口并发点击」BLOCKED**：本构建里控制岛「展开」拉不出设置入口（DOM 里只剩 `alt-arrow-up` 与 `chat-line` 两个图标，选择器点击与真实鼠标按压都无效，生产构建没有 `devtoolsRawSetupState` 兜底），聊天窗口也渲染不了设置页（`body.innerText` 长度 0）。没有第二个窗口就无法按口径并发取证；22:19 之前的构建上同一操作是成功的，疑似回归，记为待修第 13 条。
+**L02 第二模型变体部分完成**：改用 `gemini-3.1-pro-preview`（provider 列出 27 个模型）跑只读长期目标，读取夹具并正确报告 `ACC-20260907-01-L02b / original-root / 1`，`flow/end reason=done`；通过设置 UI 把工作区根切到 `L02-alt` 也成功。但追问时模型**没有**按口径报告「当前工作区没有该文件、早前结果属于原根」，而是调用 `setWorkspaceRoot` 把根改回去再读——把用户刻意的切换当成事故还原（待修第 14 条）。长期目标的环境变化门没被触发：目标始终没拿到 Flow 槽，`lastEnvironment` 为空（待修第 15 条）。另外误传 `{}` 当 characterId 会造出永远起不来的目标（待修第 17 条，低）。
+顺带记录待修第 16 条：一次 `softDeletePlan` 之后所有 DuckDB 查询抛 `reading 'peek'`、`databaseStatus=error`，重启完全恢复且无法按需复现——建议查询失败后重建连接。
+收尾：工作区根已改回 `D:/airi`、模型改回 `gemini-3.8-flash`、误建目标已 `softDeletePlan`。未创建提交。
+
+## R05 两变体 + R07 中途终止（2026-09-10）
+
+B 批次继续跑，两条记录：[R05 变体](./evidence/short-scenarios/ACC-20260907-01/R05-variants-20260910.md)、[R07 中途终止](./evidence/short-scenarios/ACC-20260907-01/R07-abort-mid-import-20260910.md)。
+**R05 embedding 切换 PASS**：用「明确不存在的模型名」触发（按计划约定的失败变体手法）。切换后迁移 `state=error`、`lastError` 带 provider 的 400 与支持模型清单、设置页可见「错误 / not supported」；同一提问的 `memory/retrieved` 变成 **`memoryIds: []`**，没有把 `voyage-4-large` 时代的旧指纹向量当匹配结果。还原后迁移 `20/20 complete`、检索 id 与基线一致。观察：记忆为空时模型改用 `grep`+`read` 从工作区取答案，用户看不出答案来源（与 M07 的观感问题同类）。
+**R05 凭据缺失变体不通过**：在未登录的 `restore-J2TLrx` 里，输入框照常可用，按 Enter 后**草稿原地弹回、无任何提示**（直接调 store 才拿到 `Failed to load the target chat session`；`InteractiveArea.vue:173-189` 会还原草稿）。且该副本已 adoption → `showRestoreNotice` 依赖 `restoreEffectsHeld` 而失效，onboarding 退回全新安装形态，**「数据已恢复，请登录 `<owner>`」的说明整个消失**。记为待修第 11 条。
+**R07 导入中途终止 PASS**：赋归档给隐藏 input 后 700 ms 强杀，`restores/` 无新副本、`backups/` 无半截归档；重启后会话 115、计划 61、记忆库 ready、生命模式不受影响。
+顺带发现待修第 12 条：`listShareableFacts` 先按 `last_accessed` 取 `limit×4` 行再过滤，生命模式的窗口只有 20 行——合格的已审事实会因为「很久没被访问」而永远进不了社交候选，`(scope,10)` 返回 2 条而 `(scope,25)` 返回 3 条即为证据。未创建提交。
+
+## L04 真机复验 + 活动时间戳回填/告警落盘（2026-09-10）
+
+第二轮：补跑 L04 真机口径，并实现复验暴露的两条新修，结果追加在 [复验记录](./evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260910-retest.md)。
+**L04 部分通过**：用 `/flow` 起含 `bash sleep 240` 的有界 Flow，挂起时杀进程（23:07:51）再重启（23:08:01）。中断前只有一次未返回的 `sleep`；重启后同一 Flow 续跑并明说「中断恢复后已确认当前任务目标」，最终 `result.txt` 与 brief 一致、完成门通过。**但普通聊天追问仍把恢复后才发生的两次 `sleep 240` 失败（23:10:31 / 23:12:36）说成「中断前」** —— `[Recovery boundary]` 只注入 Flow 轮次提示词，记为待修第 9 条。
+**新修 A（活动事件时间戳回填）**：`journal.ts` 的 `hydrate` 在 seed 前给缺时间戳的 `tool/result`/`plan/update`/`task/update` 补上同一轮次里最近的时间戳（两侧都没有则保持原样，避免用 `Date.now()` 重造缺陷）。真机验证：旧会话 `iv4bAQfGmsy…` 的 14 条无时间戳活动事件现在全部进 `expiredRefs`（`life/decision action=discarded … 16 stale candidates` + `gate=stale-stimulus`、零模型调用），修复前它们会作为候选送进模型。
+**新修 B（告警进持久日志）**：`readPersistedLifeMode` 改用 `useLogg('main/life-mode').useGlobalConfig()`；真机验证截断 `life-mode.json` 后重启，`logs/airi-tamagotchi-*.log` 出现带路径、副本位置、错误与堆栈的 warn。
+验证：两包 typecheck 0、改动文件 eslint 0、`journal.test.ts` 15 passed、life-mode 21 passed、应用重建 0。另按用户报告登记待修第 10 条：「干活时问一句」btw 卡片无高度上限、占据聊天页大半，且展开时 chat 窗口有两个 `textarea` 导致脚本误投递。未创建提交。
+
+## FIX-LIST 1–8 修复真机复验（2026-09-10）
+
+重建（退出码 0，`out/` 22:19）后按 [修复记录](./evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260910-results.md) 的「待真机复验」跑 6 条，结果写进 [复验记录](./evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260910-retest.md)。
+**1 PASS**：纠正链路打通——批准新事实后 `listShareableFacts` 由 3 变 4，纠正并批准修订后**有效片段在列、被替换片段消失**；心跳决定 `action=speak`，`refs` 只含纠正后的 `memory:b3961c0e…`，发言用有效名称并作废旧名称。
+**2 PASS（陈旧路径）+ 迁移缺口**：清理测试记忆后切到休眠会话，心跳走 `life/decision action=discarded` + `gate=stale-stimulus`、零模型调用。但原文要求的「20 小时前 `tool/result` 过期」复现不了：`journal.ts` 只在 `append` 时补时间戳，磁盘上的旧活动事件没有该字段，`occurredAt` 为 undefined 就永不进入 `expiredRefs`（该 journal 32 条活动事件里 31 条无时间戳）。建议读回时回填或按「年龄未知」过期。
+**3 未完成**：三次尝试，前两次模型内联完成（无 `plan_update`/`flow/start`，没有可恢复的 Flow），第三次建出 Flow 但省掉了长等待步，没有中断窗口；同时旧 FIX1 长期目标被调度器唤醒在后台连续跑 turn。真机口径需一条至少挂起 2 分钟的 Flow。
+**4 PASS**：grep 返回 `14 matches in 7 files` 的真实命中，无 `Search ran without ripgrep`。
+**5 PASS**：`life-mode.json` 的 `lastGate` 与 follower（聊天窗口）快照都变成 `stale-stimulus`，渲染端门已回写主进程。
+**6 PASS**：截断 `life-mode.json` 后重启生成 `.corrupt-1789050406176`、无 `.tmp` 残留、stderr 打印原因+路径+副本位置。小观察：warn 走 stderr，未进 `logs/*.log` 持久日志。
+复验后已恢复生命模式（`autonomous / 间隔 15 / 静默 3–4 / 预算不限 / 冷却 30`）与主窗口会话。未改产品代码，未创建提交。
+
+## R03/R04/R05 修复真机复验 + 待修清单（2026-09-10）
+
+重建（`pnpm -F @proj-airi/stage-tamagotchi build`，退出码 0，`out/` 14:44–14:45）后复验交接的三条，结果追加在 [R 组修复记录](./evidence/short-scenarios/ACC-20260907-01/R-GROUP-FIX-20260910.md)。
+**R03 PASS**：新建恢复副本 `restore-J2TLrx`，`restore-state.json` 带 `ownerId`，首屏为「数据已恢复 / 来自 `<owner>` 的数据已恢复到本设备。请登录 `<owner>` 以查看。」+「登录以查看数据」，全新安装入口不再出现。
+**R04 机制 PASS**：adoption 前 `long-goals.json={"schedules":[]}`；点「使用恢复的 profile」**不重启**后 `effectsHeld:false`、两条排程按 `nextReviewAt` 写入、调度器把 `waitReason` 写进目标状态（不再静默）。「恰好一次有界 Flow」未达：`checkStartConditions` 先被 scope 门拦住（新副本未登录 → `userId=local`），之后还有 provider、workspace root（目标 `D:/airi` vs 副本 `<copy>\workspace`）与接受环境变化三道门，需要用户登录后才跑得完。
+**R05 PASS**：`## Toolset` 新增「Unavailable reviewed skills」段（技能名 + toolId + 原因 + Settings→Modules→Skills 入口）；P'' 运行时回答从「工具列表中不存在」变为「当前无法调用。原因：该技能属于不同的工作区…请…重新验证」；工具面 33 个且无任何 `mcp` 名字，运行时整轮零 `tool/call`（修复前会调 `builtIn_mcpListTools`）。
+另出 [待修清单](./evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260910.md)，汇总本轮与既有未修项：纠正后有效事实缺 `sourceContext` 进不了候选（新）、`life-mode.json` 解析失败静默回落默认值且无日志（新）、R06 `update` 先于 `insert` 丢数据、L04 恢复叙述口径、构建版 grep 降级（方案待选）、渲染端门对 follower 不可见、活动类候选无年龄信息、记忆 `list` action 的参数异常观察项。未改产品代码，未创建提交。
+
+## S 组未完项复跑：S03/S10/S16/S18 通过，S17 发现新缺陷（2026-09-10）
+
+新增 [S 组复跑记录](./evidence/short-scenarios/ACC-20260907-01/S03-S18-recovery-20260910.md)（含截图），并更新 [状态对齐](./evidence/short-scenarios/ACC-20260907-01/status-alignment-20260909.md) 与 [未关闭问题清单](./evidence/short-scenarios/ACC-20260907-01/open-findings-20260909.md)。
+**S03 PASS（含偏差）**：间隔 1 分钟 + 静默窗口 14–15，主进程把 `nextHeartbeatAt` 直接推到 15:00:00；4.5 分钟内零心跳、零决策，其间产生真实 `appearance/changed`。`quiet-hours` 门本身无公开可达路径（调度器移出窗口 + 测试心跳显式跳过），单列偏差。
+**S10 PASS**：空 profile（无任何会话）+ 自主模式 → `life/heartbeat gate=no-session`，UI 显示「没有活动会话」，预算 0/24、无模型调用。
+**S16 PASS**：新批准的有效记忆进入候选（`refs=memory:d5e701eb…`），决策为 `note`，文本自然非倾倒；三条超过 6 小时的记忆被 `stale-stimulus` 丢弃。
+**S18 PASS（含口径偏差）**：改用约 20 小时前的休眠会话（未做真实 6 小时停机、未改时钟）。陈旧完成类事件未被当作「刚刚发生」（决定为沉默）；带时间戳的陈旧候选走 `stale-stimulus`、零模型调用。残余风险：活动类候选 `occurredAt=0`，不参与过期过滤，刺激文本也无时间戳。
+**S17 FAIL（新缺陷）**：显式 `reviseFact` + 批准后，被替换事实正确失效，但有效事实因缺 `sourceContext` 永远进不了 `listShareableFacts`/记忆候选（`memory.ts:1256-1262` 只在有值时写该字段）。
+**S08 / S09 仍 BLOCKED**：S08 需 server channel 插件 `task:start`（运行端 `tasks=0`、`eventLog=0`，仓库内无发布方）；S09 语音 provider 上游 401 且 Electron 无本地语音。
+另记两条独立发现：`life-mode.json` 在本次重启后被静默重置为默认值（解析失败无日志、直接回落默认，已人工还原为 `autonomous/静默 3–4/预算不限`）；渲染端门（`no-session`/`busy`/`focused`/`speech-active`/`stale-stimulus`）不回写主进程，follower 设置窗看不到。未改产品代码，未创建提交。
+
+## R 组复验与交接（2026-09-10）
+
+新增：[R02/R03 复验](./evidence/short-scenarios/ACC-20260907-01/R02-R03-retest-20260910.md)、[R04 失败](./evidence/short-scenarios/ACC-20260907-01/R04-retest-fail-20260910.md)、[R05 部分](./evidence/short-scenarios/ACC-20260907-01/R05-retest-partial-20260910.md)、[R 组交接件](./evidence/short-scenarios/ACC-20260907-01/R-GROUP-HANDOFF-20260910.md)。
+R01/R02/R03/R07 PASS（R03 数据身份正确：原角色、111 条会话、原 owner 计划卡、135 个 journal 文件；未登录首屏是全新 onboarding，属契约缺口）。
+**R04 FAIL**：adoption 后 `effectsHeld:false`，但 `long-goals.json={"schedules":[]}`，两次「立即运行」后 P'' journal 最新写入仍停在恢复时刻，零 `flow/start`。
+**R05 部分**：恢复技能 `trust=reviewed`+`reviewedHash` 保留且标 `Artifact verification is pending.`（正确）；运行时调用后零事件，疑似静默阻断。
+运行手册：`Restore ZIP` 需直接给隐藏 input 赋值（点按钮不弹框）；判断 profile 看 renderer 的 `--user-data-dir`。
+
+## S20 复验：社交考量与用户问题竞争（2026-09-10）
+
+新增 [S20 复验记录](./evidence/short-scenarios/ACC-20260907-01/S20-rerun-20260910.md)。
+把生命模式切到**自主**、静默时段由 `0–23` 收窄为 `3–4`（原先全天静默，正是 S03/S08 长期 BLOCKED 的原因）。两次竞争：第一次用户消息先到 → `life/heartbeat outcome=gated gate=busy`；第二次心跳先发 → `outcome=emitted` + `tool/call self_decide` → `life/decision action=silence`，`consideredThroughSeq=5517` 覆盖了 `seq=5513` 的用户消息。两次回答均为 `15。`，没有社交话术串入。
+仍未覆盖 live `speak` 变体（取决于模型是否选择开口，无法强制）。
+
+## REV 复验：结构化修订 + 完成门通过（2026-09-10）
+
+新增 [REV 复验记录](./evidence/short-scenarios/ACC-20260907-01/REV-structured-revision-pass-20260910.md)。
+重建 R1–R5 后复验：**结构化修订首次在运行态成立**（`seq=5356/5390` `goal/update cv=2/3 revision=true reason=long-goal constraints revised`）；完成门全部 `pass`（`seq=5233/5296/5464`），`flow/end reason=done`；等待原因变为队列语义 `Waiting for another goal that holds the single Flow slot.`；`goal/update` 约 2 小时 14 次（对比昨晚 cv 1→11 的刷屏明显收敛）。
+`stale_plan_run` 全文 0 次：修订直接中断 Flow，没有迟到写入，属合理结果。发现 2 记「已修复 + 已复验（中断路径）」，授权器拒绝分支列为可选加强变体。
+未覆盖：R3 退避阶梯与 R4 排队超时提问需排队 >2 小时；队列位次 UI 登记为已知缺口。夹具污染 `initial-result.txt`（02:25，重建前写入）已清理。
+
+## agent-browser 挂死规避 + V02 复验（2026-09-10）
+
+**挂死根因（用户定位，上游 issue #1308 / #1713）**：agent-browser 无 per-command deadline，stdout 接管道（`| Select-Object`、`| Out-String`）会在 establishment 后无限挂，且对优雅信号免疫。
+**规避**：`.tmp/ab.ps1` 包装器——`Start-Process -RedirectStandardOutput <file>`（不走管道）+ `WaitForExit(超时)` 超时即 `Kill()`，再 `Get-Content` 读文件；同一轮复用单一 session/daemon，不再每轮清进程换 session。实测命令全部秒级返回。
+新增 [V02 复验记录](./evidence/short-scenarios/ACC-20260907-01/V02-retest-20260910.md)：视觉回合、重启持久化、陈旧帧探针三项 PASS（`seq=4818/4819/4828`、`seq=4832/4833`）；导出业务包未取得产物（`Backup ZIP` 点击后 backups/ 无新增 ZIP，疑走原生保存对话框），待补。
+
+## agent-browser 机器级补丁（2026-09-10）
+
+**根因修正（上游 [#1407](https://github.com/vercel-labs/agent-browser/issues/1407)，PR [#1781](https://github.com/vercel-labs/agent-browser/pull/1781) 待合并）**：挂死机制为 Windows 下 detached daemon 经 `bInheritHandles=TRUE` 继承调用方 stdout/stderr 管道写端，CLI 退出后调用方等待管道 EOF 永不返回；仅「拉起 daemon 的那次冷启动调用」会挂，暖 daemon 秒回。#1308/#1713 是同一机制的不同表面。
+**本机补丁**：npm 全局 shim（`agent-browser` / `.cmd` / `.ps1`）改经 `bin/agent-browser-safe.js` node 启动器——输出被捕获时用 node 自有管道转发，子进程退出后 500ms 静默窗（5s 硬上限）收尾。幂等 re-apply：`D:\.airi-smoke\patch-agent-browser.ps1`（每次 `npm i -g agent-browser` 后重跑；#1781 发版后整体移除）。Defender 排除已加 `npm\node_modules\agent-browser\`。
+**验证**：冷 session + PowerShell 捕获 5.7s（原 17min+ 挂死）、暖 daemon 2.1s、bash 管道 2.6s、直出路径不变。
+
+## FIX1 调试全过程与结算通过（2026-09-10）
+
+新增 [调试全过程记录](./evidence/short-scenarios/ACC-20260907-01/FIX1-DEBUG-JOURNEY-20260910.md)，保留两个问题、三次修复尝试、每次失败原因、最终验证证据与复盘。
+**问题 A（journal 断供）**：`flushPending` 的 append IPC 永不返回会永久占住 in-flight 锁；改为与 10 秒超时竞速 + 退避重试后恢复秒级落盘。
+**问题 B（完成门死锁）**：前两版修复（按会话分组 / 全局最新长期计划）均不足；外部模型纠正了「这些是 long 计划」的事实错误（它们是 session 计划），并指出取代只折 `activeSessionPlan` 且该计划已无开放步骤 → 一条 skip 都没写。最终按**车道化**修复：合取只取每条车道最新计划、`start` 折叠整条车道、`focus/complete` 按 stepId 解析目标。
+**复验**：`seq=4721 verdict=pass` → `seq=4722 flow/end done` → `seq=4789/4790` 二次运行通过 → `seq=4794 goal/update completed`；`revised-result.txt` 正确、`initial-result.txt` 不存在、修复后无 `user/ask`。
+**遗留两条 UI 问题**（见记录第 7 节）：停止任务按钮无响应；心流指示器标题恒为旧文本。
+
+## FIX1 死锁总说明（2026-09-09）
+
+新增 [死锁总说明](./evidence/short-scenarios/ACC-20260907-01/FIX1-DEADLOCK-SUMMARY-20260909.md)。
+问题 A（journal 断供）已修复并验证（4300+ 行、秒级落盘）；问题 B 未修：完成门 blockers 引用**非活跃长期计划**（`plan fa4f2116`、`plan 47d19edd`）的步骤，而活跃计划的步骤是 `step-1-read-brief … step-8-verify-initial`，模型对这些 stepId 调 `plan_update complete` 报 `Unknown stepId` → 硬死锁，5 次 `user_ask` 求助，最终用户两次取消（`goal/update cancelled`）、`flow/end interrupted`。
+根因线索：`builtin/plan.ts` 的 skipped 取代分支只覆盖 `horizon === 'session'`，long→long 未覆盖；完成门引用的计划集合与模型可操作的活跃计划集合未由同一解析函数产出。
+
+## 调查简报（2026-09-09）
+
+新增 [调查简报](./evidence/short-scenarios/ACC-20260907-01/INVESTIGATION-BRIEF-20260909.md)，供外部模型独立排查两个未解问题：journal 重启后不落盘、完成门循环。简报自包含环境、证据、相关代码、已尝试的两版修复、复现步骤与需要回答的问题。
+
+## FIX1 复验失败：完成门循环未解 + journal 不落盘（2026-09-09）
+
+新增 [复验失败记录](./evidence/short-scenarios/ACC-20260907-01/fix1-retest-failure-20260909.md)。
+重建重启（21:57）后复验：完成门仍拒绝，blocker 指向**最新计划自身**的步骤（`blocked / not started`），模型循环重建计划至第 17 轮，用户于 22:17 手动停止。1a 的「排除旧计划」不是循环的唯一原因。
+同时发现 journal **20 分钟零落盘**：`40ae9ae5….jsonl` 最后写入 21:57:07 / `seq=1718`，而 `revised-result.txt` 在 22:02:41 被写入。完成门依赖 journal 投影，落盘链路异常可能是循环的直接原因。
+未变好：`initial-result.txt` 仍未被写。
+
+## 问题 1a 修复 — 被替换的长计划不再阻塞完成门（2026-09-09）
+
+新增 [修复记录](./evidence/short-scenarios/ACC-20260907-01/fix-1a-superseded-plans-20260909.md)。
+根因：`evaluateFlowCompletion` 把 Flow 窗口内出现过的所有计划都交给完成门，而 `plan_update start` 对长期目标总是新建计划 id，旧计划的步骤永远不会完成，于是永久报 `step has not started`。
+修法：新增 `selectFlowCompletionPlans()`，长期目标每个会话只保留最新一份进入完成门；无会话绑定的长期计划按是否被触及判定。
+回归：stage-ui plans 30、chat contract 30、long-goals browser 6 全绿；typecheck 与改动文件 eslint 退出码 0。运行态复验待重建。1b（未验证收尾仍记 completed）保留现状，属产品口径决定。
+
+**1b 口径（用户拍板：A）**：目标仍记 `completed`，但原因带上未验证步骤——新增 `longGoalCompletionReason()`；`long-goals.browser.test.ts` 7 通过。
+**构建重启**：21:47 `pnpm -F @proj-airi/stage-tamagotchi build` 退出码 0；结束 PID 22744、等 8 秒后重启，CDP `9250` 立即就绪，新主进程 PID 26004。
+
+## 未关闭问题清单（2026-09-09）
+
+新增 [未关闭问题清单](./evidence/short-scenarios/ACC-20260907-01/open-findings-20260909.md)，汇总五条产品缺陷（完成门被旧计划步骤阻塞、记忆同步 update 先于 insert 丢数据、构建版 grep 未用 ripgrep、L04 恢复叙述时间线错误、心流指示器显示旧目标步骤）、两条环境备忘，以及三项待用户决定事项（R03 账户契约、grep 修法、是否修完成门）。
+
+## L07 修订窗口实测（2026-09-09）
+
+新增 [L07 实测记录](./evidence/short-scenarios/ACC-20260907-01/L07-revision-live-20260909.md)。
+用户在 300 秒等待窗口内发出修订，`user/steering` 在写入前送达（`seq=1074` < `seq=1082`）：旧目标 `initial-result.txt` **未被写入**，新目标 `revised-result.txt` = `L07D-TOKEN-5C2B84` 写入并读回——行为层 PASS。
+结算层 FAIL：完成门两次 `verdict=rejected`（`seq=1112`、`1231`），blockers 指向被替换计划的旧步骤（step-1 blocked、step-2/step-4 not started），Flow 没有 `flow/end`，目标停在 `waiting-condition`。
+本次修订走 steering 文本而非结构化 `/goal`（`cv` 始终为 1），因此不构成复核发现 2 的运行态证据。
+
+## L07 修订窗口重试（2026-09-09）
+
+新增 [L07 重试记录](./evidence/short-scenarios/ACC-20260907-01/L07-revision-retest-20260909.md)。
+`/goal ACC-20260909-L07c` 的 Flow 在 60 秒等待后立即完成写入与读回（`seq=841..1008`），修订消息到达前流程已结束，L07 仍待覆盖。
+运行态摩擦：本轮 `agent-browser` 多次产出后不退出、`snapshot -i` 长时间无输出；清掉 14 个残留守护进程后恢复；`tab new` 在 Electron 下不支持。下一轮把等待延长到 300 秒并在 `sleep` 一出现就发修订。
+
+## 验收运行备忘 — 重启后要等端口释放（2026-09-09）
+
+结束 Electron 后立刻重启时，新实例可能**静默绑定失败**：本轮一次重启后 CDP `9250` 全程不可用（`/json/version` 拒绝连接），而 renderer 命令行仍带 `--remote-debugging-port=9250`。磁盘 journal 照常写入，所以只看 journal 不会发现。
+处理：结束进程后等待数秒再启动；启动后必须用 `http://127.0.0.1:9250/json/version` 复核，而不是只看进程存在。
+
+## L05 变体 C — PASS（2026-09-09）
+
+新增 [L05 变体 C 记录](./evidence/short-scenarios/ACC-20260907-01/L05-variant-c-20260909.md)。
+夹具改为只含随机 token `L05C-TOKEN-4F7B2E` 且目标明确「不要猜测」；`sleep 60` 挂起时删除输入并结束进程。
+重启后同一 Flow 继续，`read` → ENOENT，`list` 确认目录为空，模型 `flow_update blocked` + `user_ask`（超时），`flow/end reason=blocked`；目录 0 文件、无伪造输出，目标停在 `waiting-condition`，面向用户的话术准确说明阻塞原因。
+L05 主分支 PASS。结算未持久化窗口按计划记 BLOCKED，由受控故障注入回归覆盖。
+
+## L05 变体 B（2026-09-09）
+
+新增 [L05 变体 B 记录](./evidence/short-scenarios/ACC-20260907-01/L05-variant-b-20260909.md)。
+`sleep 60` 挂起时删除 `brief.txt` 并结束进程；重启后同一 Flow 继续，`read` 报 ENOENT，模型多次 `list`/`grep` 未找到文件，仍写入 `result.txt=ACC-20260909-L05b`。
+失败分支未触发：RUN 标记同时出现在目标文本与目录名里，模型据此推断答案。修正办法是让目标要求的输出只能来自文件内容（随机 token）。
+正面证据：第一次 `flow/completion-review verdict=rejected`，重建计划后才 `pass`。
+
+## L05 变体 A（2026-09-09）
+
+新增 [L05 变体 A 记录](./evidence/short-scenarios/ACC-20260907-01/L05-variant-a-20260909.md)。
+`sleep 60` 挂起时把 `brief.txt` 改名为 `brief.txt.moved` 并结束进程；重启后同一 Flow 继续，`read` 失败后自行 `list` 目录、读到改名文件、写入并读回 `result.txt`，`completion-review verdict=pass`。
+未制造出失败分支：L05 仍待覆盖，失败分支需要输入真正缺失。
+
+## V01 视觉复测（2026-09-09）
+
+新增 [V01 复测记录](./evidence/short-scenarios/ACC-20260907-01/V01-vision-retest-20260909.md)。
+通过聊天输入区真实文件输入上传 PNG 夹具（白底、红圆、蓝方、文字 `ACC-20260909-V01`），模型正确报出四项。
+机制证据：该会话零 `tool/*` 事件、`memory/retrieved` 为空，文字只可能来自图片。原始 FAIL 保留。
+已知限制：本构建聊天列表不渲染图片附件，journal 的 `user/message` 只记文本。
+
+## 技能输入契约运行态复验与 grep 降级（2026-09-09）
+
+新增 [运行态复验记录](./evidence/short-scenarios/ACC-20260907-01/live-skill-contract-and-grep-20260909.md)。
+重建后同一会话真实调用 `acc-20260909-dedupe`：`["a",3,null]` 在沙箱前被拒（`input.items[1] must be a string`），`[" a ","b","a",""]` 执行并返回 `["a","b"]`；K04 运行态状态更新为 PASS，早先 FAIL 保留。
+新发现：构建版主进程把 `@vscode/ripgrep` 打进 chunk，运行时 `createRequire(import.meta.url).resolve` 看不到平台包，`resolveRipgrepPath()` 返回 undefined，grep 一直走 Node 兜底并声明 `search binary unavailable`。C1 的 ripgrep 路径在构建版从未生效；修法需用户先选依赖方案，本批只记录。
+
+## L04 崩溃后恢复干净重跑（2026-09-09）
+
+新增 [L04 干净重跑记录](./evidence/short-scenarios/ACC-20260907-01/L04-crash-clean-20260909.md)。
+在重建后的构建上，`bash sleep 90` 挂起时结束进程，重启后同一 Flow/task 继续、模型用全新步骤 ID 重建计划；恢复后一次写入、一次读回，`completion-review verdict=pass`，`flow/end reason=done`，目标 `已完成 · 3/3`。
+机制 PASS。新发现：追问恢复过程的回答把恢复后的 ENOENT 检查、写入与读回说成「中断前证据」，并引用恢复后那次 `sleep 90` 的 `exitCode 0`，未准确区分中断前证据与恢复后检查。
+
+## 验收状态对齐与 V02 覆盖核查（2026-09-09）
+
+新增 [状态对齐记录](./evidence/short-scenarios/ACC-20260907-01/status-alignment-20260909.md)，按复核建议维护「历史结果、最近结果、证明范围、剩余变体」四列，原始登记不改写。
+对齐 D05/D06 的历史 FAIL 与后续 PASS、R02/R03 的 PARTIAL、K05–K07 的真实 PASS，并补齐 lint 实际排除范围（`docs/fork/evidence/short-scenarios/**`、`.zcode/**`、`skills/acc-20260909-dedupe/**`）。
+复核发现 3 的自动化部分已由 `mirror-visual.test.ts`（一次性帧槽、失败失效、下游异常释放）与 `mirror-snapshot.test.ts`（捕获失败降级）覆盖；重启/导出边界仍属运行态，保持未验证。
+
+## R06 断线、重连与 outbox（2026-09-09）
+
+新增 [R06 记录](./evidence/short-scenarios/ACC-20260907-01/R06-outbox-reconnect-20260909.md)，状态 PARTIAL。
+断线期间远端错误可见，outbox 保留 `update` 条目并记录 originId、尝试次数与错误；本地事实仍可召回；重连后队列清空。
+新发现：`update` 先于 `insert` 时投递被当作成功，outbox 清空但远端无对应行（`656b0f6f-…` 查询 0 行），批准状态未到达远端。未产生 `insert`/`delete`，完整次序收敛与 tombstone 未覆盖。
+
+## M07 新会话首问配对（2026-09-09）
+
+新增 [M07 配对记录](./evidence/short-scenarios/ACC-20260907-01/M07-firstq-pairing-20260909.md)。
+全新会话首问在记忆开启时命中已批准的 Flow 来源事实（`seq=5`），零工具调用，回答中的 marker 内容与 `contentHash` 和实际文件逐字节一致。
+记忆关闭时检索为空，但模型改用工作区工具作答，记为混杂项，不作行为通过。
+
+## 修复批独立复核（2026-09-09）
+
+新增 [独立复核记录](./acceptance-review-20260909.md)，核对修复实现、追加验收与指定会话 journal。
+253 项定向回归通过；发现技能 Schema 未支持约束被静默接受，列出恢复后修改约束的授权缺口与后续复现条件。
+收窄 V02 清理和 M07 首问召回的证明范围，记录 D05/D06、R02/R03 等汇总状态冲突。
+本批仅增加复核文档，不修改产品代码、用户 profile 或原始验收结果。
+
+## 验收后代码审查回填设计（2026-09-08）
+
+后续实施批：备份 leader owner、技能源码/自测审阅与哈希绑定、30 分钟社交跨轮去重、长期目标恢复单入口、证据门分类、adoption 调度初始化、dreaming 主体隔离均已修改。
+设置页和聊天卡复用同一审阅组件；目录提交在 follower-to-leader RPC 前增加结构化克隆，新增隔离浏览器回归，保留真实 Pinia、聊天和计划行为。
+验收产物单独排除格式检查，未改原始字节。已用明确的用户 profile/provider/CDP 参数重建并重启 Electron；未覆盖 provider 凭据、角色卡或主对话内容，未创建提交。
+检查结果、边界与剩余验收顺序见 [实施记录](./acceptance-repairs-20260908.md)。以下保留此前仅文档批次的原始说明。
+
+将 ACC-20260907-01 的代码审查结论补回 DR/MQ/PC/LG/SP/SG/MD 七份原执行文件，并更新总索引、观察准入和短场景入口。
+沿用原批次，分别记录可开始修复、先补测定位、前置依赖与关闭条件。
+包含备份 owner 注册、技能源码审阅、跨轮社交去重、长期目标恢复双入口、证据语义和 dreaming 主体隔离。
+新会话空回答、旧工作区读取、拒绝重试与步骤归属保留为定位任务；审批超时补测按代码的 60 秒执行。
+62 项原始验收结果保持 22 PASS、18 FAIL、22 BLOCKED。上述审查回填阶段仅修改文档；随后代码修复、构建和运行态复验见实施记录。
+
+## 七维短场景验收计划（2026-09-07）
+
+新增 [短场景交互验收计划](./short-scenario-acceptance-plan.md)，并加入七维总索引。
+计划沿用带用户 profile 的构建版 Electron，通过 CDP 与 agent-browser 执行。
+共 62 个场景，覆盖四项基本排查发现、任务介入、记忆与角色隔离、长期目标恢复、20 个社交刺激、视觉、技能及非空数据恢复。
+每项记录具体话术、预期回答、行为与持久化证据；全部待执行，不宣称修复或验收通过。
+
+## Postgres 镜像真实回归（2026-09-07）
+
+Docker 恢复后使用 compose 的本地映射连接串运行 `memory-pgvector` 集成测试，4/4 通过。
+覆盖插入/检索/删除、`originId` 幂等、删除 tombstone 防复活，以及审阅/修订/删除传播。
+这只证明远端镜像契约；90 条真实 provider/profile 记忆评估、断线恢复和打包 Electron 仍未完成。
+
+## MQ-0 生产 trace 接线（2026-09-07）
+
+生产 memory store 评估现在记录原始/归一化查询、两路完整候选与最终注入候选，并传递实际 session/scope；OpenAI-compatible embedding provider 的两路 query token usage 也会保留。成本字段支持实际费用或显式价目估算，缺失值不会伪装成零；memory-core 成本指标 4 条、stage-ui 评估 3 条测试通过。2026-09-07 已在隔离本地 profile 的 Electron renderer 中运行 90 条 synthetic gold 基线，见 [MQ-0 接线证据](./evidence/mq-0/wiring-findings.md) 和 [生产报告](./evidence/mq-0/production-report-20260907.md)。外部 provider、真实用户事实和费用价目仍待执行。
+
+## DR-1 完成评审裁决（2026-09-07）
+
+审批结算增量：命令和计划审批超时都广播拒绝回执，显式裁决清理计时器，迟到审批不重复结算。
+两条缺陷先复现后修复，主进程与执行策略共 13 条测试通过。见 [审批证据](./evidence/dr-20260907/approval-settlement.md)。
+
+DR-1 评审增量：修复弃权/否定/驳回文本因包含 pass 或 approve 而被误判通过。
+结构化裁决不再落入全文关键词搜索，纯文本只识别明确的起始裁决。
+112 条完成门与运行时回归通过，core-agent 生产导出已重建。见 [证据](./evidence/dr-20260907/reviewer-verdicts.md)。
+根 typecheck 与 lint 均退出码 0。
+
+完成门补充：批准请求的 rejected、cancelled 和未决状态现在分别显示为拒绝、取消和待批准，
+超时拒绝回执因此能沿用同一条阻塞路径。evidence-gate 22 条测试通过；真实窗口和人工接手组合仍待验收。
+
+完成边界补充：L1 完成门先处理审批等待和失败状态，再接受模型的 `declaredComplete` 声明，
+所以待审批或失败步骤不能以未验证关闭越过 done 边界。core-agent flow-completion 定向回归
+13 条通过；真实审批、超时和人工接手组合仍未验收。
+
+计划投影补充：stage-ui journal 投影不再把审批阻塞或明确失败的模型 `completed` 声明加入
+`completedSteps`，用户可见计划会保留 approval/failed blocker。plans 定向回归 19 条通过。
+
+DR-3 journal 补充：journal host 按已落盘 seq 集合去重，允许在 `seq=1,3` 后补写 `seq=2`；
+写入异常会丢弃内存集合并在下一次调用重新扫描，覆盖写后回执丢失。journal-host 定向回归
+11 条通过，真实打包故障组合仍未验收。
+
+DR-2 键盘停止补充：聊天历史通过 VueUse `useEventListener` 监听 Escape，在存在运行中或等待用户的
+TaskRun 时发出既有 `stopTask` 事件；输入框、文本域和 contenteditable 保留自身 Escape 行为。
+task activity contract 4 条通过，stage-ui typecheck 通过；真实窗口与窄屏验收仍未运行。
+
+MD-2 恢复异常补充：独立 profile 的归档校验、导入或 bootstrap 失败会释放本地 owner 初始化，
+但继续保留 durable effect hold；renderer 不再永久等待，损坏 profile 仍不会自动执行外部副作用。
+随后已完成重新打包 Electron 的独立 source/restore profile 运行，且补充非空 memory row 恢复；
+custom skill workspace 和非空 outbox/scheduler 关系仍待运行，见 [打包恢复证据](./evidence/md-2/packaged-restore-20260907.md)。
+
+## MD-2 恢复回执故障回归（2026-09-07）
+
+数据库对照增量：快照浏览器回归从单条 tag 扩展到五张表，覆盖事实纠正、来源与作用域、技能肌肉记录、向量元数据、目标状态和经历关系。
+真实 DuckDB-Wasm 导出、损坏回滚及关闭重开后的完整行对照通过，未替代 Electron 独立 profile 验收。
+详见 [数据库证据](./evidence/md-2/database-roundtrip-20260907.md)。
+本批根 typecheck 与 lint 均退出码 0。
+
+副作用门增量：主进程恢复标记在后续启动继续约束自动副作用；本地初始化不再同时释放 outbox 和调度。
+修复恢复删除记录被远端重放，保留队列及重试时间。聊天即时发送和删除回执、dreaming、社交、旧 Flow 与目标调度采用同一暂停判断。
+本批没有开放解除暂停的入口，真实远端和打包验证仍未完成。见 [执行证据](./evidence/md-2/restore-effects-20260907.md)。
+本批浏览器 6 条、Node 55 条测试通过；根 typecheck 和 lint 均退出码 0。
+
+恢复 profile 的副作用保持新增持久 adoption 回执：完成恢复前后对照后由
+`adoptRestoredProfile()` 明确释放，后续启动读取同一决定，不再永久暂停或隐式恢复。
+数据设置页现在提供该动作，并通过主进程事件同步所有 renderer。主进程 profile、renderer gate、
+stage-ui 与设置页 typecheck 通过；打包 fixture 已运行，非空 owner 对照仍未完成。
+
+后续 owner 批次：修复 renderer 恢复导入死锁，普通 owner 启动等待持久回执。
+恢复时先写角色身份，再由聊天 owner 选择会话；gate 关闭时不改写归档消息。
+已审技能保留审阅哈希，在启动源码复核前不注册。浏览器 10 条与 Node 32 条测试通过。
+本批根 `pnpm typecheck`、`pnpm lint` 均退出码 0。
+范围与剩余项见 [owner 回归证据](./evidence/md-2/restore-owners-20260907.md)。
+
+## SG-1 自测证据恢复校验（2026-09-07）
+
+修复技能恢复校验把 `selftest.mjs` 哈希误当源码哈希的问题。`skill_submit` 记录的自测哈希现在与归档自测文件逐字节核对；自测文件被替换时恢复拒绝，源码审阅哈希仍单独校验。stage-ui 数据恢复 2 条、stage-tamagotchi skill-submit 8 条定向测试通过；真实 profile 重启、三种不同输入的实用技能毕业考和修订/退役/恢复行为仍待运行。
+
+SG-1/MD-2 恢复副作用补充（2026-09-07）：技能 `restore()` 现在尊重 restored profile 的
+durable effect hold；adoption 前不注册已审技能，`backupAdopted` 后再执行源码复核并注册。
+stage-ui skills 浏览器回归 5 条通过；真实 profile adoption 和打包运行仍未验收。
+
+MD-2/DR-3 打包启动补充（2026-09-07）：Electron main bundle 将 `@proj-airi/skill-forge`
+加入 workspace alias 与 externalize exclude，修复打包后外置包解析 extensionless `./hash`
+导致的启动失败。重建并运行 `memory-runtime-smoke.ts --launch --port 9267` 通过，main SHA-256
+为 `7e173eb43b0d3a0770737a66427340310e7153eecf1b7d9a6d40ecde530c5342`；仅证明打包启动和 CDP，
+未做页面交互、profile 导入或真实 provider。
+
+MD-2 增量（2026-09-07）：修复恢复回执重复确认和持久化写失败后的提前完成状态，补充 7 条主进程恢复测试。
+仓库 typecheck 与 lint 通过；DuckDB owner 7 条测试通过。本批运行与未覆盖边界见 [恢复回执证据](./evidence/md-2/restore-receipts-20260907.md)。
+完整 owner 启动、数据关系对照和打包运行仍未完成。未创建提交。
+
+## 七维升级执行计划（2026-09-06）
+
+新增 [七维升级总索引](./upgrade-roadmap.md) 和七份执行文件：
+
+- [日用可靠性与任务透明度](./daily-reliability-plan.md)：DR-0 至 DR-4。
+- [记忆语义质量](./memory-quality-plan.md)：MQ-0 至 MQ-4。
+- [人格与关系连续性](./persona-continuity-plan.md)：PC-0 至 PC-4。
+- [跨天目标管理](./long-horizon-goals-plan.md)：LG-0 至 LG-4。
+- [主动交流与共同活动](./social-presence-plan.md)：SP-0 至 SP-5。
+- [技能持久积累](./skill-growth-plan.md)：SG-0 至 SG-4。
+- [单人维护与数据所有权](./maintainability-and-data-plan.md)：MD-0 至 MD-4。
+
+总索引记录旧计划的后续批次、当前解释和新批次归属，包括 TASK-RUN F、
+可靠性 R5、记忆多视图 D 与 reranker F、CONSIDERATION 5、LIFE M4-L0 至 L3、
+rewind、Hashline 基准、本地 RPC、镜像媒体扩展和外部代劳层。
+已实施项保留为回归基线，已取消的 dsh 适配不再排期。
+COMMAND Phase E 的历史实现记录与后续社交边界冲突交给 LG-0 核对，
+不得恢复社交考量执行工作或 Plan 自续跑的旧路径。
+
+本批只交付文档，没有实现七维路线的生产代码，也没有重新验收历史功能。
+各执行文件包含代码入口、所有权、依赖、步骤、验收与待执行状态。
+
+检查：八篇新文档的本地链接和一级标题检查通过，文档差异检查通过。
+仓库指南中的 `pnpm type-check` 因脚本不存在失败，改用实际的 `pnpm typecheck`
+后通过；`pnpm lint` 退出码 0，非本批文档中的既有警告保留。
+本轮未运行 Vitest、真实 provider、Electron 或 Postgres 场景。
+
+## DR-0/DR-2 — 日用可靠性局部执行（2026-09-06）
+
+- 完成 DR-0 基线核对：登记工作树、构建产物、隔离 Electron profile、旧 F/T/L/R 编号和本次证据边界。
+- 完成 DR-2 的代码缺口：`core-agent` 的 `TaskRun` 发布最多 40 行的结构化活动投影，按 `taskId`/`flowId` 隔离；stage-ui follower 面板只消费该投影，不扫描或同步全量 journal。
+- 受控双窗口 Electron 冒烟通过：leader 的 `dr-task` 活动快照到达 follower，follower 显示任务摘要和工具调用计数；运行无真实 provider/model、Postgres 或用户数据。Vishot 专用 task-activity 场景在打开 chat 窗口时超时，按要求改用直接 main-window capture，产物已检查并登记。
+- 验证：core-agent 全量 26 files / 269 tests 通过；stage-ui browser 50 tests 通过；stage-ui node 874 tests 通过但进程有 provider 网络 fetch 的环境级未处理拒绝；tamagotchi 全量有 4 个 Windows symlink/path 环境失败。三个 owning package typecheck 与 Electron build 通过；根 typecheck/lint 的最终结果见证据记录。
+- Docker Postgres repository integration 4/4 已通过；真实 provider、网络断线恢复、打包 EXE、>2,000 条 journal 重启及 DR-4 条件扩展仍未验收。详见 [DR 执行证据](./evidence/dr-20260906/dr-execution-record.md) 和 [MQ-0 Postgres 证据](./evidence/mq-0/postgres-integration-20260907.md)。
+
+## DR-1/DR-2/DR-3/DR-4 — production profile 继续执行（2026-09-06）
+
+- 按用户许可重启默认 user profile 的 production Electron，并在重建后的 bundle 上复验。真实 provider 完成只读成功、只读失败、失败后写入并复读、`user_ask` 回答和问题等待中停止；probe 内容与 SHA-256 已登记在 [日用可靠性计划](./daily-reliability-plan.md#7-继续执行记录2026-09-06)。
+- 修复两个真实发现：`flow/start` 先于命令 `user/message` 时，TaskRun 标题改从当前 flow 窗口取命令；legacy journal 缺少 header 时，hydrate 合成带 `seq: 0` 的 header。分别加入 core-agent 和 stage-ui 回归。
+- production follower 收到真实 TaskRun 活动；最新任务为 completed，活动 28 行并含 read/write/flow_update/completion-review。停止场景记录 interrupted，停止后无新工具调用。
+- DR-3 长 journal 盘点发现最大文件 3,308 行/最高 seq 3,113，无 gap/坏行但有 195 条重复 seq；该日 Postgres 端口拒绝连接且 Docker daemon 不可用，属于历史环境记录。当前 Docker Postgres integration 4/4 已通过，网络断线和打包 EXE 仍留待后续。
+- DR-4 Hashline 前置因目标模型和一次真实写入样本成立，但 20 文件校准尚未执行；环境摘要和 rewind 条件未触发。
+- 验证：core-agent 270/270；stage-ui journal 10/10；memory-core 32/32；memory-pgvector 单测 5/5，Docker integration 4/4；core-agent 与 stage-tamagotchi build 通过。未创建提交。
+
+## M-RP — 记忆检索与持久化（2026-09-06）
+
+完成 [记忆检索与持久化路线计划](./MEMORY-RETRIEVAL-AND-PERSISTENCE-PLAN.md) 的批次 A、B、C、E：
+
+- DuckDB 增加 checkpoint、关闭生命周期、失败状态和 leader-only OPFS 写句柄保护；记忆浏览页显示数据库、checkpoint 和迁移状态。
+- 本地 DuckDB 与 pgvector 保存 embedding provider、model、dimensions、input type、fingerprint、生成时间和 active/stale 状态；当前查询只读取匹配的 document 向量。
+- embedding source 切换支持有界批次迁移、断点状态和显式 `reembedMemoryVectors()` 命令；Voyage 请求区分 `document` 与 `query`。
+- 长查询使用原始与机械归一化双路召回，结果按 id 去重并保留两路相似度诊断；journal 记录候选来源。
+- 评估 fixture 扩展为 9 个 strata、每组 10 条，并加入 precision、误召回率、token 成本和额外延迟字段。
+
+验证：相关类型检查通过；stage-ui node 测试 140 个文件、873 条测试通过；memory-pgvector 单元测试 5 条通过。需要外部 Postgres 的 4 条集成测试未运行。构建版 Electron 按指定命令使用默认用户 profile + CDP 9250 经 agent-browser 验收，长期记忆设置页与本地 DuckDB 兼容迁移通过；对话请求已抵达 `openai-compatible` provider 并返回 `provider-ok`，随后通过已有长期记忆相关问句得到“跑相关测试”，确认记忆上下文可读。验收启动约束已晋升为正确 profile 中的 `long_term` 记忆（`approved`、3 次访问、2 个会话）；具体 PowerShell 命令和 profile 路径见 [路线计划](./MEMORY-RETRIEVAL-AND-PERSISTENCE-PLAN.md)。验收默认不使用隔离 profile。批次 D（多视图内容）和 F（reranker）仍未实施。
+
+## 可靠性修复与长期路线计划（2026-09-05）
+
+新增 [短期可靠性修复与长期路线](./reliability-and-roadmap-plan.md)。
+本批只交付计划，没有实施运行时代码修复。
+计划记录 journal 与长期记忆 SQL 的调查证据，列出 R1–R6 的依赖与验收条件。
+长期路线区分能力贯通、可靠日用、持续自主和长期陪伴与成长。
+其中完成状态政策、长期方向和观察窗口均为建议，不记为已验收能力。
 
 ## 改动动机
 
@@ -291,6 +753,54 @@ typecheck 全过（stage-ui 消费 core-agent dist，改源码后需 `build:pack
 验证（第二轮）：core-agent 172/172、memory-core 15/15、skill-forge
 23/23、memory-pgvector 2/2、tamagotchi 四套件 13/13；memory-pgvector/
 stage-ui/stage-pages/stage-tamagotchi typecheck 全过。
+
+### M-M3 — 记忆维护批次：life-mode 自动梦境整理（2026-09-04）
+
+- `memory-core` 增加 dreaming 生命周期迁移校验和来源筛选：只有已批准的短期/长期
+  事实可以进入 dreaming pass，muscle、pending、rejected 和旧模板不会成为输入。
+- `stage-ui` 增加 `MemoryDreamAgent` 的自动调用边界：自动整理只在 leader 执行，
+  独立维护最短间隔、每日预算、新增事实门槛和本地日计数；失败不会把想法升级成
+  事实或计划。
+- life-mode 心跳接线遵守“社交优先、私有维护次之”：响应模式或自主模式无 stimulus
+  时才触发自动整理；忙碌、活跃 flow、focused 和社交 stimulus 会跳过。成功运行以
+  `memory/dream` append-only 事件记录。
+- 短期记忆设置页暴露自动开关、间隔、每日预算与新增记忆门槛；更新 en/zh-Hans 文案，
+  明确“做梦”不会自动执行计划。
+
+验证：memory-core dreaming 4/4；stage-ui memory + life-mode 16/16；
+core-agent/stage-ui/stage-pages typecheck、i18n build、目标文件 eslint 通过。
+真实 Electron/当前 provider 的自动触发验收仍待执行。
+
+### M-M4 — 记忆可靠性、事实修订与评估（2026-09-05）
+
+- **P3 可靠同步**：长期晋升先写本地持久 outbox；远端写入携带 `originId`，Postgres
+  使用唯一索引幂等；断线按指数退避，支持重试和已有长期记忆批量入队。远端同步默认
+  关闭，避免未确认的数据外流。
+- **P4 事实修订**：memory fragment 增加 `factStatus`、`supersedesId`、`conflictGroup`；
+  设置页可以提交修订/争议提案，提案默认 pending。批准 supersede 后才标记旧事实为
+  superseded，disputed 事实不会进入检索或 dreaming 输入。
+- **P5 中文评估**：`memory-core` 增加 cosine 排序、recall@K、precision@K、MRR 和
+  stratum 指标；`MEMORY-EVALUATION.md` 提供中文 fixture 与浏览器本地 embedding 运行入口。
+  指标不会自动改生产权重。
+- **P6 隐私/性能/交付**：远端同步开关、outbox 状态与重试 UI；晋升镜像优先复用已有
+  768 维向量，避免重复 embedding；新增 `memory-runtime-smoke.ts` 输出构建 SHA-256，
+  可启动隔离 Electron userData 并检查 CDP。
+
+验证：memory-core 类型检查与 dreaming/evaluation 6/6；memory-pgvector、stage-ui、
+stage-pages 类型检查通过；stage-ui memory tests 9/9；stage-tamagotchi build 与
+隔离 renderer/CDP smoke 已通过。真实 Postgres 断线长跑、中文模型分数和带 provider
+自动梦境行为仍未宣称完成。
+
+## MD-0 — 可识别构建与检查基线（2026-09-06）
+
+MD-0 完成只读基线核查：冻结工作树 diff SHA-256
+（`daf58b34f8c913c3aa39fba8ed323638ceda33faa7b0a1e34dd73b741256946d`）与两套独立构建标识。
+dev `out/`（main `aae2201a…`、renderer `5740c700…`、preload `6d7c0232…`）与打包 EXE
+（airi.exe `f8e36f72…`）时间戳不同，确认是不同产物，不可混用验收。root `pnpm typecheck`
+与 `pnpm lint` 均退出码 0。关键附加发现：真实 Postgres 现可用（`proj-airi-backend-db-1`
+Up 3 hours healthy，`127.0.0.1:5435` OPEN），memory-pgvector 4 条集成测试真实通过
+（805ms），解除 DR-3/MQ-0/MD-2 的数据库硬阻塞。证据见 [MD-0 基线记录](./evidence/md-0/md-0-baseline-record.md)。
+MD-0 本身仅完成基线核查，不构成 MD-1/MD-2 或任何功能批次的完成。未创建提交。
 
 
 
@@ -1077,3 +1587,562 @@ answered 且答案带人格口吻。注：btw 回答偶带角色卡的 `<|ACT|>`
   `git diff --check` 已通过。开发 Electron 日志显示 CDP 启动，但端口未在 60 秒内接受连接，
   设置页点击验收未执行；没有停止已有 Electron 进程。
 
+## FLOW-AUTONOMY 心流自主化（2026-09-03）
+
+- **动机**：两轮实测显示心流「过程被硬化勒死、完成判定却是弱判据」：no-progress 杀死
+  合法勘探，done 门放行 `ok:true count:0` 型假完成，叙述 100% 挤在回合尾，插话直接杀死
+  心流。设计对照 Codex harness 审计（软/硬控制分层、stop-hook 位置）裁决为「外硬内软」，
+  设计文档 `docs/fork/FLOW-AUTONOMY-PLAN.md`。
+- **runtime**：`todo_write` 不再触发 flow；停滞 = 零变更且零新增互异观察（`stalledTurns`
+  + `seenObservations`）；`plan/hint` 仅变更类工具发射；flow 迭代步预算默认 2
+  （`flowStepBudget` 可调，turn/start 记 `stepBudget`）+ 45 分钟墙钟；flowPrompt 重构为
+  开场契约（开场叙述、预算透明、steering、驳回反馈）。
+- **完成权威**：新模块 `core-agent/src/planning/flow-completion.ts`；done 声明在回合边界
+  过 L1 步骤门合取（host 端口 `evaluateFlowCompletion`）→ L3 低费 LLM 评审
+  （`reviewFlowCompletion`，bounce 必须引用回执，两连驳转 btw_ask 问用户）；移除旧的
+  「须有变更」粗暴门，分析型 flow 可诚实完成；`flow/completion-review` 事件入 journal；
+  done 的 detail 与 wrap-up 携带 unverified 清单。
+- **steering**：心流期间排队用户文本并入下一迭代开场（`user/steering` 事件，
+  `steerQueue` 上限 3），排队项 resolve 出队；flow 中 ingest 不再设置 steerRequested。
+- **可见性**：`flow-timeline-card.vue` 进聊天时间线（journal 活动流，含叙述与 steering）；
+  心流四种结算结束追加可见 wrap-up 助手消息；composer 指示器加聚焦步 intent；
+  devtools coding-console 增 `flow/*` 过滤桶；压缩摘要对有 flow 的 session 追加交接项；
+  `flow_update`/`plan_update` 描述按新语义改写。
+- **验证**：core-agent 228 tests（新增 11）、stage-ui 定向 130 tests 全过；
+  core-agent/stage-ui/stage-tamagotchi/stage-pages typecheck 通过；改动文件 lint 全绿；
+  i18n 仅增 en 与 zh-Hans。已知无关失败：stage-tamagotchi 插件宿主与静态资源路径
+  各 2 例（既有 Windows 路径分隔符问题）。真机验收清单见 FLOW-AUTONOMY-PLAN。
+
+## FLOW-KNOWLEDGE 知识可达性与呈现修复（2026-09-03 第二批）
+
+- **动机**：验收复盘（40 轮预算用尽）定位两条设计性根因：复合体项目的 agent 契约
+  （SKILL.md/AGENTS.md/MCP instructions）在工作面零通道；一次失败回执令计划猝死并
+  关闭盖章通道 35 轮。另含用户三项呈现要求：迭代气泡可见、开场叙述稳定、收尾由
+  模型陈述。设计记录见 FLOW-AUTONOMY-PLAN 的 FLOW-KNOWLEDGE 节。
+- **改动**：① 失败回执只产生 blocked 观察，`failed` 仅来自模型显式声明
+  （evidence-gate 投影）；② work 轮渲染 `## Toolset`（MCP instructions 可达，
+  profile 过滤保留）；③ 新增 `workspace-docs.ts`：skill 目录（`.agents/skills`
+  frontmatter + 已审技能，4k 预算）与 `AGENTS.md`（6k 有界 untrusted）进工作前缀，
+  正文按需经 `read` 读取，缓存按 root+TTL；④ bash 分类器把解释器/脚本调用归
+  medium（`--version/--help` 探针除外）；⑤ flow 迭代助手消息改可见
+  （`flowIteration` 标记仅门云同步），step 0 注入系统级开场指令；⑥ wrap-up 改为
+  模型轮（机械记录作合成提示，失败回退机械文本）。
+- **验证**：core-agent 232 / stage-ui 873 全过（新增约 11 例）；四包 typecheck 过；
+  改动区 lint 干净。
+
+## CONSIDERATION 社交考量批次（2026-09-04）
+
+- **动机**：生命模式虽有心跳，却长期只留下 `self_note`，没有可靠的公开开口闭环；
+  重启还会重新等待完整间隔，`0 → 23` 静默配置也没有在界面上暴露实际影响。
+  设计记录见 `docs/fork/CONSIDERATION-PLAN.md`。
+- **主进程**：以持久化 `nextHeartbeatAt` 的单次定时器替代重复间隔；拆分 heartbeat
+  与 decision 时间；增加 Valibot 配置校验、pending heartbeat TTL、原子决定 claim、
+  每次变更后的完整 Eventa 快照广播；测试心跳只跳过时间门，不跳过预算。
+- **社交闭环**：生命 store 移除长期 goal/心流执行，先从 journal 投影最多五个有界事实；
+  排除原始工具输出、life 反馈和 `self_*` 结果；只挂 `self_decide`，要求
+  `toolChoice=required`、`maxSteps=1`。控制轮普通文本不进入聊天/TTS，只有经过验证的
+  `speak` 通过 `publishAssistantMessage` 进入气泡和 TTS。
+- **可观测性**：新增 `life/heartbeat` 与 `life/decision` 事件、跨窗口 snapshot，设置页
+  拆为状态卡、配置表单、决策列表；显示下一次心跳、预算、gate、决策，并警告超长静默。
+- **验证**：core-agent 全量 25 files / 243 tests，stage-ui 全量 148 files / 885 tests，
+  stage-tamagotchi 生命模式与内置工具 22 tests，四个目标包 typecheck，改动文件 lint
+  和 i18n build 均通过。
+- **遗留**：已用隔离 profile 启动 `out/main/index.js` 并确认主 renderer CDP 目标；
+  settings lazy window 的 agent-browser 自动化在本轮超时，因此浏览器多窗口、打包 EXE
+  和当前 provider 的 20 组行为实验仍未执行。隔离 profile 已清理，日常 userData 不因
+  本批次自动修改。
+
+## RELIABILITY 批次（2026-09-05）：审计文档 R1–R6 短期修复
+
+依据 `docs/fork/reliability-and-roadmap-plan.md`，一次落地全部短期可修复项。
+
+- **R2（42P10）**：`memory-pgvector` insert 的 `ON CONFLICT (origin_id)` 补上与部分唯一
+  索引相同的谓词（`WHERE origin_id IS NOT NULL AND deleted_at IS NULL`），修掉真库上
+  全量 insert 失败的 42P10；insert 增加墓碑守卫——同 `origin_id` 的软删行存在时直接
+  返回该行，重投递不再复活已删除事实；`schema.ts` 补唯一索引声明与 DDL 对齐。
+  已用 PGlite（真 Postgres 语义）复现修复前 42P10 与修复后幂等；集成测试新增
+  幂等重投递、无 originId 插入、墓碑不复活、update/remove 传播四组用例
+  （DATABASE_URL 门控，Docker 本轮未运行，真库验收待独立执行）。
+- **R1（journal）**：主进程 journal-host 按 seq 去重（回执丢失重试不重复写盘，
+  watermark 从文件首个 seq 起算连续段，兼容无 header 的旧格式文件），read 返回
+  `lastSeq/gaps/corruptLines/duplicateLines`，回放上限 2000 → 50000。渲染层 store：
+  失败批次按序重入队 + 指数退避重试（1s→30s），`flushNow` 挂 beforeunload 尽力落盘；
+  hydrate 改为 `initialEvents` 种子化，**回放保留原始 seq**（证据引用、决策水位、
+  devtools 编号跨重启身份稳定），遇缺口只装载连续前缀并公开 `identityBrokenFrom`，
+  绝不静默改写历史文件；`persistenceStatus.complete` 公开持久化健康度。core-agent
+  runtime 新增 `journalIntegrity` 依赖——回放不完整时抑制心流自动续跑。
+  devtools coding-console 增加持久化状态行（降级时橙色显示 pending/gaps/缺口）。
+- **R3（镜像传播）**：pgvector 新增 `updateByOriginId`/`removeByOriginId`（update 过滤
+  软删行，remove 即墓碑）；shared/eventa 新增 `memoryHostUpdate`/`memoryHostRemove`，
+  memory-host 与 renderer 桥补齐通道；memory store outbox 泛化为
+  `insert | update | delete` 三种操作（旧条目无 kind 归一化为 insert），approve/reject、
+  supersede 批准、内容编辑（携带重嵌向量）、删除全部入队同一 FIFO 持久化队列，
+  按 kind 分派；leader 为唯一投递所有者，新增 60s 到期重试调度器（修复"退避后
+  无人触发"）；设置页 outbox 从纯计数扩展为操作明细（kind/originId/次数/错误）。
+  **设计裁决**：不引入版本列——单 owner + FIFO + 幂等绝对状态补丁 + 墓碑已满足
+  审计全部验收（乱序不覆盖、不复活、重复幂等），版本列是冗余机制。
+- **R4（完成诚实性）**：`settleDoneDeclaration` 门异常从"当 pass 处理"改为照常结束但
+  detail/wrap-up 明确 `unverified: the completion gate failed`；评审弃权在机械证据不全
+  （有声明关闭的步骤或门异常）时同样标注 `unverified: the completion review was
+  unavailable`，证据齐全时弃权放行不变（如实记录 abstain）；**插话先于完成结算**——
+  同一边界消费到 steering 时跳过 pendingEnd 结算，插话进入下一迭代开场、模型可在
+  新上下文再次声明 done（修复"声明吞掉插话"）；steerQueue 溢出丢弃最旧时在
+  `user/steering` 事件记 `droppedOldest`。unverified 状态经 flow detail 进入
+  `flow/end` 与 wrap-up prompt（"End detail"）。
+- **R6**：`server-runtime` 显式 `import process from 'node:process'`；
+  `FLOW-AUTONOMY-PLAN.md` 第二个 H1 降级；i18n 未新增键。
+
+验证：core-agent 25 files / 248 tests、stage-ui 149 files / 901 tests、memory-core
+21、memory-pgvector 单元 4、tamagotchi journal-host 6 全绿；core-agent/stage-ui/
+stage-tamagotchi/stage-pages/memory-pgvector/memory-core typecheck 全过；改动文件
+eslint 干净（stage-ui 全量 src 在 Git Bash 下复现已知 eslint segfault，属环境问题）。
+
+遗留（移交 R5 真机批次）：审计 §5 的 9 个 Electron 组合场景（需真实 provider、
+打包 EXE、多窗口）；`DATABASE_URL` 门控的 pgvector 集成测试需 Docker Postgres
+现场执行；journal 既有历史文件含缺口时前缀装载 + 状态公开的行为需真机抽查。
+
+## TASK-RUN-AND-UI 真机验收（2026-09-05）：部分场景走查 + 跨窗口投影修复
+
+环境：构建版 electron.exe + CDP 9250 + 日常 profile；agent-browser eval 层
+交互 + `D:/.airi-smoke/cdp-eval.cjs` raw CDP（tab/connect 激活层挂死，MODS
+已知坑；CDP fill 非 ASCII 乱码、Git Bash `#/xxx` 参数路径转换，均复现为已知坑）。
+
+- **通过**：F2 真实任务 25 轮自动推进且 `user/message` 恒 1（批次 C）；F5
+  活动面板标题/状态/迭代/最近失败/结束原因 + 迭代叙述气泡（批次 B）；F6
+  停止按钮运行中呈现/结束消失/点击端到端中断；F7 运行中强杀重启后同
+  taskId 自动恢复（iter 3→6→9）+ journal 重放 570 条投影稳定（批次 D）。
+  flow/step 的 `lastJournalSeq`（17→35→50→560）与完整 resume 快照真机写入。
+- **发现 #1（当场修复）**：活动面板渲染在 follower 聊天窗口，但 journal
+  投影只在 leader（journal store 刻意不跨窗口同步）→ follower 面板永远
+  为空。修复：leader watch 投影、经 synced action `publishTaskRuns` 发布
+  `chat.taskRuns` 快照（内容哈希去重）；follower 读快照。复验通过。已知
+  限制：follower 面板明细行为空（"暂无动态"），完整记录在 journal/devtools。
+- **未走查**：F1/F3/F4/F8–F12；批次 E 升级拦截与大结果截断由单测覆盖。
+- 验证记录与场景映射写入 `TASK-RUN-AND-UI-PLAN.md` §9。
+
+## TASK-RUN-AND-UI 批次 E：有界内部上下文（2026-09-05）
+
+- **失败摘要**：`FlowFailureRecord` 加 `outcome` 分类；轨迹 6 条上限、字段
+  240 字符截断不变；迭代开场失败段改 `Recent failures ([outcome] …)`——
+  教训不是证据（证据门语义不变）。
+- **重复调用**：指纹拦截阈值 3 之上新增 `FLOW_REPEAT_FAILURE_ESCALATION = 6`
+  ——升级后的 blocked 提示要求问她/声明 blocked/彻底换方法；与 no-progress
+  停滞判定共同保证重复失败必然收敛。
+- **大型结果**：provider 上下文中 tool 消息超 4000 字符截断并附
+  `[truncated N characters — the full result is preserved in the journal]`；
+  journal 保全量，UI 不变。**设计调整**：不做 workspace 临时文件外置——
+  journal 已是完整结果的可读取存储，免去清理失败面（计划文档已记录裁决）。
+- **验证**：runtime 新增 2 例（升级拦截、截断+journal 全量）；core-agent
+  265/265、typecheck 0、eslint 干净。
+
+## TASK-RUN-AND-UI 批次 D：Flow 恢复信息（2026-09-05）
+
+- **契约**：`FlowResumeConfig`（provider/model/profile/toolNames/
+  workspaceRoot，零 secret）+ `FlowResumeContext`；`flow/start` 带 `resume`，
+  `flow/step` 带 `lastJournalSeq` 游标并刷新 resume（最新者胜）。
+- **恢复门**：runtime 新 deps `verifyFlowResume`——rebuild 时组装上下文校验，
+  失败/缺失写 `flow/end {interrupted, detail:'waiting to resume: …'}` 并放弃
+  自动续跑（等待原因可见，不静默）；身份与 seq 用事件游标不重编。
+- **宿主**：chat store 提供快照（work 画像 + 常驻工作工具面 + coding host
+  root）与校验（provider 配置库同步比对；model/工具目录懒加载，严格比对会
+  假阴性，记录不校验）。多窗口 owner 仍为 leader。
+- **验证**：runtime 新增 2 例（游标+刷新、阻断可见）；core-agent 263/263、
+  stage-ui 911/911、typecheck/eslint 干净。
+
+## TASK-RUN-AND-UI 批次 C：Flow 唯一推进器（2026-09-05）
+
+- **删除 Plan 自续跑**：`schedulePlanContinuation`（合成 self-initiative
+  文本、每计划 2 次上限、setTimeout 冷却）整体移除，`onChatTurnComplete`
+  不再调度。剩余步骤经计划投影可见、L1 完成门防 done 关闭；自动推进只剩
+  Flow 一个入口（用户发送、`/flow`、flow continuation 三种入口保留）。
+- **卫生核对**：flow continuation 携带 `source:'flow'`+`taskId`、不写
+  user/message、不进记忆提取；续跑前结算/压缩等待/终止检查、steering 先于
+  done、停止取消全链——均为既有行为，核对无回归。
+- **验证**：新增 `chat-advancer.test.ts` 契约钉住删除；core-agent 261/261、
+  stage-ui 911/911、stage-ui typecheck 干净、eslint 干净。
+
+## TASK-RUN-AND-UI 批次 B：三种界面投影分离（2026-09-05）
+
+- **任务活动面板**：新 `task-activity-panel.vue`——TaskRun 驱动、按 taskId+
+  flow/end 截断事件窗口（修掉旧卡按 flow/start 扫到日志尾、跨任务泄漏的
+  问题）、40 行上限、收起/展开/停止、移动端摘要行；运行中任务固定时间线
+  末端，结束任务留最近 3 个可展开摘要。
+- **投影去重**：`history.vue` 以 `taskRuns` 替换 `flow` prop（FlowState 卡
+  与 `flow-timeline-card.vue` 移除）；`assistant-item.vue` 新增
+  `hideToolSlices`——flow 迭代气泡只留叙述，工具活动归活动面板，每投影内
+  一次工具调用至多出现一次。计划卡核对确认只读裁决（不显示工具参数）。
+- **接线**：tamagotchi InteractiveArea 传 task-runs + stop-task（复用
+  endFlow）；composer 琥珀条仍读 runtime flowStates（即时步数与投影分离）。
+- **i18n**：`stage.task-activity.*`（en + zh-Hans），删 `stage.flow-timeline.*`。
+- **验证**：stage-ui 150 files / 908 tests（新增 3）、tamagotchi typecheck 0
+  错误、生产构建通过、eslint 干净。真机投影走查随批次 F。
+
+## TASK-RUN-AND-UI 批次 A：TaskRun 投影（2026-09-05）
+
+依据 `docs/fork/TASK-RUN-AND-UI-PLAN.md`（批次 A–F 的第一批）。
+
+- **契约**：journal 事件的 `taskId` 关联字段（flow/*、plan/update、tool/*、
+  user/steering、user/asked|answered、turn/start、flow/completion-review）+
+  `TaskRun`/`TaskRunStatus` 类型。`taskId` 与 `flowId` 并列铸造、互不派生。
+- **派生**：`core-agent/journal/task-run.ts` 的 `deriveTaskRuns`（按戳记归属，
+  零时间窗口猜测；旧 journal 无戳记的 flow 聚合为 `legacy:<flowId>` 一次性
+  投影，标记不可恢复）与 `openTaskId`（写方写时归属辅助）。
+- **runtime**：startFlow 铸造 taskId 并随 flow/工具/steering/评审事件携带；
+  `rebuildFlowFromJournal` 恢复原 taskId，无戳记旧 flow 抑制自动续跑。
+- **stage-ui**：journal store 暴露 `taskRuns`；plans/user-ask/btw 写入点按
+  开放任务戳记；chat store 只读投影，完成门的计划归属改戳记优先（legacy
+  窗口扫描仅对旧事件回退）。
+- **验证**：core-agent 261/261（新增 14）、stage-ui 904/904（新增 3）、
+  core-agent/stage-ui/stage-tamagotchi typecheck 过、改动文件 eslint 干净。
+  踩坑复现：stage-ui 测试消费 core-agent dist，改源码后必须重建。
+- **边界**：UI 时间线改造按计划留给批次 B；真机验收随批次 F 统一执行。
+
+## TASK-RUN-AND-UI 任务运行时与聊天界面改造计划（2026-09-05）
+
+- **动机**：继续对照 Codex CLI、AstrBot 与 AIRI 当前实现后，确认控制循环已经存在，
+  但任务身份、聊天展示、计划裁决、Flow 推进和重启恢复仍没有形成一个统一契约。
+- **计划**：新增 `docs/fork/TASK-RUN-AND-UI-PLAN.md`。计划分六批：建立 `TaskRun`
+  投影；分离聊天、任务活动和计划裁决；让 Flow 成为唯一推进器；保存完整恢复信息；
+  建立有界的失败、重复调用和大型结果上下文；完成真实 Electron 组合验收。
+- **交接**：该文件面向后续实现模型。每批先更新公共事件契约，再更新 runtime、UI 和测试；
+  未完成真实 provider、停止、重启、多窗口和打包 EXE 验收时，不得声明桌面端任务运行时完成。
+
+## MEMORY-SEMANTICS-CORRECTION 记忆语义纠偏计划（2026-09-05）
+
+- **动机**：真实记忆样本把用户代码工作偏好保存为 `muscle`，但普通向量检索排除
+  `muscle`，自然语言问题也没有匹配的 `triggerPattern`。新会话因此无法证明召回；
+  dreaming pass 也有意排除 `muscle`，不能修复这个分类错误。
+- **计划**：新增 `docs/fork/MEMORY-SEMANTICS-CORRECTION-PLAN.md`。先收紧普通抽取，
+  让 `muscle` 只能由显式能力创建；再迁移无效旧记录；补稳定 memory 引用和召回观测；
+  完成事实纠正闭环；最后运行跨会话行为纵切片。
+- **范围控制**：批次 A–E 通过前不更换 embedding、不重写排序公式、不扩展生命模式，
+  先证明“事实能召回并改变行为”，再决定是否需要记忆层大改动。
+
+## MEMORY-SEMANTICS-CORRECTION 批次 A–D 实施（2026-09-05）
+
+依据 `docs/fork/MEMORY-SEMANTICS-CORRECTION-PLAN.md`，一次一批落地；批次 E
+协议见新增的 `docs/fork/MEMORY-BEHAVIOR-SLICE.md`，待实机运行。
+
+- **批次 A（收紧抽取契约）**：`MemoryExtraction.memoryType` 收紧为
+  `'short_term'`；新增 `memory-core/extraction.ts` 的
+  `parseMemoryTurnExtractions()`（结构校验 + 钳制 + 误标 muscle 纠正为待审核
+  事实），chat.ts 抽取提示同步只允许 short_term；`isActionableMemoryFragment()`
+  门控 muscle reflex 与闯入通道（pending/rejected/superseded/disputed 一律不
+  触发）；pgvector 检索过滤与 DuckDB 对齐为 approved+active 事实门。
+- **批次 B（修复错误记录）**：`convertMuscleToFact()` 原位迁移无触发模式的
+  muscle（保留 id/来源/访问史，重置 pending、清触发模式、重 embedding、重置
+  半衰期），拒绝复活 rejected；`memory/migrated` journal 事件 + 记忆浏览器
+  三选 UI（转事实/保留/删除）+ en/zh-Hans 文案。
+- **批次 C（召回观测）**：`memory/retrieved` 增加 `turnId`；新增
+  `memory/applied`（按 `[memory:<id>]` 标记在回答与工具参数中检测引用，
+  retrieved/applied 配对，未引用记空），复述与跨会话召回可分开统计。
+- **批次 D（纠正闭环）**：muscle 修订一律转为事实语义（不再保留反射），
+  `supersedesId` + relation 标签保留冲突关系；新增 `memory/revised` journal
+  事件；批准后旧 claim superseded，检索与 reflex 双侧过滤生效。
+- **验证**：memory-core 16 例、stage-ui memory store 16 例、pgvector 5 例、
+  core-agent runtime 80 例全部通过；memory-core / memory-pgvector /
+  core-agent / stage-ui typecheck 通过（分支预存的无关类型错误已顺手修复
+  两处：`connectMemoryRepository` 缺失的 mirror ops 类型、integration 测试
+  缺失的 fixture）。改 stage-ui/core-agent 源码后注意先重建再跑跨包测试。
+- **边界**：批次 E（实机行为纵切片）未执行，完成定义 §11 的"跨会话召回"
+  与"纠正胜出"两条尚未有行为证据；§8 的禁区（embedding、评分公式等）继续冻结。
+
+## MEMORY-SEMANTICS-CORRECTION 批次 B 实机验收（2026-09-05）
+
+- 用户启动带 CDP 的构建版进程（9250）供验收；发现该进程跑的是 18:38 的部分
+  构建（含 A + B 的 store 层，缺浏览器 UI 与 C/D），重建后重启补齐。
+- 实机闭环（CDP eval + 页面 UI 驱动）：captureTurn 播种误标 muscle（复现
+  原始故障）→ 记忆浏览器显示迁移三选 → 点击"转为事实"原位迁移（同 id、
+  pending、触发清空、半衰期重置、向量与访问史保留）→ `memory/migrated`
+  journal 落盘 → 审核队列批准 → 自然语言检索探针 1.274 分召回。
+- 数据事实：源码 profile 两个 OPFS origin（file://、dev 5173）实测均为空库
+  （含软删除行），原观察样本的存储来源待确认；PG（5435）未运行。验收记录
+  见计划文档 §12.2。
+- 工具坑：agent-browser `tab` 在繁忙渲染器上挂起（复认），CDP Runtime.evaluate
+  (`D:/.airi-smoke/cdp-eval.cjs`) 仍是可靠探针；`useLocalStorageManualReset`
+  不监听 storage 变化，控制台直接改 localStorage 不影响已创建的 store ref，
+  必须给 store 赋值；embedding 模型缓存按 origin 隔离，dev origin 首次加载
+  会卡在下载，构建版 origin（file://）有缓存。
+
+## MEMORY-SEMANTICS-CORRECTION 批次 E 实机运行 + 门限校准（2026-09-05 晚）
+
+- **切片运行**（provider: openai-compatible/gemini-3.8-flash，token 成本经用户
+  许可）：组 B 通过——新会话中文问法 `memory/retrieved.memoryIds` 命中事实、
+  回答策略体现"先跑测试"；组 C 通过——reviseFact+批准后旧事实 superseded、
+  新会话召回只剩新事实、回答策略翻转为"先核对接口约定"；噪声项部分通过
+  （无关请求行为零干扰，召回有噪声）。记录见 `MEMORY-BEHAVIOR-SLICE.md` §7。
+- **切片首轮按设计暴露门限缺陷**：nomic-embed 余弦分布压缩（相关 0.377 vs
+  无关 0.325 重叠），0.5 硬门限使真实转述永远召不回；实测数据驱动
+  `DEFAULT_MEMORY_SIMILARITY_THRESHOLD` 校准为 0.2（memory-core，两仓储统一，
+  附测量 JSDoc + pgvector 门限断言）。前缀实验证明 search_query/document
+  前缀不解决；embedding 选型归 §9.1 用户决策。
+- **新发现 P0 缺陷**：`closeDb()` 从未被调用，OPFS DuckDB 无干净关闭路径，
+  强杀/崩溃丢数据（用户原始记忆失踪案的根因候选）；已入 WIRING-BACKLOG N 节。
+- **验证**：memory-core 29、pgvector 5、core-agent 268、stage-ui 916 全绿；
+  实机三轮 journal 证据（memoryIds/applied/turn-end）落盘复核。工具坑：
+  rolldown 产物含 NUL 字节，grep 须加 `-a`，否则误判字符串缺失。
+
+## MEMORY-SEMANTICS-CORRECTION 嵌入后端接入 Voyage（2026-09-05 晚）
+
+- **配置改为直接认证 API endpoint**（绕过单实例 openai-compatible 的 Providers
+  页面限制）：记忆设置→嵌入来源 Base URL / API key / 模型；Voyage 已通过实时测
+  试验证（`voyage-4-large`，基础调用返回 1024 维，拒绝 `dimensions`，接受
+  `input_type`）。
+- **适配器**：端点 host 匹配 `voyageai.` 时自动省略 `dimensions` 参数并改为
+  `input_type: 'query'|'document'`；向量维度锁定在 768/1024/1536，超出即报错。
+- **存储泛化**：DuckDB 新增 `content_vector_json` JSON 列承载任意维度向量，检索
+  在 JS 里按当前向量维度过滤并算余弦（不依赖某固定 SQL 列）；pgvector 按
+  `content_vector_768/1024/1536` 选列（仍需重写一次 search/insert/update 以选列）。
+- **阈值标定 0.5**（从 0.2 调整）：实测 Voyage 边际——短相关中文问 0.547、完整
+  转述句 0.12、噪声 0.105。0.5 保留短召回、剔除噪声；长转述句召回是已知缺口，
+  按背景容忍。
+- **验证**：相关短问 0.547 命中(score 0.959)、噪声猫/诗 0 命中。memory-core
+  29、pgvector 5、stage-ui 26 全绿；typecheck 通过。Voyage 免费档 3 RPM/10K TPM
+  限流，评估时需隔 45s 单发。
+
+## MEMORY-RETRIEVAL-AND-PERSISTENCE 记忆检索与持久化路线计划（2026-09-05）
+
+- **诊断**：Voyage4large 已改善短中文查询和噪声过滤，但完整长转述的余弦分数仍低。
+  当前主要瓶颈是 DuckDB 无可靠关闭/checkpoint、向量来源元数据不足，以及长查询与短事实
+  的表示不匹配。降低阈值会重新引入噪声，不能作为长查询修复。
+- **计划**：新增 `docs/fork/MEMORY-RETRIEVAL-AND-PERSISTENCE-PLAN.md`。
+  先修 DuckDB 持久化；再记录 embedding provider/model/dimensions 和迁移状态；确认
+  Voyage document/query input type；实现原始查询与归一化查询的双路召回；扩展分层评估；
+  只有在证据充足后评估 reranker。
+- **后续**：检索稳定后，再推进多视图记忆、人格连续性、跨天目标、生命模式和能力增长。
+
+## PERSONA-CONTINUITY PC-0 至 PC-2 实施（2026-09-06）
+
+- **PC-0 作用域契约**：新增 `MemoryScope = { userId, characterId }`，由聊天会话、角色
+  事件和技能审阅写入；DuckDB、pgvector 与 Electron memory-host 传递并过滤该作用域。
+  无作用域旧记录保留审阅能力，但带作用域的行为检索不会使用它们。
+- **PC-1 来源事实**：抽取器保留经过结构校验的 episodic 事件；任务/反应事件保存会话与
+  事件 ID/类型；已有 `sourceContext`、
+  审阅状态和事实状态继续作为来源与有效性边界。不保存原始镜像帧。
+- **PC-2 有界投影**：聊天 social/work prompt 增加当前角色、作用域和模式边界；记忆
+  继续使用现有 top-3 投影，不复制完整工具或任务日志。
+- **验证**：memory-core、stage-ui、memory-pgvector 与 stage-tamagotchi 定向类型/单测
+  通过；真实 provider、跨角色重启、实际 Postgres、PC-3/PC-4 未运行，状态为已实施待验收。
+
+## LONG-HORIZON-GOALS LG-0 至 LG-2 首轮实施（2026-09-06）
+
+依据 `docs/fork/long-horizon-goals-plan.md`，完成跨天目标的第一轮状态与调度边界。
+
+- **LG-0**：核对 `/goal`、long plan、Flow、life-mode、journal、memory/notebook 与
+  spark 的入口；普通工作请求和 social self-initiative 保持分离，Flow 仍是唯一自动推进器。
+- **LG-1**：`PlanSpec` 增加 user/character scope 与 workspace root；`PlanState.longGoal`
+  保存生命周期、约束版本、等待条件、问题、运行关联和最后转换；`goal/update` 提供可重放
+  的转换日志。旧 long 行保留 goalId，缺少范围时进入可见等待。
+- **LG-2**：Electron 主进程新增持久化 long-goal scheduler，负责 startup/schedule/retry
+  wake 和带过期时间的单租约；leader renderer 负责范围、workspace、provider、工具和已有
+  Flow 检查，以及一次有界工作 Flow。主进程不调用模型和工作工具。
+- **LG-3 初步路径**：暂停、取消、恢复、`Run now`、`user_ask`/审批等待和旧运行结果隔离
+  已写入状态边界；完整插话、接管、过期和失败恢复仍需组合验收。
+- **验证**：core-agent authority 6 例、Electron scheduler 4 例、plan tool 11 例、
+  stage-ui plan store 16 例通过；core-agent、stage-ui、stage-tamagotchi typecheck 通过。
+  真实 provider、打包 Electron、跨天停机重启、Postgres 和 LG-4 尚未运行。
+
+## LONG-HORIZON-GOALS 构建版 Electron 局部组合验收（2026-09-06）
+
+- 使用相同的用户 profile 和 CDP 9250 重建并重启 `stage-tamagotchi`。没有使用 dev 或隔离 profile。真实 provider 返回 `PROFILE-CHAT-OK`。
+- agent-browser 验证了 `/goal`、`plan_update`、`todo_write`、`read`、`list`、目标卡证据、一次 `Run now` 有界 Flow 和重启后的目标恢复。
+- LG-3 局部场景通过：Flow 中的只读 steering 留下 `stage.turn.steer-hint`；`user_ask` 等待可见；取消后的目标在重启后保持“已取消”，没有继续调度。
+- 验收发现修订目标的旧步骤完成数曾显示为 `3/1`。`stage-ui` 回归测试先复现该问题，再让状态投影只保留当前规格中的步骤。重建并重启后，目标卡显示 `1/1`。
+- 详细记录见 [LG-3 与 LG-4 局部执行证据](./evidence/lg-20260906/lg-execution-record.md)。LG-3 的约束版本递增、人工接手后重新观察、过期复查和失败恢复仍待组合验收。LG-4 的真实跨日外部条件和回顾表达仍未完成。
+
+## SOCIAL-PRESENCE SP-1 至 SP-3 代码实施（2026-09-06）
+
+- `life-mode` 增加当前用户/角色作用域的有来源记忆事实筛选，并把任务完成/阻塞和共享 reaction 投影为有界活动；重复 `noveltyKey` 只保留最新/高显著候选，过期候选以 `stale-stimulus` 和独立 `discarded` journal 记录消费。
+- 社交心跳复用既有语音播放查询、聊天忙碌、Flow/focused 和单飞状态，新增门控原因沿用现有设置状态卡，不增加独立旋钮；社交请求仍只允许 `self_decide`。
+- `mirror-visual` 的像素载荷严格留在一次性临时帧槽，失败、下游异常、prepareStep 注入完成和 dispose 均释放；持久工具结果继续仅保存文字状态。
+- 定向回归 `life-mode.test.ts` 与 `mirror-visual.test.ts` 共 20 tests 通过；`core-agent` 重建后 `stage-ui`、`stage-tamagotchi` typecheck 通过；根 lint/typecheck、生产 build 和真实 profile + CDP agent-browser 已完成。SP-0 推广门和 SP-4 行为切片仍待真实场景；详细结果见 [SP 执行证据](./evidence/sp-20260906/sp-execution-record.md)，未创建提交。
+## 2026-09-07 长期目标环境与 journal 写失败回归
+
+- 长期目标保存最近一次接受的 provider、model、workspace 和可用工具快照。
+- 调度发现环境变化时进入可见等待；用户 `Run now` 会重新读取并接受当前环境。
+- journal host 支持写入失败注入；失败不会推进回执水位，重试只写入一次。
+- 定向回归：core-agent 长期目标契约 8 条、stage-ui 计划 18 条、journal host 9 条通过。
+- 这些代码与测试证据不代替真实 Postgres 断线、打包 EXE、真实跨天或 agent-browser 验收。
+
+## 2026-09-07 Flow 恢复环境校验与 MQ-0 误召回明细
+
+- 普通 Flow 恢复复用 provider、model、workspace 和 coding-host 工具集合校验；Electron renderer 在恢复前刷新 host status，缺失或变化进入可见等待原因。core-agent、stage-ui、stage-tamagotchi typecheck 通过，flow-resume 与 chat contract 35 条定向测试通过。
+- MQ-0 生产 trace 保存 gold `relevantIds` 与 top-3 `falsePositiveIds`，报告逐样本列出误召回 id；stage-ui 评估 4 条通过。
+- 真实 provider/profile 的 90 条检索、Postgres 断线、打包 EXE 和 agent-browser 仍未执行。
+
+## 2026-09-07 MQ-0 评估上下文与误召回明细
+
+- `evaluateProductionRetrieval` 要求显式的 profile、session、user/character scope，并将上下文随结果返回；90 条 trace 保存 gold 与 top-3 false-positive id，报告逐样本列出误召回。
+- stage-ui memory module 24 条定向测试通过；真实 provider/profile 的 90 条检索与费用仍未运行。
+
+## 2026-09-07 MQ-0 Electron renderer 生产路径基线
+
+- 在实际 Electron renderer 中使用现有本地 profile 的临时副本，绑定真实 owner scope 和独立 session，写入 20 条 approved synthetic gold facts，并运行全部 90 条 fixture。
+- 修正评估 trace 使用内部 DuckDB row id 导致 gold 无法匹配的问题，改用稳定 `originId`；报告得到 recall@3 `0.789`、precision@3 `0.263`、MRR@3 `0.637`、false-positive@3 `0.626`、平均延迟 `1104.84ms`，详见 [生产报告](./evidence/mq-0/production-report-20260907.md)。
+- 本地 embedding worker 没有 token usage，90 条 query/normalized-query token 与 cost 均记录为 missing；该基线使用合成语料，不代表真实用户事实或外部 provider 质量。
+- Docker Postgres 的 repository integration 4/4 通过；额外固定 owner scope 关闭客户端后重连并检索命中同一 `originId`，随后清理。该结果覆盖持久化和 scope 的客户端重连边界，网络断线、自动 outbox 重试和 EXE 组合仍未验证。
+
+## 2026-09-07 远端记忆镜像断线状态
+
+- long-term mirror 写入失败会把 remote status 置为 `error`，保留带退避信息的 outbox 项；重新报告 `ready` 后立即重试并恢复定时发送。stage-ui memory module 24 条定向测试通过。
+- Docker Postgres 的 4/4 基础集成已通过；断线重连、真实 provider/profile 的 90 条 MQ-0 检索和打包 EXE 仍未执行。
+
+## 2026-09-07 MD-2 归档对照工具
+
+- stage-ui 新增 `compareDataBackups`，按 owner/domain 对两份已校验归档统计新增、删除、变更和未变路径；7 条 data-backup 测试通过。
+- 该工具只提供 manifest 字节级对照，完整计划、记忆、journal 来源链与技能审阅关系仍需独立 profile 语义核对和打包运行。
+
+## 2026-09-08 验收修复与长期目标会话归属
+
+- 完成 R01 备份 owner 注册、K02 技能源码审阅与哈希绑定、S13 跨轮变化去重、L06 恢复入口收敛，以及证据门的文件观察/读回/测试执行区分。
+- 长期目标现在保留创建会话并把计划事件、工具结果、调度唤醒和 `plan_update` 执行绑定到该会话；adoption 后的调度器初始化保持幂等。补充 scope、dreaming 归属和回归测试。
+- 自动化回归：core-agent 81、stage-ui 22、stage-tamagotchi 12；根 typecheck、lint、core-agent build 和 Electron build 通过。真实 Electron 的干净 L06 场景，以及 M07/V03、L01/L03、L02、D05/D06、S20 等运行证据仍待补齐。
+
+## 2026-09-09 Journal persistence race and visual cancellation evidence
+
+- 修复 stage-ui journal 在 per-session IPC batch 写入期间追加尾部事件后不再调度 flush 的竞态，并增加 11 条 journal persistence 回归测试。
+- 重建后的 Electron 实例使用原 profile、provider、角色和 CDP 9250；V02 取消分支确认单张图片预览、单个 `image_url`、`turn/end: aborted` 和完整磁盘 journal。V02 的受控 capture failure、重启/导出清理以及 M07/V03 记忆来源链仍待验收。
+
+## 2026-09-09 M07/V03 来源链、L04 恢复重绑与延迟社交竞争
+
+- M07 的 Flow-owned fact 现在保留任务来源，记忆开启/关闭对照分别命中与不命中；V03 的视觉活动事实可在新会话按精确 memory ID 取回。原始失败记录保持不变。
+- long-goal scheduler 在 renderer 重启后按 goal/plan/step/Flow/task/session 重绑 persisted running goal；L04 已实证 pending shell 失败后的单次写入与读回。运行时工具结果按调用时的 focused step 归属，覆盖并发 `plan_update focus` 与 read 结果乱序。
+- S13 的跨轮同值去重、S20 的延迟 speak 竞争、V02 capture failure 清理和 K04 严格输入校验均有回归覆盖。真实 provider 余额、V02 重启/导出边界、adoption 后真实唤醒、R04/R06 后端以及 L04/L05/L07 组合场景仍需外部条件满足后验收。
+
+## 2026-09-09 备份恢复与坏包验收
+
+- R01 在重建 Electron 中从 Data 页面导出 138 条目、7 个业务域的真实 ZIP；凭据保持排除、outbox 保持 hold，旧 journal 文件在归档中。
+- R02 用同一归档创建隔离 profile，重启后回执为 `complete` 且 `effectsHeld=true`；修复了恢复 schema 漏掉 `role: "error"` 的缺口，并保留 3/3 回归。二次启动确认原用户 index 与 payload 已落盘，但 P' 无认证凭据时普通 chat UI 不能选择原 owner，因此完整数据可见条件仍是 partial。
+- R07 的扩容/校验不一致和缺失条目坏包均由真实 UI 拒绝，原 profile、主会话和 provider 配置不变。R03 语义对照需要先决定 P' 的重新认证或安全 owner remap；R04/R05 与 R06 后端仍待验收。
+
+## R-GROUP 修复批次（2026-09-10）
+
+- **动机**：R 组交接件三条待修问题（R04 adoption 后不调度、R05 技能不可用原因不可见 +
+  MCP 元工具回退、R03 恢复后首屏无明确原因）。
+- **问题 1（R04）**：`backupAdopted` 原先走普通主进程 Eventa context，只回发起窗口
+  （设置窗口/follower），leader 的 effect hold 永远不释放，`long-goals.json` 恒为空、
+  wake consumer 从未注册。改为经 `EventaWindowBroadcast` 广播；`runNow` 增加 toast
+  可见反馈；新增 host 广播回归（修复前失败）与 adoption 补排程回归。
+- **问题 2（R05）**：reviewed 技能被 `artifactError`/quarantine/hash 不符等挡下时，
+  在 `## Toolset` 独立说明节逐条显示不可用原因与恢复入口；无 MCP 服务器时 MCP store
+  不再注册 `builtIn_mcp*`，`tool-resolver` 也不再默认注入旧代理工具（运行时 store 是
+  唯一生产者）。
+- **问题 3（R03）**：restore marker 记录归档 owner 并经 bootstrap 返回所有窗口；
+  restore gate 暴露 `restoredOwner`；未登录首屏显示「数据已恢复，请登录 <owner>」并
+  隐藏全新安装入口；i18n 仅 en + zh-Hans。
+- **验证**：stage-tamagotchi node 16 files / 98 passed（1 skipped）、stage-ui 定向
+  node/browser 全过、两包 typecheck 与根 lint 通过。真机复验待用户重建后执行；记录见
+  `docs/fork/evidence/short-scenarios/ACC-20260907-01/R-GROUP-FIX-20260910.md`。
+
+## FIX-LIST 批次（2026-09-10）：纠正来源、R06、life-mode 损坏保护、恢复边界、grep、门广播、活动年龄
+
+- **动机**：`FIX-LIST-20260910.md` 的待修项 1–7；8 登记为非缺陷。
+- **记忆**：`reviseFact` 的修订片段继承被替换事实的 `sourceContext`（纠正后有效事实可进
+  `listShareableFacts`）；记忆镜像 update 只对已晋升的 `long_term` fact 排队，短期待审变更等
+  晋升 insert 携带最终状态，修掉 R06 的「update 0 行当成功、队列清空远端缺行」。
+- **life-mode**：`life-mode.json` 解析失败保留 `.corrupt-*` 副本并写日志，持久化改临时文件 +
+  rename 原子写；新增 `lifeModeRecordGate`，渲染端门回写主进程快照并广播，follower 设置页可见；
+  journal 为 `tool/result`/`plan/update`/`task/update` 记录时间戳，活动候选按真实 `occurredAt`
+  进入 `stale-stimulus`。
+- **core-agent**：重建心流时记录 `resumedAt`/`resumedFromSeq`，`flowPrompt` 每轮注入
+  `[Recovery boundary]`，恢复叙述不得把恢复后动作说成中断前证据。
+- **grep（方案 a）**：`@vscode/ripgrep` 加为 `apps/stage-tamagotchi` 依赖并在主进程 bundle
+  外部化，运行时从 app 解析平台二进制。
+- **顺带**：修复 `stateFromJournal` 在毫秒并列时重复应用已入快照转换的缺陷（queue-depth 用例
+  稳定通过）。
+- **验证**：core-agent 302、stage-ui 定向 node 160 / browser 34、stage-tamagotchi node 133
+  （1 skipped）、InteractiveArea 15；三包 typecheck 与根 lint 通过。真机复验待用户重建；记录见
+  `docs/fork/evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260910-results.md`。
+
+## FIX-LIST 第二批（2026-09-11）：journal 身份、恢复边界、侧通道、恢复首屏、查询回压下推等
+
+- **动机**：`FIX-LIST-20260910.md` 的待修项 9–20，按严重度从 #18 到 #17 依次处理。
+- **#18（高）journal**：渲染端在 `send`/`startFlow`/计划写入前先 `hydrate`；host 去重表改为
+  `seq -> 内容指纹`，同 seq 不同内容报 `sequence conflict` 而不是静默丢弃。修掉恢复副本
+  「运行只在内存、磁盘零写入、seq 从 0 重来」。
+- **#9 恢复边界**：新增 `flow/resumed` journal 事件（时间 + seq 边界）；普通轮次 system
+  supplement 带 `## Recovery Boundary`。
+- **#10/#20 侧通道**：btw 卡片限高 + 历史滚动 + 折叠；主输入框 `data-testid="chat-main-input"`。
+- **#11 恢复首屏**：`showRestoreNotice` 不再依赖 effect hold；无会话发送给出可读 toast 并保留草稿。
+- **#12 记忆候选**：`MemoryRepository.list` 增加 `shareable` 谓词，DuckDB/pgvector 查询内完成
+  资格过滤，不再用访问时间窗口当候选全集。
+- **#13 控制岛**：只有面板打开后的 outside 采样才自动收起（3 秒宽限）；补锚点与 jsdom 回归。
+- **#14 工作区根**：`setWorkspaceRoot` 描述与 Agent Role 明确「根由用户设定，不得自行改回」。
+- **#15 环境基线**：登记为设计选择（首次启动总是允许，首次成功运行记录基线）。
+- **#16 记忆连接恢复**：查询失败后统一重开 DuckDB 连接，下一次操作自动恢复。
+- **#17 会话契约**：`createSession` 拒绝非字符串 characterId；长目标损坏 scope 有专门原因。
+- **#19 技能页**：批准禁用时给出「先读源码」说明；目录提交显示已提交/失败原因。
+- **验证**：core-agent 302、stage-ui 定向 node 243 / browser 38、stage-tamagotchi node 148
+  （1 skipped）、InteractiveArea 17、pgvector 6（4 skipped）；7 包 typecheck 与根 lint 通过。
+  真机复验待用户重建；记录见
+  `docs/fork/evidence/short-scenarios/ACC-20260907-01/FIX-LIST-20260911-results.md`。
+
+## UI-SURFACE 批次（2026-09-11）：跨会话计划卡堆积、计划中心、窗口能力、输入位状态
+
+- **动机**：`docs/fork/UI-SURFACE-PLAN.md` 的 UI-2/UI-3/UI-4 与 UI-1 剩余部分；触发缺陷是聊天窗里
+  已完成/已取消的长期目标卡跨会话堆积，正文与输入框被挤出视口。
+- **归属分类**：新增 `planSurfaceLane` / `planSurfaceLanes`（stage-ui `stores/plans.ts`）：
+  `current` / `other-session` / `unattributed` / `archived`；完成（含未验证）、失败、取消归
+  `archived`，同一会话被更新计划取代的旧会话计划也归档。时间线只收 `current` + `unattributed`；
+  `plan-lanes` 增加未归属分区。
+- **计划中心（新）**：`plan-center.vue` 默认收起，`活动/待处理/待验证/历史` 计数（`待验证 N`
+  保留完成未验证计划的琥珀色状态）；展开后按 `当前会话/其它会话/未归属/历史` 分区，复用计划卡；
+  其它会话目标带来源跳转（会话已删时 toast），历史区保留完整证据与步骤展开。
+- **agent-browser 验收**：真机走查发现同会话内 9 张被取代 pending 计划 + 9 张完成未验证计划
+  仍堆在活动面；追加取代与归档口径并补 `plan.status.paused` 文案。截图见
+  `docs/fork/evidence/short-scenarios/ACC-20260907-01/ui-acceptance-20260911/`。
+- **会话检索**：`sessions-dialog` 增加 `sessions-search`，按标题/预览/sessionId/最近 100 条消息文本
+  过滤；关闭时清空。
+- **窗口能力**：`RendererWindowContext.capabilities.stage`（leader-only + full）；Live2D 无模型时
+  返回可解释拒绝（打开主窗、加载模型、保持舞台路由），替换裸错误。
+- **输入位状态**：无会话/无 provider 时禁用主输入框，显示原因；无 provider 提供 `electronOpenSettings`
+  跳转 `#/settings/providers`；辅助区（问题卡/侧通道/计划中心）加 `max-h-[40%]` 预算。
+- **i18n**：新增 `plan-center.*`、`sessions.search-*`、`no-provider`、`open-settings`、
+  `plan.horizon.unattributed`；仅 en + zh-Hans；已重建 i18n dist。
+- **验证**：stage-ui `plans.test.ts` 49、计划中心 browser 5、sessions dialog/drawer + history + btw
+  browser 15、stage-ui-live2d expression-tools 6、stage-tamagotchi window-context 6、
+  InteractiveArea browser 19、i18n 20；stage-ui node 全量 969、stage-ui-live2d 全量 68；
+  相关包 typecheck 与根 lint 通过。stage-ui 全量 browser 里 sessions-dialog 超时、
+  stage-tamagotchi node 的 symlink EPERM 与路径断言失败均已用 HEAD 复现，属 Windows/套件环境基线。
+  真机复验待用户重建；
+  记录见 `docs/fork/evidence/short-scenarios/ACC-20260907-01/UI-SURFACE-20260911.md`。
+
+## 恢复副本 journal 缺陷修复 + 待重建项真机复验（2026-09-11 下午）
+
+- **新缺陷（真机复现，同一恢复副本）**：新构建首次启动后 `runtime-journal` 仍停在
+  `pendingCount: 1` / `lastError: journal sequence conflict at seq 0` / `complete: false`。
+  replay 本身已经生效（内存 4,839 条、header 与磁盘一致），但队列里那条自造 header 永远写不进去，
+  该会话后续事件只能留在内存。
+- **根因**：`packages/stage-ui/src/stores/journal.ts` 的 `hydrate()` 先 `ensureSession()`，
+  而 `ensureSession` 对新会话会立刻把一个 `session/header`(seq 0, `createdAt = Date.now()`)
+  排进持久化队列；恢复副本文件里 seq 0 是另一份 header，宿主按 `seq + 指纹` 去重
+  (`journal-host/index.ts`) 于是每次都拒绝，重试永不成功。离线回归没抓到，是因为假 port 不去重。
+- **修复**：`hydrate` 改为「先 `read` 再建 store」——文件为空才 `ensureSession`（自造 header 归本进程）；
+  读等待前后都用 `hasLiveEvents()` 保护已 append 的 live 历史；文件有内容则用文件内容 seed，
+  并 `dropQueuedHeader()` 丢掉先前排队的自造 header（此时队列只可能是 header），队列清空时同时
+  清掉 `lastPersistError`。回归：`stores/journal.test.ts`
+  「does not wedge a replayed session behind a header queued before the read」——假 port 按宿主
+  规则做 `seq → 指纹` 去重，修复前失败（`pendingCount: 2`），修复后通过。
+- **真机复验（重建后，恢复副本 `restore-J2TLrx`，账号 A）**：
+  #18 启动即 `complete: true`、无冲突错误；同一 journal 文件从 4,839 行 / seq 0..4838
+  续写到 4,841 行 / seq 0..4840（新增事件落在 4839/4840），跨一次崩溃重启后再 replay 到 4,997 条
+  仍 `complete: true`。
+- **#9（L04 恢复边界）**：真机新建长期目标 → 前台 `sleep 90` 中断（强杀）→ 重启，journal 写入
+  `flow/resumed`(seq 4855, `resumedFromSeq` 4854)，恢复后继续执行至 `flow/end done`(4971)；
+  **普通追问**（`user/message`，非 steering）回答把写入与读回核验归到「恢复后」，
+  不再把恢复后动作当作中断前证据。`snapshotSession(active)` 返回该 `flow/resumed`，
+  构建产物的 `chat-*.js` 含 `Recovery Boundary` 段代码。
+- **#13**：主窗点「展开」2.5 秒后设置入口仍可见，点它打开设置窗（follower）。
+- **#19**：技能页目录提交 → 队列 `0/5 → 1/5` +「已提交/等待审阅」；未读源码时「批准」禁用并显示
+  「请先查看源码与自测…」；读完后按钮解禁。
+- **UI-2**：聊天窗出现 `chat-plan-center`（活动/待处理/待验证/历史），展开后 `当前会话/其它会话/历史`
+  分区齐全；辅助区 `max-height: 40%`，展开后实测 35.9%。
+- **K07**：两个窗口各自 `setTimeout` 到同一绝对时刻点击「批准」（相差 211 ms），journal 只产生
+  一条 `review/decided`(seq 4840)，待审归零，两窗收敛。
+- **#12**：真机 `listShareableFacts` 在当前角色 scope 返回 3 条旧 fact（`656b0f6f`/`4c211389`/
+  `17edcfbe`，approved+active，均 `lastAccessedAt: never`，含一条 `flow` 来源）；「不被最近 20 条
+  窗口挡住」由 `local-memory.test.ts` 的 SQL 谓词断言与 `memory.test.ts` 的 `shareable: true` 断言覆盖
+  （本副本只有 10 条 long_term，无法用排序差异反证）。
+- **仍未真机复验**：#11（需未认证恢复副本；offline 由 `step-welcome.browser.test.ts` 采纳用例覆盖）、
+  #14（需过期工作区根 + 一次模型轮次；offline 由 `coding.test.ts` / `chat.contract.test.ts` 文案断言覆盖）。
+- 记录见 `docs/fork/evidence/short-scenarios/ACC-20260907-01/FIXLIST-9-20-live-20260911.md`。

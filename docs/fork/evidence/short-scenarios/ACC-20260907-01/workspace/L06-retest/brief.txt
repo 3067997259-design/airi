@@ -1,0 +1,3 @@
+project=ACC-20260907-01
+mode=pause-cancel-retest
+count=1

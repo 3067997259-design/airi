@@ -102,6 +102,14 @@ pgvector 环境走查和 Hashline 基准。每条都有对应文档章节与当�
 - [ ] **权重调参**：§11.3 —— 五个滑杆已暴露，等真实检索数据标定。
 - [x] **dreaming agent**：memory store 提供可替换的 `MemoryDreamAgent` 接口、受限批量
   生成、去重和 idea lifecycle；短期记忆设置页可手动运行并审阅结果，schema 无需迁移。
+- [x] **自动 dream 调度**：life-mode 空闲心跳触发，独立间隔、每日预算和新增事实门槛；
+  成功运行写入 `memory/dream`，不执行想法。
+- [x] **长期 outbox/reconcile**：晋升片段先落本地 outbox，远端以 `originId` 幂等写入，
+  断线指数退避，设置页可重试或把已有长期记忆重新入队。
+- [x] **事实修订边界**：修订/争议提案进入 pending；批准后才 supersede/dispute 旧事实，
+  disputed/superseded 不参与检索和 dreaming。
+- [x] **中文评估 harness**：提供分层 recall@K、precision@K、MRR 和本地 embedding 适配器；
+  真实模型分数仍需显式加载模型后采集。
 - [x] **pgvector 接线（主进程 memory-host，2026-08-29）**：`memory-pgvector` 新增
   `ensureMemorySchema`（幂等建表，此前 DDL 不存在）与 `./repository` 子路径导出；
   Electron 主进程 `memory-host` 服务持有连接（Eventa 契约），stage-ui 记忆 store
@@ -119,3 +127,16 @@ pgvector 环境走查和 Hashline 基准。每条都有对应文档章节与当�
 - [x] **MODS.md**：实现批次已记录在 M-D+1 小节。
 - [ ] **hashline 校准**：`packages/coding-harness` 目标模型编辑基准（§2.4）：
   20 个文件（30~5000 行）统计拒绝率/重读次数/碰撞命中率，校准签名宽度档位。
+
+## N. 记忆语义纠偏衍生项（MEMORY-SEMANTICS-CORRECTION §12.7，2026-09-05）
+
+- [ ] **P0 记忆库干净关闭**：`useDuckDb().closeDb()`（`packages/stage-ui/src/composables/use-duck-db.ts`）
+  从未被应用调用；OPFS 上的 DuckDB 没有任何 checkpoint/close 路径，强杀/崩溃
+  即丢失未落盘数据（批次 E 实机切片期间两次复现；用户原始记忆数据疑似即此
+  缺陷丢失）。修复方向：renderer `beforeunload` → 既有 IPC 桥 → `closeDb()`，
+  或主进程 `before-quit` 通知 leader 渲染层执行 `CHECKPOINT` + close；二者取一
+  并加"重启后数据存活"回归测试。落地前避免强杀应用。
+- [ ] **embedding 选型决策（§9.1，需用户拍板）**：当前 `Xenova/nomic-embed-text-v1`
+  余弦分布压缩（相关 0.32–0.41 vs 无关 0.25–0.35），`DEFAULT_MEMORY_SIMILARITY_THRESHOLD=0.2`
+  是权宜校准。需评估多语言、边际更大的 embedding 模型或轻量 reranker；
+  更换时须全量重嵌历史片段。

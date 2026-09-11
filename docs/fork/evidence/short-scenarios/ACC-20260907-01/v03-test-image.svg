@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <rect width="1200" height="700" fill="#fffdf8"/>
+  <circle cx="320" cy="300" r="150" fill="#e53935"/>
+  <rect x="730" y="150" width="300" height="300" rx="8" fill="#1e88e5"/>
+  <text x="600" y="590" text-anchor="middle" font-family="Arial, sans-serif" font-size="52" font-weight="700" fill="#202124">ACC-20260909-V03</text>
+</svg>

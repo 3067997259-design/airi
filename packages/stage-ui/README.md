@@ -2,6 +2,23 @@
 
 Shared core for stage
 
+This package owns shared business stores, composables, and scenario components for the desktop, web, and mobile apps.
+Use it for chat, plans, memory, and skill review behavior shared across stage surfaces.
+Keep Electron filesystem and IPC implementations in the desktop app. Keep general UI primitives in `packages/ui`.
+
+## Data restore ownership
+
+The data-backup store imports validated owner data before ordinary runtime initialization.
+Chat, plan, memory, and skill startup wait for the shell's restore gate. The Electron shell releases that gate after a durable completion receipt.
+The import preserves review evidence and requires source verification before skill registration.
+Restored profiles keep automatic delivery and execution paused after local initialization. The shell supplies this state from its durable restore marker on every startup.
+Full restore acceptance and pending work are tracked in [the execution record](../../docs/fork/observation-readiness-execution.md).
+
+```sh
+pnpm -F @proj-airi/stage-ui typecheck
+pnpm exec vitest run --config packages/stage-ui/vitest.config.ts
+```
+
 ## Button analytics
 
 Register the shared plugin once in each Vue application:
