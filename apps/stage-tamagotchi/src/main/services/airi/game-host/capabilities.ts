@@ -25,6 +25,10 @@ const CAPABILITY_TOOLS: Record<GameCapabilityName, string[]> = {
   'control-session': ['set_movement', 'stop_movement'],
   'ballistic-profiles': ['get_ballistics', 'ballistic_profile', 'get_projectile_profile'],
   'break-evidence': ['get_block', 'get_blocks_region'],
+  // The concrete vehicle state read (tamed/saddled/powered/rail shape) plus the
+  // candidate query. A bridge with only `get_vehicle` cannot prove these facts,
+  // so the capability stays honestly unavailable.
+  'vehicle-observation': ['get_vehicle_state', 'get_vehicles', 'observe_vehicle'],
 }
 
 const CAPABILITY_NAMES = Object.keys(CAPABILITY_TOOLS) as GameCapabilityName[]

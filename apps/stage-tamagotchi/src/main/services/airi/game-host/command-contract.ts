@@ -185,6 +185,16 @@ export interface GameCommandParams {
     vehicle?: 'boat' | 'horse' | 'minecart' | 'elytra' | 'strider'
     /** MC-3b: walk the same target when the vehicle mover fails. */
     fallbackToFoot?: boolean
+    /**
+     * CD-V1: acquire strategy. `existing` uses a world vehicle (default);
+     * `prepare_owned` places one from the player's materials; `tame` bonds a
+     * wild horse and needs `allowTame`.
+     */
+    vehicleStrategy?: 'existing' | 'prepare_owned' | 'tame'
+    /** CD-V1: explicit vehicle UUID; the only non-ambiguous acquisition target. */
+    vehicleUuid?: string
+    /** CD-V1: explicit permission to tame a wild horse. */
+    allowTame?: boolean
   }
   collect?: { blockId: string, itemId?: string, maxCount: number, radius: number, allowPrerequisites?: boolean }
   say?: { text: string }

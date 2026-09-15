@@ -1,0 +1,66 @@
+/**
+ * The port and per-trip options the vehicle session drives (CD-V1).
+ *
+ * Split from {@link ./vehicle-types} so the pure domain types stay a leaf:
+ * this module is the only place that joins the base movement port with the
+ * optional vehicle-observation surface.
+ */
+import type { MovementControlPort } from './port'
+import type { Vec3 } from './types'
+import type { VehicleAcquireStrategy, VehicleFailureReason, VehicleKind, VehicleObservationPort, VehicleReceipt } from './vehicle-types'
+
+/** Base movement port plus the optional vehicle observation surface. */
+export type VehicleControlPort = MovementControlPort & VehicleObservationPort
+
+/** Status of a vehicle drive, kept compatible with the MC-3b surface. */
+export type VehicleMoveStatus = 'reached' | 'stuck' | 'cancelled' | 'unavailable' | 'low_supply'
+
+export interface VehicleMoveResult {
+  status: VehicleMoveStatus
+  detail?: string
+  /** Typed failure, present whenever the trip did not reach cleanly. */
+  failure?: VehicleFailureReason
+  /** Full end-of-trip receipt; the movers fill this so the host can record it. */
+  receipt?: VehicleReceipt
+}
+
+export interface VehicleMoveOptions {
+  port: VehicleControlPort
+  goal: Vec3
+  tolerance?: number
+  shouldStop?: () => boolean
+  /** Acquire strategy; `existing` by default (design §3). */
+  strategy?: VehicleAcquireStrategy
+  /** Explicit vehicle UUID: the only non-ambiguous acquisition target. */
+  vehicleUuid?: string
+  /** Horse taming needs explicit permission (design §3). */
+  allowTame?: boolean
+  /** Overall budget for one acquisition attempt, in ms. */
+  acquireBudgetMs?: number
+  /** Overall travel budget, in ms. */
+  travelBudgetMs?: number
+  /** Identity captured by the registry; kept on the session for ownership. */
+  commandId?: string
+  controlSessionId?: string
+  controlSessionGeneration?: number
+  /** Player UUID used to attribute controller/passenger facts. */
+  playerUuid?: string
+  deps?: {
+    sleep?: (ms: number) => Promise<void>
+    now?: () => number
+  }
+  debug?: (message: string) => void
+}
+
+export interface VehicleContext {
+  port: VehicleControlPort
+  shouldStop: () => boolean
+  sleep: (ms: number) => Promise<void>
+  now: () => number
+  debug?: (message: string) => void
+  kind: VehicleKind
+  /** Absolute travel deadline; a trip past it fails with `deadline`. */
+  travelDeadline?: number
+}
+
+export type { VehicleKind }

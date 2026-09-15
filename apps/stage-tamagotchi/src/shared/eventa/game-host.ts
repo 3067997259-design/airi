@@ -108,7 +108,7 @@ export interface GameWorldIdentity {
  * that back it. An unavailable capability carries a typed limit instead of a
  * silent fallback or a fabricated result.
  */
-export type GameCapabilityName = 'target-observation' | 'collision-snapshot' | 'control-session' | 'ballistic-profiles' | 'break-evidence'
+export type GameCapabilityName = 'target-observation' | 'collision-snapshot' | 'control-session' | 'ballistic-profiles' | 'break-evidence' | 'vehicle-observation'
 
 export interface GameCapabilityStatus {
   available: boolean

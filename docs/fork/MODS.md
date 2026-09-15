@@ -3,6 +3,15 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 载具取得与旅行（CD-V1–V3，2026-09-15，代码完成，真机待做）
+
+按[船、马与矿车的完整旅行流程](./vehicle-travel-design.md)实施。V1：新增 `movement/vehicle-types/observation/port/acquire/session.ts`，统一生命周期 `Discover→Prepare→Acquire→VerifyControl→Plan→Travel→Dock→Finish`；按 UUID 或明确空闲对象取得（策略 `existing` 默认、`prepare_owned` 需自身材料、驯服需显式许可与预算）；修正"被骑不等于可控/已启动"、上骑类型固定、骆驼不再并入马；安全下骑与清理隔离（旧会话不卸新任务的载具）。V2：新增 `vehicle-route.ts`（水路/道路/轨道图：船宽与净空、马体积步高与跳跃、真实 `RailShape`/坡度/供电的有向连接）与 `vehicle-drive.ts`（船体转向、马跳跃估计、矿车启动-制动与靠岸选择）；取消按介质保守处理（水面不盲目下骑，矿车按速度阈值）。V3：回执记录取得方式、载具 UUID、里程、停靠点、是否下骑、资产与结束原因；类型化失败 24 项；死亡/断线/换维度/载具消失/乘客变更使会话失效。
+
+- 验证：game-host 定向 **500 passed / 1 skipped**（+67 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；mcp-server `tsc --noEmit` 0；模组 `:1.21.1:build` 成功。
+- 审查：旧 boat 三项测试按新语义改写（水面不下骑、类型化 route 失败、取消不盲目下骑），非静默删除。
+- **已知缺口**：V2 的 Plan 阶段尚未用实时地形读构建图路线（图与原语已实现并离线测试，旅行循环仍是直线驾驶 + 原语）；死亡事件未单列，经"坐骑丢失 + 连接代次"映射为 `vehicle_lost`。无观测能力时保留旧的放置/最近上骑回退（显式兼容分支）。
+- 真机 NOT-RUN：三类驾驶质量、真实靠岸安全、驯服时长、供电与断轨、死亡后资产回收。
+
 ## 工具选择、采掘资格与掉落归属（CD-M1–M3，2026-09-15，代码完成，真机待做）
 
 按[工具选择、采掘资格与工具升级](./mining-tools-design.md)实施。M1：新增 `game-host/mining/`（`types/harvest/evidence/upgrade/session`）；模组新增 `mine.evaluateHarvest` 无副作用单块评估（blockStateId/维度、工具候选与资格、预期掉落模式、估计耗时与质量、危险、`unmet`）；`game_break`、`game_collect` 与地形 `canDig` 收敛到同一 `createMiningSession`（破坏轮询唯一实现）；策略 `fastest/conserve/specified`，默认 conserve；耐久按期望处理 unbreaking、风险时先换备用或 `tool_durability_low`；规划期用静态镐等级估计，开挖前由运行时评估复核。M2：`breakId` 账本分离破坏事实、生成掉落、拾取与库存增量；服务端破坏事务内 `Block.getDrops` + `ENTITY_LOAD` 有界窗口关联 ItemEntity；来源数量账本给出可证明下界与模糊量；无服务端证据时降级 `inventory-delta`；XP 单列。M3：木→石→铁镐有限升级链与预算；`game_collect` 默认返回结构化前置，`allowPrerequisites` 仅执行背包内 2×2 制作，工作台/熔炉步骤返回 `upgrade_incomplete`。

@@ -133,7 +133,7 @@ class BoatFakePort implements MovementControlPort {
 const FAST = { sleep: async () => {}, now: () => Date.now() }
 
 describe('runVehicleMove boat', () => {
-  it('steers an already-mounted boat to the goal and dismounts', async () => {
+  it('steers an already-mounted boat to the goal and stays mounted on water', async () => {
     const port = new BoatFakePort({ riding: { kind: 'minecraft:oak_boat' } })
     const result = await runVehicleMove('boat', {
       port,
@@ -142,7 +142,11 @@ describe('runVehicleMove boat', () => {
       deps: FAST,
     })
     expect(result.status).toBe('reached')
-    expect(port.dismounts).toBe(1)
+    // The fake reports open water at the goal, so no bank exists: the receipt
+    // must say the player is still mounted (design §4).
+    expect(port.dismounts).toBe(0)
+    expect(result.receipt?.arrivedMounted).toBe(true)
+    expect(result.receipt?.dismounted).toBe(false)
     expect(port.useItemCalls).toBe(0)
   })
 
@@ -169,8 +173,10 @@ describe('runVehicleMove boat', () => {
       deps: FAST,
     })
     expect(result.status).toBe('reached')
-    expect(port.swaps).toEqual([[12, 4]])
-    expect(port.selectedSlots).toContain(4)
+    // The first genuinely empty hotbar slot is 0, not a fixed slot that may be
+    // occupied (design §4: reuse the existing slot-selection capability).
+    expect(port.swaps).toEqual([[12, 0]])
+    expect(port.selectedSlots).toContain(0)
   })
 
   it('right-clicks a placed but unmounted boat before steering', async () => {
@@ -194,7 +200,7 @@ describe('runVehicleMove boat', () => {
     expect(result.status).toBe('unavailable')
   })
 
-  it('backs out of a stuck boat and reports stuck after bounded attempts', async () => {
+  it('backs out of a stuck boat and reports a typed route failure', async () => {
     const port = new BoatFakePort({ riding: { kind: 'minecraft:oak_boat' }, blocked: true })
     const result = await runVehicleMove('boat', {
       port,
@@ -202,10 +208,11 @@ describe('runVehicleMove boat', () => {
       deps: FAST,
     })
     expect(result.status).toBe('stuck')
-    expect(port.dismounts).toBe(1)
+    expect(result.failure).toBe('route_unavailable')
+    expect(result.receipt?.dismounted).toBe(false)
   })
 
-  it('cancels and dismounts when the stop predicate fires', async () => {
+  it('cancelling on open water stops input but does not blindly dismount', async () => {
     const port = new BoatFakePort({ riding: { kind: 'minecraft:oak_boat' } })
     let calls = 0
     const result = await runVehicleMove('boat', {
@@ -215,7 +222,11 @@ describe('runVehicleMove boat', () => {
       deps: FAST,
     })
     expect(result.status).toBe('cancelled')
-    expect(port.dismounts).toBe(1)
+    // A boat on water has no safe footing: the player stays mounted and the
+    // receipt names the unsafe dismount (design §4, §7).
+    expect(port.dismounts).toBe(0)
+    expect(result.failure).toBe('unsafe_dismount')
+    expect(result.receipt?.dismounted).toBe(false)
   })
 
   it('reports horse and minecart as not implemented yet', async () => {

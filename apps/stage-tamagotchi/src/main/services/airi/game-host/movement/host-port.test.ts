@@ -210,4 +210,55 @@ describe('createMcpMovementPort', () => {
     expect(snapshot.cellAt(2, 0, 0)).toBeUndefined()
     expect(snapshot.isKnownAir(2, 0, 0)).toBe(false)
   })
+
+  it('attaches the vehicle observation surface only when its tools exist', async () => {
+    const callTool = callerWith({
+      get_vehicle_state: {
+        uuid: 'h-1',
+        entity: { type: 'minecraft:horse', x: 1, y: 64, z: 2, passengers: [], tamed: true, saddled: false, controlledByPassenger: false },
+      },
+      get_vehicles: {
+        vehicles: [
+          { uuid: 'b-1', type: 'minecraft:oak_boat', entity: { type: 'minecraft:oak_boat', x: 0, y: 63, z: 0, passengers: [] } },
+        ],
+      },
+      board_vehicle_uuid: { boarded: true, type: 'minecraft:horse', uuid: 'h-1' },
+    })
+    const enabled = createMcpMovementPort(callTool, {
+      worldId: () => 'world',
+      dimension: () => 'minecraft:overworld',
+      connectionGeneration: () => 2,
+      hasTool: name => ['get_vehicle_state', 'get_vehicles', 'board_vehicle_uuid'].includes(name),
+    })
+
+    const observation = await enabled.observeVehicle?.({
+      uuid: 'h-1',
+      dimension: 'minecraft:overworld',
+      worldId: 'world',
+      connectionGeneration: 2,
+      startedAt: 0,
+    })
+    expect(observation).toMatchObject({ uuid: 'h-1', kind: 'horse', free: true, state: { kind: 'horse', tamed: true, saddled: false } })
+
+    const candidates = await enabled.queryVehicles?.({
+      dimension: 'minecraft:overworld',
+      worldId: 'world',
+      connectionGeneration: 2,
+      kind: 'boat',
+      startedAt: 0,
+    })
+    expect(candidates).toHaveLength(1)
+    expect(candidates?.[0]?.uuid).toBe('b-1')
+
+    expect(await enabled.boardVehicle?.('h-1')).toEqual({ boarded: true, info: { kind: 'minecraft:horse', uuid: 'h-1' } })
+    expect(callTool).toHaveBeenCalledWith('get_vehicle_state', { uuid: 'h-1' })
+    expect(callTool).toHaveBeenCalledWith('get_vehicles', { radius: 8, kind: 'boat' })
+    expect(callTool).toHaveBeenCalledWith('board_vehicle_uuid', { uuid: 'h-1' })
+
+    // A bridge without the tools must not expose the surface at all.
+    const disabled = createMcpMovementPort(callTool)
+    expect(disabled.observeVehicle).toBeUndefined()
+    expect(disabled.queryVehicles).toBeUndefined()
+    expect(disabled.boardVehicle).toBeUndefined()
+  })
 })

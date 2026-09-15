@@ -8,6 +8,9 @@
 import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
 import type { SnapshotEntry } from './snapshot'
 import type { Vec3 } from './types'
+import type { RidingInfo } from './vehicle-types'
+
+export type { RidingInfo } from './vehicle-types'
 
 /**
  * A player-state read that carried no usable position (CD-0 D4).
@@ -60,12 +63,6 @@ export interface InventorySlot {
   /** Durability when the bridge reports it (elytra backups). */
   damage?: number
   maxDamage?: number
-}
-
-/** The rideable the player currently sits on, if any. */
-export interface RidingInfo {
-  kind: string
-  uuid?: string
 }
 
 /** One equipped item the port can inspect (armor slots for the elytra mover). */

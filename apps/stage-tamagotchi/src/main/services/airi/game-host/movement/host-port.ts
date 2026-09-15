@@ -11,11 +11,14 @@
  * becoming zero coordinates, `onGround: true`, or an empty world.
  */
 import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
-import type { MovementControlPort } from './port'
 import type { CollisionBox } from './types'
+import type { VehicleReadResponse } from './vehicle-observation'
+import type { VehicleControlPort } from './vehicle-port'
+import type { VehicleObservation, VehicleObservationRequest, VehicleQueryRequest } from './vehicle-types'
 
 import { DimensionMismatchError, TerrainReadError } from './observation'
 import { UnreadablePlayerStateError } from './port'
+import { buildVehicleObservation } from './vehicle-observation'
 
 /** Calls one MCP tool and returns its structured record, if any. */
 export type ToolCaller = (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown> | undefined>
@@ -32,6 +35,14 @@ export interface MovementPortContext {
   connectionGeneration?: () => number
   /** Wall-clock source used to stamp observation freshness; tests inject it. */
   now?: () => number
+  /**
+   * Whether the bridge exposed a named tool (CD-0 §3.3).
+   *
+   * Vehicle observation is only attached when its backing tool exists, so a
+   * bridge without it reports the capability as absent instead of answering
+   * every query with an empty list.
+   */
+  hasTool?: (name: string) => boolean
 }
 
 /** Parses cell-local collision boxes a shape-aware source may attach. */
@@ -69,11 +80,35 @@ function parseUnloaded(raw: unknown): Array<{ x: number, y: number, z: number }>
   })
 }
 
-export function createMcpMovementPort(callTool: ToolCaller, context: MovementPortContext = {}): MovementControlPort {
+export function createMcpMovementPort(callTool: ToolCaller, context: MovementPortContext = {}): VehicleControlPort {
   const dimensionOf = () => context.dimension?.()
   const worldIdOf = () => context.worldId?.()
   const generationOf = () => context.connectionGeneration?.() ?? 0
   const now = () => context.now?.() ?? Date.now()
+  // A missing `hasTool` means "no optional vehicle tools"; the base port must
+  // not pretend the capability exists (CD-0 §3.3).
+  const hasTool = (name: string) => context.hasTool?.(name) === true
+
+  /** Turns one raw vehicle entity record into a typed observation. */
+  function vehicleObservationOf(request: VehicleObservationRequest, record: Record<string, unknown> | undefined): VehicleObservation | undefined {
+    if (!record)
+      return undefined
+    const entity = record.entity && typeof record.entity === 'object' && !Array.isArray(record.entity)
+      ? record.entity as Record<string, unknown>
+      : record
+    const response: VehicleReadResponse = {
+      ...(typeof record.uuid === 'string' ? { uuid: record.uuid } : {}),
+      ...(typeof record.type === 'string' ? { type: record.type } : {}),
+      ...(typeof record.dimension === 'string' ? { dimension: record.dimension } : {}),
+      worldId: worldIdOf() ?? '',
+      connectionGeneration: generationOf(),
+      source: 'client-loaded-entity',
+      receivedAt: now(),
+      entity,
+      ...(typeof record.absence === 'string' ? { absence: record.absence as VehicleReadResponse['absence'] } : {}),
+    }
+    return buildVehicleObservation(request, response)
+  }
 
   /** Rejects a response that names a different dimension than the binding. */
   function assertDimension(expected: string | undefined, received: string | undefined): void {
@@ -329,5 +364,56 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
         },
       }
     },
+    // The optional vehicle surface is attached only when its tool exists, so a
+    // bridge without it degrades to unverified driving rather than an empty
+    // candidate list that looks like "no vehicle nearby".
+    ...(hasTool('get_vehicle_state')
+      ? {
+          observeVehicle: async (request: VehicleObservationRequest) => {
+            const record = await callTool('get_vehicle_state', { uuid: request.uuid })
+            return vehicleObservationOf(request, record)
+          },
+        }
+      : {}),
+    ...(hasTool('get_vehicles')
+      ? {
+          queryVehicles: async (request: VehicleQueryRequest) => {
+            const record = await callTool('get_vehicles', {
+              radius: request.radius ?? 8,
+              ...(request.kind ? { kind: request.kind } : {}),
+            })
+            const list = Array.isArray(record?.vehicles) ? record.vehicles : []
+            const out: VehicleObservation[] = []
+            for (const raw of list) {
+              if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+                continue
+              const entry = raw as Record<string, unknown>
+              const uuid = typeof entry.uuid === 'string' ? entry.uuid : undefined
+              if (!uuid)
+                continue
+              const observation = vehicleObservationOf({ ...request, uuid }, entry)
+              if (observation)
+                out.push(observation)
+            }
+            return out
+          },
+        }
+      : {}),
+    ...(hasTool('board_vehicle_uuid')
+      ? {
+          boardVehicle: async (uuid: string) => {
+            const record = await callTool('board_vehicle_uuid', { uuid })
+            if (!record || record.boarded !== true)
+              return { boarded: false }
+            return {
+              boarded: true,
+              info: {
+                kind: typeof record.type === 'string' ? record.type : 'unknown',
+                ...(typeof record.uuid === 'string' ? { uuid: record.uuid } : {}),
+              },
+            }
+          },
+        }
+      : {}),
   }
 }

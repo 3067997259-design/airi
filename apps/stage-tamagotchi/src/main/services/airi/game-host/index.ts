@@ -460,6 +460,9 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
         maxFall: { type: 'number', description: 'Maximum allowed fall in blocks (default 4).' },
         vehicle: { type: 'string', enum: ['boat', 'horse', 'minecart', 'elytra', 'strider'], description: 'Ride this vehicle to the target instead of walking: boat/horse/minecart, elytra (glide; needs fireworks), or strider (lava; needs a saddle and a warped fungus on a stick).' },
         fallbackToFoot: { type: 'boolean', description: 'When the vehicle mover fails, walk the same target instead (default false).' },
+        vehicleStrategy: { type: 'string', enum: ['existing', 'prepare_owned', 'tame'], description: 'How to obtain the vehicle: existing uses one in the world (default), prepare_owned places one from your materials, tame bonds a wild horse (needs allowTame).' },
+        vehicleUuid: { type: 'string', description: 'Exact vehicle UUID to use. This is the only non-ambiguous acquisition target; without it a free object of the concrete type is chosen.' },
+        allowTame: { type: 'boolean', description: 'Explicit permission to tame a wild horse/mule/donkey (default false). Taming also uses a bounded time budget.' },
       },
       required: ['x', 'y', 'z'],
       additionalProperties: false,
@@ -890,6 +893,11 @@ function toGameCommandParams(action: GameDomainAction, params: Record<string, un
         || params.vehicle === 'elytra' || params.vehicle === 'strider'
         ? params.vehicle
         : undefined
+      const vehicleStrategy = params.vehicleStrategy === 'existing' || params.vehicleStrategy === 'prepare_owned'
+        || params.vehicleStrategy === 'tame'
+        ? params.vehicleStrategy
+        : undefined
+      const vehicleUuid = typeof params.vehicleUuid === 'string' && params.vehicleUuid.trim() ? params.vehicleUuid.trim() : undefined
       return {
         moveTo: {
           x: Number(params.x) || 0,
@@ -901,6 +909,9 @@ function toGameCommandParams(action: GameDomainAction, params: Record<string, un
           ...(Number.isFinite(maxFall) && maxFall > 0 ? { maxFall: Math.min(Math.max(Math.round(maxFall), 1), 32) } : {}),
           ...(vehicle ? { vehicle } : {}),
           ...(params.fallbackToFoot === true ? { fallbackToFoot: true } : {}),
+          ...(vehicleStrategy ? { vehicleStrategy } : {}),
+          ...(vehicleUuid ? { vehicleUuid } : {}),
+          ...(params.allowTame === true ? { allowTame: true } : {}),
         },
       }
     }
@@ -2436,6 +2447,9 @@ export async function setupGameHost(
         worldId: () => worldIdentity?.worldId,
         dimension: () => worldIdentity?.dimension,
         connectionGeneration: () => connectionGeneration,
+        // CD-V1: the vehicle observation surface exists only when the bridge
+        // announced its backing tools; otherwise the movers degrade honestly.
+        hasTool: name => capabilities?.['vehicle-observation']?.tools.includes(name) === true,
       },
     )
   }
@@ -2463,18 +2477,39 @@ export async function setupGameHost(
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
         shouldStop,
+        ...(moveTo.vehicleStrategy ? { strategy: moveTo.vehicleStrategy } : {}),
+        ...(moveTo.vehicleUuid ? { vehicleUuid: moveTo.vehicleUuid } : {}),
+        ...(moveTo.allowTame === true ? { allowTame: true } : {}),
+        commandId: envelope.commandId,
+        controlSessionId: envelope.controlSessionId,
+        controlSessionGeneration: envelope.controlSessionGeneration,
+        playerUuid: envelope.playerUuid,
         debug: env.AIRI_TERRAIN_DEBUG ? (message: string) => log.warn(`terrain: ${message}`) : undefined,
       })
       if (vehicleResult.status !== 'reached' && moveTo.fallbackToFoot) {
-        // Fall through to the foot mover with the same target.
+        // The documented fallback: only a clean dismount may switch to foot.
+        // A cancelled trip, a dimension change and an unverified stop must not
+        // silently start a walk (design §3, §7).
+        const mayWalk = vehicleResult.failure !== 'cancelled'
+          && vehicleResult.failure !== 'unsafe_dismount'
+          && vehicleResult.failure !== 'dimension_changed'
+          && vehicleResult.failure !== 'unverified_stop'
+          && vehicleResult.receipt?.dismounted !== false
+        if (!mayWalk) {
+          const fresh = await readFreshSnapshot() ?? fallback
+          return { endReason: vehicleResult.failure ?? 'vehicle_unavailable', finalSnapshot: fresh }
+        }
       }
       else {
         const fresh = await readFreshSnapshot() ?? fallback
         if (vehicleResult.status === 'reached')
           return { endReason: 'reached', finalSnapshot: fresh, finalPosition: fresh.position }
-        const endReason = vehicleResult.status === 'unavailable'
-          ? 'vehicle_unavailable'
-          : vehicleResult.status === 'low_supply' ? 'elytra_low_supply' : vehicleResult.status
+        // A typed vehicle failure is reported verbatim; a generic status is
+        // mapped onto the legacy end reason so the receipt stays specific.
+        const endReason = vehicleResult.failure
+          ?? (vehicleResult.status === 'unavailable'
+            ? 'vehicle_unavailable'
+            : vehicleResult.status === 'low_supply' ? 'elytra_low_supply' : vehicleResult.status)
         return { endReason, finalSnapshot: fresh }
       }
     }
