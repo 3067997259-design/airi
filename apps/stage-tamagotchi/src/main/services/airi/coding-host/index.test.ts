@@ -41,13 +41,14 @@ async function createHost() {
   type EmitArgs = Parameters<typeof context.emit>
   const broadcast = { broadcast: vi.fn((..._args: EmitArgs) => {}), dispose: vi.fn() }
 
-  await setupCodingHost(context, { workspaceRoot: firstRoot, broadcast }, userData)
+  const api = await setupCodingHost(context, { workspaceRoot: firstRoot, broadcast }, userData)
 
   return {
     context,
     broadcast,
     firstRoot,
     userData,
+    api,
     listTools: defineInvoke(context, codingHostListTools),
     readFile: defineInvoke(context, codingHostFsRead),
     runProgram: defineInvoke(context, codingHostCodeRun),
@@ -197,5 +198,34 @@ describe('coding approval settlement', () => {
     const count = host.broadcast.broadcast.mock.calls.length
     host.context.emit(codingApprovalDecided, { requestId: 'plan-approval-1', decision: 'approved', planId: 'plan-1' })
     expect(host.broadcast.broadcast).toHaveBeenCalledTimes(count)
+  })
+})
+
+describe('game bridge attachment (mc-1c D1)', () => {
+  it('keeps game tools out of the Code Mode table until the port is attached', async () => {
+    const host = await createHost()
+    const before = (await host.listTools()).tools.map(tool => tool.name)
+    expect(before).not.toContain('game_observe')
+    expect(before).not.toContain('game_collect')
+
+    const port = {
+      isConnected: () => true,
+      listTools: () => [],
+      execute: vi.fn(async () => {
+        throw new Error('not used')
+      }),
+      cancel: vi.fn(async () => {
+        throw new Error('not used')
+      }),
+    }
+    host.api.attachGameCommands(port)
+
+    const after = (await host.listTools()).tools.map(tool => tool.name)
+    expect(after).toContain('game_observe')
+    expect(after).toContain('game_collect')
+    expect(after).toContain('game_cancel')
+    // The coding tools survive the swap.
+    expect(after).toContain('read')
+    expect(after).toContain('bash')
   })
 })

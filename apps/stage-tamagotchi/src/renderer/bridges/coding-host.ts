@@ -40,6 +40,7 @@ import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
 import {
   codingApprovalDecided,
   codingApprovalRequested,
+  codingHostCodeCancel,
   codingHostCodeRun,
   codingHostExecRun,
   codingHostFsGrep,
@@ -61,8 +62,10 @@ export interface CodingHostClient {
   grep: (params: CodingGrepParams) => Promise<CodingGrepResult>
   writeFile: (params: CodingFsWriteParams) => Promise<CodingFsWriteResult>
   writeFileIfUnchanged: (params: CodingFsWriteGuardedParams) => Promise<CodingFsWriteGuardedResult>
-  runCommand: (params: CodingExecRunParams) => Promise<CodingExecRunResult>
-  runProgram: (params: CodingCodeRunParams) => Promise<CodingCodeRunResult>
+  runCommand: (params: CodingExecRunParams, options?: { signal?: AbortSignal }) => Promise<CodingExecRunResult>
+  runProgram: (params: CodingCodeRunParams, options?: { signal?: AbortSignal }) => Promise<CodingCodeRunResult>
+  /** Aborts a running sandbox program by its renderer-minted run id (mc-1c D3). */
+  cancelProgram: (params: { runId: string }) => Promise<void>
   jobOutput: (params: CodingJobOutputParams) => Promise<CodingJobOutputResult>
   jobKill: (params: CodingJobKillParams) => Promise<CodingJobKillResult>
   listTools: () => Promise<CodingToolsStatusResult>
@@ -92,6 +95,7 @@ function createCodingHostClientInner(): CodingHostClient {
   const writeFileIfUnchanged = defineInvoke(context, codingHostFsWriteGuarded)
   const runCommand = defineInvoke(context, codingHostExecRun)
   const runProgram = defineInvoke(context, codingHostCodeRun)
+  const cancelProgram = defineInvoke(context, codingHostCodeCancel)
   const jobOutput = defineInvoke(context, codingHostJobOutput)
   const jobKill = defineInvoke(context, codingHostJobKill)
   const listTools = defineInvoke(context, codingHostListTools)
@@ -106,6 +110,7 @@ function createCodingHostClientInner(): CodingHostClient {
     writeFileIfUnchanged,
     runCommand,
     runProgram,
+    cancelProgram,
     jobOutput,
     jobKill,
     listTools,

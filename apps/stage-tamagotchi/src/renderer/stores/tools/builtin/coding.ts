@@ -219,7 +219,7 @@ async function executeBash(input: { command: string, mediumApprovalRequired?: bo
     command: input.command,
     mediumApprovalRequired: input.mediumApprovalRequired,
     ...(input.runInBackground ? { runInBackground: true } : {}),
-  })
+  }, executeOptions?.abortSignal ? { signal: executeOptions.abortSignal } : undefined)
 
   // Keep the result as structured JSON so the harness can distinguish a
   // failed command from a successful tool call without parsing prose.
@@ -260,7 +260,7 @@ async function executeCodeMode(input: { program: string, timeoutMs?: number }, e
   const timeoutMs = input.timeoutMs === undefined
     ? undefined
     : Math.min(Math.max(Math.round(input.timeoutMs), CODE_MODE_MIN_TIMEOUT_MS), CODE_MODE_MAX_TIMEOUT_MS)
-  const result = await createCodingHostClient().runProgram({ program: input.program, timeoutMs })
+  const result = await createCodingHostClient().runProgram({ program: input.program, timeoutMs }, executeOptions?.abortSignal ? { signal: executeOptions.abortSignal } : undefined)
   return codeModeResultToText(result)
 }
 

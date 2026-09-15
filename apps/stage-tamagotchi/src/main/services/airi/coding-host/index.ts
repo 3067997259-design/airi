@@ -20,6 +20,7 @@ import type { CodeModeRuntime, CodeModeTool, WorkspaceHost } from '@proj-airi/co
 
 import type { CodingApprovalDecisionPayload, CodingApprovalMode, CodingWorkspaceRootResult } from '../../../../shared/eventa'
 import type { EventaWindowBroadcast } from '../../../libs/electron/eventa-window-broadcast'
+import type { GameCommandPort } from '../game-host'
 
 import { constants } from 'node:fs'
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
@@ -33,6 +34,7 @@ import { createCodeModeRuntime, createCodingTools, createNodeWorkspaceHost, WORK
 import {
   codingApprovalDecided,
   codingApprovalRequested,
+  codingHostCodeCancel,
   codingHostCodeRun,
   codingHostExecRun,
   codingHostFsGrep,
@@ -49,6 +51,7 @@ import {
   codingWorkspaceRootChanged,
   planApprovalAsk,
 } from '../../../../shared/eventa'
+import { createGameBridgeTools } from './game-bridge-tools'
 import { runBashCommand } from './policy'
 
 const APPROVAL_TIMEOUT_MS = 60_000
@@ -122,11 +125,22 @@ async function validateWorkspaceRoot(root: string): Promise<{ ok: true } | { ok:
   return { ok: true }
 }
 
+export interface CodingHostApi {
+  /**
+   * MC-1c D1: wires the game command port after the game host is built.
+   *
+   * Attaching is idempotent and swaps the Code Mode tool table so later
+   * programs can call `game_*`; programs already running keep the table they
+   * started with.
+   */
+  attachGameCommands: (port: GameCommandPort) => void
+}
+
 export async function setupCodingHost(
   context: ReturnType<typeof createMainEventaContext>['context'],
   options: CodingHostOptions = {},
   userDataDir = '',
-): Promise<void> {
+): Promise<CodingHostApi> {
   const persistencePath = options.persistencePath ?? join(userDataDir, PERSISTED_FILE_NAME)
   // Precedence: an explicit option (tests) beats a remembered switch, which
   // beats the environment variable, which beats the default sandbox. The
@@ -205,21 +219,41 @@ export async function setupCodingHost(
   interface CodingWorkspace {
     root: string
     host: WorkspaceHost
+    /** Coding tools only; the game bridge is appended when attached. */
+    codingTools: CodeModeTool[]
     tools: CodeModeTool[]
     codeRuntime: CodeModeRuntime
+  }
+
+  /**
+   * MC-1c D1: attached after both hosts exist, so the game bridge cannot be
+   * called before `main` wires the port. Unattached workspaces keep a
+   * coding-only tool table; attaching swaps tools and runtime together.
+   */
+  let gamePort: GameCommandPort | undefined
+
+  function toolsForWorkspace(codingTools: CodeModeTool[]): CodeModeTool[] {
+    return gamePort ? [...codingTools, ...createGameBridgeTools({ getPort: () => gamePort })] : codingTools
   }
 
   async function createWorkspace(root: string): Promise<CodingWorkspace> {
     await mkdir(root, { recursive: true })
     const host = createNodeWorkspaceHost(root)
-    const tools = createCodingTools(host, {
+    const codingTools = createCodingTools(host, {
       approveBash: approve,
       mediumBashApprovalRequired: mediumRequired,
     })
-    return { root, host, tools, codeRuntime: createCodeModeRuntime(tools) }
+    const tools = toolsForWorkspace(codingTools)
+    return { root, host, codingTools, tools, codeRuntime: createCodeModeRuntime(tools) }
   }
 
   let workspace = await createWorkspace(initialRoot)
+
+  function attachGameCommands(port: GameCommandPort): void {
+    gamePort = port
+    const tools = toolsForWorkspace(workspace.codingTools)
+    workspace = { ...workspace, tools, codeRuntime: createCodeModeRuntime(tools) }
+  }
 
   defineInvokeHandler(context, codingHostSetApprovalMode, async ({ mode }) => {
     policy.mode = mode
@@ -282,14 +316,21 @@ export async function setupCodingHost(
     return { status: 'switched', workspaceRoot: workspace.root }
   })
 
-  defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, runInBackground, timeoutMs }) => {
+  defineInvokeHandler(context, codingHostExecRun, async ({ command, mediumApprovalRequired, approvalRequired, runInBackground, timeoutMs }, options) => {
     void timeoutMs
+    // NOTICE:
+    // Eventa 0.3.0 declares the handler `abortController` option as a TODO and
+    // does not deliver renderer cancellation to handlers yet. The signal is
+    // wired here so the cancellation contract is ready on this side.
+    // Source/context: @moeru/eventa 0.3.0 invoke-LTUFMmHi.d.mts ("TODO: Support aborting invoke handlers").
+    // Removal condition: remove this note when eventa routes invoke cancellation.
     return runBashCommand(command, {
       host: workspace.host,
       approve,
       mediumApprovalRequired: mediumApprovalRequired ?? mediumRequired(),
       approvalRequired,
       ...(runInBackground ? { runInBackground } : {}),
+      ...(options?.abortController ? { signal: options.abortController.signal } : {}),
     })
   })
 
@@ -301,12 +342,38 @@ export async function setupCodingHost(
     outcome: workspace.host.jobs.kill(jobId),
   }))
 
-  defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs, expectedWorkspaceRoot }) => {
+  /** Running programs by renderer-minted run id (mc-1c D3). */
+  const activeRuns = new Map<string, AbortController>()
+
+  defineInvokeHandler(context, codingHostCodeRun, async ({ program, timeoutMs, expectedWorkspaceRoot, allowedTools, runId }, options) => {
     if (expectedWorkspaceRoot !== undefined && expectedWorkspaceRoot !== workspace.root)
       throw new Error('Workspace changed before skill execution.')
-    // The runtime captures this workspace for the entire program. Later root
-    // switches cannot redirect bridge calls from an already running skill.
-    return workspace.codeRuntime.run(program, timeoutMs ? { timeoutMs } : undefined)
+    // Two cancellation paths converge on one signal: the explicit run id (the
+    // path that works with eventa 0.3.0) and the handler abort controller
+    // (already wired for when eventa delivers cancellation).
+    const controller = new AbortController()
+    if (runId)
+      activeRuns.set(runId, controller)
+    if (options?.abortController)
+      options.abortController.signal.addEventListener('abort', () => controller.abort(), { once: true })
+    try {
+      // The runtime captures this workspace for the entire program. Later root
+      // switches cannot redirect bridge calls from an already running skill.
+      return await workspace.codeRuntime.run(program, {
+        ...(timeoutMs ? { timeoutMs } : {}),
+        ...(allowedTools ? { allowedTools } : {}),
+        signal: controller.signal,
+      })
+    }
+    finally {
+      if (runId)
+        activeRuns.delete(runId)
+    }
+  })
+
+  defineInvokeHandler(context, codingHostCodeCancel, async ({ runId }) => {
+    // Unknown ids are a no-op: the run already ended, or it never started.
+    activeRuns.get(runId)?.abort()
   })
 
   defineInvokeHandler(context, codingHostListTools, async () => ({
@@ -326,4 +393,6 @@ export async function setupCodingHost(
       { name: 'code_mode', description: 'Run a sandboxed program that dispatches the coding tools through bridge().', available: true },
     ],
   }))
+
+  return { attachGameCommands }
 }

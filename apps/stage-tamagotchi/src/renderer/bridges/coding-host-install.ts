@@ -24,7 +24,7 @@ import { installMemoryHostPort } from '@proj-airi/stage-ui/stores/modules/memory
 import { installSkillRuntime, useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { installFetchTextPort } from '@proj-airi/stage-ui/tools/fetch'
 
-import { backupAdopt, backupAdopted, backupPrepare, backupRelaunch, backupSave } from '../../shared/eventa'
+import { backupAdopt, backupAdopted, backupPrepare, backupRelaunch, backupSave, extensionPackagesExport } from '../../shared/eventa'
 import { createCodingHostClient } from './coding-host'
 import { createJournalHostClient } from './journal-host'
 import { createLifeModeClient } from './life-mode'
@@ -57,6 +57,10 @@ export function installCodingHostBridge(): void {
       const context = getElectronEventaContext()
       await defineInvoke(context, backupAdopt)()
     },
+    readPackageEntries: async () => {
+      const context = getElectronEventaContext()
+      return (await defineInvoke(context, extensionPackagesExport)()).files
+    },
   })
   getElectronEventaContext().on(backupAdopted, () => {
     releaseRestoreEffectHold()
@@ -77,14 +81,32 @@ export function installCodingHostBridge(): void {
   installSkillRuntime({
     readSource: async (toolId, expectedWorkspaceRoot) => (await client.readFile({ path: `skills/${toolId}/source.mjs`, expectedWorkspaceRoot })).content,
     readSelftest: async (toolId, expectedWorkspaceRoot) => (await client.readFile({ path: `skills/${toolId}/selftest.mjs`, expectedWorkspaceRoot })).content,
+    readMeta: async (toolId, expectedWorkspaceRoot) => (await client.readFile({ path: `skills/${toolId}/meta.json`, expectedWorkspaceRoot })).content,
     getWorkspaceRoot: async () => (await client.listTools()).workspaceRoot,
     getMemoryScope: () => ({ userId: useAuthStore().userId, characterId: useAiriCardStore().activeCardId || 'default' }),
     runCommand: params => client.runCommand(params),
     runProgram: async (params) => {
-      const result = await client.runProgram(params)
-      return result.ok
-        ? { ok: true, value: result.value, logs: result.logs }
-        : { ok: false, failure: { kind: result.failure.kind, message: result.failure.message, logs: result.failure.logs } }
+      const { signal, ...ipc } = params
+      if (signal?.aborted) {
+        return { ok: false, failure: { kind: 'timeout', message: 'The skill run was cancelled before it started.', logs: [] } }
+      }
+      // Eventa 0.3.0 cannot deliver renderer cancellation to the run handler,
+      // so the run gets a renderer-minted id and the abort sends a second,
+      // explicit cancel invoke (mc-1c D3).
+      const runId = crypto.randomUUID()
+      const onAbort = () => {
+        void client.cancelProgram({ runId })
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+      try {
+        const result = await client.runProgram({ ...ipc, runId })
+        return result.ok
+          ? { ok: true, value: result.value, logs: result.logs, traces: result.traces }
+          : { ok: false, failure: { kind: result.failure.kind, message: result.failure.message, logs: result.failure.logs, traces: result.failure.traces } }
+      }
+      finally {
+        signal?.removeEventListener('abort', onAbort)
+      }
     },
   })
   installApprovalsBridge({

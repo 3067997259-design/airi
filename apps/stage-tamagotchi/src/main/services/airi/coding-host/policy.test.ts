@@ -98,6 +98,13 @@ describe('coding host bash policy', () => {
     expect(allowed.host.runCommand).not.toHaveBeenCalled()
   })
 
+  it('forwards the revocation signal to the foreground command', async () => {
+    const controller = new AbortController()
+    const deps = depsWith({ signal: controller.signal })
+    await runBashCommand('git status', deps)
+    expect(deps.host.runCommand).toHaveBeenCalledWith('git status', { signal: controller.signal })
+  })
+
   it('reports nonzero exits as error and bounds stdout/stderr', async () => {
     const deps = depsWith({ host: fakeHost(2, 'x'.repeat(9_000), 'y'.repeat(3_000)) })
     const result = await runBashCommand('ls', deps)

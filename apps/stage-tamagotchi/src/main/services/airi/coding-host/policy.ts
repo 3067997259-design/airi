@@ -20,6 +20,8 @@ export interface CodingHostDeps {
   approvalRequired?: boolean
   /** Starts the command as a background job instead of waiting for it. */
   runInBackground?: boolean
+  /** Revocation signal; aborting kills the foreground command process. */
+  signal?: AbortSignal
 }
 
 export const MAX_COMMAND_STDOUT_CHARS = 8_000
@@ -63,7 +65,9 @@ export async function runBashCommand(command: string, deps: CodingHostDeps): Pro
     }
   }
 
-  const result = await deps.host.runCommand(command)
+  const result = deps.signal
+    ? await deps.host.runCommand(command, { signal: deps.signal })
+    : await deps.host.runCommand(command)
   return {
     tier,
     status: result.exitCode === 0 ? 'ok' : 'error',
