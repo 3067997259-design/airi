@@ -507,7 +507,7 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
       // planner otherwise reports a missing block outside the region and the
       // whole leg fails (live MC-4c follow).
       const bounds = movementRegionBounds(start, goals, 8, 2 * config.maxDropDown + 1)
-      const entries = await readMovementRegion(port, bounds)
+      const { entries, exactShapes } = await readMovementRegion(port, bounds)
       const insideBounds = (p: Vec3): boolean =>
         p.x >= bounds.min.x && p.x <= bounds.max.x
         && p.y >= bounds.min.y && p.y <= bounds.max.y
@@ -519,7 +519,7 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
       // shared map disables an edge on the first plan of the next leg too.
       // Each candidate is checked against the live block first, so a record
       // made before the world changed is dropped rather than trusted.
-      const snapshot = createSnapshot(entries)
+      const snapshot = createSnapshot(entries, { exactShapes })
       let disabled: ReadonlySet<string> | undefined
       if (failedEdges.size > 0) {
         const validated = await validatedFailedEdges(port, failedEdges, { now: now(), materials: remainingPlaceables })
@@ -559,10 +559,11 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
         // nodes, lookahead steering and passed-node skipping (batch 2).
         const runLength = walkRunLength(plan.steps, index)
         if (runLength >= 2) {
-          // A shape-aware snapshot enables the verified corridor follower. The
-          // corridor is only used when every walk cell sweeps clean; otherwise
-          // the discrete run stays the safe path (CD-G2 fallback).
-          const corridor = worldHasCollisionShapes(snapshot)
+          // A shape-complete snapshot enables the verified corridor follower
+          // (exact shapes from the source, or explicit boxes in a test fake).
+          // The corridor is only used when every walk cell sweeps clean;
+          // otherwise the discrete run stays the safe path (CD-G2 fallback).
+          const corridor = (exactShapes || worldHasCollisionShapes(snapshot))
             ? buildCorridor(plan.steps, index, runLength, snapshot, config)
             : undefined
           if (corridor) {

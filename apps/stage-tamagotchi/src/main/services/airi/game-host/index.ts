@@ -45,6 +45,7 @@ import type { BreakFact, GeneratedDrop } from './mining/types'
 import type { AirFollowEndReason } from './movement/air-follow'
 import type { AirTrackStatus } from './movement/air-track'
 import type { FailedEdge } from './movement/executor'
+import type { MovementPortControl } from './movement/host-port'
 import type { TargetObservation, TargetObservationSource } from './movement/target-observation'
 import type { MovementConfig } from './movement/types'
 
@@ -2488,7 +2489,7 @@ export async function setupGameHost(
    * CD-0 §3.2: the port receives the live world binding so a read for another
    * dimension is rejected and every fact can carry its source and generation.
    */
-  function createTerrainPort() {
+  function createTerrainPort(control?: MovementPortControl) {
     return createMcpMovementPort(
       async (name, args) => statusRecordOf(await callGameTool(name, args)),
       {
@@ -2498,6 +2499,8 @@ export async function setupGameHost(
         // CD-V1: the vehicle observation surface exists only when the bridge
         // announced its backing tools; otherwise the movers degrade honestly.
         hasTool: name => capabilities?.['vehicle-observation']?.tools.includes(name) === true,
+        // CD-0 unlock: control writes carry this command's input identity.
+        ...(control ? { control } : {}),
       },
     )
   }
@@ -2594,10 +2597,11 @@ export async function setupGameHost(
     fallback: GameFinalSnapshot,
     shouldStop: () => boolean,
     stillOwnsControl: () => boolean,
+    control: MovementPortControl,
   ): Promise<GameExecutorOutcome> {
     if (moveTo.vehicle) {
       const vehicleResult = await runVehicleMove(moveTo.vehicle, {
-        port: createTerrainPort(),
+        port: createTerrainPort(control),
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
         shouldStop,
@@ -2649,7 +2653,7 @@ export async function setupGameHost(
     // tool cost from the best pickaxe the inventory currently holds.
     const digOptions = moveTo.allowBreak === true ? digOptionsOf(await bestPickaxeTier()) : {}
     const result = await runTerrainRoute({
-      port: createTerrainPort(),
+      port: createTerrainPort(control),
       // Planner nodes are integer cells; a fractional goal never matches them
       // (review R4). `runTerrainLeg` floors the same way.
       goal: cellOf({ x: moveTo.x, y: moveTo.y, z: moveTo.z }),
@@ -2689,9 +2693,10 @@ export async function setupGameHost(
     shouldStop: () => boolean,
     goalCells?: Array<{ x: number, y: number, z: number }>,
     failedEdges?: Map<string, FailedEdge>,
+    control?: MovementPortControl,
   ) {
     return await runTerrainMove({
-      port: createTerrainPort(),
+      port: createTerrainPort(control),
       // Entity positions are fractional but planner nodes are integer cells:
       // an unfloored goal never matches and every leg ends `no_path` (live
       // MC-4c: follow never moved). Block goals are already integers.
@@ -2719,6 +2724,17 @@ export async function setupGameHost(
     // Identity, not the boolean: `nextStopScope` replaces the scope object for
     // a newer write command, so an old mover can tell it no longer owns input.
     const stillOwnsControl = () => writeStopScope === writeStop
+    // CD-0 §3.1 unlock: every control write from this command carries its input
+    // session identity with a strictly increasing sequence, so the bridge can
+    // reject a revoked session or a stale write.
+    let controlSequence = token.sequence
+    const controlIdentity: MovementPortControl = {
+      controlSessionId: token.controlSessionId,
+      nextSequence: () => {
+        controlSequence += 1
+        return controlSequence
+      },
+    }
 
     if (envelope.action === 'say') {
       const text = params.say?.text?.trim()
@@ -2839,7 +2855,7 @@ export async function setupGameHost(
           { x: candidate.x, y: candidate.y + 1, z: candidate.z },
           { x: candidate.x, y: candidate.y - 1, z: candidate.z },
         ]
-        return await runTerrainLeg(candidate, tolerance, shouldStop, goals, failedEdges)
+        return await runTerrainLeg(candidate, tolerance, shouldStop, goals, failedEdges, controlIdentity)
       }
 
       const countOfItem = async (): Promise<number | undefined> => (await readInventoryCounts())?.[itemId]
@@ -3387,7 +3403,7 @@ export async function setupGameHost(
             }
             else {
               const airResult = await runAirTrackMove({
-                port: createTerrainPort(),
+                port: createTerrainPort(controlIdentity),
                 readTarget: () => readTargetObservationByUuid(targetUuid!),
                 band: airSpacing,
                 deadline,
@@ -3440,7 +3456,7 @@ export async function setupGameHost(
           continue
         }
 
-        const leg = await runTerrainLeg(target, activeKeepDistance, shouldStop, undefined, failedEdges)
+        const leg = await runTerrainLeg(target, activeKeepDistance, shouldStop, undefined, failedEdges, controlIdentity)
         if (env.AIRI_TERRAIN_DEBUG)
           log.warn(`follow: leg to ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)} -> ${leg.status}${leg.detail ? ` (${leg.detail})` : ''}`)
         if (leg.status === 'cancelled') {
@@ -4344,7 +4360,7 @@ export async function setupGameHost(
             for (let leg = 0; leg < 2 && distance > ATTACK_REACH; leg++) {
               if (writeStop.stopped)
                 break
-              const legResult = await runTerrainLeg(targetPosition, 2, shouldStop, undefined, failedEdges)
+              const legResult = await runTerrainLeg(targetPosition, 2, shouldStop, undefined, failedEdges, controlIdentity)
               if (legResult.status === 'cancelled')
                 break
               const requery = await readEntityByUuid(targetUuid)
@@ -5336,7 +5352,7 @@ export async function setupGameHost(
       throw new Error('move_to requires a target')
     const fallback = await readFreshSnapshot() ?? { position: { x: 0, y: 0, z: 0 }, health: 0, food: 0, heldItem: null }
     if (movementPlannerOf() === 'terrain')
-      return await executeTerrainMoveTo(envelope, moveTo, fallback, shouldStop, stillOwnsControl)
+      return await executeTerrainMoveTo(envelope, moveTo, fallback, shouldStop, stillOwnsControl, controlIdentity)
     // MCP tool names, not bridge method names: the private session talks to
     // the Node MCP server (mc-0c executor mapping).
     const pathResult = await callGameTool('navigate_to', {
@@ -5347,6 +5363,9 @@ export async function setupGameHost(
       timeoutSeconds: Math.max(1, Math.round(envelope.deadlineMs / 1000)),
       // Reflex events echo this id when they preempt the walk (mc-0d).
       commandId: envelope.commandId,
+      // CD-0 unlock: this drive also carries the command's input identity.
+      controlSessionId: controlIdentity.controlSessionId,
+      sequence: controlIdentity.nextSequence(),
     })
     const pathError = gameToolResultError(pathResult)
     if (pathError) {

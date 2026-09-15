@@ -30,7 +30,7 @@ function keyOf(x: number, y: number, z: number): string {
 }
 
 /** Builds a read-only block source from one region read. */
-export function createSnapshot(entries: SnapshotEntry[]): WorldSnapshot {
+export function createSnapshot(entries: SnapshotEntry[], options: { exactShapes?: boolean } = {}): WorldSnapshot {
   const map = new Map<string, BlockInfo>()
   for (const entry of entries) {
     // Frozen: search candidates must not write hypothetical placements back
@@ -42,6 +42,7 @@ export function createSnapshot(entries: SnapshotEntry[]): WorldSnapshot {
     entries: map,
     has: (x, y, z) => map.has(keyOf(x, y, z)),
     getBlock: (x, y, z) => map.get(keyOf(x, y, z)),
+    ...(options.exactShapes === true ? { exactShapes: true } : {}),
   }
 }
 

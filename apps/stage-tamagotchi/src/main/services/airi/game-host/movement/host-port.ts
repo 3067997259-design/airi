@@ -11,6 +11,7 @@
  * becoming zero coordinates, `onGround: true`, or an empty world.
  */
 import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
+import type { SnapshotEntry } from './snapshot'
 import type { CollisionBox } from './types'
 import type { VehicleReadResponse } from './vehicle-observation'
 import type { VehicleControlPort } from './vehicle-port'
@@ -43,6 +44,21 @@ export interface MovementPortContext {
    * every query with an empty list.
    */
   hasTool?: (name: string) => boolean
+  /** Input-ownership identity for control writes (CD-0 unlock). */
+  control?: MovementPortControl
+}
+
+/**
+ * Control-write identity handed to one command (CD-0 §3.1 unlock).
+ *
+ * `setInput` stamps every write with the session id and a strictly increasing
+ * sequence, so the bridge rejects a revoked session or a stale write instead of
+ * letting an old command move the player. The counter belongs to the command
+ * that minted it.
+ */
+export interface MovementPortControl {
+  controlSessionId: string
+  nextSequence: () => number
 }
 
 /** Parses cell-local collision boxes a shape-aware source may attach. */
@@ -63,7 +79,29 @@ function parseCollision(raw: unknown): CollisionBox[] | undefined {
     if ([minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite))
       boxes.push({ minX, minY, minZ, maxX, maxY, maxZ })
   }
-  return boxes.length > 0 ? boxes : undefined
+  // An empty array is a fact: the source sent the shape and the block does not
+  // collide. Only a missing field means "unknown" (CD-G2 unlock).
+  return boxes
+}
+
+/** Maps one region read's raw block list into snapshot entries. */
+function parseRegionEntries(raw: unknown[]): SnapshotEntry[] {
+  return raw.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      return []
+    const block = entry as Record<string, unknown>
+    const x = Number(block.x)
+    const y = Number(block.y)
+    const z = Number(block.z)
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z))
+      return []
+    const id = typeof block.id === 'string' ? block.id : 'minecraft:air'
+    const properties = block.properties && typeof block.properties === 'object'
+      ? block.properties as Record<string, string>
+      : undefined
+    const collision = parseCollision(block.collision)
+    return [{ x, y, z, id, ...(properties ? { properties } : {}), ...(collision ? { collision } : {}) }]
+  })
 }
 
 function parseUnloaded(raw: unknown): Array<{ x: number, y: number, z: number }> {
@@ -88,6 +126,7 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
   // A missing `hasTool` means "no optional vehicle tools"; the base port must
   // not pretend the capability exists (CD-0 §3.3).
   const hasTool = (name: string) => context.hasTool?.(name) === true
+  const control = context.control
 
   /** Turns one raw vehicle entity record into a typed observation. */
   function vehicleObservationOf(request: VehicleObservationRequest, record: Record<string, unknown> | undefined): VehicleObservation | undefined {
@@ -204,23 +243,13 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
     },
     getBlocksRegion: async (from, to) => {
       const { record } = await readRegionRecord(from, to)
-      const blocks = record.blocks as unknown[]
-      return blocks.flatMap((raw) => {
-        if (!raw || typeof raw !== 'object' || Array.isArray(raw))
-          return []
-        const block = raw as Record<string, unknown>
-        const x = Number(block.x)
-        const y = Number(block.y)
-        const z = Number(block.z)
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z))
-          return []
-        const id = typeof block.id === 'string' ? block.id : 'minecraft:air'
-        const properties = block.properties && typeof block.properties === 'object'
-          ? block.properties as Record<string, string>
-          : undefined
-        const collision = parseCollision(block.collision)
-        return [{ x, y, z, id, ...(properties ? { properties } : {}), ...(collision ? { collision } : {}) }]
-      })
+      return parseRegionEntries(record.blocks as unknown[])
+    },
+    getBlocksRegionDetailed: async (from, to) => {
+      const { record } = await readRegionRecord(from, to)
+      // Full-cube boxes are omitted by the source; `exactShapes` says the
+      // partial and empty shapes are exact per state (CD-G2 unlock).
+      return { entries: parseRegionEntries(record.blocks as unknown[]), exactShapes: record.exactShapes === true }
     },
     readTerrain: async (request: TerrainReadRequest): Promise<TerrainReadResponse> => {
       const { record, dimension, receivedAt } = await readRegionRecord(request.bounds.min, request.bounds.max)
@@ -286,7 +315,11 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
       await callTool('look', { yaw, pitch })
     },
     setInput: async (input) => {
-      await callTool('set_movement', { ...input })
+      // CD-0 §3.1: stamp the write with this command's session identity so the
+      // bridge can reject a revoked session or a stale sequence.
+      await callTool('set_movement', control
+        ? { ...input, controlSessionId: control.controlSessionId, sequence: control.nextSequence() }
+        : { ...input })
     },
     stopMovement: async () => {
       await callTool('stop_movement', {})

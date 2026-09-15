@@ -76,10 +76,25 @@ describe('readMovementRegion', () => {
   it('splits a large cuboid into calls under the MCP cap', async () => {
     const fake = fakePort()
     const bounds = { min: { x: 0, y: 60, z: 0 }, max: { x: 99, y: 69, z: 99 } }
-    const entries = await readMovementRegion(fake.port, bounds)
+    const { entries, exactShapes } = await readMovementRegion(fake.port, bounds)
 
     expect(fake.calls).toBeGreaterThan(1)
     expect(fake.maxCallVolume).toBeLessThanOrEqual(30_000)
     expect(entries).toHaveLength(100 * 10 * 100)
+    // A port without the detailed read never claims exact shapes.
+    expect(exactShapes).toBe(false)
+  })
+
+  it('reports exact shapes when every chunk sent them', async () => {
+    const fake = fakePort()
+    const detailedPort: MovementControlPort = {
+      ...fake.port,
+      async getBlocksRegionDetailed(from: Vec3, to: Vec3) {
+        return { entries: await fake.port.getBlocksRegion(from, to), exactShapes: true }
+      },
+    }
+    const result = await readMovementRegion(detailedPort, { min: { x: 0, y: 64, z: 0 }, max: { x: 9, y: 64, z: 9 } })
+    expect(result.exactShapes).toBe(true)
+    expect(result.entries).toHaveLength(100)
   })
 })

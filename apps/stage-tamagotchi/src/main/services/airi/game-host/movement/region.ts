@@ -62,19 +62,31 @@ export function movementRegionBounds(start: Vec3, goal: Vec3 | Vec3[], margin = 
  * Reads every block in the bounds, chunking along X when needed.
  *
  * Missing entries are meaningful (the planner reports `no_chunk`), so the
- * caller must treat a short result as an incomplete region.
+ * caller must treat a short result as an incomplete region. `exactShapes` is
+ * true only when every chunk of the read reported exact collision shapes, so a
+ * partial answer never opens the corridor follower.
  */
-export async function readMovementRegion(port: MovementControlPort, bounds: RegionBounds): Promise<SnapshotEntry[]> {
+export async function readMovementRegion(port: MovementControlPort, bounds: RegionBounds): Promise<{ entries: SnapshotEntry[], exactShapes: boolean }> {
   const sizeY = bounds.max.y - bounds.min.y + 1
   const sizeZ = bounds.max.z - bounds.min.z + 1
   const perColumn = Math.max(1, sizeY * sizeZ)
   const stepX = Math.max(1, Math.floor(MAX_REGION_BLOCKS / perColumn))
 
+  const detailed = port.getBlocksRegionDetailed
   const entries: SnapshotEntry[] = []
+  let exactShapes = detailed !== undefined
   for (let x = bounds.min.x; x <= bounds.max.x; x += stepX) {
     const from = { x, y: bounds.min.y, z: bounds.min.z }
     const to = { x: Math.min(bounds.max.x, x + stepX - 1), y: bounds.max.y, z: bounds.max.z }
-    entries.push(...await port.getBlocksRegion(from, to))
+    if (detailed) {
+      const chunk = await detailed.call(port, from, to)
+      entries.push(...chunk.entries)
+      if (!chunk.exactShapes)
+        exactShapes = false
+    }
+    else {
+      entries.push(...await port.getBlocksRegion(from, to))
+    }
   }
-  return entries
+  return { entries, exactShapes }
 }

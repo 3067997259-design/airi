@@ -3,6 +3,17 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 解锁项：控制身份透传与区域碰撞形状（2026-09-15，真机待做）
+
+补上前几轮记录的两个解锁缺口：
+
+- **CD-0 控制身份透传**：`set_movement`/`navigate_to` 的 mcp-server schema 增加可选 `controlSessionId`/`sequence`；AIRI 在每个写命令入口生成 `controlIdentity`（序列从该命令 token 起严格递增），地形、载具、采集、跟随与跟飞的端口和逐 tick 驾驶都携带它，`host-port.ts` 的 `setInput` 打上会话与序列。模组端原有的接受逻辑由此真正被行使；旧 mcp-server 剥离未知字段时行为与以前一致，兼容方向正确。
+- **CD-G2 碰撞形状下发**：服务端 `world.getBlocks` 对非满方块发送 cell-local `collision`（满方块省略以免膨胀，非空气的空形状显式发 `[]`），响应新增 `exactShapes: true`，按 `BlockState` 在单次读内缓存形状；AIRI 新增 `getBlocksRegionDetailed` 解析该标记，`readMovementRegion` 要求每个分片都精确才返回 `exactShapes`，快照携带该标记后走廊跟随才启用，否则保持离散回退；`parseCollision` 保留显式空数组（"不碰撞"是事实，"缺字段"才是未知）。
+
+验证：game-host 定向 **737 passed / 1 skipped**（+3 例：序列递增、空碰撞数组保留、分片精确标记）；桌面包 typecheck 0；定向 ESLint 0；mcp-server `tsc --noEmit` 0；模组 `:1.21.1:build` 成功。全部真机验收 NOT-RUN。
+
+环境修复：上一轮被强杀的子代理在 `~/.gradle/caches/fabric-loom` 留下缓存锁，Loom 据锁判定缓存被弃用并尝试重建，触发下载失败；已 `gradlew --stop` 并删除残留 `.lock`，构建恢复。
+
 ## 红石施工、局部维修与开放探索（RS-1–RS-4、RS-E，2026-09-15，宿主侧完成，Litematica 集成 BLOCKED）
 
 按[红石施工、局部维修与开放探索](./redstone-automation-design.md)实施。RS-1：新增 `game-host/redstone/`（`geometry/blueprint/siting/projection/adapter`），蓝图记录（身份、摘要、版本、子区域、相对原点、方块状态、材料）、选址（旋转包围盒含子区域偏移、奇偶偏差记录、朝向与维护空间、冲突如实返回）；投影仅输出放置数据（不实现实体粘贴）。RS-2：`placement/construction/progress/state` 提供支撑与触及顺序、水与活塞的阶段边界、精确放置参数、结构调整，并将（中继器档位、朝向等）静态配置与运行状态分开核对；暂停恢复不重复已完成步骤。RS-3：`observation/diagnosis` 有界批次、来源与完整性、遗漏不等于信号为零、人工与自然分离、触发→传输→执行→收集逐段定位，且诊断数据不含夹具答案。RS-4：`diff/repair` 约束优先的最小维修、逐方案执行与完整复测、仅撤销本任务可恢复的改动、原始蓝图/进度/候选/已验收四层分离、结构目标 = 原图 + 已验收差异。RS-E：小实验记录与预算。

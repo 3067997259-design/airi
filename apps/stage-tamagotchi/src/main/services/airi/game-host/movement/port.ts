@@ -86,6 +86,14 @@ export interface MovementControlPort {
   getState: () => Promise<MovementState>
   getBlocksRegion: (from: Vec3, to: Vec3) => Promise<SnapshotEntry[]>
   /**
+   * Region read that also reports whether the source sent exact collision
+   * shapes (CD-G2 unlock).
+   *
+   * Optional: fakes and bridges without shape support keep using
+   * `getBlocksRegion`, and the corridor follower stays on the discrete path.
+   */
+  getBlocksRegionDetailed?: (from: Vec3, to: Vec3) => Promise<{ entries: SnapshotEntry[], exactShapes: boolean }>
+  /**
    * Coverage-aware region read (CD-0 §3.2).
    *
    * Optional: a bridge without collision-snapshot capability reports a typed

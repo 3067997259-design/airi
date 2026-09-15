@@ -60,6 +60,14 @@ export interface BlockInfo {
 /** Read-only block source; unresolved positions are reported to the caller. */
 export interface BlockSource {
   getBlock: (x: number, y: number, z: number) => BlockInfo | undefined
+  /**
+   * True when the source sent exact collision shapes for non-full blocks and a
+   * full cube may be derived from the block id (CD-G2 unlock).
+   *
+   * A source without the marker is shape-incomplete: the corridor follower
+   * stays on the discrete path instead of guessing shapes.
+   */
+  exactShapes?: boolean
 }
 
 /** One action the executor must take before entering a successor node. */

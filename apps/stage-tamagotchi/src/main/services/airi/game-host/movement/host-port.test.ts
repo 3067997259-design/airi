@@ -137,6 +137,42 @@ describe('createMcpMovementPort', () => {
     expect(callTool).toHaveBeenCalledWith('stop_movement', {})
   })
 
+  it('stamps control writes with the command session and an increasing sequence', async () => {
+    const callTool = callerWith({})
+    let sequence = 4
+    const port = createMcpMovementPort(callTool, {
+      control: {
+        controlSessionId: 'ctrl-1',
+        nextSequence: () => {
+          sequence += 1
+          return sequence
+        },
+      },
+    })
+    await port.setInput({ forward: true })
+    await port.setInput({ sprint: true })
+    expect(callTool).toHaveBeenNthCalledWith(1, 'set_movement', { forward: true, controlSessionId: 'ctrl-1', sequence: 5 })
+    expect(callTool).toHaveBeenNthCalledWith(2, 'set_movement', { sprint: true, controlSessionId: 'ctrl-1', sequence: 6 })
+  })
+
+  it('keeps an explicit empty collision array and reports exact shapes', async () => {
+    const callTool = callerWith({
+      get_blocks_region: {
+        blocks: [
+          { x: 0, y: 0, z: 0, id: 'minecraft:torch', collision: [] },
+          { x: 1, y: 0, z: 0, id: 'minecraft:oak_stairs', collision: [{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.5, maxZ: 1 }] },
+        ],
+        exactShapes: true,
+      },
+    })
+    const port = createMcpMovementPort(callTool)
+    const detailed = await port.getBlocksRegionDetailed?.({ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 })
+    expect(detailed?.exactShapes).toBe(true)
+    // An empty array is a fact ("does not collide"), not a missing shape.
+    expect(detailed?.entries[0]?.collision).toEqual([])
+    expect(detailed?.entries[1]?.collision).toEqual([{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.5, maxZ: 1 }])
+  })
+
   // ROOT CAUSE (D4):
   //
   // A missing `get_self` record became position zero, `onGround: true` and
