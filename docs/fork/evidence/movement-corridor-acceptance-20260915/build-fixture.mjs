@@ -45,6 +45,25 @@ else if (name === 'arena') {
   await fill({ x: 83, y: 75, z: -22 }, { x: 83, y: 78, z: -18 }, stone)
   await fill({ x: 81, y: 75, z: -19 }, { x: 86, y: 75, z: -19 }, stone)
 }
+else if (name === 'arena-wide') {
+  // The same sealed arena, but the only gap sits beyond the old 16-cells
+  // window: this leg needs the 32-cell expansion to see the detour.
+  await fill({ x: 73, y: 75, z: -31 }, { x: 73, y: 78, z: -9 }, stone)
+  await fill({ x: 99, y: 75, z: -31 }, { x: 99, y: 78, z: -9 }, stone)
+  await fill({ x: 73, y: 75, z: -31 }, { x: 99, y: 78, z: -31 }, stone)
+  await fill({ x: 73, y: 75, z: -9 }, { x: 99, y: 78, z: -9 }, stone)
+  await fill({ x: 74, y: 75, z: -23 }, { x: 96, y: 78, z: -23 }, stone)
+}
+else if (name === 'hill') {
+  // A natural-terrain style slope: three one-block bands up to a grass plateau
+  // (surfaces 76 / 77 / 78).
+  await fill({ x: 78, y: 75, z: -26 }, { x: 92, y: 75, z: -25 }, 'minecraft:dirt')
+  await fill({ x: 78, y: 75, z: -24 }, { x: 92, y: 76, z: -23 }, 'minecraft:dirt')
+  await fill({ x: 78, y: 75, z: -22 }, { x: 92, y: 77, z: -12 }, 'minecraft:dirt')
+  await fill({ x: 78, y: 75, z: -26 }, { x: 92, y: 75, z: -25 }, 'minecraft:grass_block')
+  await fill({ x: 78, y: 76, z: -24 }, { x: 92, y: 76, z: -23 }, 'minecraft:grass_block')
+  await fill({ x: 78, y: 77, z: -22 }, { x: 92, y: 77, z: -12 }, 'minecraft:grass_block')
+}
 else if (name === 'staircase') {
   // Three full-block steps up (jump-up edges) then a plateau at top y=78.
   await fill({ x: 84, y: 75, z: -26 }, { x: 84, y: 75, z: -22 }, stone)

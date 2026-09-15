@@ -7,7 +7,8 @@
  * implements the interaction executor.
  */
 import type { BlockFace, MovementControlPort, MovementInput, MovementState } from './port'
-import type { BlockSource, MovementConfig, PathStep, PlanFailureReason, Vec3 } from './types'
+import type { WorldSnapshot } from './snapshot'
+import type { BlockSource, MovementConfig, PathStep, PlanFailureReason, PlanSuccess, Vec3 } from './types'
 
 import { normalizeBlockId } from './block-view'
 import { standPointOf } from './coordinates'
@@ -18,6 +19,14 @@ import { movementRegionBounds, readMovementRegion } from './region'
 import { hintCells, LONG_ROUTE_MAX_HOP, LONG_ROUTE_MIN_DISTANCE, splitRoute } from './route'
 import { createSnapshot } from './snapshot'
 import { DEFAULT_MOVEMENT_CONFIG } from './types'
+
+/**
+ * Horizontal read windows one leg tries, in cells.
+ *
+ * 16 is the scale a mob uses to follow a target; 32 and 48 cover a detour the
+ * base window cannot see before the leg ends `unreachable`.
+ */
+const LOCAL_WINDOW_MARGINS = [16, 32, 48] as const
 
 export type TerrainMoveStatus
   = | 'reached'
@@ -502,39 +511,64 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
         return finish('reached')
 
       const start = floorVec(position)
-      // The lower read margin must cover the deepest allowed drop plus the
-      // support block below it, and one more scan from a landing node; the
-      // planner otherwise reports a missing block outside the region and the
-      // whole leg fails (live MC-4c follow).
-      const bounds = movementRegionBounds(start, goals, 8, 2 * config.maxDropDown + 1)
-      const { entries, exactShapes } = await readMovementRegion(port, bounds)
-      const insideBounds = (p: Vec3): boolean =>
-        p.x >= bounds.min.x && p.x <= bounds.max.x
-        && p.y >= bounds.min.y && p.y <= bounds.max.y
-        && p.z >= bounds.min.z && p.z <= bounds.max.z
-      // Blocks outside the snapshot are stubbed as obstacles (upstream
-      // behavior); a missing block *inside* the requested region means the
-      // read was incomplete and the plan must fail loudly.
-      // A failed edge is honored on every plan once the map has entries, so a
-      // shared map disables an edge on the first plan of the next leg too.
-      // Each candidate is checked against the live block first, so a record
-      // made before the world changed is dropped rather than trusted.
-      const snapshot = createSnapshot(entries, { exactShapes })
-      let disabled: ReadonlySet<string> | undefined
-      if (failedEdges.size > 0) {
-        const validated = await validatedFailedEdges(port, failedEdges, { now: now(), materials: remainingPlaceables })
-        disabled = validated.length > 0 ? disabledCellsOf(validated) : undefined
+      // A local window around start and goal keeps one leg cheap. The base
+      // window is 16 cells, the scale a mob uses to follow a target; when the
+      // direct line is walled off, the window grows stepwise so a detour the
+      // base window cannot see is still found instead of ending `unreachable`.
+      // The entrance graph (CD-G3) remains the long-term replacement.
+      let snapshot: WorldSnapshot | undefined
+      let exactShapes = false
+      let plan: PlanSuccess | undefined
+      for (const margin of LOCAL_WINDOW_MARGINS) {
+        // The lower read margin must cover the deepest allowed drop plus the
+        // support block below it, and one more scan from a landing node; the
+        // planner otherwise reports a missing block outside the region and the
+        // whole leg fails (live MC-4c follow).
+        const bounds = movementRegionBounds(start, goals, margin, 2 * config.maxDropDown + 1)
+        const read = await readMovementRegion(port, bounds)
+        const candidateSnapshot = createSnapshot(read.entries, { exactShapes: read.exactShapes })
+        const insideBounds = (p: Vec3): boolean =>
+          p.x >= bounds.min.x && p.x <= bounds.max.x
+          && p.y >= bounds.min.y && p.y <= bounds.max.y
+          && p.z >= bounds.min.z && p.z <= bounds.max.z
+        // Blocks outside the snapshot are stubbed as obstacles (upstream
+        // behavior); a missing block *inside* the requested region means the
+        // read was incomplete and the plan must fail loudly.
+        // A failed edge is honored on every plan once the map has entries, so a
+        // shared map disables an edge on the first plan of the next leg too.
+        // Each candidate is checked against the live block first, so a record
+        // made before the world changed is dropped rather than trusted.
+        let disabled: ReadonlySet<string> | undefined
+        if (failedEdges.size > 0) {
+          const validated = await validatedFailedEdges(port, failedEdges, { now: now(), materials: remainingPlaceables })
+          disabled = validated.length > 0 ? disabledCellsOf(validated) : undefined
+        }
+        const candidate = planPath({ source: candidateSnapshot, start, goal, goalCells: goals, disabled, config, remainingPlaceables, onMissingBlock: 'stub' })
+        if (candidate.ok) {
+          plan = candidate
+          snapshot = candidateSnapshot
+          exactShapes = read.exactShapes
+          const incomplete = candidate.missing?.find(insideBounds)
+          if (incomplete)
+            return finish('no_chunk', `missing ${incomplete.x},${incomplete.y},${incomplete.z}`)
+          break
+        }
+        debug?.(`plan failed at margin ${margin}: ${candidate.reason}${candidate.missing ? ` missing ${candidate.missing.x},${candidate.missing.y},${candidate.missing.z}` : ''} start=${start.x},${start.y},${start.z} goal=${goal.x},${goal.y},${goal.z}`)
+        const incomplete = candidate.missing && insideBounds(candidate.missing)
+        if (incomplete) {
+          // The base window is the readability gate: a missing block inside it
+          // means the read was incomplete and the leg fails loudly. A wider
+          // window that is only partly loaded must not turn a decided local
+          // `no_path` into a read failure, so expansion simply stops there.
+          if (margin === LOCAL_WINDOW_MARGINS[0])
+            return finish('no_chunk', `missing ${candidate.missing!.x},${candidate.missing!.y},${candidate.missing!.z}`)
+          break
+        }
+        if (candidate.reason !== 'no_path')
+          return finish(candidate.reason, candidate.missing ? `missing ${candidate.missing.x},${candidate.missing.y},${candidate.missing.z}` : undefined)
       }
-      const plan = planPath({ source: snapshot, start, goal, goalCells: goals, disabled, config, remainingPlaceables, onMissingBlock: 'stub' })
-      if (!plan.ok) {
-        debug?.(`plan failed: ${plan.reason}${plan.missing ? ` missing ${plan.missing.x},${plan.missing.y},${plan.missing.z}` : ''} start=${start.x},${start.y},${start.z} goal=${goal.x},${goal.y},${goal.z} region=${bounds.min.x},${bounds.min.y},${bounds.min.z}..${bounds.max.x},${bounds.max.y},${bounds.max.z}`)
-        if (plan.missing && insideBounds(plan.missing))
-          return finish('no_chunk', `missing ${plan.missing.x},${plan.missing.y},${plan.missing.z}`)
-        return finish(plan.reason, plan.missing ? `missing ${plan.missing.x},${plan.missing.y},${plan.missing.z}` : undefined)
-      }
-      const incomplete = plan.missing?.find(insideBounds)
-      if (incomplete)
-        return finish('no_chunk', `missing ${incomplete.x},${incomplete.y},${incomplete.z}`)
+      if (!plan || !snapshot)
+        return finish('no_path', `no path within ${LOCAL_WINDOW_MARGINS[LOCAL_WINDOW_MARGINS.length - 1]} cells`)
       debug?.(`plan: ${plan.steps.length} steps from ${start.x},${start.y},${start.z}`)
       debug?.(`plan path: ${JSON.stringify(plan.steps.map(step => [step.x, step.y, step.z]))}`)
 

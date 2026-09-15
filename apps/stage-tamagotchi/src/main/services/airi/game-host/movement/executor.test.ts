@@ -564,8 +564,9 @@ describe('runTerrainRoute long distance', () => {
     expect(port.regionReads.length).toBeGreaterThanOrEqual(3)
     for (const read of port.regionReads) {
       // Every leg reads a window around its start and the next waypoint, not
-      // the whole 64-block route.
-      expect(read.to.z - read.from.z).toBeLessThanOrEqual(40)
+      // the whole 64-block route: one hop (16, up to 17 after flooring) plus
+      // the 16-cell base window on each side.
+      expect(read.to.z - read.from.z).toBeLessThanOrEqual(50)
       const volume = (read.to.x - read.from.x + 1) * (read.to.y - read.from.y + 1) * (read.to.z - read.from.z + 1)
       expect(volume).toBeLessThanOrEqual(MAX_REGION_BLOCKS)
     }

@@ -27,8 +27,10 @@ export interface RegionBounds {
  * support block it reads below the landing node. Live MC-4c kept the old
  * margin at 4 while the planner (maxDropDown = 4) probed the support block at
  * -5, so the leg failed with a missing block that was outside the read region.
+ * The horizontal default is 16 cells, the scale a mob uses to follow a target;
+ * the caller grows it stepwise when a detour lies outside the base window.
  */
-export function movementRegionBounds(start: Vec3, goal: Vec3 | Vec3[], margin = 8, lowerMargin = 5): RegionBounds {
+export function movementRegionBounds(start: Vec3, goal: Vec3 | Vec3[], margin = 16, lowerMargin = 5): RegionBounds {
   const goals = Array.isArray(goal) ? goal : [goal]
   let minX = start.x
   let maxX = start.x
