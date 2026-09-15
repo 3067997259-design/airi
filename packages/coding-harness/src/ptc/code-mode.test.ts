@@ -63,6 +63,25 @@ describe('code mode runtime', () => {
     }
   })
 
+  it('rejects a declaration-requiring tool unless allowedTools contains it', async () => {
+    const declared = createCodeModeRuntime([{
+      name: 'game_status',
+      description: 'declared game bridge tool',
+      requiresDeclaration: true,
+      async run() {
+        return 'ok'
+      },
+    }], { timeoutMs: 2_000 })
+
+    const denied = await declared.run(`return await bridge('game_status', [])`)
+    expectFailure(denied, 'runtime', 'not declared by the reviewed skill')
+
+    const allowed = await declared.run(`return await bridge('game_status', [])`, { allowedTools: ['game_status'] })
+    expect(allowed.ok).toBe(true)
+    if (allowed.ok)
+      expect(allowed.value).toBe('ok')
+  })
+
   it('reports unknown globals as runtime errors', async () => {
     const result = await runtime.run(`return seed.x + 1`)
     expectFailure(result, 'runtime', 'seed is not defined')
@@ -113,5 +132,15 @@ describe('code mode runtime', () => {
       return 'never'
     `)
     expectFailure(result, 'bridge-limit')
+  })
+
+  it('kills the sandbox when the revocation signal aborts', async () => {
+    const controller = new AbortController()
+    const longRuntime = createCodeModeRuntime([echoTool()], { timeoutMs: 10_000, bridgeTimeoutMs: 9_000 })
+    const running = longRuntime.run(`while (true) {}`, { timeoutMs: 9_000, signal: controller.signal })
+    setTimeout(() => controller.abort(new Error('registration revoked')), 50)
+
+    const result = await running
+    expectFailure(result, 'sandbox', 'registration revoked')
   })
 })

@@ -9,6 +9,8 @@
  */
 import type { SandboxRunPayload } from './protocol'
 
+import { randomUUID } from 'node:crypto'
+
 import { errorMessageFrom } from '@moeru/std'
 
 import { executeSandboxedProgram } from './runner'
@@ -16,7 +18,17 @@ import { executeSandboxedProgram } from './runner'
 export interface CodeModeTool {
   name: string
   description: string
-  run: (args: unknown[]) => Promise<unknown>
+  /**
+   * When true, a program may only call this tool if `run` receives an
+   * `allowedTools` list that contains the name (mc-1c D2). Game bridge tools
+   * set this; the reviewed skill's declaration is the list.
+   */
+  requiresDeclaration?: boolean
+  /**
+   * `context.runId` is stable for one program run; `context.signal` aborts
+   * with the run and lets a tool cancel its own in-flight work (mc-1c D3).
+   */
+  run: (args: unknown[], context: { runId: string, signal?: AbortSignal }) => Promise<unknown>
 }
 
 export type CodeRunFailureKind = 'parse' | 'runtime' | 'timeout' | 'bridge-limit' | 'bridge' | 'sandbox'
@@ -41,7 +53,7 @@ export type CodeRunResult
     | { ok: false, failure: CodeRunFailure }
 
 export interface CodeModeRuntime {
-  run: (program: string, overrides?: { timeoutMs?: number }) => Promise<CodeRunResult>
+  run: (program: string, overrides?: { timeoutMs?: number, signal?: AbortSignal, allowedTools?: string[] }) => Promise<CodeRunResult>
 }
 
 export interface CodeModeRuntimeOptions {
@@ -49,6 +61,8 @@ export interface CodeModeRuntimeOptions {
   memoryLimitMb?: number
   bridgeTimeoutMs?: number
   maxBridgeCalls?: number
+  /** Aborts the sandbox when the owning registration or turn is revoked. */
+  signal?: AbortSignal
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -62,7 +76,7 @@ export function createCodeModeRuntime(
 ): CodeModeRuntime {
   const toolByName = new Map(tools.map(tool => [tool.name, tool]))
 
-  const run = async (program: string, overrides: { timeoutMs?: number } = {}): Promise<CodeRunResult> => {
+  const run = async (program: string, overrides: { timeoutMs?: number, signal?: AbortSignal, allowedTools?: string[] } = {}): Promise<CodeRunResult> => {
     const timeoutMs = overrides.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
     const payload: SandboxRunPayload = {
@@ -73,16 +87,27 @@ export function createCodeModeRuntime(
     }
 
     const traces: CodeModeBridgeTrace[] = []
+    const signal = overrides.signal ?? options.signal
+    const runId = randomUUID()
+    // A long program may hold one bridge call for most of its budget (a game
+    // collect lease is 180s), so the per-call timeout never runs out before
+    // the program itself does.
+    const bridgeTimeoutMs = Math.max(options.bridgeTimeoutMs ?? DEFAULT_BRIDGE_TIMEOUT_MS, timeoutMs)
     try {
       const result = await executeSandboxedProgram(payload, {
-        bridgeTimeoutMs: options.bridgeTimeoutMs ?? DEFAULT_BRIDGE_TIMEOUT_MS,
+        bridgeTimeoutMs,
         maxBridgeCalls: options.maxBridgeCalls ?? DEFAULT_MAX_BRIDGE_CALLS,
+        ...(signal ? { signal } : {}),
         onBridgeRequest: async (method, args) => {
           const tool = toolByName.get(method)
           if (!tool)
             throw new Error(`Unknown tool "${method}" requested by program`)
+          // A declared tool needs the reviewed skill's list; an empty list
+          // means the declaration is gone, so the call is rejected.
+          if (tool.requiresDeclaration && !(overrides.allowedTools ?? []).includes(method))
+            throw new Error(`Tool "${method}" is not declared by the reviewed skill.`)
           try {
-            const value = await tool.run(args)
+            const value = await tool.run(args, { runId, ...(signal ? { signal } : {}) })
             traces.push({
               toolName: method,
               args: structuredClone(args),

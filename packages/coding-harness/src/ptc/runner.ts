@@ -40,6 +40,11 @@ function cloneStructured<T>(value: T): T {
 export interface SandboxRunnerOptions {
   bridgeTimeoutMs: number
   maxBridgeCalls: number
+  /**
+   * Aborts the sandbox when the owning registration or turn is revoked.
+   * Aborting kills the worker process before the program result is settled.
+   */
+  signal?: AbortSignal
   onBridgeRequest: (method: string, args: unknown[]) => Promise<unknown>
 }
 
@@ -54,6 +59,7 @@ export async function executeSandboxedProgram(
     let bridgeCallCount = 0
     let hardTimeout: ReturnType<typeof setTimeout> | undefined
     let settled = false
+    let onAbort: (() => void) | undefined
 
     const child = fork(SANDBOX_WORKER_ENTRY_PATH, [], {
       cwd: SANDBOX_SOURCE_DIRECTORY,
@@ -79,6 +85,8 @@ export async function executeSandboxedProgram(
       settled = true
       if (hardTimeout)
         clearTimeout(hardTimeout)
+      if (onAbort && options.signal)
+        options.signal.removeEventListener('abort', onAbort)
       child.removeAllListeners()
       child.stderr?.removeAllListeners()
       handler()
@@ -137,6 +145,18 @@ export async function executeSandboxedProgram(
       void child.kill('SIGKILL')
       finalize(() => reject(timeoutError))
     }, hardTimeoutMs)
+
+    onAbort = () => {
+      const reason = options.signal?.reason instanceof Error ? options.signal.reason : new Error('Sandbox execution was cancelled.')
+      void child.kill('SIGKILL')
+      finalize(() => reject(createWorkerError(withCapturedStderr(`Sandbox worker aborted: ${reason.message}`))))
+    }
+    if (options.signal) {
+      if (options.signal.aborted)
+        onAbort()
+      else
+        options.signal.addEventListener('abort', onAbort, { once: true })
+    }
 
     child.stderr?.on('data', chunk => stderrChunks.push(String(chunk)))
 

@@ -69,7 +69,7 @@ export interface WorkspaceHost {
   grep: (query: WorkspaceGrepQuery) => Promise<WorkspaceGrepResult>
   writeFile: (path: string, content: string) => Promise<void>
   writeFileIfUnchanged: (path: string, content: string, baseHash: string | null) => Promise<WorkspaceWriteResult>
-  runCommand: (command: string) => Promise<CommandResult>
+  runCommand: (command: string, options?: { signal?: AbortSignal }) => Promise<CommandResult>
   /**
    * Background command jobs.
    *
@@ -242,13 +242,18 @@ export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHost
       await writeFileAsync(resolved, content, 'utf8')
       return { status: 'written', baseHash: contentHash(content) }
     },
-    runCommand(command) {
+    runCommand(command, options = {}) {
       // The shell is spawned by path with its own command flag instead of
       // `shell: true`, which resolved ComSpec (cmd.exe) on Windows and broke
       // every POSIX command the model wrote. Capabilities stay gated upstream
       // by classifyBashCommand plus the approval callback, never here.
       return new Promise<CommandResult>((resolveResult) => {
-        execFile(
+        if (options.signal?.aborted) {
+          resolveResult({ stdout: '', stderr: 'Command cancelled before it started.', exitCode: 1, shell: shell.kind })
+          return
+        }
+
+        const child = execFile(
           shell.executable,
           [...shell.commandArgs, command],
           {
@@ -263,9 +268,18 @@ export function createNodeWorkspaceHost(root: string, options: NodeWorkspaceHost
               : error
                 ? 1
                 : 0
+            cleanup()
             resolveResult({ stdout, stderr: String(stderr), exitCode: Number.isFinite(exitCode) ? exitCode : 1, shell: shell.kind })
           },
         )
+
+        // A revoked registration kills the process instead of waiting for a
+        // long command to finish on its own.
+        const onAbort = () => child.kill('SIGKILL')
+        function cleanup() {
+          options.signal?.removeEventListener('abort', onAbort)
+        }
+        options.signal?.addEventListener('abort', onAbort, { once: true })
       })
     },
   }
