@@ -35,4 +35,17 @@ describe('parseMemorySourceContext', () => {
       neighbors: [],
     })
   })
+
+  it('round-trips the world-scoped game binding and drops a malformed one (mc-1b)', () => {
+    expect(parseMemorySourceContext({
+      sessionId: 'session-1',
+      neighbors: [],
+      gameWorld: { worldId: 'connection-scoped', connectionId: 'connection-3', connectionGeneration: 3, dimension: 'minecraft:overworld', observedAt: 1_700_000_000_000 },
+    })).toMatchObject({
+      gameWorld: { worldId: 'connection-scoped', connectionId: 'connection-3', connectionGeneration: 3, dimension: 'minecraft:overworld', observedAt: 1_700_000_000_000 },
+    })
+
+    expect(parseMemorySourceContext({ sessionId: 'session-1', neighbors: [], gameWorld: { worldId: 'w' } }))
+      .toEqual({ sessionId: 'session-1', neighbors: [] })
+  })
 })

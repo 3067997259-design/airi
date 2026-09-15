@@ -1,7 +1,7 @@
 import type { LongGoalRunRecord, LongGoalTransitionRecord, PlanSpec, PlanState, PlanStepStatus } from '@proj-airi/core-agent'
 import type { MemoryDreamIdea, MemoryDreamIdeaStatus, MemoryEmbeddingMetadata, MemoryEmbeddingQueryMetadata, MemoryFragment, MemoryMood, MemoryRepository, MemoryReviewStatus, MemoryScope, MemoryScoreWeights, ScoredMemoryFragment } from '@proj-airi/memory-core'
 
-import { DEFAULT_MEMORY_SIMILARITY_THRESHOLD, isSameMemoryScope, parseMemorySourceContext, scoreMemoryFragment, shouldPromoteMemory } from '@proj-airi/memory-core'
+import { DEFAULT_MEMORY_SIMILARITY_THRESHOLD, isMemoryScopeVisible, parseMemorySourceContext, scoreMemoryFragment, shouldPromoteMemory } from '@proj-airi/memory-core'
 
 interface MemoryDbExecutor {
   execute: (query: string) => Promise<unknown>
@@ -324,6 +324,7 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
     weights?: Partial<MemoryScoreWeights>
     embeddingMetadata?: MemoryEmbeddingQueryMetadata
     scope?: MemoryScope
+    linkedUserIds?: string[]
   }): Promise<ScoredMemoryFragment[]> {
     const limit = input.limit ?? 3
     const threshold = input.similarityThreshold ?? DEFAULT_MEMORY_SIMILARITY_THRESHOLD
@@ -360,7 +361,7 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
     const now = input.now ?? Date.now()
     return rowsFromResult(result)
       .map(row => rowToFragment(row))
-      .filter(fragment => !input.scope || isSameMemoryScope(fragment.scope, input.scope))
+      .filter(fragment => !input.scope || isMemoryScopeVisible(fragment.scope, input.scope, input.linkedUserIds ?? []))
       .filter(fragment => !!fragment.contentVector && fragment.contentVector.length === input.embedding.length)
       .map((fragment) => {
         const similarity = cosineSimilarity(input.embedding, fragment.contentVector!)
@@ -500,7 +501,7 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
     return eligible.map(fragment => fragment.id)
   }
 
-  async function list(input: { memoryType?: MemoryFragment['memoryType'], reviewStatus?: MemoryReviewStatus, limit?: number, scope?: MemoryScope, shareable?: boolean } = {}): Promise<MemoryFragment[]> {
+  async function list(input: { memoryType?: MemoryFragment['memoryType'], reviewStatus?: MemoryReviewStatus, limit?: number, scope?: MemoryScope, shareable?: boolean, linkedUserIds?: string[] } = {}): Promise<MemoryFragment[]> {
     const typeFilter = input.memoryType ? `AND memory_type = ${quote(input.memoryType)}` : ''
     const statusFilter = input.reviewStatus ? `AND review_status = ${quote(input.reviewStatus)}` : ''
     // Social candidates are eligible facts with a usable source context. The
@@ -531,7 +532,7 @@ export function createDuckDbMemoryRepository(db: MemoryDbExecutor): DuckDbMemory
     `)
     return rowsFromResult(result)
       .map(rowToFragment)
-      .filter(fragment => !input.scope || isSameMemoryScope(fragment.scope, input.scope))
+      .filter(fragment => !input.scope || isMemoryScopeVisible(fragment.scope, input.scope, input.linkedUserIds ?? []))
   }
 
   async function update(id: string, patch: Parameters<MemoryRepository['update']>[1]): Promise<MemoryFragment | undefined> {

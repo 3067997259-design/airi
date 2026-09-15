@@ -54,4 +54,4 @@ export type {
   MemoryType,
   ScoredMemoryFragment,
 } from './types'
-export { isSameMemoryScope } from './types'
+export { isMemoryScopeVisible, isSameMemoryScope } from './types'

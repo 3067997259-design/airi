@@ -41,6 +41,28 @@ export function isSameMemoryScope(left: MemoryScope | undefined, right: MemorySc
 }
 
 /**
+ * Whether a stored scope is visible to the active scope (MQ-2 D1c).
+ *
+ * Character identity must match exactly; the user dimension may include
+ * explicitly linked local identities (for example the anonymous `local`
+ * profile after sign-in). Stored facts are deliberately not merged: the link
+ * is a visibility policy that can be revised without rewriting provenance.
+ */
+export function isMemoryScopeVisible(
+  scope: MemoryScope | undefined,
+  active: MemoryScope,
+  linkedUserIds: readonly string[] = [],
+): boolean {
+  if (!scope)
+    return false
+  if (scope.characterId !== active.characterId)
+    return false
+  if (scope.userId === active.userId)
+    return true
+  return linkedUserIds.includes(scope.userId)
+}
+
+/**
  * Human confirmation gate (MEMORY-DESIGN §11.2): fresh extractions land as
  * `pending`; only `approved` fragments may be promoted to long-term.
  * `undefined` means the record predates the gate (treated as approved).
@@ -78,6 +100,27 @@ export interface MemorySourceContext {
   sourceEventId?: string
   /** Source kind used to explain why the event was retained. */
   sourceType?: string
+  /**
+   * Game world the fact was learned in (mc-1b).
+   *
+   * Coordinates and game state are world-scoped: a fact recorded in one world
+   * must not read as a current fact in another. Injected facts from a
+   * different world (or older than the freshness window) are labeled as
+   * historical and require a fresh observation before acting.
+   */
+  gameWorld?: {
+    worldId: string
+    /**
+     * Per-connect unique id (mc-1b). The generation counter restarts with the
+     * app process, so `connection-scoped` plus this id is the scope key: a
+     * fact from another connection is never a current fact.
+     */
+    connectionId?: string
+    connectionGeneration: number
+    dimension: string
+    /** Time of the last game observation behind this fact, not the write time. */
+    observedAt: number
+  }
   /** Bounded conversation messages around the source turn. */
   neighbors: string[]
 }
@@ -206,14 +249,15 @@ export const DEFAULT_MEMORY_HALF_LIFE_HOURS: Readonly<Record<Exclude<MemoryType,
 /**
  * Default minimum cosine similarity for semantic recall.
  *
- * Recalibrated after the embedding backend moved to Voyage (with `input_type`
- * set) on 2026-09-05: a short related Chinese query scores ~0.54, a full
- * paraphrased turn ~0.12, and unrelated questions 0.10 — the related/noise
- * margin is now wide, so 0.5 locks out noise while keeping short recall.
- * Long paraphrased turn recall is a known gap; treat those as background and
- * rely on short, direct questions. Revisit in MEMORY-SEMANTICS-CORRECTION §9.1.
+ * Recalibrated from 0.5 to 0.42 on 2026-09-13, after the MQ-2 comparison ran
+ * on the MQ-0 90-case set (Voyage `voyage-4-large`, 1c visibility link on):
+ * 0.5 recalled 0.778 at a 0.078 false-positive rate, 0.42 recalled 0.944 at
+ * 0.144, and 0.35 gave 1.000 at 0.274. The last step adds 0.056 recall for
+ * twice the false positives, so 0.42 is the chosen point. The set mixes short
+ * questions, cross-language pairs, negation, near-miss and unrelated cases.
+ * Evidence: docs/fork/evidence/mq-2/threshold-evaluation-20260912.md.
  */
-export const DEFAULT_MEMORY_SIMILARITY_THRESHOLD = 0.5
+export const DEFAULT_MEMORY_SIMILARITY_THRESHOLD = 0.42
 
 /** Result of applying the memory score to one candidate. */
 export interface ScoredMemoryFragment extends MemoryFragment {
@@ -240,6 +284,12 @@ export interface MemoryRepository {
     weights?: Partial<MemoryScoreWeights>
     embeddingMetadata?: MemoryEmbeddingQueryMetadata
     scope?: MemoryScope
+    /**
+     * Additional user identities considered visible for this query (MQ-2 D1c),
+     * for example the anonymous `local` history after sign-in. Character
+     * identity still must match exactly.
+     */
+    linkedUserIds?: string[]
   }) => Promise<ScoredMemoryFragment[]>
   /**
    * Stores a fragment. `long_term` is allowed here because the promotion
@@ -258,7 +308,7 @@ export interface MemoryRepository {
    * filtered a top-N page in memory could never see an eligible fact outside
    * that page (ACC-20260911 #12).
    */
-  list: (input?: { memoryType?: MemoryType, reviewStatus?: MemoryReviewStatus, limit?: number, scope?: MemoryScope, shareable?: boolean }) => Promise<MemoryFragment[]>
+  list: (input?: { memoryType?: MemoryType, reviewStatus?: MemoryReviewStatus, limit?: number, scope?: MemoryScope, shareable?: boolean, linkedUserIds?: string[] }) => Promise<MemoryFragment[]>
   /**
    * Patches a fragment in place. `memoryType` and `halfLifeHours` exist for
    * the manual muscle-to-fact migration, which preserves the original id and

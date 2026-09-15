@@ -170,8 +170,8 @@ describe('pgvector memory repository', () => {
     expect(params[0]).toBe('muscle')
     expect(params[1]).toBe('approved')
     expect(params[2]).toBe('active')
-    // The gate uses the measured nomic-embed calibration, not the old 0.5.
-    expect(params[4]).toBe(0.5)
+    // The gate uses the MQ-2 calibrated default, not the old 0.5.
+    expect(params[4]).toBe(0.42)
   })
 
   it('adds both ownership keys to semantic search', async () => {

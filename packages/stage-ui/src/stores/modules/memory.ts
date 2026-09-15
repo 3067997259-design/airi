@@ -200,6 +200,7 @@ function copyMemorySourceContext(sourceContext: MemorySourceContext | undefined)
     ...(sourceContext.messageId ? { messageId: sourceContext.messageId } : {}),
     ...(sourceContext.sourceEventId ? { sourceEventId: sourceContext.sourceEventId } : {}),
     ...(sourceContext.sourceType ? { sourceType: sourceContext.sourceType } : {}),
+    ...(sourceContext.gameWorld ? { gameWorld: { ...sourceContext.gameWorld } } : {}),
     neighbors: [...sourceContext.neighbors],
   }
 }
@@ -287,6 +288,10 @@ export const useMemoryStore = defineStore('memory', () => {
   const lastLongTermSyncAt = useLocalStorageManualReset('settings/memory/last-long-term-sync-at', 0, { listenToStorageChanges: false })
   const lastLongTermSyncError = useLocalStorageManualReset('settings/memory/last-long-term-sync-error', '', { listenToStorageChanges: false })
   const pgConnectionString = useLocalStorageManualReset('settings/memory/pg-connection-string', '', { listenToStorageChanges: false })
+  // MQ-2 D1c: the anonymous `local` history stays visible after sign-in unless
+  // the user unlinks it. Character identity is still enforced by the scope
+  // filter; this only widens the user dimension for retrieval.
+  const linkLocalHistory = useLocalStorageManualReset('settings/memory/link-local-history', true, { listenToStorageChanges: false })
   const remoteStatus = shallowRef<'unconfigured' | 'ready' | 'error'>('unconfigured')
   const remoteError = shallowRef<string>()
   const databasePersistenceStatus = shallowRef<MemoryDatabasePersistenceStatus>({ state: 'idle', pendingWrites: 0 })
@@ -554,7 +559,19 @@ export const useMemoryStore = defineStore('memory', () => {
     }
   }
 
-  async function retrieve(query: string, sessionId: string, options: { recordAccess?: boolean, scope: MemoryScope, trace?: MemoryRetrievalTraceCapture }): Promise<ScoredMemoryFragment[]> {
+  /**
+   * Extra user identities visible for retrieval in this installation (MQ-2 D1c).
+   *
+   * The anonymous `local` profile keeps its history after sign-in; the link is
+   * a user setting and can be revoked. Character identity is never widened.
+   */
+  function linkedUserIdsForScope(scope: MemoryScope): string[] {
+    if (!linkLocalHistory.value || scope.userId === 'local')
+      return []
+    return ['local']
+  }
+
+  async function retrieve(query: string, sessionId: string, options: { recordAccess?: boolean, scope: MemoryScope, trace?: MemoryRetrievalTraceCapture, similarityThreshold?: number }): Promise<ScoredMemoryFragment[]> {
     if (!enabled.value || !query.trim())
       return []
 
@@ -576,6 +593,8 @@ export const useMemoryStore = defineStore('memory', () => {
         weights: getScoreWeights(),
         limit: 3,
         scope: options.scope,
+        linkedUserIds: linkedUserIdsForScope(options.scope),
+        ...(options.similarityThreshold !== undefined ? { similarityThreshold: options.similarityThreshold } : {}),
       })
       if (options.trace)
         options.trace.originalCandidateIds = originalResults.map(evaluationMemoryId)
@@ -596,6 +615,8 @@ export const useMemoryStore = defineStore('memory', () => {
               weights: getScoreWeights(),
               limit: 3,
               scope: options.scope,
+              linkedUserIds: linkedUserIdsForScope(options.scope),
+              ...(options.similarityThreshold !== undefined ? { similarityThreshold: options.similarityThreshold } : {}),
             })
           })()
         : []
@@ -719,10 +740,12 @@ export const useMemoryStore = defineStore('memory', () => {
   }
 
   /** Captures the production result boundary without access-count side effects. */
-  async function retrieveEvaluationTrace(query: string, sessionId: string, scope: MemoryScope) {
+  async function retrieveEvaluationTrace(query: string, sessionId: string, scope: MemoryScope, options: { similarityThreshold?: number } = {}) {
     const startedAt = performance.now()
     const trace: MemoryRetrievalTraceCapture = {}
-    const results = await retrieve(query, sessionId, { recordAccess: false, scope, trace })
+    // `similarityThreshold` is an evaluation seam (MQ-2 step 5): the default
+    // retrieval behavior always uses the repository threshold.
+    const results = await retrieve(query, sessionId, { recordAccess: false, scope, trace, ...(options.similarityThreshold !== undefined ? { similarityThreshold: options.similarityThreshold } : {}) })
     return {
       originalQuery: trace.originalQuery ?? query,
       normalizedQuery: trace.normalizedQuery,
@@ -737,9 +760,12 @@ export const useMemoryStore = defineStore('memory', () => {
   }
 
   /** Runs the 90-case evaluation through this store's production retrieval. */
-  async function evaluateProductionRetrieval(context: MemoryProductionEvaluationContext, options: { costPerMillionTokens?: number } = {}) {
+  async function evaluateProductionRetrieval(context: MemoryProductionEvaluationContext, options: { costPerMillionTokens?: number, similarityThreshold?: number } = {}) {
     const { evaluateProductionMemoryRetrievalTrace } = await import('../../services/memory/evaluate-chinese-memory')
-    const result = await evaluateProductionMemoryRetrievalTrace(query => retrieveEvaluationTrace(query, context.sessionId, context.scope), options)
+    const result = await evaluateProductionMemoryRetrievalTrace(
+      query => retrieveEvaluationTrace(query, context.sessionId, context.scope, options.similarityThreshold !== undefined ? { similarityThreshold: options.similarityThreshold } : {}),
+      options,
+    )
     return { ...result, context }
   }
 
@@ -810,20 +836,27 @@ export const useMemoryStore = defineStore('memory', () => {
       // access used to hide an eligible fact that had not been read recently
       // (ACC-20260911 #12). The bound only caps how many eligible rows this
       // scan may hold, not who is eligible.
+      const linkedUserIds = linkedUserIdsForScope(scope)
       const fragments = await memoryRepository.list({
         limit: SHAREABLE_FACT_SCAN_LIMIT,
         scope,
+        linkedUserIds,
         shareable: true,
       })
       return fragments
-        .filter(fragment => isActionableMemoryFragment(fragment)
-          && fragment.scope?.userId === scope.userId
-          && fragment.scope.characterId === scope.characterId
-          && fragment.reviewStatus !== 'pending'
-          && fragment.reviewStatus !== 'rejected'
-          && (fragment.factStatus ?? 'active') === 'active'
-          && !!fragment.sourceContext?.sourceType
-          && !!(fragment.sourceContext.sourceEventId || fragment.sourceContext.messageId))
+        .filter((fragment) => {
+          const fragmentScope = fragment.scope
+          if (!fragmentScope || fragmentScope.characterId !== scope.characterId)
+            return false
+          if (fragmentScope.userId !== scope.userId && !linkedUserIds.includes(fragmentScope.userId))
+            return false
+          return isActionableMemoryFragment(fragment)
+            && fragment.reviewStatus !== 'pending'
+            && fragment.reviewStatus !== 'rejected'
+            && (fragment.factStatus ?? 'active') === 'active'
+            && !!fragment.sourceContext?.sourceType
+            && !!(fragment.sourceContext.sourceEventId || fragment.sourceContext.messageId)
+        })
         .sort((left, right) => right.createdAt - left.createdAt)
         .slice(0, limit)
     }
@@ -1708,6 +1741,7 @@ export const useMemoryStore = defineStore('memory', () => {
     dreamingBudgetUsed,
     dreamingBudgetDateKey,
     longTermSyncEnabled,
+    linkLocalHistory,
     longTermSyncOutbox,
     lastLongTermSyncAt,
     lastLongTermSyncError,

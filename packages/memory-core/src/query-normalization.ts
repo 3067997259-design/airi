@@ -1,3 +1,24 @@
+const MEMORY_QUERY_LIMIT = 240
+
+/**
+ * Truncates a normalized query at a clause boundary.
+ *
+ * A blind `slice` can cut a trailing clause in half and change its meaning
+ * (for example leaving "不要用" without its object). Cutting at the last
+ * separator before the limit keeps whole clauses; a query without separators
+ * in the second half still gets the hard cut because dropping most of the
+ * request is worse than a partial final clause (MQ-2 step 7).
+ */
+function truncateAtClauseBoundary(value: string, limit: number): string {
+  if (value.length <= limit)
+    return value
+  const window = value.slice(0, limit)
+  const cut = Math.max(window.lastIndexOf('；'), window.lastIndexOf(';'), window.lastIndexOf('，'), window.lastIndexOf(','), window.lastIndexOf(' '))
+  if (cut < Math.floor(limit / 2))
+    return window
+  return value.slice(0, cut)
+}
+
 /**
  * Creates a shorter retrieval query from a natural-language request.
  *
@@ -33,8 +54,11 @@ export function normalizeMemoryRetrievalQuery(query: string): string {
   // meaning of a preference and must not be lost during normalization.
   const negationClauses = withoutRequestFraming.filter(clause => /[不没未无]|避免|禁止/u.test(clause))
   const actionClauses = withoutRequestFraming.filter(clause => /先|优先|检查|核对|确认|修改|使用|喜欢|习惯|偏好|需要|准备/u.test(clause))
-  const selected = [...new Set([...actionClauses, ...negationClauses])]
+  // Negation clauses lead the normalized form: when a long query must be
+  // truncated, action clauses are the ones that fall off the end, never the
+  // "do not / avoid" constraints.
+  const selected = [...new Set([...negationClauses, ...actionClauses])]
   const normalized = (selected.length > 0 ? selected : withoutRequestFraming).join('；')
 
-  return normalized.length <= 240 ? normalized : normalized.slice(0, 240)
+  return truncateAtClauseBoundary(normalized, MEMORY_QUERY_LIMIT)
 }

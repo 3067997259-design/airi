@@ -330,4 +330,27 @@ describe('createDuckDbMemoryRepository', () => {
     } as unknown as Parameters<typeof repository.insert>[0])
     expect(withoutTags.content).toBe('A fact without tags')
   })
+
+  it('keeps character isolation while linked user ids widen retrieval visibility (mq-2)', async () => {
+    const rows = [
+      memoryRow({ id: 'local-same-char', scope_json: JSON.stringify({ userId: 'local', characterId: 'character-a' }) }),
+      memoryRow({ id: 'account-same-char', scope_json: JSON.stringify({ userId: 'account-1', characterId: 'character-a' }) }),
+      memoryRow({ id: 'local-other-char', scope_json: JSON.stringify({ userId: 'local', characterId: 'character-b' }) }),
+    ]
+    const execute = vi.fn<(query: string) => Promise<unknown[]>>(async (_query: string) => rows)
+    const repository = createDuckDbMemoryRepository({ execute })
+    const scope = { userId: 'account-1', characterId: 'character-a' }
+
+    const linked = await repository.search({ embedding: EMBEDDING, scope, linkedUserIds: ['local'] })
+    expect(linked.map(fragment => fragment.id).sort()).toEqual(['account-same-char', 'local-same-char'])
+
+    // Without the link (or for another character) the anonymous history stays out.
+    const strict = await repository.search({ embedding: EMBEDDING, scope })
+    expect(strict.map(fragment => fragment.id)).toEqual(['account-same-char'])
+    const otherCharacter = await repository.search({ embedding: EMBEDDING, scope: { userId: 'account-1', characterId: 'character-b' }, linkedUserIds: ['local'] })
+    expect(otherCharacter.map(fragment => fragment.id)).toEqual(['local-other-char'])
+
+    const listed = await repository.list({ scope, linkedUserIds: ['local'] })
+    expect(listed.map(fragment => fragment.id).sort()).toEqual(['account-same-char', 'local-same-char'])
+  })
 })

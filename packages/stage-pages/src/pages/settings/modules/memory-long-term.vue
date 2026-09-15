@@ -11,7 +11,7 @@ import MemoryScopeNav from './components/memory-scope-nav.vue'
 
 const { t } = useI18n()
 const memoryStore = useMemoryStore()
-const { remoteStatus, remoteError, pgConnectionString, longTermSyncEnabled, longTermSyncOutbox, lastLongTermSyncError, databaseStatus, databaseError, databasePersistenceStatus, embeddingMigration } = storeToRefs(memoryStore)
+const { remoteStatus, remoteError, pgConnectionString, longTermSyncEnabled, longTermSyncOutbox, lastLongTermSyncError, databaseStatus, databaseError, databasePersistenceStatus, embeddingMigration, linkLocalHistory } = storeToRefs(memoryStore)
 
 const connectionStringInput = ref(pgConnectionString.value)
 const connecting = ref(false)
@@ -155,6 +155,24 @@ async function reembedMemories() {
             … +{{ longTermSyncOutbox.length - 10 }}
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section :class="['rounded-xl', 'bg-neutral-50', 'p-4', 'dark:bg-[rgba(0,0,0,0.3)]']">
+      <div :class="['flex', 'flex-col', 'gap-4']">
+        <div>
+          <h2 :class="['text-lg', 'text-neutral-500', 'md:text-2xl', 'dark:text-neutral-400']">
+            {{ t('settings.pages.modules.memory-long-term.identity.title') }}
+          </h2>
+          <p :class="['text-sm', 'text-neutral-400', 'dark:text-neutral-500']">
+            {{ t('settings.pages.modules.memory-long-term.identity.description') }}
+          </p>
+        </div>
+        <FieldCheckbox
+          v-model="linkLocalHistory"
+          :label="t('settings.pages.modules.memory-long-term.identity.link-local')"
+          :description="t('settings.pages.modules.memory-long-term.identity.link-local-description')"
+        />
       </div>
     </section>
 
