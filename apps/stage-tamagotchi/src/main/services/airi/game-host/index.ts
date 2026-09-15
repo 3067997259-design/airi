@@ -42,6 +42,8 @@ import type {
 } from './command-registry'
 import type { MiningPort, MiningSlot } from './mining/session'
 import type { BreakFact, GeneratedDrop } from './mining/types'
+import type { AirFollowEndReason } from './movement/air-follow'
+import type { AirTrackStatus } from './movement/air-track'
 import type { FailedEdge } from './movement/executor'
 import type { TargetObservation, TargetObservationSource } from './movement/target-observation'
 import type { MovementConfig } from './movement/types'
@@ -81,9 +83,13 @@ import {
   StaleGameBindingError,
   stopScopeFor,
 } from './command-registry'
+import { selectLaunchPoint } from './flight/lifecycle'
 import { parseHarvestEvaluation } from './mining/harvest'
 import { MiningSession, nextBreakId } from './mining/session'
 import { planToolUpgrade, requiredPickaxeFor } from './mining/upgrade'
+import { assessAirLaunch, createAirFollowController, DEFAULT_AIR_FOLLOW_BUDGET } from './movement/air-follow'
+import { DEFAULT_AIR_SPACING_BAND } from './movement/air-spacing'
+import { runAirTrackMove } from './movement/air-track'
 import { cellOf } from './movement/coordinates'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
@@ -535,13 +541,16 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
   {
     name: 'game_follow',
     action: 'follow',
-    description: 'Follow a player or entity, keeping a distance, until the lease ends, the target disappears, or a new command stops it. Bounded and interruptible.',
+    description: 'Follow a player or entity, keeping a distance, until the lease ends, the target disappears, or a new command stops it. Bounded and interruptible. travelMode auto may spend fireworks and switch to the elytra when the target takes off; the air spacing band is separate from the ground keepDistance.',
     parameters: {
       type: 'object',
       properties: {
         target: { type: 'string', description: 'Player name or entity type id to follow.' },
-        keepDistance: { type: 'number', description: 'Distance to keep in blocks (default 3, max 16).' },
+        keepDistance: { type: 'number', description: 'Ground distance to keep in blocks (default 3, max 16).' },
         timeoutSeconds: { type: 'number', description: 'Optional bound in seconds; capped by the command lease.' },
+        travelMode: { type: 'string', enum: ['ground', 'auto'], description: 'ground keeps terrain following only; auto may spend fireworks and use the elytra (default ground).' },
+        airSpacingMin: { type: 'number', description: 'Air spacing band minimum in blocks (default 12).' },
+        airSpacingMax: { type: 'number', description: 'Air spacing band maximum in blocks (default 24).' },
       },
       required: ['target'],
       additionalProperties: false,
@@ -952,11 +961,15 @@ function toGameCommandParams(action: GameDomainAction, params: Record<string, un
     case 'follow': {
       const keepDistance = Math.min(Math.max(Number(params.keepDistance ?? 3) || 3, 1), 16)
       const timeoutSeconds = Number(params.timeoutSeconds)
+      const travelMode = params.travelMode === 'auto' ? 'auto' as const : 'ground' as const
+      const spacingMin = Math.min(Math.max(Number(params.airSpacingMin ?? 12) || 12, 1), 64)
+      const spacingMax = Math.min(Math.max(Number(params.airSpacingMax ?? 24) || 24, spacingMin + 1), 128)
       return {
         follow: {
           target: String(params.target ?? '').trim(),
           keepDistance,
           ...(Number.isFinite(timeoutSeconds) && timeoutSeconds > 0 ? { timeoutSeconds } : {}),
+          ...(travelMode === 'auto' ? { travelMode, airSpacing: { min: spacingMin, max: spacingMax } } : {}),
         },
       }
     }
@@ -1180,6 +1193,31 @@ function finalPositionOf(record: Record<string, unknown> | undefined): { x: numb
   const y = Number(position.y)
   const z = Number(position.z)
   return [x, y, z].every(Number.isFinite) ? { x, y, z } : undefined
+}
+
+/**
+ * Maps one air-track result onto the follow command's end reason.
+ *
+ * `landed` is a clean handover, not an arrival; the ambiguity is kept only for
+ * the air driver's internal status and never reported here.
+ *
+ * @example
+ * airTrackEndReason('lost')
+ * // => 'target_lost'
+ */
+function airTrackEndReason(status: AirTrackStatus): string {
+  switch (status) {
+    case 'cancelled':
+      return 'cancelled'
+    case 'low_supply':
+      return 'low_supply'
+    case 'lost':
+      return 'target_lost'
+    case 'cannot_air_follow':
+      return 'cannot_air_follow'
+    default:
+      return 'touchdown_unverified'
+  }
 }
 
 /**
@@ -2465,6 +2503,81 @@ export async function setupGameHost(
   }
 
   /**
+   * CD-F1 launch-site probe.
+   *
+   * Reads one region around the player and runs the lifecycle's launch
+   * selector. A missing or unreadable region is not a launch site; the caller
+   * must not treat unknown terrain as free. This is a heuristic for the
+   * assessment only and needs real-machine calibration.
+   *
+   * @example
+   * probeLaunchSite({ x: 0, y: 64, z: 0 }, 0)
+   * // => false on covered flat ground
+   */
+  async function probeLaunchSite(from: { x: number, y: number, z: number }, heading: number): Promise<boolean> {
+    const radius = 10
+    const bottom = Math.floor(from.y) - 6
+    const top = Math.floor(from.y) + 2
+    let entries
+    try {
+      entries = await createTerrainPort().getBlocksRegion(
+        { x: Math.floor(from.x) - radius, y: bottom, z: Math.floor(from.z) - radius },
+        { x: Math.floor(from.x) + radius, y: top, z: Math.floor(from.z) + radius },
+      )
+    }
+    catch {
+      return false
+    }
+    if (entries.length === 0)
+      return false
+    const cells = new Map<string, string>()
+    for (const entry of entries) cells.set(`${entry.x},${entry.y},${entry.z}`, entry.id)
+    const isAir = (id: string): boolean => id === '' || id.endsWith('air')
+    const isSolid = (id: string): boolean => !isAir(id) && id !== 'minecraft:water'
+    const surfaceAt = (x: number, z: number): number | undefined => {
+      for (let y = top; y >= bottom; y--) {
+        const id = cells.get(`${x},${y},${z}`)
+        if (id === undefined)
+          return undefined
+        if (isSolid(id))
+          return y
+      }
+      return undefined
+    }
+    const clearAt = (x: number, y: number, z: number): boolean | undefined => {
+      const id = cells.get(`${x},${y},${z}`)
+      if (id === undefined)
+        return undefined
+      return isAir(id)
+    }
+    return selectLaunchPoint({ from, heading, surfaceAt, clearAt, searchRadius: 8 }).ok
+  }
+
+  /** CD-F1: resource and launch-edge assessment before an air follow starts. */
+  async function assessHostAirLaunch(input: {
+    self: { x: number, y: number, z: number }
+    heading: number
+    deadline: number
+  }): Promise<{ ok: true } | { ok: false, reason: AirFollowEndReason }> {
+    const slots = await readInventorySlots()
+    const all = slots ? [...slots.hotbar, ...slots.main] : []
+    const hasElytra = all.some(slot => slot.id.includes('elytra'))
+    const fireworks = all
+      .filter(slot => slot.id.includes('firework_rocket'))
+      .reduce((total, slot) => total + slot.count, 0)
+    const health = (await readFreshSnapshot())?.health ?? 20
+    const launchSiteAvailable = await probeLaunchSite(input.self, input.heading)
+    return assessAirLaunch({
+      hasElytra,
+      fireworks,
+      health,
+      launchSiteAvailable,
+      deadlineReached: Date.now() >= input.deadline,
+      budget: DEFAULT_AIR_FOLLOW_BUDGET,
+    })
+  }
+
+  /**
    * One terrain-planned move_to; lease, cancel and receipts stay in the registry.
    *
    * This function is the `move_to` mover dispatch. It is not split into a
@@ -3108,6 +3221,18 @@ export async function setupGameHost(
         ? Math.min(Date.now() + envelope.deadlineMs, Date.now() + follow.timeoutSeconds * 1000)
         : Date.now() + envelope.deadlineMs
       let endReason = 'timeout'
+      // CD-F1: the travel mode selects the ground-only follow or the ground/air
+      // state machine. The air spacing band is separate from the ground
+      // keepDistance; the controller owns the state and the budget.
+      const travelMode = follow.travelMode === 'auto' ? 'auto' as const : 'ground' as const
+      const airSpacing = follow.airSpacing ?? { min: DEFAULT_AIR_SPACING_BAND.min, max: DEFAULT_AIR_SPACING_BAND.max }
+      const airController = travelMode === 'auto'
+        ? createAirFollowController({ travelMode, spacing: airSpacing })
+        : undefined
+      /** Newest full target observation, kept for the air state machine. */
+      let lastObservation: TargetObservation | undefined
+      let lastFine = false
+      let followTick = 0
 
       // Resolve once, then keep the target uuid fixed: a later re-query that
       // matches the same name must not silently switch to another entity.
@@ -3167,14 +3292,22 @@ export async function setupGameHost(
           if (observation?.position) {
             if (tracker.acceptFine(observation, Date.now()))
               target = observation.position
+            lastObservation = observation
+            lastFine = true
           }
           else {
+            lastObservation = undefined
+            lastFine = false
             tracker.missFine(Date.now())
             await sleep(200)
             continue
           }
         }
         else {
+          // Coarse tracking has no pose fields, so the air state machine must
+          // not read it as a fresh takeoff or landing signal.
+          lastObservation = undefined
+          lastFine = false
           // Coarse: a bounded locate at most once per second. A coarse sample
           // that stays stale past the start window is `waiting_for_target`.
           if (outcome === 'waiting_for_target' && tracker.waitingBudgetExceeded(now)) {
@@ -3222,7 +3355,74 @@ export async function setupGameHost(
           continue
         }
 
-        const self = (await readFreshSnapshot())?.position ?? ZERO_SNAPSHOT.position
+        const selfSnapshot = await readFreshSnapshot()
+        const self = selfSnapshot?.position ?? ZERO_SNAPSHOT.position
+
+        // CD-F1/F2: feed the air state machine and hand control to the flight
+        // driver when the target has been gliding for several samples. The
+        // driver returns after its landing, so the ground follow resumes inside
+        // the same command (CD-F3).
+        if (airController && airController.phase() !== 'terminated') {
+          followTick += 1
+          const directive = airController.step(lastObservation, {
+            tick: followTick,
+            at: now,
+            fine: lastFine,
+            self: {
+              position: self,
+              ...(selfSnapshot ? { health: selfSnapshot.health } : {}),
+            },
+            ...(lastObservation?.position
+              ? { distance: Math.hypot(lastObservation.position.x - self.x, lastObservation.position.z - self.z) }
+              : {}),
+          })
+          if (directive.action === 'assess-launch' && targetUuid) {
+            const assessment = await assessHostAirLaunch({
+              self,
+              heading: Math.atan2(-(target.x - self.x), target.z - self.z) * 180 / Math.PI,
+              deadline,
+            })
+            if (!assessment.ok) {
+              airController.noteLaunchRefused(assessment.reason)
+            }
+            else {
+              const airResult = await runAirTrackMove({
+                port: createTerrainPort(),
+                readTarget: () => readTargetObservationByUuid(targetUuid!),
+                band: airSpacing,
+                deadline,
+                shouldStop,
+                stillOwnsControl,
+                controller: airController,
+                debug: env.AIRI_TERRAIN_DEBUG ? (message: string) => log.warn(`air-follow: ${message}`) : undefined,
+              })
+              if (airResult.status === 'cannot_air_follow'
+                && (airController.phase() === 'assess-launch' || airController.phase() === 'launching')) {
+                // The takeoff itself was refused; the launch block stops a
+                // repeated assessment while the target keeps gliding.
+                airController.noteLaunchRefused('cannot_air_follow')
+              }
+              else if (airResult.status === 'landed' && airController.phase() === 'ground-follow') {
+                // A clean air-to-ground handover: force the next ground leg to
+                // replan from the new position.
+                anchor = undefined
+                previousReached = true
+              }
+              else {
+                endReason = airTrackEndReason(airResult.status)
+                break
+              }
+            }
+          }
+          else if (directive.action === 'terminate') {
+            endReason = directive.reason ?? 'cannot_air_follow'
+            break
+          }
+          // `track`/`intercept`/`reacquire`/`safety-landing`/`launch`/`approach`
+          // are owned by the driver above; a ground phase falls through to the
+          // terrain leg below.
+        }
+
         // Coarse tracking walks to a rendezvous, not into the target: a wide
         // coarse position must not become a close-follow leg.
         const activeKeepDistance = tracker.snapshot().mode === 'coarse' ? Math.max(keepDistance, 8) : keepDistance
@@ -3264,7 +3464,31 @@ export async function setupGameHost(
         }
         await sleep(500)
       }
-      return { endReason, finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT }
+      // Finalize the air controller so the receipt carries the typed reason
+      // even when the command ended on the ground. A normal `auto` duration end
+      // is `follow_completed`, never a "reached a coordinate" (design §6).
+      if (airController && airController.phase() !== 'terminated') {
+        const terminal: AirFollowEndReason = endReason === 'cancelled'
+          ? 'cancelled'
+          : endReason === 'target_offline'
+            ? 'target_offline'
+            : endReason === 'target_dimension_changed'
+              ? 'target_dimension_changed'
+              : travelMode === 'auto' && endReason === 'timeout'
+                ? 'follow_completed'
+                : travelMode === 'auto' ? 'cannot_air_follow' : 'timeout'
+        if (terminal === 'cancelled')
+          airController.cancel()
+        else
+          airController.complete(terminal)
+        if (travelMode === 'auto' && endReason === 'timeout')
+          endReason = 'follow_completed'
+      }
+      return {
+        endReason,
+        finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+        ...(airController ? { follow: airController.snapshot() } : {}),
+      }
     }
 
     if (envelope.action === 'drop') {
@@ -5869,6 +6093,7 @@ export async function setupGameHost(
       ...(receipt.attacked ? { attacked: receipt.attacked } : {}),
       ...(receipt.dropPosition ? { dropPosition: receipt.dropPosition } : {}),
       ...(receipt.prerequisites ? { prerequisites: receipt.prerequisites } : {}),
+      ...(receipt.follow ? { follow: receipt.follow } : {}),
       ...receiptWorldFields(receipt),
     }
   }

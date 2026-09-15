@@ -5,6 +5,10 @@
  * Kept free of registry state so the registry, game-host, and tests share one
  * definition (mc-0b-spec "命令信封" / "终态回执").
  */
+import type { AirFollowReceipt } from './movement/air-follow'
+
+/** CD-F: per-follow evidence the receipt carries (air-follow design §6). */
+export type GameFollowReceipt = AirFollowReceipt
 
 export type GameCommandAction = 'observe' | 'move_to' | 'status' | 'cancel' | 'collect' | 'say' | 'follow' | 'craft' | 'drop' | 'locate' | 'equip' | 'use' | 'open_container' | 'read_menu' | 'move_item' | 'close_menu' | 'craft_table' | 'smelt_load' | 'smelt_take' | 'supply' | 'sleep' | 'respawn' | 'shoot' | 'riptide' | 'menu_action' | 'read_item' | 'read_sign' | 'place' | 'break' | 'attack'
 
@@ -221,7 +225,21 @@ export interface GameCommandParams {
   }
   collect?: { blockId: string, itemId?: string, maxCount: number, radius: number, allowPrerequisites?: boolean }
   say?: { text: string }
-  follow?: { target: string, keepDistance: number, timeoutSeconds?: number }
+  follow?: {
+    target: string
+    keepDistance: number
+    timeoutSeconds?: number
+    /**
+     * CD-F1: `ground` keeps today's terrain follow; `auto` may spend fireworks
+     * and switch to the elytra when the target takes off.
+     */
+    travelMode?: 'ground' | 'auto'
+    /**
+     * CD-F2: air spacing band in blocks. Separate from the ground
+     * `keepDistance`; the debug starting value is 12–24, not a safety constant.
+     */
+    airSpacing?: { min: number, max: number }
+  }
   /** MC-2d: two-beat craft of a known recipe that fits the player's 2x2 grid. */
   craft?: { recipeId: string }
   /** MC-3c: drop a stack of one item; the item must be reachable in the inventory. */
@@ -747,6 +765,16 @@ export function evaluateGamePostCondition(
         || outcome.endReason === 'entity_unloaded'
         || outcome.endReason === 'waiting_for_target'
         || outcome.endReason === 'no_progress'
+        // CD-F: an air limitation or an unverified touch-down is not a clean
+        // follow; `follow_completed` stays the normal duration end.
+        || outcome.endReason === 'cannot_air_follow'
+        || outcome.endReason === 'launch_unavailable'
+        || outcome.endReason === 'low_supply'
+        || outcome.endReason === 'low_health'
+        || outcome.endReason === 'elytra_worn'
+        || outcome.endReason === 'touchdown_unverified'
+        || outcome.endReason === 'dead'
+        || outcome.endReason === 'connection_lost'
       return { kind: 'none', target: 0, actual: 0, met: !failed }
     }
     case 'shoot': {

@@ -1955,6 +1955,42 @@ describe('setupGameHost', () => {
     expect(regionCalls).toHaveLength(0)
   }, 20_000)
 
+  it('reports cannot_air_follow in travelMode auto when the target glides without an elytra', async () => {
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', fallFlying: true, onGround: false, position: { x: 2, y: 90, z: 0 } }] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-auto-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-auto-no-elytra',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 3, travelMode: 'auto' },
+    })
+
+    // The air state machine assessed a launch, found no elytra, and reported the
+    // typed limitation while the command kept the ground follow running.
+    expect(result.endReason).toBe('follow_completed')
+    expect(result.follow?.cannotAirFollow).toBe(true)
+    expect(result.follow?.launchAttempts).toBe(0)
+    // No takeoff was attempted: the elytra mover never selected a firework.
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).not.toContain('set_movement')
+  }, 20_000)
+
   it('attributes a collect to the break window only', async () => {
     let broken = false
     clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {

@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 空中跟随与地空切换（CD-F1–F3，2026-09-15，代码完成，真机待做）
+
+按[空中跟随与地空切换](./air-follow-design.md)实施。F1：`game_follow` 增 `travelMode: 'ground' | 'auto'`（默认 ground 保持既有语义；auto 允许烟花与鞘翅）；新增 `movement/air-follow.ts`（状态机 `GroundFollow→AssessLaunch→Launching→AirTrack⇄Intercept→ApproachLanding→GroundFollow`，`SafetyLanding` 独立；目标 `fallFlying` 连续 3 tick 消抖；落地判定结合 `onGround`、速度、姿态与连续样本；取消进入有界安全降落且不自动恢复；预算覆盖期限、烟花与备用储备、耐久与生命阈值）。F2：新增 `movement/air-spacing.ts` 与 `air-track.ts`（滞后 1.5 秒轨迹 + 侧向偏移 + 切向平滑、间距带与推进强度、有界会合区、走廊角色 `transit/track/landing` 且 track 不触发落地、更新门控 session/uuid/revision/validity、连续跟飞驱动）。F3：同一命令内空地交接；回执记录活动时间、在带时间、丢失次数、模式切换、烟花消耗与最终观测；正常结束为 `follow_completed`。
+
+- 验证：game-host 定向 **657 passed / 1 skipped**（+33 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；模组未变更。
+- **已知缺口**：粗走廊（`flight/corridor.ts`）未接入跟飞驱动（当前驱动用滞后目标点与进近侧偏）；主进程 2–5Hz 策略更新流只实现了 `acceptAirFollowUpdate` 门控与测试，未接独立 IPC 通道（驱动按轮询频率直读目标）。
+- 真机 NOT-RUN：60 秒持续跟飞、间距带时间比例 80% 门槛、急转、绕山、穿狭缝、原地盘旋、远处丢失返回、落地与再次升空。
+
 ## 鞘翅三维导航、轨迹控制与降落（CD-E0–E3，2026-09-15，离线完成，真机待做）
 
 按[鞘翅三维航路、轨迹控制与降落](./elytra-navigation-design.md)实施。E0：取消在任意阶段立即改业务原因并由有界安全降落收尾；各阶段截止在循环顶部独立判定（不再被"距离仍改善"绕过）；复飞改为 recover/leave/re-align 三阶段有界过程；着地由 `classifyTouchdown` 核对新鲜 `onGround`、低残余速度与合理接地点，落水单列，缺读保持 unknown；落点用 `evaluatePatch` 校验 2×2 支撑、净空与危险方块，未核实坐标仅用于操舵并显式标注。E1：新增 `game-host/flight/`（`contracts/profile/simulation/...`），五个会话契约、版本化 `FlightProfile`、纯 `stepFlight` 逐 tick 模拟与轨迹记录；常数取自 1.21.1 映射 `LivingEntity#travel` 与 `FireworkRocketEntity#tick` 并记录（0.08 重力、`-1+0.75cos²`、阻力 0.99/0.98/0.99、烟花推力式、寿命下界 10）。E2：三维粗自由空间（4 格粗单元、净空入口、含爬升与烟花估计的代价）、有限候选（5 yaw×3 pitch×2 thrust）、姿态盒连续扫掠、安全与偏好分离、超预算使用已核对前缀。E3：完整状态机与独立 `GoAround`/`EmergencyLanding`；起飞点评估与 `launch_unavailable`；进近先选支撑区；应急落点持续维护与 `no_reachable_landing`；类型化结果 `touchdown_unverified`/`landing_in_water`/`go_around_exhausted`。

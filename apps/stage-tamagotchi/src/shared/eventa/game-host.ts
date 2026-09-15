@@ -505,6 +505,34 @@ export interface GameDomainResult {
     missing: Array<{ itemId: string, count: number }>
     reason: string
   }
+  /**
+   * CD-F: air-follow evidence for a follow command that ran the state machine.
+   *
+   * A normal duration end is `follow_completed`; a typed limitation such as
+   * `cannot_air_follow` is kept separate. The final target observation is a
+   * compact snapshot, not a second tracking channel.
+   */
+  follow?: {
+    endReason: string
+    activeMs: number
+    bandMs: number
+    bandRatio: number
+    lossCount: number
+    modeSwitches: number
+    fireworkSpend: number
+    launchAttempts: number
+    cannotAirFollow?: boolean
+    landingVerified?: boolean
+    finalTargetObservation?: {
+      targetUuid: string
+      dimension: string
+      position?: { x: number, y: number, z: number }
+      fallFlying: boolean | 'unobserved'
+      onGround: boolean | 'unobserved'
+      sourceTick?: number
+      receivedAt: number
+    }
+  }
 }
 
 export interface GameHostDomainToolDescriptor {

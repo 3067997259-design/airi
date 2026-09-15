@@ -860,3 +860,7 @@ async function scanTerrainAhead(
     debug?.(`elytra terrain ahead at ${obstacleDistance.toFixed(0)}; cruise band raised to ${raised}`)
   return { cruiseY: raised, obstacleDistance }
 }
+
+// Reused by the air-follow driver, which owns the continuous track loop but
+// shares the elytra equipment, firework and ownership helpers.
+export { countBySuffix, equipElytra, selectBySuffix, stopIfOwner }
