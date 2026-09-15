@@ -1313,6 +1313,8 @@ export async function setupGameHost(
   let lastReceipt: GameCommandReceipt | undefined
   /** CD-0 §3.3: capabilities discovered from the bridge at connect. */
   let capabilities: GameCapabilities | undefined
+  /** Tool names the current bridge connection actually exposes (CD-0 3.3). */
+  let bridgeTools = new Set<string>()
 
   function allowedToolsOf(): string[] {
     return config?.allowedTools?.length ? config.allowedTools : DEFAULT_ALLOWED_TOOLS
@@ -2508,7 +2510,7 @@ export async function setupGameHost(
         connectionGeneration: () => connectionGeneration,
         // CD-V1: the vehicle observation surface exists only when the bridge
         // announced its backing tools; otherwise the movers degrade honestly.
-        hasTool: name => capabilities?.['vehicle-observation']?.tools.includes(name) === true,
+        hasTool: name => bridgeTools.has(name),
         // CD-0 unlock: control writes carry this command's input identity.
         ...(control ? { control } : {}),
       },
@@ -5801,6 +5803,7 @@ export async function setupGameHost(
       try {
         const listed = await nextClient.listTools()
         const names = Array.isArray(listed?.tools) ? listed.tools.map(tool => tool.name) : []
+        bridgeTools = new Set(names)
         capabilities = discoverGameCapabilities(names)
       }
       catch {

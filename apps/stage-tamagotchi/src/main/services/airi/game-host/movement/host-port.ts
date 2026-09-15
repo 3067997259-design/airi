@@ -434,7 +434,7 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
     // Step 3: the per-tick jump surface is attached only when the bridge
     // exposes the jump tools. Without them the run keeps the host-side latch,
     // which cannot time a takeoff or correct a landing.
-    ...(hasTool('jump_plan')
+    ...(hasTool('jump_plan') && hasTool('jump_plan_status') && hasTool('jump_plan_cancel')
       ? {
           startJump: async (task: JumpTask): Promise<JumpTaskStatus> => jumpStatusOf(
             await callTool('jump_plan', {
