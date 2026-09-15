@@ -269,9 +269,9 @@ export async function runWalkRun(options: {
       if (plan && port.startJump) {
         const finalEdge = pendingIndex === cells.length - 1
         const outcome = await followJumpTask({ port, plan, sleep, now, shouldStop })
-        if (outcome === 'cancelled')
+        if (outcome.outcome === 'cancelled')
           return { status: 'cancelled', cursor, position }
-        if (outcome === 'failed') {
+        if (outcome.outcome === 'failed') {
           debug?.(`run jump task failed at ${plan.takeoff.x.toFixed(2)},${plan.takeoff.z.toFixed(2)} -> ${plan.takeoff.x + plan.direction.x * plan.flight},${plan.takeoff.z + plan.direction.z * plan.flight}`)
           return { status: 'stuck', cursor, position }
         }
@@ -284,8 +284,8 @@ export async function runWalkRun(options: {
         // centimetres and end `stuck` on a pad it already stood on (live lone
         // step: landed 0.28 from the centre, run required 0.45).
         if (finalEdge) {
-          const landed = await port.getState()
-          position = landed.position
+          if (outcome.position)
+            position = outcome.position
           return { status: 'arrived', cursor: pendingIndex, position }
         }
         continue
@@ -387,7 +387,7 @@ async function followJumpTask(options: {
   sleep: (ms: number) => Promise<void>
   now: () => number
   shouldStop: () => boolean
-}): Promise<'landed' | 'failed' | 'cancelled'> {
+}): Promise<{ outcome: 'landed' | 'failed' | 'cancelled', position?: Vec3 }> {
   const { port, plan, sleep, now, shouldStop } = options
   // The plan's own landing, never a reconstruction: the clamped takeoff line
   // makes `takeoff + direction * flight` a different point.
@@ -404,30 +404,33 @@ async function followJumpTask(options: {
     })
   }
   catch {
-    return 'failed'
+    return { outcome: 'failed' }
   }
   for (;;) {
     if (shouldStop()) {
       await port.cancelJump?.().catch(() => {})
-      return 'cancelled'
+      return { outcome: 'cancelled' }
     }
     if (now() > deadlineMs + JUMP_TASK_GRACE_MS)
-      return 'failed'
+      return { outcome: 'failed' }
     await sleep(JUMP_POLL_MS)
     let status
     try {
       status = await port.jumpStatus!()
     }
     catch {
-      return 'failed'
+      return { outcome: 'failed' }
     }
     if (status.state === 'running')
       continue
-    if (status.state === 'done')
-      return 'landed'
-    if (status.state === 'idle')
-      return 'failed'
-    return 'failed'
+    if (status.state === 'done') {
+      // The task's own landing position is the authority: a fresh player read
+      // made right after a hop lags the mod's vote and can report the bot still
+      // short of the pad, which made the executor walk a reached goal back into
+      // a replan (live lone step: 0.134 from the centre, receipt `stuck`).
+      return { outcome: 'landed', ...(status.position ? { position: status.position } : {}) }
+    }
+    return { outcome: 'failed' }
   }
 }
 
