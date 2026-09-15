@@ -59,6 +59,14 @@ export interface MovementPortContext {
 export interface MovementPortControl {
   controlSessionId: string
   nextSequence: () => number
+  /**
+   * Starts a fresh input session after a release.
+   *
+   * The bridge revokes the session on `stop_movement`, so a command that
+   * releases the keys mid-run (for example before breaking a block) must send
+   * its next input under a new session id (CD-0 §3.1).
+   */
+  rotate: () => void
 }
 
 /** Parses cell-local collision boxes a shape-aware source may attach. */
@@ -323,6 +331,10 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
     },
     stopMovement: async () => {
       await callTool('stop_movement', {})
+      // The bridge revokes the input session on stop, so continuing after a
+      // release needs a fresh session id (CD-0 §3.1). A stop at the end of a
+      // command rotates harmlessly.
+      control?.rotate()
     },
     jumpOnce: async () => {
       await callTool('jump', {})

@@ -563,8 +563,12 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
           // (exact shapes from the source, or explicit boxes in a test fake).
           // The corridor is only used when every walk cell sweeps clean;
           // otherwise the discrete run stays the safe path (CD-G2 fallback).
-          const corridor = (exactShapes || worldHasCollisionShapes(snapshot))
-            ? buildCorridor(plan.steps, index, runLength, snapshot, config)
+          const explicitShapes = worldHasCollisionShapes(snapshot)
+          const shapesAvailable = exactShapes || explicitShapes
+          if (!shapesAvailable)
+            debug?.(`corridor skipped: no shape data (exactShapes=${exactShapes}, explicit=${explicitShapes})`)
+          const corridor = shapesAvailable
+            ? buildCorridor(plan.steps, index, runLength, snapshot, config, debug)
             : undefined
           if (corridor) {
             const corridorResult = await followCorridor({
@@ -576,6 +580,7 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
               now,
               tickMs,
               stepTimeoutMs,
+              ...(debug ? { debug } : {}),
             })
             if (corridorResult.status === 'cancelled')
               return finish('cancelled')

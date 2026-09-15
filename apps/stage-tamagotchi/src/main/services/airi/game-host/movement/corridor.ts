@@ -217,11 +217,18 @@ export function projectOnPath(
  *
  * When a bend sits inside the lookahead window, the target becomes the bend
  * vertex itself so the controller does not cut across the inside of the corner.
+ * A vertex closer than `minCornerGap` is skipped: aiming at a point almost
+ * under the player collapses the bearing and makes the steering oscillate, so
+ * past that point the normal lookahead (already beyond the corner) is used.
+ *
+ * @example
+ * truncatedLookahead(path, 4.9, 2).x
+ * // => the normal lookahead point, not the vertex at s = 5
  */
-export function truncatedLookahead(path: ArcPath, sProgress: number, lookahead: number): Vec3 {
+export function truncatedLookahead(path: ArcPath, sProgress: number, lookahead: number, minCornerGap = 0.8): Vec3 {
   for (let index = 1; index < path.points.length - 1; index++) {
     const vertexS = path.cumulative[index]!
-    if (vertexS <= sProgress + 1e-6)
+    if (vertexS <= sProgress + minCornerGap)
       continue
     if (vertexS > sProgress + lookahead)
       break
@@ -299,19 +306,30 @@ export function buildCorridor(
   length: number,
   world: BlockSource,
   config: MovementConfig,
+  debug?: (message: string) => void,
 ): BuiltCorridor | undefined {
-  if (length < 2)
+  if (length < 2) {
+    debug?.(`corridor rejected: run of ${length} cells`)
     return undefined
+  }
   for (let index = start; index < start + length; index++) {
-    if (classifyWalkMotion(steps[index]!) !== 'walk')
+    const kind = classifyWalkMotion(steps[index]!)
+    if (kind !== 'walk') {
+      const step = steps[index]!
+      debug?.(`corridor rejected: ${kind} at ${step.x},${step.y},${step.z}`)
       return undefined
+    }
   }
   const points = runCells(steps, start, length)
   for (let index = 1; index < points.length; index++) {
     const sweep = sweepWalkSegment(points[index - 1]!, points[index]!, world, config)
-    if (!sweep.verified)
+    if (!sweep.verified) {
+      const at = sweep.at
+      debug?.(`corridor rejected: sweep ${sweep.reason} at ${at ? `${at.x.toFixed(1)},${at.y.toFixed(1)},${at.z.toFixed(1)}` : 'unknown'}`)
       return undefined
+    }
   }
+  debug?.(`corridor built: ${length} cells`)
   return { path: buildArcPath(points), stepCount: length }
 }
 
@@ -348,19 +366,23 @@ export async function followCorridor(options: {
   tickMs: number
   stepTimeoutMs: number
   lateralTolerance?: number
+  debug?: (message: string) => void
 }): Promise<CorridorFollowResult> {
   const { port, path, config, shouldStop, sleep, now, tickMs, stepTimeoutMs } = options
+  const debug = options.debug
   const lateralTolerance = options.lateralTolerance ?? DEFAULT_LATERAL_TOLERANCE
   let sProgress = 0
   let position: Vec3 = pointAt(path, 0)
   let lastAdvanceAt = now()
   const recent: Vec3[] = []
+  let polls = 0
 
   for (;;) {
     if (shouldStop())
       return { status: 'cancelled', sProgress, position }
     const state = await port.getState()
     position = state.position
+    polls += 1
 
     const projection = projectOnPath(path, position, {
       from: Math.max(0, sProgress - PROJECTION_BACK),
@@ -384,6 +406,9 @@ export async function followCorridor(options: {
     const target = truncatedLookahead(path, sProgress, lookahead)
     const yaw = yawTo(position, target)
     const yawDelta = angleDelta(state.yaw, yaw)
+    if (polls % 4 === 1) {
+      debug?.(`corridor poll: s=${sProgress.toFixed(2)}/${path.total.toFixed(2)} pos=${position.x.toFixed(2)},${position.y.toFixed(2)},${position.z.toFixed(2)} target=${target.x.toFixed(2)},${target.z.toFixed(2)} yaw=${state.yaw.toFixed(1)} want=${yaw.toFixed(1)} lat=${projection ? projection.lateral.toFixed(2) : 'none'}`)
+    }
     if (Math.abs(yawDelta) > AIM_TOLERANCE_DEG)
       await port.look(state.yaw + (Math.abs(yawDelta) > 45 ? yawDelta : clamp(yawDelta, -20, 20)), 0)
 

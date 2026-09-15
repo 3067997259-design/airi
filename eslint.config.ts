@@ -29,6 +29,9 @@ export default defineConfig({
     // Acceptance captures include hash-bound source and sandbox programs.
     // Their original bytes are evidence, not ordinary modules to format.
     'docs/fork/evidence/short-scenarios/**',
+    // The movement-corridor harness scripts are standalone Node programs
+    // (top-level await, console output); their bytes are the evidence.
+    'docs/fork/evidence/movement-corridor-acceptance-20260915/**/*.mjs',
     '.agents/**',
     '.github/**',
     '.zcode/**', // Local agent session state, not repository code

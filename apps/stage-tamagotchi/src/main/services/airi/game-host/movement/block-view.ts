@@ -33,6 +33,14 @@ const CLIMBABLE = new Set(['ladder'])
 const CARPET_SUFFIXES = ['_carpet', 'moss_carpet', 'snow', 'lily_pad']
 const OPENABLE_SUFFIXES = ['_door', '_fence_gate', '_trapdoor']
 const PARTIAL_SUFFIXES = ['_slab', '_stairs']
+/**
+ * Walkable partial blocks the player steps onto without an action.
+ *
+ * A bed's collision box is 0.5625 high, below the 0.6 vanilla step height, so
+ * a planned walk may cross it like a slab. Without this class the planner
+ * treats every bed as a full obstacle and detours around open ground.
+ */
+const WALKABLE_PARTIAL_SUFFIXES = ['_bed']
 const GRAVITY = new Set(['sand', 'red_sand', 'gravel', 'suspicious_sand', 'suspicious_gravel'])
 
 export function normalizeBlockId(id: string): string {
@@ -97,6 +105,8 @@ export function classifyBlock(input: ClassifyInput): BlockInfo {
     const open = input.properties?.open === 'true'
     return { ...base, physical: !open, safe: open, openable: true, open, height: open ? input.y : input.y + 1 }
   }
+  if (hasSuffix(id, WALKABLE_PARTIAL_SUFFIXES))
+    return { ...base, physical: false, safe: true, height: input.y + 0.5625 }
   if (hasSuffix(id, PARTIAL_SUFFIXES))
     return { ...base, physical: false, safe: true, height: input.y + 0.5 }
 

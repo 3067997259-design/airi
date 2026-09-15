@@ -137,22 +137,30 @@ describe('createMcpMovementPort', () => {
     expect(callTool).toHaveBeenCalledWith('stop_movement', {})
   })
 
-  it('stamps control writes with the command session and an increasing sequence', async () => {
+  it('stamps control writes with the command session and an increasing sequence, and rotates after a release', async () => {
     const callTool = callerWith({})
     let sequence = 4
-    const port = createMcpMovementPort(callTool, {
-      control: {
-        controlSessionId: 'ctrl-1',
-        nextSequence: () => {
-          sequence += 1
-          return sequence
-        },
+    const control = {
+      controlSessionId: 'ctrl-1',
+      nextSequence: () => {
+        sequence += 1
+        return sequence
       },
-    })
+      rotate: () => {
+        control.controlSessionId = 'ctrl-1:2'
+        sequence = 0
+      },
+    }
+    const port = createMcpMovementPort(callTool, { control })
     await port.setInput({ forward: true })
     await port.setInput({ sprint: true })
+    await port.stopMovement()
+    await port.setInput({ jump: true })
     expect(callTool).toHaveBeenNthCalledWith(1, 'set_movement', { forward: true, controlSessionId: 'ctrl-1', sequence: 5 })
     expect(callTool).toHaveBeenNthCalledWith(2, 'set_movement', { sprint: true, controlSessionId: 'ctrl-1', sequence: 6 })
+    expect(callTool).toHaveBeenNthCalledWith(3, 'stop_movement', {})
+    // The bridge revokes the session on stop; the next input is a new session.
+    expect(callTool).toHaveBeenNthCalledWith(4, 'set_movement', { jump: true, controlSessionId: 'ctrl-1:2', sequence: 1 })
   })
 
   it('keeps an explicit empty collision array and reports exact shapes', async () => {

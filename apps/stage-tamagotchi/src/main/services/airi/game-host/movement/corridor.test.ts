@@ -107,6 +107,18 @@ describe('arc-length path', () => {
     expect(truncatedLookahead(path, 5, 10)).toEqual({ x: 10, y: 0, z: 0 })
   })
 
+  // ROOT CAUSE (live bed detour):
+  //
+  // Aiming at a bend vertex 0.1 ahead collapsed the bearing to a point almost
+  // under the player, and the follower oscillated around the corner. A vertex
+  // inside the corner gap is skipped, so the normal lookahead (already past
+  // the corner) steers the turn.
+  it('skips a bend vertex that is almost under the player', () => {
+    const path = buildArcPath([{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 0, z: 1 }])
+    expect(truncatedLookahead(path, 0.1, 1.5)).toEqual({ x: 1, y: 0, z: 0 })
+    expect(truncatedLookahead(path, 0.9, 1.5)).toEqual({ x: 1, y: 0, z: 1 })
+  })
+
   it('does not truncate on a straight line', () => {
     const path = buildArcPath([{ x: 0, y: 0, z: 0 }, { x: 20, y: 0, z: 0 }])
     expect(truncatedLookahead(path, 5, 10)).toEqual({ x: 15, y: 0, z: 0 })

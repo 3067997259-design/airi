@@ -2491,7 +2491,17 @@ export async function setupGameHost(
    */
   function createTerrainPort(control?: MovementPortControl) {
     return createMcpMovementPort(
-      async (name, args) => statusRecordOf(await callGameTool(name, args)),
+      async (name, args) => {
+        const result = await callGameTool(name, args)
+        // CD-0 §3.1: a rejected control write (revoked or stale session) must
+        // abort the mover instead of being silently ignored.
+        if (name === 'set_movement') {
+          const error = gameToolResultError(result)
+          if (error)
+            throw new Error(error)
+        }
+        return statusRecordOf(result)
+      },
       {
         worldId: () => worldIdentity?.worldId,
         dimension: () => worldIdentity?.dimension,
@@ -2728,11 +2738,17 @@ export async function setupGameHost(
     // session identity with a strictly increasing sequence, so the bridge can
     // reject a revoked session or a stale write.
     let controlSequence = token.sequence
+    let controlSessionRotations = 0
     const controlIdentity: MovementPortControl = {
       controlSessionId: token.controlSessionId,
       nextSequence: () => {
         controlSequence += 1
         return controlSequence
+      },
+      rotate: () => {
+        controlSessionRotations += 1
+        controlSequence = token.sequence
+        controlIdentity.controlSessionId = `${token.controlSessionId}#${controlSessionRotations}`
       },
     }
 
