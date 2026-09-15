@@ -647,9 +647,26 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
             return finish('cancelled')
           if (runResult.status === 'stuck') {
             // The run reports how far it got; the failed edge is the one out of
-            // the last passed cell, not the run's first edge (CD-G1 D7).
-            debug?.(`walk run stuck at ${runResult.position.x.toFixed(1)},${runResult.position.y.toFixed(1)},${runResult.position.z.toFixed(1)}`)
-            noteFailedEdge(failedRunStep(plan.steps, index, runResult.cursor), snapshot)
+            // the last passed cell, not the run's start (CD-G1 D7). A diagonal
+            // one-block step can defeat the run's jump (the corner blocks the
+            // side sweep), so the edge is retried with the discrete stepper,
+            // whose takeoff logic is proven on single steps, before giving up.
+            const failedIndex = index + runResult.cursor
+            const failedStep = plan.steps[failedIndex]
+            debug?.(`walk run stuck at ${runResult.position.x.toFixed(1)},${runResult.position.y.toFixed(1)},${runResult.position.z.toFixed(1)}; retrying ${failedStep ? `${failedStep.x},${failedStep.y},${failedStep.z}` : 'edge'} discretely`)
+            if (failedStep) {
+              const retry = await walkStep(failedStep, { port, goal, tolerance, config, shouldStop, sleep, now, tickMs, stepTimeoutMs, stopOnArrival: true })
+              if (retry === 'cancelled')
+                return finish('cancelled')
+              if (retry === 'arrived') {
+                position = (await port.getState()).position
+                if (reachedAny(position))
+                  return finish('reached')
+                index = failedIndex + 1
+                continue
+              }
+            }
+            noteFailedEdge(failedStep ?? failedRunStep(plan.steps, index, runResult.cursor), snapshot)
             stuck = true
             break
           }
