@@ -393,8 +393,12 @@ export async function followCorridor(options: {
       lastAdvanceAt = now()
     }
 
+    const endPoint = pointAt(path, path.total)
+    const distanceToEnd = horizontalDistance(position, endPoint)
     const remaining = path.total - sProgress
-    if (remaining <= 1e-3 && horizontalDistance(position, pointAt(path, path.total)) <= 0.45) {
+    // Arrival accepts a stop short of the exact end: the approach brake below
+    // holds the last fraction of a block, so `sProgress` may never reach total.
+    if (sProgress >= path.total - 1 && distanceToEnd <= 0.45) {
       await port.stopMovement()
       return { status: 'arrived', sProgress, position }
     }
@@ -402,6 +406,14 @@ export async function followCorridor(options: {
       return { status: 'stuck', sProgress, position }
 
     const speed = state.motion ? Math.hypot(state.motion.x, state.motion.z) * 20 : 0
+    // Approach brake: within one reaction step of the end, release the forward
+    // key instead of coasting past it. A stopped bot is below the speed floor
+    // and walks the remaining gap normally.
+    if (sProgress >= path.total - 2 && speed > 0.05 && distanceToEnd <= 0.12 * speed + 0.35) {
+      await port.setInput({ forward: false })
+      await sleep(tickMs)
+      continue
+    }
     const lookahead = clamp(0.8 + 0.4 * speed, 1, 3)
     const target = truncatedLookahead(path, sProgress, lookahead)
     const yaw = yawTo(position, target)

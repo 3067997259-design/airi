@@ -536,6 +536,7 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
       if (incomplete)
         return finish('no_chunk', `missing ${incomplete.x},${incomplete.y},${incomplete.z}`)
       debug?.(`plan: ${plan.steps.length} steps from ${start.x},${start.y},${start.z}`)
+      debug?.(`plan path: ${JSON.stringify(plan.steps.map(step => [step.x, step.y, step.z]))}`)
 
       let stuck = false
       let index = 0
