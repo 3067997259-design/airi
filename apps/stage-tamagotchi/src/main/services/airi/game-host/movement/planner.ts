@@ -1,10 +1,16 @@
 /**
- * A* planner over the ported Movements generator (MC-3 Phase 1)。
+ * A* planner over the ported Movements generator (MC-3 Phase 1; label search
+ * CD-G3 D5).
  *
  * The search is intentionally pure: it reads a `BlockSource` snapshot and
  * returns the successor chain with the break/place/use actions the executor
  * must perform. `mineflayer-pathfinder`'s async scheduling, dynamic replan and
  * execution live outside this module.
+ *
+ * Each cell keeps a list of non-dominated labels instead of one record. A label
+ * has an immutable id and an immutable parent id, so evicting a label never
+ * rewrites a descendant's parent chain. A label is dominated when another label
+ * to the same cell is both cheaper and no poorer in scaffolding (review R3).
  */
 import type { BlockSource, MovementConfig, MovementNode, PathStep, PlanFailure, PlanSuccess, Vec3 } from './types'
 
@@ -26,19 +32,35 @@ export interface PlanOptions {
   remainingPlaceables?: number
   /** Hard bounds so a malformed region cannot hang the command. */
   maxNodes?: number
+  /** Maximum live labels across all cells; exceeding it fails honestly. */
+  maxLabels?: number
   maxCost?: number
   timeoutMs?: number
   /** Missing blocks fail with `no_chunk` unless the caller stubs them. */
   onMissingBlock?: 'fail' | 'stub'
 }
 
-interface SearchRecord {
+/**
+ * One search label: an immutable identity with an immutable parent pointer.
+ *
+ * Labels are never mutated after creation except for the `evicted` and
+ * `expanded` markers. Because the parent is referenced by id and the label
+ * stays in {@link SearchState.labels}, eviction from a cell list cannot corrupt
+ * a descendant's path.
+ */
+export interface SearchLabel {
+  id: number
+  parentId?: number
+  cell: Vec3
   node: MovementNode
   g: number
-  cameFrom?: string
+  remainingPlaceables: number
+  evicted: boolean
+  expanded: boolean
 }
 
 const DEFAULT_MAX_NODES = 20_000
+const DEFAULT_MAX_LABELS = 5_000
 const DEFAULT_MAX_COST = 10_000
 const DEFAULT_TIMEOUT_MS = 5_000
 
@@ -46,16 +68,33 @@ function keyOf(x: number, y: number, z: number): string {
   return `${x},${y},${z}`
 }
 
+/**
+ * True when `candidate` is at least as good as `existing` on both axes.
+ *
+ * Cheaper alone is not enough: a material-poor label must not shadow a richer
+ * route to the same cell (review R3).
+ *
+ * @example
+ * labelDominates({ g: 2, remainingPlaceables: 3 }, { g: 2, remainingPlaceables: 3 })
+ * // => true
+ */
+export function labelDominates(
+  candidate: { g: number, remainingPlaceables: number },
+  existing: { g: number, remainingPlaceables: number },
+): boolean {
+  return candidate.g <= existing.g && candidate.remainingPlaceables >= existing.remainingPlaceables
+}
+
 /** Binary min-heap keyed by f-score; stale entries are skipped on pop. */
 class MinHeap {
-  private readonly items: Array<{ key: string, f: number }> = []
+  private readonly items: Array<{ id: number, f: number }> = []
 
   get size(): number {
     return this.items.length
   }
 
-  push(key: string, f: number): void {
-    this.items.push({ key, f })
+  push(id: number, f: number): void {
+    this.items.push({ id, f })
     let index = this.items.length - 1
     while (index > 0) {
       const parent = (index - 1) >> 1
@@ -68,7 +107,7 @@ class MinHeap {
     }
   }
 
-  pop(): { key: string, f: number } | undefined {
+  pop(): { id: number, f: number } | undefined {
     const top = this.items[0]
     const last = this.items.pop()
     if (!top || !last)
@@ -97,7 +136,9 @@ class MinHeap {
 }
 
 function octileDistance(node: MovementNode, goal: Vec3): number {
-  // Octile distance: the cost of walking there unobstructed.
+  // Octile distance: the cost of walking there unobstructed. It is admissible
+  // while the cheapest movement primitive is one cardinal step (dig/place add
+  // cost, parkour must be disabled for the guarantee to hold).
   const dx = Math.abs(node.x - goal.x)
   const dy = Math.abs(node.y - goal.y)
   const dz = Math.abs(node.z - goal.z)
@@ -113,22 +154,22 @@ function heuristic(node: MovementNode, goals: Vec3[]): number {
   return best
 }
 
-function reconstruct(records: Map<string, SearchRecord>, goalKey: string): PathStep[] {
-  const chain: SearchRecord[] = []
-  let key: string | undefined = goalKey
-  while (key) {
-    const record = records.get(key)
-    if (!record)
+function reconstruct(labels: Map<number, SearchLabel>, goalId: number): PathStep[] {
+  const chain: SearchLabel[] = []
+  let id: number | undefined = goalId
+  while (id !== undefined) {
+    const label = labels.get(id)
+    if (!label)
       break
-    chain.push(record)
-    key = record.cameFrom
+    chain.push(label)
+    id = label.parentId
   }
   chain.reverse()
   const steps: PathStep[] = []
   for (let index = 1; index < chain.length; index++) {
     const previous = chain[index - 1]!
     const current = chain[index]!
-    steps.push({ ...current.node, from: { x: previous.node.x, y: previous.node.y, z: previous.node.z } })
+    steps.push({ ...current.node, from: { x: previous.cell.x, y: previous.cell.y, z: previous.cell.z } })
   }
   return steps
 }
@@ -143,6 +184,7 @@ export function planPath(options: PlanOptions): PlanSuccess | PlanFailure {
     config,
     remainingPlaceables = 0,
     maxNodes = DEFAULT_MAX_NODES,
+    maxLabels = DEFAULT_MAX_LABELS,
     maxCost = DEFAULT_MAX_COST,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onMissingBlock = 'fail',
@@ -160,12 +202,43 @@ export function planPath(options: PlanOptions): PlanSuccess | PlanFailure {
     parkour: false,
   }
 
-  const startKey = keyOf(start.x, start.y, start.z)
   const goals = goalCells && goalCells.length > 0 ? goalCells : [goal]
   const goalKeys = new Set(goals.map(cell => keyOf(cell.x, cell.y, cell.z)))
-  const records = new Map<string, SearchRecord>([[startKey, { node: startNode, g: 0 }]])
+
+  const labels = new Map<number, SearchLabel>()
+  const cells = new Map<string, SearchLabel[]>()
   const open = new MinHeap()
-  open.push(startKey, heuristic(startNode, goals))
+  let nextId = 0
+
+  const addLabel = (label: Omit<SearchLabel, 'evicted' | 'expanded'>): boolean => {
+    const cellKey = keyOf(label.cell.x, label.cell.y, label.cell.z)
+    const list = cells.get(cellKey) ?? []
+    for (const existing of list) {
+      if (existing.evicted)
+        continue
+      if (labelDominates(existing, label))
+        return false
+    }
+    for (const existing of list) {
+      if (!existing.evicted && labelDominates(label, existing))
+        existing.evicted = true
+    }
+    const stored: SearchLabel = { ...label, evicted: false, expanded: false }
+    labels.set(stored.id, stored)
+    list.push(stored)
+    cells.set(cellKey, list)
+    return true
+  }
+
+  const startLabel: Omit<SearchLabel, 'evicted' | 'expanded'> = {
+    id: nextId++,
+    cell: { x: start.x, y: start.y, z: start.z },
+    node: startNode,
+    g: 0,
+    remainingPlaceables,
+  }
+  addLabel(startLabel)
+  open.push(startLabel.id, heuristic(startNode, goals))
 
   let nodes = 0
   const deadline = Date.now() + timeoutMs
@@ -179,14 +252,15 @@ export function planPath(options: PlanOptions): PlanSuccess | PlanFailure {
     const top = open.pop()
     if (!top)
       break
-    const current = records.get(top.key)
-    if (!current)
+    const current = labels.get(top.id)
+    if (!current || current.evicted || current.expanded)
       continue
+    current.expanded = true
 
-    if (goalKeys.has(top.key)) {
-      const steps = reconstruct(records, top.key)
-      const finalG = current.g
-      return { ok: true, steps, cost: finalG, nodes, ...(movements.missing.length > 0 ? { missing: [...movements.missing] } : {}) }
+    const currentKey = keyOf(current.cell.x, current.cell.y, current.cell.z)
+    if (goalKeys.has(currentKey)) {
+      const steps = reconstruct(labels, current.id)
+      return { ok: true, steps, cost: current.g, nodes, ...(movements.missing.length > 0 ? { missing: [...movements.missing] } : {}) }
     }
 
     if (movements.missing.length > 0 && onMissingBlock === 'fail')
@@ -201,18 +275,19 @@ export function planPath(options: PlanOptions): PlanSuccess | PlanFailure {
       const g = current.g + neighbor.cost
       if (g > maxCost)
         continue
-      const existing = records.get(neighborKey)
-      if (existing) {
-        // Dominance: a state that is both cheaper and no poorer in materials
-        // cannot be improved by this candidate. A material-poor state must not
-        // shadow a richer route to the same cell (review R3).
-        const cheaper = existing.g <= g
-        const notPoorer = existing.node.remainingPlaceables >= neighbor.remainingPlaceables
-        if (cheaper && notPoorer)
-          continue
+      if (labels.size >= maxLabels)
+        return { ok: false, reason: 'search_budget', nodes }
+      const label = {
+        id: nextId++,
+        parentId: current.id,
+        cell: { x: neighbor.x, y: neighbor.y, z: neighbor.z },
+        node: neighbor,
+        g,
+        remainingPlaceables: neighbor.remainingPlaceables,
       }
-      records.set(neighborKey, { node: neighbor, g, cameFrom: top.key })
-      open.push(neighborKey, g + heuristic(neighbor, goals))
+      if (!addLabel(label))
+        continue
+      open.push(label.id, g + heuristic(neighbor, goals))
     }
   }
 

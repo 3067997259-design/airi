@@ -12,6 +12,7 @@
  */
 import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
 import type { MovementControlPort } from './port'
+import type { CollisionBox } from './types'
 
 import { DimensionMismatchError, TerrainReadError } from './observation'
 import { UnreadablePlayerStateError } from './port'
@@ -31,6 +32,27 @@ export interface MovementPortContext {
   connectionGeneration?: () => number
   /** Wall-clock source used to stamp observation freshness; tests inject it. */
   now?: () => number
+}
+
+/** Parses cell-local collision boxes a shape-aware source may attach. */
+function parseCollision(raw: unknown): CollisionBox[] | undefined {
+  if (!Array.isArray(raw))
+    return undefined
+  const boxes: CollisionBox[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      continue
+    const value = entry as Record<string, unknown>
+    const minX = Number(value.minX)
+    const minY = Number(value.minY)
+    const minZ = Number(value.minZ)
+    const maxX = Number(value.maxX)
+    const maxY = Number(value.maxY)
+    const maxZ = Number(value.maxZ)
+    if ([minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite))
+      boxes.push({ minX, minY, minZ, maxX, maxY, maxZ })
+  }
+  return boxes.length > 0 ? boxes : undefined
 }
 
 function parseUnloaded(raw: unknown): Array<{ x: number, y: number, z: number }> {
@@ -161,7 +183,8 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
         const properties = block.properties && typeof block.properties === 'object'
           ? block.properties as Record<string, string>
           : undefined
-        return [{ x, y, z, id, ...(properties ? { properties } : {}) }]
+        const collision = parseCollision(block.collision)
+        return [{ x, y, z, id, ...(properties ? { properties } : {}), ...(collision ? { collision } : {}) }]
       })
     },
     readTerrain: async (request: TerrainReadRequest): Promise<TerrainReadResponse> => {

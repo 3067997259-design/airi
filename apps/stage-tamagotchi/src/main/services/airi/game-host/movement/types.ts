@@ -10,6 +10,23 @@ export interface Vec3 {
   z: number
 }
 
+/**
+ * One collision box in cell-local coordinates, each axis in `[0, 1]`.
+ *
+ * The region read may omit collision shapes; the movement view then derives a
+ * conservative box from `physical` and `height`. A top slab, an upper door half
+ * or a stair step cannot be recovered from the id alone, so a source that knows
+ * the shape must send it (CD-G2).
+ */
+export interface CollisionBox {
+  minX: number
+  minY: number
+  minZ: number
+  maxX: number
+  maxY: number
+  maxZ: number
+}
+
 /** Derived per-block facts the movement costs use. */
 export interface BlockInfo {
   id: string
@@ -33,6 +50,11 @@ export interface BlockInfo {
   height: number
   /** Block hardness from the world read; used for dig labor (approximation). */
   hardness: number
+  /**
+   * Exact collision boxes when the source sent them. Absent means the movement
+   * view derives a conservative shape instead.
+   */
+  collision?: CollisionBox[]
 }
 
 /** Read-only block source; unresolved positions are reported to the caller. */
@@ -50,6 +72,23 @@ export interface MoveAction {
   jump?: boolean
 }
 
+/**
+ * How the executor actually moves across one edge (CD-G1 D1).
+ *
+ * The action flags alone cannot classify an edge: a full-block ascent has no
+ * break/place/parkour action but is still a jump, not a plain walk. `walk` and
+ * `step-up` are the continuous ground motions; the rest are action boundaries.
+ */
+export type MovementMotionKind
+  = | 'walk'
+    | 'step-up'
+    | 'jump-up'
+    | 'fall'
+    | 'swim'
+    | 'climb'
+    | 'parkour'
+    | 'interaction'
+
 /** One A* successor (mineflayer `Move` shape, trimmed). */
 export interface MovementNode {
   x: number
@@ -61,6 +100,13 @@ export interface MovementNode {
   toBreak: Vec3[]
   toPlace: MoveAction[]
   parkour: boolean
+  /**
+   * Motion kind when the generator knows it (swim, climb). Left unset when the
+   * planner cannot prove it, and derived from the support heights instead.
+   */
+  motion?: MovementMotionKind
+  /** Top surface height of the destination support, when the generator knew it. */
+  supportHeight?: number
 }
 
 export interface MovementConfig {
@@ -100,9 +146,11 @@ export const DEFAULT_MOVEMENT_CONFIG: MovementConfig = {
 
 export interface PathStep extends MovementNode {
   from: Vec3
+  /** Top surface height of the source support, when the generator knew it. */
+  fromSupportHeight?: number
 }
 
-export type PlanFailureReason = 'no_path' | 'no_chunk' | 'cost_limit' | 'timeout'
+export type PlanFailureReason = 'no_path' | 'no_chunk' | 'cost_limit' | 'timeout' | 'search_budget'
 
 export interface PlanSuccess {
   ok: true

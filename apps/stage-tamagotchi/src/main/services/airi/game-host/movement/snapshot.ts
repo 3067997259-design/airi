@@ -5,7 +5,7 @@
  * fills it from `world.getBlocks` (increment 2) and the planner reports the
  * first position it needed but could not read (`no_chunk`).
  */
-import type { BlockInfo, BlockSource } from './types'
+import type { BlockInfo, BlockSource, CollisionBox } from './types'
 
 import { classifyBlock } from './block-view'
 
@@ -16,6 +16,8 @@ export interface SnapshotEntry {
   id: string
   properties?: Record<string, string>
   hardness?: number
+  /** Exact collision boxes from the source, when the region read sent them. */
+  collision?: CollisionBox[]
 }
 
 export interface WorldSnapshot extends BlockSource {

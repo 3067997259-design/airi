@@ -46,20 +46,24 @@ describe('capability deepening: movement boundaries', () => {
     ], 0)).toBe(2)
   })
 
-  it.fails('keeps a full-block ascent outside a plain walk run', () => {
+  it('keeps a full-block ascent outside a plain walk run', () => {
     // ROOT CAUSE:
-    // The classifier checks actions and parkour but not the height change.
-    // The run controller only jumps in water, so an ascent loses its action.
+    // The classifier checked actions and parkour but not the height change, so
+    // a full-block ascent entered the run controller, which only jumps in
+    // water. The motion classifier now reads the support-height rise and marks
+    // the ascent `jump-up`, so the run stops at that edge.
     expect(walkRunLength([
       step({ x: 0, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }),
       step({ x: 1, y: 2, z: 0 }, { x: 2, y: 2, z: 0 }),
     ], 0)).toBe(0)
   })
 
-  it.fails('visits the first bend before steering across unchecked space', async () => {
+  it('visits the first bend before steering across unchecked space', async () => {
     // ROOT CAUSE:
-    // targetIndex starts at cursor + 1, even when the first point has not
-    // been reached and the next point is outside the lookahead distance.
+    // targetIndex started at cursor + 1, even when the first point had not been
+    // reached and the next point was outside the lookahead distance. The
+    // lookahead now starts at the first unreached node, so the first bearing is
+    // aimed at before the bend is crossed.
     const port = controlPort({ x: 0.5, y: 1, z: 0.5 })
     await runWalkRun({
       port,
@@ -74,10 +78,11 @@ describe('capability deepening: movement boundaries', () => {
     expect(port.look.mock.calls[0]?.[0]).toBeCloseTo(-90)
   })
 
-  it.fails('releases sprint before a diagonal-to-cardinal turn', async () => {
+  it('releases sprint before a diagonal-to-cardinal turn', async () => {
     // ROOT CAUSE:
     // Math.sign direction vectors have different lengths for diagonal and
-    // cardinal edges. Their unnormalized dot product hides a 45-degree turn.
+    // cardinal edges, and their unnormalized dot product hid a 45-degree turn.
+    // Normalized directions detect the bend and release the sprint early.
     const port = controlPort({ x: 0.5, y: 1, z: 0.5 })
     await runWalkRun({
       port,

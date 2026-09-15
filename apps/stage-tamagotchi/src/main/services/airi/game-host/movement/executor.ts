@@ -11,10 +11,11 @@ import type { BlockSource, MovementConfig, PathStep, PlanFailureReason, Vec3 } f
 
 import { normalizeBlockId } from './block-view'
 import { standPointOf } from './coordinates'
-import { runCells, runWalkRun, walkRunLength } from './follow'
+import { buildCorridor, followCorridor, stepIndexAtProgress, worldHasCollisionShapes } from './corridor'
+import { failedRunStep, runCells, runWalkRun, walkRunLength } from './follow'
 import { planPath } from './planner'
 import { movementRegionBounds, readMovementRegion } from './region'
-import { LONG_ROUTE_MAX_HOP, LONG_ROUTE_MIN_DISTANCE, splitRoute } from './route'
+import { hintCells, LONG_ROUTE_MAX_HOP, LONG_ROUTE_MIN_DISTANCE, splitRoute } from './route'
 import { createSnapshot } from './snapshot'
 import { DEFAULT_MOVEMENT_CONFIG } from './types'
 
@@ -558,6 +559,37 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
         // nodes, lookahead steering and passed-node skipping (batch 2).
         const runLength = walkRunLength(plan.steps, index)
         if (runLength >= 2) {
+          // A shape-aware snapshot enables the verified corridor follower. The
+          // corridor is only used when every walk cell sweeps clean; otherwise
+          // the discrete run stays the safe path (CD-G2 fallback).
+          const corridor = worldHasCollisionShapes(snapshot)
+            ? buildCorridor(plan.steps, index, runLength, snapshot, config)
+            : undefined
+          if (corridor) {
+            const corridorResult = await followCorridor({
+              port,
+              path: corridor.path,
+              config,
+              shouldStop,
+              sleep,
+              now,
+              tickMs,
+              stepTimeoutMs,
+            })
+            if (corridorResult.status === 'cancelled')
+              return finish('cancelled')
+            if (corridorResult.status === 'stuck') {
+              debug?.(`corridor stuck at ${corridorResult.position.x.toFixed(1)},${corridorResult.position.y.toFixed(1)},${corridorResult.position.z.toFixed(1)}`)
+              noteFailedEdge(failedRunStep(plan.steps, index, stepIndexAtProgress(corridor.path, corridorResult.sProgress)), snapshot)
+              stuck = true
+              break
+            }
+            position = corridorResult.position
+            if (reachedAny(position))
+              return finish('reached')
+            index += runLength
+            continue
+          }
           const runResult = await runWalkRun({
             port,
             cells: runCells(plan.steps, index, runLength),
@@ -571,8 +603,10 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
           if (runResult.status === 'cancelled')
             return finish('cancelled')
           if (runResult.status === 'stuck') {
-            debug?.('walk run stuck')
-            noteFailedEdge(step, snapshot)
+            // The run reports how far it got; the failed edge is the one out of
+            // the last passed cell, not the run's first edge (CD-G1 D7).
+            debug?.(`walk run stuck at ${runResult.position.x.toFixed(1)},${runResult.position.y.toFixed(1)},${runResult.position.z.toFixed(1)}`)
+            noteFailedEdge(failedRunStep(plan.steps, index, runResult.cursor), snapshot)
             stuck = true
             break
           }
@@ -664,8 +698,9 @@ export async function runTerrainRoute(options: TerrainRouteOptions): Promise<Ter
 
   for (const waypoint of splitRoute(start, moveOptions.goal, maxHop)) {
     // Each leg reads the player again and plans over a local window around the
-    // current position and the waypoint, so no read spans the whole route.
-    const leg = await runTerrainMove({ ...moveOptions, goal: waypoint, goalCells: undefined, tolerance: 1 })
+    // current position and the waypoint, so no read spans the whole route. The
+    // waypoint is a hint: any reachable cell near it satisfies the leg (D6).
+    const leg = await runTerrainMove({ ...moveOptions, goal: waypoint, goalCells: hintCells(waypoint), tolerance: 1 })
     if (leg.status !== 'reached')
       return leg
   }

@@ -43,6 +43,8 @@ interface FakeOptions {
   inventory?: InventorySlot[]
   /** Break calls needed before a survival break removes the block. */
   breakCalls?: number
+  /** Stops advancing after this many moving polls, to simulate a mid-run block. */
+  maxMovingPolls?: number
 }
 
 /** Client simulation with action side effects on a mutable block map. */
@@ -65,6 +67,7 @@ class FakePort implements MovementControlPort {
   private jumpHeld = false
   /** Polls the fake stays airborne after a jump before gravity applies. */
   private airborne = 0
+  private movingPolls = 0
 
   constructor(world: SnapshotEntry[], start: Vec3, private readonly options: FakeOptions = {}) {
     this.position = { ...start }
@@ -74,12 +77,16 @@ class FakePort implements MovementControlPort {
 
   async getState(): Promise<MovementState> {
     if (!this.options.blocked && this.inputs.forward) {
-      const speed = this.options.speed ?? 0.9
-      const radians = this.yaw * Math.PI / 180
-      this.position = {
-        x: this.position.x - Math.sin(radians) * speed,
-        y: this.position.y,
-        z: this.position.z + Math.cos(radians) * speed,
+      const allowed = this.options.maxMovingPolls === undefined || this.movingPolls < this.options.maxMovingPolls
+      if (allowed) {
+        this.movingPolls += 1
+        const speed = this.options.speed ?? 0.9
+        const radians = this.yaw * Math.PI / 180
+        this.position = {
+          x: this.position.x - Math.sin(radians) * speed,
+          y: this.position.y,
+          z: this.position.z + Math.cos(radians) * speed,
+        }
       }
     }
     // Gravity: fall until standing on solid ground (water floats instead).
@@ -465,6 +472,27 @@ describe('runTerrainMove failed edges', () => {
     const first = trace.indexOf(step)
     expect(first).toBeGreaterThanOrEqual(0)
     expect(trace.slice(first + 1)).not.toContain(step)
+  })
+
+  // ROOT CAUSE:
+  //
+  // A stuck continuous run recorded the failed edge at the run's first step, so
+  // the planner disabled the entrance cell instead of the cell where the player
+  // actually stopped (D7). The run returns its cursor; the recorded edge is the
+  // one out of the last passed cell.
+  it('records the failed edge at the run cursor instead of the run start', async () => {
+    const port = new FakePort(FLAT_WORLD, { x: 1, y: 64, z: 4 }, { maxMovingPolls: 4 })
+    const failedEdges = new Map<string, FailedEdge>()
+    const result = await runTerrainMove({
+      port,
+      goal: { x: 14, y: 64, z: 4 },
+      failedEdges,
+      deps: { sleep: async () => {}, now: advancingClock() },
+    })
+    expect(result.status).toBe('stuck')
+    const firstEdge = [...failedEdges.values()][0]
+    expect(firstEdge).toBeDefined()
+    expect(firstEdge!.to.x).toBeGreaterThan(2)
   })
 
   it('filters expired and material-invalidated failed edges', () => {

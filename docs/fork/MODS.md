@@ -3,6 +3,15 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 地面走廊与连续跟随（CD-G1–G3，2026-09-15，代码完成，真机待做）
+
+按[地面走廊、连续跟随与长距离路线](./movement-corridor-design.md)实施。G1：`walkRunLength` 改为按运动类型（walk/step-up/jump-up/fall/swim/climb/parkour/interaction）分段，完整方块上升不再进入平走段（D1）；前瞻起点改为未到达节点，首个拐点先到再转向（D2）；转向用归一化线段方向与有界 yaw 速率，斜转直提前收疾跑（D3）；失败边按实际游标定位（D7）。G2：新增 `movement/corridor.ts`（玩家 AABB 沿线扫掠、支撑与头顶核对、弧长路径 `P(s)`、局部投影窗口防 U 形对折、拐点截断前瞻、速度与转向调节、未证实时回退离散路径）。G3：`planner.ts` 改为单调 ID 标签与非支配保留、父链稳定（D5）；`route.ts` 增加入口图区域序列、直线分点降级为提示（D6）、材料预算递减与未知前沿；`runTerrainRoute` 不再做 Y 线性插值。
+
+- 验证：game-host 定向 **341 passed / 1 skipped**（+40 例）；独立复现 **5 passed / 0 expected fail**（D1–D3 全部转正）；桌面包 typecheck 0；定向 ESLint 0。
+- 审查修正：移除调用方把单节点期限乘以连续段长度的做法（设计 §5）。
+- **已知缺口**：区域读仍不发送 `collision` 形状，`followCorridor` 只在快照含显式碰撞盒时启用，因此真机目前仍走离散跟随；G3 的入口图与材料预算已实现并测试，但尚未驱动 `runTerrainRoute` 与放置计账。
+- 真机验收 NOT-RUN：路径平滑度、横向误差 P95、U 形与山脊绕行质量。
+
 ## CD-0 共同契约实现（2026-09-15，代码完成，真机待做）
 
 按[能力深化总方案](./capability-deepening-plan.md) §3 实施 CD-0。AIRI 侧：命令令牌 `GameExecutionToken`（`controlSessionId`/代次/`sequence`/`goalRevision`），`revoke` 区分已验证与 `stop_unverified`，`applyGoalUpdate` 丢弃过期更新，执行入口捕获固定令牌，旧命令的迟到回调与 `finally` 不能停止新会话；`movement/observation.ts` 提供三时钟域的误差界映射、覆盖掩码、known-air/障碍/流体/未加载/截断/读取失败与维度不匹配拒绝；连接时 `capabilities.ts` 发现能力并返回类型化限制；`get_self` 不可读时拒绝而不是伪造零坐标/`onGround`/`fallFlying`（D4 复现转正，D1–D3 仍属 G1）；`resultPhases` 分相记录请求、接受、客户端执行与服务器结算。审查中发现并修复 `stopScopeFor` 别名回归：停止必须写回执行器捕获的同一 scope 对象，否则取消无法中断行走。

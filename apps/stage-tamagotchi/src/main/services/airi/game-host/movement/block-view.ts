@@ -7,7 +7,7 @@
  * blocks default to a solid obstacle, which makes the planner conservative
  * and the classifier easy to extend as fixtures demand.
  */
-import type { BlockInfo } from './types'
+import type { BlockInfo, CollisionBox } from './types'
 
 /** Default hardness per block id; the world read overrides it when present. */
 const HARDNESS: Record<string, number> = {
@@ -52,6 +52,8 @@ export interface ClassifyInput {
   /** Blockstate properties from `world.getBlock`, e.g. `{ open: 'true' }`. */
   properties?: Record<string, string>
   hardness?: number
+  /** Exact collision boxes from the source, when it knows them (CD-G2). */
+  collision?: CollisionBox[]
 }
 
 /**
@@ -78,6 +80,7 @@ export function classifyBlock(input: ClassifyInput): BlockInfo {
     open: false,
     height: input.y + 1,
     hardness: input.hardness ?? HARDNESS[id] ?? 1.5,
+    ...(input.collision ? { collision: input.collision } : {}),
   } satisfies BlockInfo
 
   if (REPLACEABLE.has(id)) {

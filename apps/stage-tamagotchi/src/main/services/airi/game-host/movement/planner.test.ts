@@ -1,9 +1,10 @@
 import type { SnapshotEntry } from './snapshot'
-import type { MovementConfig, Vec3 } from './types'
+import type { BlockSource, MovementConfig, MovementNode, Vec3 } from './types'
 
 import { describe, expect, it } from 'vitest'
 
-import { planPath } from './planner'
+import { Movements } from './movements'
+import { labelDominates, planPath } from './planner'
 import { createSnapshot } from './snapshot'
 import { DEFAULT_MOVEMENT_CONFIG } from './types'
 
@@ -393,5 +394,101 @@ describe('planPath disabled cells and region goals', () => {
     expect(result.ok).toBe(false)
     if (!result.ok)
       expect(result.reason).toBe('no_path')
+  })
+})
+
+describe('planPath label dominance', () => {
+  // D5: a material-poor label must not shadow a richer route to the same cell.
+  it('dominates only when both cheaper and no poorer in materials', () => {
+    expect(labelDominates({ g: 2, remainingPlaceables: 3 }, { g: 2, remainingPlaceables: 3 })).toBe(true)
+    expect(labelDominates({ g: 1, remainingPlaceables: 0 }, { g: 2, remainingPlaceables: 2 })).toBe(false)
+    expect(labelDominates({ g: 2, remainingPlaceables: 2 }, { g: 1, remainingPlaceables: 0 })).toBe(false)
+  })
+
+  // Parent pointers are label ids, so reconstruction never depends on the
+  // mutable per-cell record that dominance evicts.
+  it('reconstructs each step from the previous cell with a stable parent chain', () => {
+    const bounds = { min: { x: 0, y: 60, z: 0 }, max: { x: 8, y: 70, z: 8 } }
+    const result = planPath({
+      source: buildWorld(bounds, stamp(0, 63, 0, 8, 63, 8, 'minecraft:stone')),
+      start: { x: 1, y: 64, z: 4 },
+      goal: { x: 6, y: 64, z: 4 },
+      config: config(),
+      ...STUB,
+    })
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.steps[0]!.from).toEqual({ x: 1, y: 64, z: 4 })
+      for (let index = 1; index < result.steps.length; index++) {
+        const previous = result.steps[index - 1]!
+        const current = result.steps[index]!
+        expect(current.from).toEqual({ x: previous.x, y: previous.y, z: previous.z })
+      }
+    }
+  })
+
+  it('fails honestly when the label budget is exceeded', () => {
+    const result = planPath({
+      source: buildWorld(
+        { min: { x: 0, y: 60, z: 0 }, max: { x: 20, y: 70, z: 20 } },
+        stamp(0, 63, 0, 20, 63, 20, 'minecraft:stone'),
+      ),
+      start: { x: 1, y: 64, z: 1 },
+      goal: { x: 18, y: 64, z: 18 },
+      config: config(),
+      maxLabels: 3,
+      ...STUB,
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok)
+      expect(result.reason).toBe('search_budget')
+  })
+})
+
+/** Uniform-cost search over the same generator: the optimal-cost oracle. */
+function uniformCost(source: BlockSource, start: Vec3, goal: Vec3, movementConfig: MovementConfig): number | undefined {
+  const movements = new Movements(source, movementConfig)
+  const startNode: MovementNode = { ...start, remainingPlaceables: 0, cost: 0, toBreak: [], toPlace: [], parkour: false }
+  const key = (node: { x: number, y: number, z: number }): string => `${node.x},${node.y},${node.z}`
+  const dist = new Map<string, number>([[key(startNode), 0]])
+  const queue: Array<{ node: MovementNode, g: number }> = [{ node: startNode, g: 0 }]
+  while (queue.length > 0) {
+    queue.sort((a, b) => a.g - b.g)
+    const current = queue.shift()!
+    if (current.g > (dist.get(key(current.node)) ?? Number.POSITIVE_INFINITY))
+      continue
+    if (current.node.x === goal.x && current.node.y === goal.y && current.node.z === goal.z)
+      return current.g
+    for (const neighbor of movements.getNeighbors(current.node)) {
+      const g = current.g + neighbor.cost
+      if (g < (dist.get(key(neighbor)) ?? Number.POSITIVE_INFINITY)) {
+        dist.set(key(neighbor), g)
+        queue.push({ node: neighbor, g })
+      }
+    }
+  }
+  return undefined
+}
+
+describe('planPath heuristic admissibility', () => {
+  const bounds = { min: { x: 0, y: 60, z: 0 }, max: { x: 10, y: 70, z: 10 } }
+  const floor = stamp(0, 63, 0, 10, 63, 10, 'minecraft:stone')
+
+  // Parkour is disabled so the cheapest primitive is one cardinal step and the
+  // octile heuristic stays admissible. The A* cost must match uniform-cost.
+  it('matches a uniform-cost oracle on a flat diagonal', () => {
+    const source = buildWorld(bounds, floor)
+    const movementConfig = config({ allowParkour: false, canDig: false })
+    const plan = planPath({
+      source,
+      start: { x: 1, y: 64, z: 1 },
+      goal: { x: 7, y: 64, z: 6 },
+      config: movementConfig,
+      ...STUB,
+    })
+    const optimal = uniformCost(source, { x: 1, y: 64, z: 1 }, { x: 7, y: 64, z: 6 }, movementConfig)
+    expect(plan.ok).toBe(true)
+    if (plan.ok)
+      expect(plan.cost).toBeCloseTo(optimal!, 6)
   })
 })
