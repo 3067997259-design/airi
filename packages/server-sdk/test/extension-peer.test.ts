@@ -137,6 +137,52 @@ describe('websocket extension peer', () => {
     })
   })
 
+  it('omits forkProtocol from the announce payload when the input omits it', () => {
+    const fakeClient = new FakeClient()
+    const peer = createWebSocketExtensionPeer({
+      extension: {
+        id: 'airi-extension-chess',
+        sessionId: 'session-1',
+      },
+      client: fakeClient,
+    })
+
+    peer.announceModule({
+      id: 'chess-gamelet',
+      name: 'Chess Gamelet',
+      possibleEvents: [],
+    })
+
+    expect('forkProtocol' in fakeClient.sent[0]!.data).toBe(false)
+    expect(fakeClient.sent[0]!.data.forkProtocol).toBeUndefined()
+  })
+
+  it('carries forkProtocol in the announce payload when the input provides it', () => {
+    const fakeClient = new FakeClient()
+    const peer = createWebSocketExtensionPeer({
+      extension: {
+        id: 'airi-extension-chess',
+        sessionId: 'session-1',
+      },
+      client: fakeClient,
+    })
+
+    peer.announceModule({
+      id: 'chess-gamelet',
+      name: 'Chess Gamelet',
+      possibleEvents: [],
+      forkProtocol: { version: 1, extensions: ['capability-registry'] },
+    })
+
+    expect(fakeClient.sent[0]!.data).toMatchObject({
+      name: 'Chess Gamelet',
+      forkProtocol: {
+        version: 1,
+        extensions: ['capability-registry'],
+      },
+    })
+  })
+
   it('creates a manual peer client without auto-connect or auto-reconnect by default', async () => {
     const connector = new FakeConnector()
     const peer = createWebSocketExtensionPeer({

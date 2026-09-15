@@ -4,7 +4,9 @@ import type {
   DeliveryConfig,
   ExtensionIdentity,
   ExtensionModuleIdentity,
+  ForkProtocolDescriptor,
   MetadataEventSource,
+  ModuleForkState,
   WebSocketBaseEvent,
   WebSocketEvent,
 } from '@proj-airi/server-shared/types'
@@ -28,8 +30,11 @@ import {
   ServerErrorMessages,
 } from '@proj-airi/server-shared'
 import {
+  forkProtocolSupportedVersions,
   MessageHeartbeat,
   MessageHeartbeatKind,
+  negotiateForkProtocol,
+  ProtocolVersionIncompatibleError,
 } from '@proj-airi/server-shared/types'
 import { H3 } from 'h3'
 import { nanoid } from 'nanoid'
@@ -72,6 +77,15 @@ interface AiriWsMessage {
 
 interface AiriWsPeerState {
   rawPeer: CrossWsPeer
+}
+
+// NOTICE: The server declares fork protocol version 1 and no Next Steps
+// extensions. Keep this descriptor and forkProtocolSupportedVersions in sync
+// with the plugin-host descriptor so remote and local announce negotiate the
+// same result.
+const serverForkProtocolDescriptor: ForkProtocolDescriptor = {
+  version: 1,
+  extensions: [],
 }
 
 function airiPeerFromRaw(rawPeer: CrossWsPeer): Peer {
@@ -752,8 +766,29 @@ export function setupApp(options?: AppOptions): { app: H3, closeAllPeers: () => 
           return
         }
 
+        let forkState: ModuleForkState
+        try {
+          forkState = {
+            moduleId: identity.id,
+            negotiation: negotiateForkProtocol({
+              local: serverForkProtocolDescriptor,
+              localSupported: forkProtocolSupportedVersions,
+              remote: event.data.forkProtocol,
+            }),
+          }
+        }
+        catch (error) {
+          if (error instanceof ProtocolVersionIncompatibleError) {
+            send(peer, RESPONSES.error(`Fork protocol version incompatible: ${error.message}`))
+
+            return
+          }
+
+          throw error
+        }
+
         p.extensionIdentity = identity.extension
-        registerExtensionModulePeer(p, { name, identity })
+        registerExtensionModulePeer(p, { name, identity, forkState })
 
         send(peer, {
           type: 'extension:module:announced',

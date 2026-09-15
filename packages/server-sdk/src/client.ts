@@ -7,6 +7,7 @@ import type {
 import type {
   ExtensionIdentity,
   ExtensionModuleIdentity,
+  ForkProtocolDescriptor,
   ModuleConfigSchema,
   ModuleDependency,
   WebSocketBaseEvent,
@@ -76,6 +77,12 @@ export interface ClientOptions<C = undefined> {
   autoReconnect?: boolean
   maxReconnectAttempts?: number
 
+  /**
+   * Fork protocol declaration carried on the module announce. Omitted means
+   * upstream behavior and the outgoing payload omits the key entirely.
+   */
+  forkProtocol?: ForkProtocolDescriptor
+
   onError?: (error: unknown) => void
   onClose?: () => void
   onReady?: () => void
@@ -101,6 +108,7 @@ interface NormalizedClientOptions<C> {
   autoConnect: boolean
   autoReconnect: boolean
   maxReconnectAttempts: number
+  forkProtocol?: ForkProtocolDescriptor
   onError: (error: unknown) => void
   onClose: () => void
   onReady: () => void
@@ -194,6 +202,7 @@ function normalizeOptions<C>(options: ClientOptions<C>): NormalizedClientOptions
     autoConnect: options.autoConnect ?? true,
     autoReconnect: options.autoReconnect ?? true,
     maxReconnectAttempts: options.maxReconnectAttempts ?? -1,
+    forkProtocol: options.forkProtocol,
     onError: options.onError ?? (() => {}),
     onClose: options.onClose ?? (() => {}),
     onReady: options.onReady ?? (() => {}),
@@ -436,15 +445,27 @@ export class Client<C = undefined> {
     }
 
     this.transitionTo('announcing')
+    const announceData: {
+      name: string
+      identity: ExtensionModuleIdentity
+      possibleEvents: Array<keyof WebSocketEvents<C>>
+      configSchema?: ModuleConfigSchema
+      dependencies: ModuleDependency[]
+      forkProtocol?: ForkProtocolDescriptor
+    } = {
+      name: this.opts.name,
+      identity: this.opts.identity,
+      possibleEvents: this.opts.possibleEvents,
+      configSchema: this.opts.configSchema,
+      dependencies: this.opts.dependencies,
+    }
+    if (this.opts.forkProtocol) {
+      announceData.forkProtocol = this.opts.forkProtocol
+    }
+
     context.send(this.createPayload({
       type: 'extension:module:announce',
-      data: {
-        name: this.opts.name,
-        identity: this.opts.identity,
-        possibleEvents: this.opts.possibleEvents,
-        configSchema: this.opts.configSchema,
-        dependencies: this.opts.dependencies,
-      },
+      data: announceData,
     } as WebSocketEventOptionalSource<C>))
 
     await context.waitFor((message) => {

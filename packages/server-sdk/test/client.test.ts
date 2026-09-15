@@ -190,6 +190,63 @@ describe('client', () => {
     expect(client.isReady).toBe(true)
   })
 
+  it('omits forkProtocol from the announce payload when the option is unset', async () => {
+    const connector = new FakeConnector()
+    const client = new Client({
+      autoConnect: false,
+      autoReconnect: false,
+      connector,
+      name: 'test-plugin',
+    })
+
+    const connected = client.connect()
+    const connection = connector.open()
+    await flushMicrotasks()
+
+    const announceEvent = connection.sent.at(-1) as WebSocketEventOf<'extension:module:announce'>
+
+    expect(announceEvent.type).toBe('extension:module:announce')
+    expect('forkProtocol' in announceEvent.data).toBe(false)
+    expect(announceEvent.data.forkProtocol).toBeUndefined()
+
+    connector.emit(serverEvent('extension:module:announced', {
+      name: 'test-plugin',
+      identity: announceEvent.data.identity,
+    }))
+
+    await expect(connected).resolves.toBeUndefined()
+  })
+
+  it('carries forkProtocol in the announce payload when the option is set', async () => {
+    const connector = new FakeConnector()
+    const client = new Client({
+      autoConnect: false,
+      autoReconnect: false,
+      connector,
+      name: 'test-plugin',
+      forkProtocol: { version: 1, extensions: ['capability-registry'] },
+    })
+
+    const connected = client.connect()
+    const connection = connector.open()
+    await flushMicrotasks()
+
+    const announceEvent = connection.sent.at(-1) as WebSocketEventOf<'extension:module:announce'>
+
+    expect(announceEvent.type).toBe('extension:module:announce')
+    expect(announceEvent.data.forkProtocol).toEqual({
+      version: 1,
+      extensions: ['capability-registry'],
+    })
+
+    connector.emit(serverEvent('extension:module:announced', {
+      name: 'test-plugin',
+      identity: announceEvent.data.identity,
+    }))
+
+    await expect(connected).resolves.toBeUndefined()
+  })
+
   it('accepts registry sync as the module announcement completion signal', async () => {
     const connector = new FakeConnector()
     const onReady = vi.fn()

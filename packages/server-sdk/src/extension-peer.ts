@@ -1,5 +1,6 @@
 import type {
   ExtensionIdentity,
+  ForkProtocolDescriptor,
   ModuleConfigSchema,
   ModuleDependency,
   ModulePermissionDeclaration,
@@ -49,6 +50,11 @@ export interface AnnounceExtensionModuleInput<C = undefined> {
   dependencies?: ModuleDependency[]
   /** Optional labels for routing, diagnostics, or inspector views. */
   labels?: Record<string, string>
+  /**
+   * Fork protocol declaration carried on the module announce. Omitted means
+   * upstream behavior and the outgoing payload omits the key entirely.
+   */
+  forkProtocol?: ForkProtocolDescriptor
 }
 
 /**
@@ -103,20 +109,37 @@ export class WebSocketExtensionPeer<C = undefined> {
   }
 
   announceModule(input: AnnounceExtensionModuleInput<C>): void {
+    const data: {
+      name: string
+      identity: {
+        id: string
+        extension: ExtensionIdentity
+        labels?: Record<string, string>
+      }
+      possibleEvents: Array<keyof ProtocolEvents<C>>
+      permissions?: ModulePermissionDeclaration
+      configSchema?: ModuleConfigSchema
+      dependencies?: ModuleDependency[]
+      forkProtocol?: ForkProtocolDescriptor
+    } = {
+      name: input.name,
+      identity: {
+        id: input.id,
+        extension: this.extension,
+        labels: input.labels,
+      },
+      possibleEvents: input.possibleEvents ?? [],
+      permissions: input.permissions,
+      configSchema: input.configSchema,
+      dependencies: input.dependencies,
+    }
+    if (input.forkProtocol) {
+      data.forkProtocol = input.forkProtocol
+    }
+
     this.client.sendOrThrow({
       type: 'extension:module:announce',
-      data: {
-        name: input.name,
-        identity: {
-          id: input.id,
-          extension: this.extension,
-          labels: input.labels,
-        },
-        possibleEvents: input.possibleEvents ?? [],
-        permissions: input.permissions,
-        configSchema: input.configSchema,
-        dependencies: input.dependencies,
-      },
+      data,
     })
   }
 
