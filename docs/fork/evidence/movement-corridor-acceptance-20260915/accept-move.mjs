@@ -10,7 +10,7 @@
  */
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 
 const [startXRaw, startZRaw, endXRaw, endZRaw, tolRaw, labelRaw] = process.argv.slice(2)
 const start = { x: Number(startXRaw), z: Number(startZRaw) }
@@ -53,7 +53,15 @@ const teleport = await server.callTool({
   arguments: { player: 'airitest', x: start.x + 0.5, y, z: start.z + 0.5, yaw: 0, pitch: 0 },
 })
 console.log('[teleport]', teleport.isError ? (teleport.content ?? []).map(part => part.text).join('') : 'ok')
+// Keep hostile mobs and damage out of the movement sample.
+await server.callTool({ name: 'run_command', arguments: { command: 'kill @e[type=!minecraft:player,distance=..64]' } })
+await server.callTool({ name: 'run_command', arguments: { command: 'effect give airitest minecraft:instant_health 1 10 true' } })
+await server.callTool({ name: 'run_command', arguments: { command: 'effect give airitest minecraft:saturation 1 10 true' } })
 await new Promise(resolve => setTimeout(resolve, 1500))
+
+// Capture the AIRI log offset so the plan path of THIS run can be parsed.
+const airiLogPath = `${process.env.TEMP}\\airi-preview8.log`
+const logOffset = statSync(airiLogPath).size
 
 // The probe lives on the devtools route; a fresh app start lands on `/`.
 await evalJs(`location.hash = '#/devtools/game-host'; 'ok'`)
@@ -65,7 +73,7 @@ for (let attempt = 0; attempt < 10; attempt++) {
   await new Promise(resolve => setTimeout(resolve, 1000))
 }
 
-const payload = JSON.stringify({ x: end.x, y, z: end.z, tolerance })
+const payload = JSON.stringify({ x: end.x, y, z: end.z, tolerance, allowPlace: false })
 await evalJs(`window.__moveResult = 'pending'
 window.__AIRI_GAME_HOST_SMOKE__.executeGameTool('game_move_to', ${payload})
   .then(result => { window.__moveResult = result })
@@ -97,6 +105,43 @@ for (;;) {
   await new Promise(resolve => setTimeout(resolve, 150))
 }
 ws.close()
+
+// The plan path this run executed (logged by the executor before the walk).
+let planPath
+try {
+  const tail = readFileSync(airiLogPath, 'utf8').slice(logOffset)
+  const matches = [...tail.matchAll(/plan path: (\[\[.*?\]\])/g)]
+  if (matches.length > 0)
+    planPath = JSON.parse(matches[matches.length - 1][1])
+}
+catch {}
+
+function distanceToPolyline(x, z, polyline) {
+  let best = Number.POSITIVE_INFINITY
+  for (let index = 1; index < polyline.length; index++) {
+    const [ax, , az] = polyline[index - 1]
+    const [bx, , bz] = polyline[index]
+    const abx = bx - ax
+    const abz = bz - az
+    const lengthSq = abx * abx + abz * abz
+    const t = lengthSq <= 1e-12 ? 0 : Math.max(0, Math.min(1, ((x - ax) * abx + (z - az) * abz) / lengthSq))
+    best = Math.min(best, Math.hypot(x - (ax + abx * t), z - (az + abz * t)))
+  }
+  return best
+}
+
+let maxPathLateral
+let pathLateralBreaches
+if (planPath && planPath.length >= 2) {
+  maxPathLateral = 0
+  pathLateralBreaches = 0
+  for (let index = 2; index < samples.length; index++) {
+    const distance = distanceToPolyline(samples[index].x, samples[index].z, planPath)
+    maxPathLateral = Math.max(maxPathLateral, distance)
+    if (distance > 0.6)
+      pathLateralBreaches++
+  }
+}
 
 const first = samples[0]
 const last = samples[samples.length - 1]
@@ -148,6 +193,9 @@ const summary = {
   stalls,
   perpendicularReversals: reversals,
   yawTravelDeg: Number(yawTravel.toFixed(1)),
+  planCells: planPath?.length,
+  maxPathLateral: maxPathLateral === undefined ? undefined : Number(maxPathLateral.toFixed(3)),
+  pathLateralBreaches,
 }
 console.log(JSON.stringify(summary, null, 2))
 
