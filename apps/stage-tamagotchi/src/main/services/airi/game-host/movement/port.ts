@@ -82,8 +82,8 @@ export interface MovementInput {
   sprint?: boolean
 }
 
-/** One planned hop handed to the mod's per-tick jump task (Step 3). */
-export interface JumpTask {
+/** One planned hop inside a climbing chain (Step 3). */
+export interface JumpTaskEdge {
   /** Identity of this edge, echoed in the status and the completion records. */
   edgeId: string
   /** Source stand point of the edge, from the planned path step. */
@@ -97,16 +97,20 @@ export interface JumpTask {
   sprint: boolean
   /** Nothing past the landing absorbs the flight overshoot: brake in the air. */
   brake: boolean
-  /** `stop` settles here; `continue` hands over to the queued next edge. */
-  landingIntent: 'stop' | 'continue'
+}
+
+/** One climbing chain handed to the mod's per-tick jump task (Step 3). */
+export interface JumpTask {
   /**
-   * Second edge executed in the same task.
+   * The chain in execution order.
    *
-   * The host cannot submit it fast enough: every key release between two hops
-   * still lets the bot slide, so the mod gets both edges at once and hands over
-   * at the first touchdown.
+   * The host cannot submit edge by edge: every key release between two hops
+   * still lets the bot slide, so the mod gets the whole chain and hands over at
+   * each real touchdown.
    */
-  next?: Omit<JumpTask, 'next' | 'landingIntent' | 'deadlineMs'>
+  edges: JumpTaskEdge[]
+  /** `stop` settles at the last edge's destination. */
+  landingIntent: 'stop' | 'continue'
   /** Absolute deadline in epoch milliseconds. */
   deadlineMs: number
 }
@@ -124,9 +128,11 @@ export interface JumpTaskStatus {
   /** Which edge the task is on, and the state machine phase it is in. */
   edgeId?: string
   phase?: string
+  /** The key set the task applied this read (nine-input settle names included). */
+  effectiveInput?: string
   landingIntent?: string
   nextEdgeId?: string
-  /** How many edges of this task reported a real touchdown. */
+  /** How many edges of the submitted chain reported a real touchdown. */
   completedCount?: number
   /** Motion at the read time, blocks per tick. */
   motion?: { x: number, z: number }

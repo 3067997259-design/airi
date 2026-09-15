@@ -16,7 +16,7 @@
  * remain action boundaries the executor handles separately.
  */
 import type { JumpPlan } from './jump-plan'
-import type { JumpTask, MovementControlPort, MovementState } from './port'
+import type { JumpTaskEdge, MovementControlPort, MovementState } from './port'
 import type { BlockSource, MovementConfig, MovementMotionKind, PathStep, Vec3 } from './types'
 
 import { standPointOf } from './coordinates'
@@ -272,19 +272,23 @@ export async function runWalkRun(options: {
       // between them (that gap slid the bot even with every key released), and
       // control is never handed over mid-hop. `plan.brake` describes the
       // landing, not the strategy, so it must not select the executor.
-      const firstDelegated = cells.length - 2
-      const lastDelegated = cells.length - 1
-      if (plan && port.startJump && pendingIndex >= firstDelegated) {
-        const finalEdge = pendingIndex === lastDelegated
-        // Queue the last edge when this submission covers the second-to-last
-        // hop as well: the mod then hands over at the first touchdown.
-        let next: JumpPlan | undefined
-        if (!finalEdge && world) {
-          const plannedNext = planStepUp({ from: cells[pendingIndex]!, to: cells[lastDelegated]!, world, config })
+      // The chain protocol is in place, but the whole-chain submission waits on
+      // the short-range predictor (batch 4): a zigzag staircase's diagonal hop
+      // is clipped by the two-high pillar beside it, and the constant
+      // "jump from the centre toward the target" cannot clear it (live chain
+      // run: z speed blocked at -12.30, drift east into the gap). Until the
+      // predictor can choose the takeoff inside the source block, the mod
+      // executes only the run's last two edges, which is the configuration the
+      // acceptance suite verified.
+      if (plan && port.startJump && pendingIndex >= cells.length - 2) {
+        const chain: JumpPlan[] = [plan]
+        if (world && pendingIndex < cells.length - 1) {
+          const plannedNext = planStepUp({ from: cells[pendingIndex]!, to: cells[cells.length - 1]!, world, config })
           if (plannedNext.ok)
-            next = plannedNext
+            chain.push(plannedNext)
         }
-        const outcome = await followJumpTask({ port, plan, next, sleep, now, shouldStop })
+        const finalEdge = pendingIndex + chain.length - 1 === cells.length - 1
+        const outcome = await followJumpTask({ port, plan, chain, sleep, now, shouldStop, ...(debug ? { debug } : {}) })
         if (outcome.outcome === 'cancelled')
           return { status: 'cancelled', cursor, position }
         if (outcome.outcome === 'failed') {
@@ -305,9 +309,9 @@ export async function runWalkRun(options: {
         // step: landed 0.28 from the centre, run required 0.45).
         if (finalEdge)
           return { status: 'arrived', cursor: pendingIndex, position }
-        // The submission covered the final edge too (the task landed both
-        // hops): the cursor can advance to it.
-        cursor = lastDelegated
+        // The submission covered the final edge too (the task landed the whole
+        // chain): the cursor can advance to its last cell.
+        cursor = pendingIndex + chain.length - 1
         continue
       }
     }
@@ -404,14 +408,18 @@ export async function runWalkRun(options: {
 async function followJumpTask(options: {
   port: MovementControlPort
   plan: JumpPlan
-  /** Second edge queued in the same task, executed after the first touchdown. */
-  next?: JumpPlan
+  /** The rest of the chain, executed after each real touchdown. */
+  chain?: JumpPlan[]
   sleep: (ms: number) => Promise<void>
   now: () => number
   shouldStop: () => boolean
+  debug?: (message: string) => void
 }): Promise<{ outcome: 'landed' | 'failed' | 'cancelled', position?: Vec3, completedCount?: number }> {
-  const { port, plan, next, sleep, now, shouldStop } = options
-  const edgeOf = (jump: JumpPlan, index: number): Omit<JumpTask, 'next' | 'landingIntent' | 'deadlineMs'> => ({
+  const { port, plan, sleep, now, shouldStop, debug } = options
+  // The caller's chain already starts with this edge; a bare plan is the
+  // single-edge form.
+  const edges = options.chain ?? [plan]
+  const edgeOf = (jump: JumpPlan, index: number): JumpTaskEdge => ({
     edgeId: `edge-${index}`,
     from: { x: jump.takeoff.x - jump.direction.x * jump.flight, y: jump.takeoff.y, z: jump.takeoff.z - jump.direction.z * jump.flight },
     target: jump.target,
@@ -423,9 +431,8 @@ async function followJumpTask(options: {
   const deadlineMs = now() + JUMP_TASK_TIMEOUT_MS
   try {
     await port.startJump!({
-      ...edgeOf(plan, 0),
-      landingIntent: next ? 'continue' : 'stop',
-      ...(next ? { next: edgeOf(next, 1) } : {}),
+      edges: edges.map((edge, index) => edgeOf(edge, index)),
+      landingIntent: edges.length > 1 ? 'continue' : 'stop',
       deadlineMs,
     })
   }
@@ -447,12 +454,14 @@ async function followJumpTask(options: {
     catch {
       return { outcome: 'failed' }
     }
-    if (status.state === 'running')
+    if (status.state === 'running') {
+      debug?.(`jump task ${status.edgeId ?? '?'} phase=${status.phase ?? '?'} pos=${status.position ? `${status.position.x.toFixed(2)},${status.position.y.toFixed(2)},${status.position.z.toFixed(2)}` : '?'} vel=${status.motion ? `${status.motion.x.toFixed(3)},${status.motion.z.toFixed(3)}` : '?'} input=${status.effectiveInput ?? '?'} done=${status.completedCount ?? 0} next=${status.nextEdgeId ?? ''}`)
       continue
+    }
     if (status.state === 'done') {
       // Every submitted edge must have reported a real touchdown: a completed
       // count below the submission means the mod stopped somewhere else.
-      const expected = next ? 2 : 1
+      const expected = edges.length
       if (status.completedCount !== undefined && status.completedCount < expected)
         return { outcome: 'failed' }
       // The task's own landing position is the authority: a fresh player read

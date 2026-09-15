@@ -223,8 +223,9 @@ describe('walk motion classification', () => {
     expect(result).toMatchObject({ status: 'arrived', cursor: 1 })
     expect(startJump).toHaveBeenCalledTimes(1)
     const task = startJump.mock.calls[0]![0]
-    expect(task.target).toMatchObject({ x: 1.5, y: 2, z: 0.5 })
-    expect(task.direction).toMatchObject({ x: 1, z: 0 })
+    expect(task.edges).toHaveLength(1)
+    expect(task.edges[0]!.target).toMatchObject({ x: 1.5, y: 2, z: 0.5 })
+    expect(task.edges[0]!.direction).toMatchObject({ x: 1, z: 0 })
     // The host never pressed keys for this hop: the task owns the input.
     expect(setInput).not.toHaveBeenCalled()
   })

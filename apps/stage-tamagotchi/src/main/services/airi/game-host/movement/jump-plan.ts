@@ -164,7 +164,13 @@ function flightBlocked(from: Vec3, to: Vec3, world: BlockSource): boolean {
           for (const collision of collisionBoxesOf(block)) {
             if (!overlaps3(box, collision))
               continue
-            if (collision.max.y > Math.max(foot.y, to.y) + 1e-6)
+            // Only a wall well above the landing blocks the hop. A staircase's
+            // next step sits exactly one block above the destination and is the
+            // surface the *next* edge climbs: treating it as a wall rejected
+            // mid-chain edges, and the run then fell back to a host retry (the
+            // implicit host execution this planner is meant to remove). A real
+            // pillar rises further than one step.
+            if (collision.max.y > to.y + 1.5 + 1e-6)
               return true
           }
         }

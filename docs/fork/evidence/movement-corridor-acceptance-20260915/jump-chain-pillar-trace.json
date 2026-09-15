@@ -1,0 +1,48 @@
+{
+  "state": "failed",
+  "endReason": "fell",
+  "ticks": 28,
+  "phase": "airborne",
+  "brakeRequested": true,
+  "effectiveInput": "forward",
+  "predictedStop": 0.09469437196591661,
+  "stableTicks": 0,
+  "alongError": 0.012356961828718392,
+  "lateralError": -0.009782959411018637,
+  "parkZone": 0.3,
+  "predictedStopXZ": {
+    "x": 90.59044268751022,
+    "z": -12.471943906937204
+  },
+  "edgeId": "edge-1",
+  "landingIntent": "continue",
+  "nextEdgeId": "edge-2",
+  "completedCount": 1,
+  "completedEdges": [
+    "edge-0@90.13097971212535,80.0,-12.633127075261402|0.10860096991375169,0.07318194587508663"
+  ],
+  "from": {
+    "x": 88.75076883474671,
+    "y": 80,
+    "z": -14.249231165253295
+  },
+  "to": {
+    "x": 91.5,
+    "y": 81,
+    "z": -11.5
+  },
+  "isSprinting": false,
+  "support": "minecraft:dirt",
+  "motion": {
+    "x": 0,
+    "z": 0
+  },
+  "position": {
+    "x": 91.52380060067408,
+    "y": 79,
+    "z": -12.300000011920929
+  },
+  "onGround": true,
+  "distance": 0.8003539764791161,
+  "takeoffPassed": true
+}
