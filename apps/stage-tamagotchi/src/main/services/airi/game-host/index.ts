@@ -2669,6 +2669,11 @@ export async function setupGameHost(
       // Planner nodes are integer cells; a fractional goal never matches them
       // (review R4). `runTerrainLeg` floors the same way.
       goal: cellOf({ x: moveTo.x, y: moveTo.y, z: moveTo.z }),
+      // The arrival check and the receipt measure to the requested point, not
+      // to the cell corner: a block-centre goal (85.5,-24.5) was checked at
+      // (85,-25), so a bot standing 0.13 from the centre failed a 0.5 tolerance
+      // while the receipt passed (live lone-step review).
+      arrivalTarget: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
       tolerance: moveTo.tolerance,
       config: {
         ...DEFAULT_MOVEMENT_CONFIG,

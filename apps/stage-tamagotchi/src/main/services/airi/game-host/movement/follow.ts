@@ -284,8 +284,10 @@ export async function runWalkRun(options: {
         // centimetres and end `stuck` on a pad it already stood on (live lone
         // step: landed 0.28 from the centre, run required 0.45).
         if (finalEdge) {
-          if (outcome.position)
-            position = outcome.position
+          // A success result must carry a valid landing: the task's vote when
+          // present, otherwise one state read. Silently keeping the pre-jump
+          // position reported the bot as arrived where it no longer stood.
+          position = outcome.position ?? (await port.getState()).position
           return { status: 'arrived', cursor: pendingIndex, position }
         }
         continue

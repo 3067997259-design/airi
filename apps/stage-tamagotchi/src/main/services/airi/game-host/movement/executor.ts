@@ -45,7 +45,18 @@ export interface TerrainMoveResult {
 
 export interface TerrainMoveOptions {
   port: MovementControlPort
+  /** Integer cell the planner matches. */
   goal: Vec3
+  /**
+   * Exact world coordinates the arrival check measures to.
+   *
+   * `goal` is a cell because planner nodes are integer; a caller that asked for
+   * a precise point (for example a block centre) must pass it here. Without it
+   * the check measures to the cell corner: a bot standing 0.13 from the centre
+   * was 0.62 from the corner and failed a 0.5 tolerance while the receipt
+   * passed (live lone-step review).
+   */
+  arrivalTarget?: Vec3
   /** Alternate goal cells. When non-empty any of them satisfies arrival. */
   goalCells?: Vec3[]
   tolerance?: number
@@ -481,7 +492,8 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
   // A region goal accepts any cell; the single `goal` is the fallback and the
   // debug label.
   const goals = goalCells && goalCells.length > 0 ? goalCells : [goal]
-  const reachedAny = (candidate: Vec3): boolean => goals.some(cell => reachedGoal(candidate, cell, tolerance))
+  const arrivalTargets = options.arrivalTarget ? [options.arrivalTarget] : goals
+  const reachedAny = (candidate: Vec3): boolean => arrivalTargets.some(cell => reachedGoal(candidate, cell, tolerance))
 
   let replans = 0
   let stuckEscalations = 0
@@ -732,6 +744,19 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
         continue
       }
 
+      // A zero-step plan means the planner already considers the bot on the
+      // goal cell, so "no progress" must not be concluded from a stale read:
+      // re-check the arrival once against the exact target before replanning
+      // (live lone-step: 0.13 from the centre, three zero-step replans, stuck).
+      if (shouldStop())
+        return finish('cancelled')
+      position = (await port.getState()).position
+      if (debug) {
+        const target = arrivalTargets[0]
+        debug(`no-progress check: pos=${position.x.toFixed(2)},${position.y.toFixed(2)},${position.z.toFixed(2)} target=${target ? `${target.x.toFixed(2)},${target.y.toFixed(2)},${target.z.toFixed(2)}` : 'none'} tolerance=${tolerance} reached=${reachedAny(position)}`)
+      }
+      if (reachedAny(position))
+        return finish('reached')
       if (replans++ >= maxReplans)
         return finish('stuck', 'no progress after replans')
     }
@@ -772,7 +797,9 @@ export async function runTerrainRoute(options: TerrainRouteOptions): Promise<Ter
     // Each leg reads the player again and plans over a local window around the
     // current position and the waypoint, so no read spans the whole route. The
     // waypoint is a hint: any reachable cell near it satisfies the leg (D6).
-    const leg = await runTerrainMove({ ...moveOptions, goal: waypoint, goalCells: hintCells(waypoint), tolerance: 1 })
+    // Intermediate legs end at the waypoint cell: the caller's exact arrival
+    // target belongs to the final leg only.
+    const leg = await runTerrainMove({ ...moveOptions, goal: waypoint, goalCells: hintCells(waypoint), tolerance: 1, arrivalTarget: undefined })
     if (leg.status !== 'reached')
       return leg
   }
