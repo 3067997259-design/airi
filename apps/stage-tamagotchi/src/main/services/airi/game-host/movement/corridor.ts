@@ -16,12 +16,10 @@
 import type { MovementControlPort } from './port'
 import type { BlockInfo, BlockSource, MovementConfig, PathStep, Vec3 } from './types'
 
+import { collisionBoxesOf, overlapsXZ, PLAYER_HEIGHT, playerBox } from './boxes'
 import { classifyWalkMotion, runCells } from './follow'
 import { clamp, horizontalDistance } from './geometry'
 
-/** Player collision footprint, matching the vanilla standing box. */
-const PLAYER_HALF_WIDTH = 0.3
-const PLAYER_HEIGHT = 1.8
 /** A rise up to this height is a step the player can walk up without a jump. */
 const STEP_UP_TOLERANCE = 0.6
 /** A drop up to this height keeps the feet on the support below. */
@@ -31,51 +29,10 @@ const SWEEP_SAMPLE = 0.2
 /** A direction change wider than this is a bend the lookahead must respect. */
 const BEND_DEG = 15
 
-export interface Aabb {
-  min: Vec3
-  max: Vec3
-}
-
 export interface SweepResult {
   verified: boolean
   reason?: 'unsupported' | 'no-headroom' | 'unknown'
   at?: Vec3
-}
-
-/** World-space collision boxes of one block, derived when the source sent none. */
-export function collisionBoxesOf(block: BlockInfo): Aabb[] {
-  if (block.collision)
-    return block.collision.map(box => worldBox(block, box))
-  if (block.physical)
-    return [worldBox(block, { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 })]
-  // Slabs, stairs and carpets are not full cubes but still collide. The derived
-  // box is the lower part up to the classified top; the exact shape of a top
-  // slab or stair step needs the source's collision data.
-  if (block.safe && block.height > block.y + 0.01) {
-    const maxY = clamp(block.height - block.y, 0, 1)
-    return [worldBox(block, { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY, maxZ: 1 })]
-  }
-  return []
-}
-
-function worldBox(block: BlockInfo, box: { minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number }): Aabb {
-  return {
-    min: { x: block.x + box.minX, y: block.y + box.minY, z: block.z + box.minZ },
-    max: { x: block.x + box.maxX, y: block.y + box.maxY, z: block.z + box.maxZ },
-  }
-}
-
-/** Player AABB for a foot position. */
-export function playerBox(foot: Vec3): Aabb {
-  return {
-    min: { x: foot.x - PLAYER_HALF_WIDTH, y: foot.y, z: foot.z - PLAYER_HALF_WIDTH },
-    max: { x: foot.x + PLAYER_HALF_WIDTH, y: foot.y + PLAYER_HEIGHT, z: foot.z + PLAYER_HALF_WIDTH },
-  }
-}
-
-function overlapsXZ(a: Aabb, b: Aabb): boolean {
-  return a.min.x < b.max.x - 1e-6 && a.max.x > b.min.x + 1e-6
-    && a.min.z < b.max.z - 1e-6 && a.max.z > b.min.z + 1e-6
 }
 
 /**

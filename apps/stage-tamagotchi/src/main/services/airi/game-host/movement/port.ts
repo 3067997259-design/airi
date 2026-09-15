@@ -82,6 +82,31 @@ export interface MovementInput {
   sprint?: boolean
 }
 
+/** One planned hop handed to the mod's per-tick jump task (Step 3). */
+export interface JumpTask {
+  /** Landing stand point (block center X/Z, foot level Y). */
+  target: Vec3
+  /** Takeoff line point; the task presses jump once the bot passes it. */
+  takeoff: Vec3
+  /** Horizontal flight direction (unit or raw; the task normalizes). */
+  direction: { x: number, z: number }
+  sprint: boolean
+  /** Absolute deadline in epoch milliseconds. */
+  deadlineMs: number
+}
+
+/** Result of a per-tick jump task. `landed` is the only success. */
+export interface JumpTaskStatus {
+  state: 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
+  endReason: string
+  ticks: number
+  position?: Vec3
+  onGround?: boolean
+  /** Horizontal distance to the landing at the read time. */
+  distance?: number
+  takeoffPassed?: boolean
+}
+
 export interface MovementControlPort {
   getState: () => Promise<MovementState>
   getBlocksRegion: (from: Vec3, to: Vec3) => Promise<SnapshotEntry[]>
@@ -100,6 +125,13 @@ export interface MovementControlPort {
    * limit through this absence instead of pretending a failed scan was empty.
    */
   readTerrain?: (request: TerrainReadRequest) => Promise<TerrainReadResponse>
+  /**
+   * Per-tick jump task (Step 3). Optional: a bridge without the jump tools
+   * keeps the host-side latch, which cannot time takeoffs or landings.
+   */
+  startJump?: (task: JumpTask) => Promise<JumpTaskStatus>
+  jumpStatus?: () => Promise<JumpTaskStatus>
+  cancelJump?: () => Promise<JumpTaskStatus>
   getBlock: (pos: Vec3) => Promise<BlockView | undefined>
   getInventory: () => Promise<InventorySlot[]>
   look: (yaw: number, pitch: number) => Promise<void>

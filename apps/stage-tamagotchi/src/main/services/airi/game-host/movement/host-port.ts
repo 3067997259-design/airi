@@ -1,3 +1,4 @@
+import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
 /**
  * MCP-backed movement port for the game host (MC-3 increment 2)。
  *
@@ -10,7 +11,7 @@
  * dimension is rejected, and an unreadable read fails loudly instead of
  * becoming zero coordinates, `onGround: true`, or an empty world.
  */
-import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
+import type { JumpTask, JumpTaskStatus } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { CollisionBox } from './types'
 import type { VehicleReadResponse } from './vehicle-observation'
@@ -67,6 +68,27 @@ export interface MovementPortControl {
    * its next input under a new session id (CD-0 §3.1).
    */
   rotate: () => void
+}
+
+/** Maps one jump task status read; a missing state is `idle`, never landed. */
+function jumpStatusOf(record: Record<string, unknown> | undefined): JumpTaskStatus {
+  const state = typeof record?.state === 'string' ? record.state : 'idle'
+  const position = record?.position && typeof record.position === 'object' && !Array.isArray(record.position)
+    ? record.position as Record<string, unknown>
+    : undefined
+  const x = Number(position?.x)
+  const y = Number(position?.y)
+  const z = Number(position?.z)
+  const distance = Number(record?.distance)
+  return {
+    state: state as JumpTaskStatus['state'],
+    endReason: typeof record?.endReason === 'string' ? record.endReason : 'unknown',
+    ticks: Number(record?.ticks) || 0,
+    ...(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { position: { x, y, z } } : {}),
+    ...(typeof record?.onGround === 'boolean' ? { onGround: record.onGround } : {}),
+    ...(Number.isFinite(distance) ? { distance } : {}),
+    ...(typeof record?.takeoffPassed === 'boolean' ? { takeoffPassed: record.takeoffPassed } : {}),
+  }
 }
 
 /** Parses cell-local collision boxes a shape-aware source may attach. */
@@ -409,6 +431,28 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
         },
       }
     },
+    // Step 3: the per-tick jump surface is attached only when the bridge
+    // exposes the jump tools. Without them the run keeps the host-side latch,
+    // which cannot time a takeoff or correct a landing.
+    ...(hasTool('jump_plan')
+      ? {
+          startJump: async (task: JumpTask): Promise<JumpTaskStatus> => jumpStatusOf(
+            await callTool('jump_plan', {
+              targetX: task.target.x,
+              targetY: task.target.y,
+              targetZ: task.target.z,
+              takeoffX: task.takeoff.x,
+              takeoffZ: task.takeoff.z,
+              dirX: task.direction.x,
+              dirZ: task.direction.z,
+              sprint: task.sprint,
+              deadlineMs: task.deadlineMs,
+            }),
+          ),
+          jumpStatus: async (): Promise<JumpTaskStatus> => jumpStatusOf(await callTool('jump_plan_status', {})),
+          cancelJump: async (): Promise<JumpTaskStatus> => jumpStatusOf(await callTool('jump_plan_cancel', {})),
+        }
+      : {}),
     // The optional vehicle surface is attached only when its tool exists, so a
     // bridge without it degrades to unverified driving rather than an empty
     // candidate list that looks like "no vehicle nearby".

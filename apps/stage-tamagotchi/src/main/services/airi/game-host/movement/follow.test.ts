@@ -1,13 +1,27 @@
 import type { MovementControlPort, MovementInput, MovementState } from './port'
+import type { SnapshotEntry } from './snapshot'
 import type { PathStep, Vec3 } from './types'
 
 import { describe, expect, it, vi } from 'vitest'
 
 import { classifyWalkMotion, failedRunStep, runWalkRun, walkRunLength } from './follow'
+import { createSnapshot } from './snapshot'
 import { DEFAULT_MOVEMENT_CONFIG } from './types'
 
 function makeStep(from: Vec3, to: Vec3, extra: Partial<PathStep> = {}): PathStep {
   return { ...to, from, remainingPlaceables: 0, cost: 1, toBreak: [], toPlace: [], parkour: false, ...extra }
+}
+
+/** A flat stone floor at y = 0 with one step block at (1,1,0), exact shapes. */
+function jumpWorld() {
+  const entries: SnapshotEntry[] = []
+  const box = { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }
+  for (let x = -1; x <= 2; x++) {
+    for (let z = -1; z <= 1; z++)
+      entries.push({ x, y: 0, z, id: 'minecraft:stone', collision: [box] })
+  }
+  entries.push({ x: 1, y: 1, z: 0, id: 'minecraft:stone', collision: [box] })
+  return createSnapshot(entries, { exactShapes: true })
 }
 
 const OPTIONS = {
@@ -179,6 +193,54 @@ describe('walk motion classification', () => {
       shouldStop: () => false,
     })
     expect(result).toMatchObject({ status: 'arrived', cursor: 1 })
+  })
+
+  // Step 3: with a bridge that has the per-tick jump task, the run hands the
+  // whole hop over instead of pressing keys from a 150 ms poll loop.
+  it('hands a jump-up edge to the per-tick jump task and advances on landing', async () => {
+    const world = jumpWorld()
+    const states: MovementState[] = [
+      { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true },
+      { position: { x: 1.5, y: 2, z: 0.5 }, yaw: -90, inWater: false, onGround: true },
+    ]
+    let poll = 0
+    const { port, setInput } = controlPort(states[0]!)
+    port.getState.mockImplementation(async () => states[Math.min(poll++, states.length - 1)]!)
+    const startJump = vi.fn(async () => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
+    const jumpStatus = vi.fn(async () => ({ state: 'done' as const, endReason: 'landed', ticks: 10, position: { x: 1.5, y: 2, z: 0.5 }, onGround: true, distance: 0 }))
+    port.startJump = startJump
+    port.jumpStatus = jumpStatus
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      world,
+      shouldStop: () => false,
+    })
+    expect(result).toMatchObject({ status: 'arrived', cursor: 1 })
+    expect(startJump).toHaveBeenCalledTimes(1)
+    const task = startJump.mock.calls[0]![0]
+    expect(task.target).toMatchObject({ x: 1.5, y: 2, z: 0.5 })
+    expect(task.direction).toMatchObject({ x: 1, z: 0 })
+    // The host never pressed keys for this hop: the task owns the input.
+    expect(setInput).not.toHaveBeenCalled()
+  })
+
+  it('fails the edge when the per-tick jump task fails', async () => {
+    const world = jumpWorld()
+    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true }
+    const { port, setInput } = controlPort(state)
+    port.startJump = vi.fn(async () => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
+    port.jumpStatus = vi.fn(async () => ({ state: 'failed' as const, endReason: 'fell', ticks: 12 }))
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      world,
+      shouldStop: () => false,
+    })
+    expect(result).toMatchObject({ status: 'stuck', cursor: 0 })
+    expect(setInput).not.toHaveBeenCalled()
   })
 
   it('distinguishes a half-block step-up from a full-block jump-up by support height', () => {

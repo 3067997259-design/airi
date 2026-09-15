@@ -15,11 +15,13 @@
  * crossed continuously (CD-G2 hill follow). Break/place/use and parkour edges
  * remain action boundaries the executor handles separately.
  */
+import type { JumpPlan } from './jump-plan'
 import type { MovementControlPort, MovementState } from './port'
-import type { MovementConfig, MovementMotionKind, PathStep, Vec3 } from './types'
+import type { BlockSource, MovementConfig, MovementMotionKind, PathStep, Vec3 } from './types'
 
 import { standPointOf } from './coordinates'
-import { clamp } from './geometry'
+import { clamp, horizontalDistance } from './geometry'
+import { planStepUp } from './jump-plan'
 
 /** Motions a continuous run may contain without an action boundary. */
 const CONTINUOUS_MOTIONS: ReadonlySet<MovementMotionKind> = new Set<MovementMotionKind>(['walk', 'step-up', 'jump-up'])
@@ -110,6 +112,11 @@ const FALLBACK_DROP = 1.2
 const CLIMB_ALIGN_DEG = 20
 /** Highest rise a vanilla jump can clear; above it the edge is impossible. */
 const MAX_STEP_JUMP_RISE = 1.26
+/** Deadline handed to one per-tick jump task, and the host's transport grace. */
+const JUMP_TASK_TIMEOUT_MS = 8_000
+const JUMP_TASK_GRACE_MS = 2_500
+/** How often the host reads a running jump task's status. */
+const JUMP_POLL_MS = 150
 
 export interface WalkRunResult {
   status: 'arrived' | 'stuck' | 'cancelled'
@@ -137,11 +144,20 @@ export async function runWalkRun(options: {
   now: () => number
   tickMs: number
   stepTimeoutMs: number
+  /**
+   * Snapshot the run was planned on, when the caller has one.
+   *
+   * With collision shapes the follower geometrically rejects a jump edge that
+   * cannot be made and jumps from a computed takeoff line (Step 2); without it
+   * the run keeps the plain height check.
+   */
+  world?: BlockSource
   /** Optional poll trace for live diagnosis (never used by tests). */
   debug?: (message: string) => void
 }): Promise<WalkRunResult> {
   const { port, cells, config, shouldStop, sleep, now, tickMs, stepTimeoutMs } = options
   const debug = options.debug
+  const world = options.world
   const last = cells[cells.length - 1]!
   let cursor = 0
   let position: Vec3 = cells[0]!
@@ -156,7 +172,7 @@ export async function runWalkRun(options: {
    * walking) and the latch clears only on landing confirmation or on a fall
    * back to the lower level.
    */
-  let climbLatch: { cell: Vec3 } | undefined
+  let climbLatch: { cell: Vec3, plan?: JumpPlan } | undefined
 
   for (;;) {
     if (shouldStop())
@@ -227,7 +243,41 @@ export async function runWalkRun(options: {
         debug?.(`run rejected: rise ${(pendingCell.y - position.y).toFixed(2)} at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
         return { status: 'stuck', cursor, position }
       }
-      climbLatch = { cell: pendingCell }
+      // Step 2: with collision shapes, prove the hop first. A missing landing
+      // support, a ceiling, or a wall inside the flight rejects the edge here so
+      // the planner can route around it; the takeoff line it returns is where
+      // the hop must start.
+      let plan: JumpPlan | undefined
+      if (world && pendingCell.y - position.y > 0.6 + COMPLETION_HEIGHT_TOLERANCE) {
+        const source = cells[pendingIndex > cursor ? cursor : Math.max(0, pendingIndex - 1)] ?? cells[cursor]!
+        const planned = planStepUp({ from: source, to: pendingCell, world, config })
+        if (!planned.ok) {
+          if (planned.reason !== 'not-a-jump') {
+            debug?.(`run rejected: ${planned.reason} (${planned.detail ?? ''}) at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
+            return { status: 'stuck', cursor, position }
+          }
+        }
+        else {
+          plan = planned
+        }
+      }
+      climbLatch = { cell: pendingCell, ...(plan ? { plan } : {}) }
+      // Step 3: hand the hop to the mod's per-tick task when the bridge has it.
+      // The task aims and jumps a tick at a time; the host only submits and
+      // reads the real landing back, because its 150 ms polls cannot time a
+      // takeoff or correct a landing.
+      if (plan && port.startJump) {
+        const outcome = await followJumpTask({ port, plan, sleep, now, shouldStop })
+        if (outcome === 'cancelled')
+          return { status: 'cancelled', cursor, position }
+        if (outcome === 'failed') {
+          debug?.(`run jump task failed at ${plan.takeoff.x.toFixed(2)},${plan.takeoff.z.toFixed(2)} -> ${plan.takeoff.x + plan.direction.x * plan.flight},${plan.takeoff.z + plan.direction.z * plan.flight}`)
+          return { status: 'stuck', cursor, position }
+        }
+        climbLatch = undefined
+        lastAdvanceAt = now()
+        continue
+      }
     }
 
     const climbing = climbLatch !== undefined
@@ -269,12 +319,21 @@ export async function runWalkRun(options: {
     // because pressing forward while the view points away is what walked her
     // off a one-block block.
     // NOTICE: a host-side landing brake (release forward once the flight is
-    // within LANDING_BRAKE of the destination) was tried and removed: at the
+    // within a fixed distance of the destination) was tried and removed: at the
     // 150 ms poll cadence it cannot time the air control, it made dense
     // diagonal chains land short of their pads and fall into the gap beside
     // them (live chain run diagonal-brake), and it did not move the hill
     // numbers. Precise landing control needs the mod's per-tick execution.
-    const jumpHeld = state.inWater || (climbing && aligned && state.onGround)
+    // The takeoff line from the jump plan gates the press: a flight longer than
+    // the gap starts as soon as the bot is grounded and aligned (the line is
+    // behind it), a shorter flight waits until the bot walks past the line.
+    const takeoffPassed = !climbLatch?.plan || (() => {
+      const plan = climbLatch!.plan!
+      const dx = position.x - plan.takeoff.x
+      const dz = position.z - plan.takeoff.z
+      return dx * plan.direction.x + dz * plan.direction.z >= 0
+    })()
+    const jumpHeld = state.inWater || (climbing && aligned && state.onGround && takeoffPassed)
     const walkHeld = !climbing || aligned
 
     if (debug) {
@@ -296,6 +355,68 @@ export async function runWalkRun(options: {
         return { status: 'stuck', cursor, position }
     }
     await sleep(tickMs)
+  }
+}
+
+/**
+ * Submits one planned hop to the mod and waits for its landing verdict.
+ *
+ * The jump task has a deadline of its own; the poll loop only covers the
+ * transport (a task that never answers ends as `failed` after the deadline plus
+ * a grace, so a wedged bridge cannot hang the run).
+ *
+ * @example
+ * await followJumpTask({ port, plan, sleep, now, shouldStop })
+ * // => 'landed' | 'failed' | 'cancelled'
+ */
+async function followJumpTask(options: {
+  port: MovementControlPort
+  plan: JumpPlan
+  sleep: (ms: number) => Promise<void>
+  now: () => number
+  shouldStop: () => boolean
+}): Promise<'landed' | 'failed' | 'cancelled'> {
+  const { port, plan, sleep, now, shouldStop } = options
+  const target: Vec3 = {
+    x: plan.takeoff.x + plan.direction.x * plan.flight,
+    y: plan.rise + plan.takeoff.y,
+    z: plan.takeoff.z + plan.direction.z * plan.flight,
+  }
+  const deadlineMs = now() + JUMP_TASK_TIMEOUT_MS
+  try {
+    await port.startJump!({
+      target,
+      takeoff: plan.takeoff,
+      direction: plan.direction,
+      sprint: plan.sprint,
+      deadlineMs,
+    })
+  }
+  catch {
+    return 'failed'
+  }
+  for (;;) {
+    if (shouldStop()) {
+      await port.cancelJump?.().catch(() => {})
+      return 'cancelled'
+    }
+    if (now() > deadlineMs + JUMP_TASK_GRACE_MS)
+      return 'failed'
+    await sleep(JUMP_POLL_MS)
+    let status
+    try {
+      status = await port.jumpStatus!()
+    }
+    catch {
+      return 'failed'
+    }
+    if (status.state === 'running')
+      continue
+    if (status.state === 'done')
+      return 'landed'
+    if (status.state === 'idle')
+      return 'failed'
+    return 'failed'
   }
 }
 
@@ -363,8 +484,4 @@ function angleDelta(a: number, b: number): number {
   if (delta < -180)
     delta += 360
   return delta
-}
-
-function horizontalDistance(a: Vec3, b: Vec3): number {
-  return Math.hypot(a.x - b.x, a.z - b.z)
 }

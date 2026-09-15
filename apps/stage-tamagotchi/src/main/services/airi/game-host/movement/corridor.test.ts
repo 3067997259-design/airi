@@ -4,12 +4,11 @@ import type { PathStep, Vec3 } from './types'
 
 import { describe, expect, it, vi } from 'vitest'
 
+import { collisionBoxesOf, playerBox } from './boxes'
 import {
   buildArcPath,
   buildCorridor,
-  collisionBoxesOf,
   followCorridor,
-  playerBox,
   pointAt,
   projectOnPath,
   stepIndexAtProgress,
