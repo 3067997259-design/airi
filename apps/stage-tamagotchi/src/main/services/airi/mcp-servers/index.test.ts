@@ -34,6 +34,10 @@ const transportInstances = vi.hoisted(() => ({
   }>,
 }))
 
+const httpTransportInstances = vi.hoisted(() => ({
+  items: [] as Array<{ url: string, requestInit?: { headers?: Record<string, string> } }>,
+}))
+
 vi.mock('electron', () => ({
   app: appMock,
   shell: shellMock,
@@ -87,6 +91,25 @@ vi.mock('@modelcontextprotocol/sdk/client/stdio.js', async () => {
   }
 })
 
+vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
+  StreamableHTTPClientTransport: class {
+    onclose?: () => void
+    onerror?: (error: Error) => void
+
+    constructor(url: URL, opts?: { requestInit?: { headers?: Record<string, string> } }) {
+      httpTransportInstances.items.push({ url: url.toString(), requestInit: opts?.requestInit })
+    }
+
+    // The stderr pipe belongs to spawned child processes only; reading it on
+    // an HTTP transport would be a bug that this test must surface.
+    get stderr() {
+      throw new Error('stderr must not be accessed for streamable-http transports')
+    }
+
+    close = vi.fn(async () => undefined)
+  },
+}))
+
 describe('createMcpStdioManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -98,6 +121,7 @@ describe('createMcpStdioManager', () => {
     clientMocks.callTool.mockResolvedValue({ content: [] })
     clientInstances.items.length = 0
     transportInstances.items.length = 0
+    httpTransportInstances.items.length = 0
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
   })
 
@@ -118,6 +142,7 @@ describe('createMcpStdioManager', () => {
     const result = await manager.testServer({
       name: 'broken-server',
       config: {
+        kind: 'stdio',
         command: 'broken-mcp-server',
       },
     })
@@ -125,6 +150,61 @@ describe('createMcpStdioManager', () => {
     expect(result.ok).toBe(false)
     expect(result.error).toContain('connect failed')
     expect(result.error).toContain('Missing required environment variable: API_KEY')
+  })
+
+  it('constructs a streamable-http transport for kind streamable-http and never touches stderr', async () => {
+    const { createMcpStdioManager } = await import('./index')
+    const manager = createMcpStdioManager()
+    const userDataPath = await mkdtemp(join(tmpdir(), 'airi-mcp-http-'))
+    appMock.getPath.mockReturnValue(userDataPath)
+
+    try {
+      await manager.writeConfigText(JSON.stringify({
+        mcpServers: {
+          remote: {
+            kind: 'streamable-http',
+            url: 'http://127.0.0.1:25600/mcp',
+            headers: { Authorization: 'Bearer secret' },
+          },
+        },
+      }))
+
+      await manager.applyAndRestart()
+
+      expect(httpTransportInstances.items).toHaveLength(1)
+      expect(httpTransportInstances.items[0]?.url).toBe('http://127.0.0.1:25600/mcp')
+      expect(httpTransportInstances.items[0]?.requestInit?.headers).toEqual({ Authorization: 'Bearer secret' })
+      // No stdio transport exists and the http stderr getter (which throws)
+      // is never read, so the stdio-only stderr wiring stays untouched.
+      expect(transportInstances.items).toHaveLength(0)
+      expect(manager.getRuntimeStatus().servers[0].state).toBe('running')
+      expect(manager.getRuntimeStatus().servers[0].pid).toBeNull()
+      expect(manager.getRuntimeStatus().servers[0].command).toBe('')
+    }
+    finally {
+      await manager.stopAll()
+      await rm(userDataPath, { recursive: true, force: true })
+    }
+  })
+
+  it('tests a streamable-http server through the http transport', async () => {
+    const { createMcpStdioManager } = await import('./index')
+    const manager = createMcpStdioManager()
+
+    clientMocks.listTools.mockResolvedValue({ tools: [{ name: 'http-tool', inputSchema: {} }] })
+
+    const result = await manager.testServer({
+      name: 'remote',
+      config: {
+        kind: 'streamable-http',
+        url: 'http://127.0.0.1:25600/mcp',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.tools).toEqual(['http-tool'])
+    expect(httpTransportInstances.items).toHaveLength(1)
+    expect(transportInstances.items).toHaveLength(0)
   })
 
   it('passes independent timeout budgets to each configured server request', async () => {
@@ -151,7 +231,7 @@ describe('createMcpStdioManager', () => {
 
       await manager.applyAndRestart()
       await manager.listTools()
-      await manager.callTool({ name: 'fast::tool' })
+      await manager.callTool({ requestId: 'call-1', name: 'fast::tool' })
 
       expect(clientMocks.connect).toHaveBeenNthCalledWith(
         1,
@@ -204,6 +284,7 @@ describe('createMcpStdioManager', () => {
     const resultPromise = manager.testServer({
       name: 'slow-server',
       config: {
+        kind: 'stdio',
         command: 'slow-mcp',
         requestTimeoutMs: 5_000,
         maxTotalTimeoutMs: 50,
@@ -215,6 +296,43 @@ describe('createMcpStdioManager', () => {
 
     expect(result.ok).toBe(false)
     expect(result.error).toContain('maxTotalTimeoutMs (50ms)')
+  })
+
+  it('cancels one in-flight call by correlation id and stays idempotent', async () => {
+    const { createMcpStdioManager } = await import('./index')
+    const manager = createMcpStdioManager()
+    const userDataPath = await mkdtemp(join(tmpdir(), 'airi-mcp-cancel-'))
+    appMock.getPath.mockReturnValue(userDataPath)
+
+    try {
+      await manager.writeConfigText(JSON.stringify({
+        mcpServers: {
+          server: { command: 'mcp-server' },
+        },
+      }))
+      await manager.applyAndRestart()
+
+      let observedSignal: AbortSignal | undefined
+      clientMocks.callTool.mockImplementation((_name: unknown, _schema: unknown, options: { signal?: AbortSignal }) => {
+        observedSignal = options.signal
+        return new Promise((_resolve, reject) => {
+          options.signal?.addEventListener('abort', () => reject(options.signal?.reason), { once: true })
+        })
+      })
+
+      const pending = manager.callTool({ requestId: 'cancel-me', name: 'server::slow-tool' })
+      expect(manager.cancelTool('cancel-me')).toEqual({ cancelled: true })
+      await expect(pending).rejects.toThrow('was cancelled')
+      expect(observedSignal?.aborted).toBe(true)
+
+      // Repeated cancels and unknown ids never throw.
+      expect(manager.cancelTool('cancel-me')).toEqual({ cancelled: false })
+      expect(manager.cancelTool('never-started')).toEqual({ cancelled: false })
+    }
+    finally {
+      await manager.stopAll()
+      await rm(userDataPath, { recursive: true, force: true })
+    }
   })
 
   it('removes a session after an unexpected close and does not leave RUNNING status', async () => {
@@ -349,7 +467,7 @@ describe('createMcpStdioManager', () => {
       }))
       await manager.applyAndRestart()
 
-      await expect(manager.callTool({ name: 'server::side-effect::tool' })).rejects.toThrow('original tool result is unknown')
+      await expect(manager.callTool({ requestId: 'call-2', name: 'server::side-effect::tool' })).rejects.toThrow('original tool result is unknown')
 
       expect(clientMocks.callTool).toHaveBeenCalledTimes(1)
       await vi.advanceTimersByTimeAsync(1_000)

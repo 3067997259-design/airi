@@ -20,12 +20,28 @@ function translateMessage(key: string, params?: Record<string, unknown>) {
   return key
 }
 
+function stdioServer(overrides: Record<string, unknown> = {}) {
+  return {
+    rowId: 'mcp-static',
+    identifier: 'filesystem',
+    kind: 'stdio' as const,
+    command: 'npx',
+    argsText: '',
+    envEntries: [],
+    cwd: '',
+    url: '',
+    headersEntries: [],
+    enabled: true,
+    ...overrides,
+  }
+}
+
 describe('mcp-config helpers', () => {
   it('preserves the selected server identity when rows are reloaded', () => {
     const config = {
       mcpServers: {
-        filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem'] },
-        github: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+        filesystem: { kind: 'stdio' as const, command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem'] },
+        github: { kind: 'stdio' as const, command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
       },
     }
 
@@ -40,17 +56,15 @@ describe('mcp-config helpers', () => {
   })
 
   it('keeps cwd when converting form rows into MCP config', () => {
-    const server = {
-      rowId: 'mcp-static',
-      identifier: 'filesystem',
+    const server = stdioServer({
       command: ' npx ',
       argsText: '-y\n@modelcontextprotocol/server-filesystem',
       envEntries: [{ key: ' ROOT ', value: '/tmp' }],
       cwd: ' /Users/doji/dojiwork/airi ',
-      enabled: true,
-    }
+    })
 
     expect(buildServerConfig(server)).toEqual({
+      kind: 'stdio',
       command: 'npx',
       args: ['-y', '@modelcontextprotocol/server-filesystem'],
       env: { ROOT: '/tmp' },
@@ -60,6 +74,7 @@ describe('mcp-config helpers', () => {
     expect(buildConfigFile([server], translateMessage)).toEqual({
       mcpServers: {
         filesystem: {
+          kind: 'stdio',
           command: 'npx',
           args: ['-y', '@modelcontextprotocol/server-filesystem'],
           env: { ROOT: '/tmp' },
@@ -70,22 +85,19 @@ describe('mcp-config helpers', () => {
   })
 
   it('preserves independent timeout budgets during form conversion', () => {
-    const server = {
+    const server = stdioServer({
       rowId: 'mcp-timeouts',
       identifier: 'slow-tools',
       command: 'slow-mcp',
-      argsText: '',
-      envEntries: [],
-      cwd: '',
-      enabled: true,
       requestTimeoutMs: 2_000,
       maxTotalTimeoutMs: 500,
-    }
+    })
 
     const config = buildConfigFile([server], translateMessage)
     const loaded = loadServerForms(config)
 
     expect(config.mcpServers['slow-tools']).toEqual({
+      kind: 'stdio',
       command: 'slow-mcp',
       requestTimeoutMs: 2_000,
       maxTotalTimeoutMs: 500,
@@ -96,19 +108,69 @@ describe('mcp-config helpers', () => {
     })
   })
 
+  it('builds a streamable-http entry from its own form fields', () => {
+    const server = stdioServer({
+      rowId: 'mcp-http',
+      identifier: 'remote',
+      kind: 'streamable-http' as const,
+      url: ' http://127.0.0.1:25600/mcp ',
+      headersEntries: [{ key: 'Authorization', value: 'Bearer secret' }],
+      enabled: false,
+    })
+
+    expect(buildServerConfig(server)).toEqual({
+      kind: 'streamable-http',
+      url: 'http://127.0.0.1:25600/mcp',
+      headers: { Authorization: 'Bearer secret' },
+      enabled: false,
+    })
+
+    const config = buildConfigFile([server], translateMessage)
+    expect(config.mcpServers.remote).toEqual({
+      kind: 'streamable-http',
+      url: 'http://127.0.0.1:25600/mcp',
+      headers: { Authorization: 'Bearer secret' },
+      enabled: false,
+    })
+  })
+
+  it('loads a streamable-http entry into url and headers form fields', () => {
+    const config = {
+      mcpServers: {
+        remote: {
+          kind: 'streamable-http' as const,
+          url: 'http://127.0.0.1:25600/mcp',
+          headers: { Authorization: 'Bearer secret' },
+        },
+      },
+    }
+
+    const loaded = loadServerForms(config)
+    expect(loaded.servers[0]).toMatchObject({
+      identifier: 'remote',
+      kind: 'streamable-http',
+      url: 'http://127.0.0.1:25600/mcp',
+      command: '',
+      headersEntries: [{ key: 'Authorization', value: 'Bearer secret' }],
+      envEntries: [],
+    })
+  })
+
+  it('requires an endpoint URL for streamable-http rows', () => {
+    const server = stdioServer({
+      identifier: 'remote',
+      kind: 'streamable-http' as const,
+      url: '   ',
+    })
+
+    expect(() => buildConfigFile([server], translateMessage)).toThrow('errors.empty-url:remote')
+  })
+
   it('keeps the existing JSON draft when form rows are incomplete', () => {
     const previousDraft = '{\n  "mcpServers": {\n    "saved": { "command": "npx" }\n  }\n}\n'
 
     const result = syncJsonDraftFromServers(
-      [{
-        rowId: 'pending',
-        identifier: '',
-        command: '',
-        argsText: '',
-        envEntries: [],
-        cwd: '',
-        enabled: true,
-      }],
+      [stdioServer({ identifier: '', command: '' })],
       previousDraft,
       translateMessage,
       error => errorMessageFrom(error) ?? 'Unknown error',
@@ -152,6 +214,7 @@ describe('mcp-config helpers', () => {
     }))).toEqual({
       mcpServers: {
         filesystem: {
+          kind: 'stdio',
           command: 'npx',
           requestTimeoutMs: 2_000,
           maxTotalTimeoutMs: 500,
@@ -168,5 +231,63 @@ describe('mcp-config helpers', () => {
     expect(() => parseElectronMcpConfigText(JSON.stringify({
       mcpServers: { filesystem: { command: 'npx', maxTotalTimeoutMs: 2_147_483_648 } },
     }))).toThrow('mcpServers.filesystem.maxTotalTimeoutMs')
+  })
+
+  it('normalizes a legacy stdio entry without kind into kind stdio', () => {
+    expect(parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        legacy: { command: 'npx', args: ['-y', 'pkg'] },
+      },
+    }))).toEqual({
+      mcpServers: {
+        legacy: { kind: 'stdio', command: 'npx', args: ['-y', 'pkg'] },
+      },
+    })
+  })
+
+  it('accepts a streamable-http entry with headers and common fields', () => {
+    expect(parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        remote: {
+          kind: 'streamable-http',
+          url: 'http://127.0.0.1:25600/mcp',
+          headers: { Authorization: 'Bearer secret' },
+          enabled: true,
+          requestTimeoutMs: 5_000,
+        },
+      },
+    }))).toEqual({
+      mcpServers: {
+        remote: {
+          kind: 'streamable-http',
+          url: 'http://127.0.0.1:25600/mcp',
+          headers: { Authorization: 'Bearer secret' },
+          enabled: true,
+          requestTimeoutMs: 5_000,
+        },
+      },
+    })
+  })
+
+  it('rejects a streamable-http entry with a stdio-only field', () => {
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        remote: { kind: 'streamable-http', url: 'http://127.0.0.1:25600/mcp', command: 'npx' },
+      },
+    }))).toThrow('mcpServers.remote: Unrecognized key: "command"')
+  })
+
+  it('rejects an unknown transport kind and a missing url', () => {
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        bogus: { kind: 'carrier-pigeon', command: 'npx' },
+      },
+    }))).toThrow('mcpServers.bogus.kind: Invalid discriminator value')
+
+    expect(() => parseElectronMcpConfigText(JSON.stringify({
+      mcpServers: {
+        remote: { kind: 'streamable-http', url: '' },
+      },
+    }))).toThrow('mcpServers.remote.url')
   })
 })

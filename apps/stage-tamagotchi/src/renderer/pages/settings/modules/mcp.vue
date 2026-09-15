@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {
-  ElectronMcpStdioConfigFile,
+  ElectronMcpConfigFile,
   ElectronMcpStdioRuntimeStatus,
   ElectronMcpStdioTestResult,
 } from '../../../../shared/eventa'
@@ -71,7 +71,7 @@ function buildConfig() {
   return buildConfigFile(servers.value, tn)
 }
 
-function applyLoadedConfig(config: ElectronMcpStdioConfigFile) {
+function applyLoadedConfig(config: ElectronMcpConfigFile) {
   const selectedIdentifier = findServerIdentifierByRowId(servers.value, testRowId.value)
   const loaded = loadServerForms(config, { selectedIdentifier })
   servers.value = loaded.servers
@@ -310,8 +310,15 @@ async function runConnectionTest() {
     testResult.value = { ok: false, error: tn('test.server-disabled', { name: target.identifier || '?' }), durationMs: 0 }
     return
   }
-  if (!target.command.trim()) {
-    testResult.value = { ok: false, error: tn('errors.empty-command', { name: target.identifier || '?' }), durationMs: 0 }
+  const missingTarget = target.kind === 'stdio' ? !target.command.trim() : !target.url.trim()
+  if (missingTarget) {
+    testResult.value = {
+      ok: false,
+      error: target.kind === 'stdio'
+        ? tn('errors.empty-command', { name: target.identifier || '?' })
+        : tn('errors.empty-url', { name: target.identifier || '?' }),
+      durationMs: 0,
+    }
     return
   }
   testRunning.value = true

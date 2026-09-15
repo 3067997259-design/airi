@@ -1,6 +1,7 @@
 import type {
-  ElectronMcpStdioConfigFile,
-  ElectronMcpStdioServerConfig,
+  ElectronMcpConfigFile,
+  ElectronMcpServerCommon,
+  ElectronMcpServerConfig,
 } from './eventa'
 
 import { errorMessageFrom } from '@moeru/std'
@@ -13,29 +14,66 @@ function stringifyError(error: unknown) {
   return errorMessageFrom(error) ?? String(error)
 }
 
+/** Optional fields shared by every transport in the persisted config. */
+const electronMcpServerCommonSchema = {
+  enabled: z.boolean().optional(),
+  requestTimeoutMs: mcpTimeoutMsSchema.optional(),
+  maxTotalTimeoutMs: mcpTimeoutMsSchema.optional(),
+} as const
+
 /**
- * Shared runtime-safe schema for one MCP stdio server definition.
+ * Shared runtime-safe schema for one MCP server definition, discriminated by
+ * transport `kind`.
  *
  * Use when:
  * - Validating `mcp.json` in the main process
  * - Validating JSON drafts before the renderer loads them into the form
  *
  * Expects:
- * - `command` is a non-empty string
+ * - `stdio` entries carry `command`; `streamable-http` and `sse` entries carry `url`
+ * - Existing stdio entries written without `kind` are normalized to `kind: 'stdio'`
  * - Optional fields must already conform to the persisted wire format
  *
  * Returns:
  * - A strict Zod schema matching the persisted MCP server shape
  */
-export const electronMcpStdioServerConfigSchema = z.object({
-  command: z.string().min(1),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  cwd: z.string().optional(),
-  enabled: z.boolean().optional(),
-  requestTimeoutMs: mcpTimeoutMsSchema.optional(),
-  maxTotalTimeoutMs: mcpTimeoutMsSchema.optional(),
-}).strict() satisfies z.ZodType<ElectronMcpStdioServerConfig>
+export const electronMcpServerConfigSchema = z.preprocess(
+  (value) => {
+    // NOTICE:
+    // Config files written before the discriminated union had no `kind`.
+    // Treat an object that carries a stdio `command` but no `kind` as a stdio
+    // entry so existing configurations stay parseable after the upgrade.
+    // Root cause: the stdio-only schema did not record the transport kind.
+    // Removal condition: drop the legacy branch once all persisted files are
+    // rewritten with an explicit `kind`.
+    if (typeof value === 'object' && value !== null && !('kind' in value) && 'command' in value) {
+      return { ...value, kind: 'stdio' }
+    }
+    return value
+  },
+  z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('stdio'),
+      command: z.string().min(1),
+      args: z.array(z.string()).optional(),
+      env: z.record(z.string(), z.string()).optional(),
+      cwd: z.string().optional(),
+      ...electronMcpServerCommonSchema,
+    }).strict(),
+    z.object({
+      kind: z.literal('streamable-http'),
+      url: z.string().min(1),
+      headers: z.record(z.string(), z.string()).optional(),
+      ...electronMcpServerCommonSchema,
+    }).strict(),
+    z.object({
+      kind: z.literal('sse'),
+      url: z.string().min(1),
+      headers: z.record(z.string(), z.string()).optional(),
+      ...electronMcpServerCommonSchema,
+    }).strict(),
+  ]),
+) satisfies z.ZodType<ElectronMcpServerConfig & ElectronMcpServerCommon, unknown>
 
 /**
  * Shared runtime-safe schema for the persisted MCP config file.
@@ -46,14 +84,14 @@ export const electronMcpStdioServerConfigSchema = z.object({
  *
  * Expects:
  * - The root object contains only `mcpServers`
- * - Each server entry matches {@link electronMcpStdioServerConfigSchema}
+ * - Each server entry matches {@link electronMcpServerConfigSchema}
  *
  * Returns:
  * - A strict Zod schema for the full MCP config file
  */
 export const electronMcpConfigSchema = z.object({
-  mcpServers: z.record(z.string(), electronMcpStdioServerConfigSchema),
-}).strict() satisfies z.ZodType<ElectronMcpStdioConfigFile>
+  mcpServers: z.record(z.string(), electronMcpServerConfigSchema),
+}).strict() satisfies z.ZodType<ElectronMcpConfigFile>
 
 /**
  * Formats schema validation issues into one user-facing error string.
@@ -88,9 +126,9 @@ export function formatElectronMcpConfigIssues(issues: z.ZodIssue[]) {
  * - `value` is the result of `JSON.parse` or another plain object source
  *
  * Returns:
- * - A validated `ElectronMcpStdioConfigFile`
+ * - A validated `ElectronMcpConfigFile`
  */
-export function parseElectronMcpConfig(value: unknown): ElectronMcpStdioConfigFile {
+export function parseElectronMcpConfig(value: unknown): ElectronMcpConfigFile {
   const validated = electronMcpConfigSchema.safeParse(value)
   if (!validated.success) {
     throw new Error(formatElectronMcpConfigIssues(validated.error.issues))
@@ -110,9 +148,9 @@ export function parseElectronMcpConfig(value: unknown): ElectronMcpStdioConfigFi
  * - `text` contains JSON text for an MCP config file
  *
  * Returns:
- * - A validated `ElectronMcpStdioConfigFile`
+ * - A validated `ElectronMcpConfigFile`
  */
-export function parseElectronMcpConfigText(text: string): ElectronMcpStdioConfigFile {
+export function parseElectronMcpConfigText(text: string): ElectronMcpConfigFile {
   let parsed: unknown
 
   try {

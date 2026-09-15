@@ -4,11 +4,12 @@ import type { createContext } from '@moeru/eventa/adapters/electron/main'
 import type {
   ElectronMcpCallToolPayload,
   ElectronMcpCallToolResult,
+  ElectronMcpConfigFile,
+  ElectronMcpServerCommon,
+  ElectronMcpServerConfig,
   ElectronMcpStdioApplyResult,
-  ElectronMcpStdioConfigFile,
   ElectronMcpStdioConfigText,
   ElectronMcpStdioRuntimeStatus,
-  ElectronMcpStdioServerConfig,
   ElectronMcpStdioServerRuntimeStatus,
   ElectronMcpStdioTestPayload,
   ElectronMcpStdioTestResult,
@@ -21,6 +22,7 @@ import { join } from 'node:path'
 import { useLogg } from '@guiiai/logg'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { errorMessageFrom } from '@moeru/std'
 import { app, shell } from 'electron'
@@ -28,6 +30,7 @@ import { app, shell } from 'electron'
 import {
   electronMcpApplyAndRestart,
   electronMcpCallTool,
+  electronMcpCancelTool,
   electronMcpGetRuntimeStatus,
   electronMcpListTools,
   electronMcpOpenConfigFile,
@@ -35,20 +38,22 @@ import {
   electronMcpTestServer,
   electronMcpWriteConfigText,
 } from '../../../../shared/eventa'
-import { electronMcpStdioServerConfigSchema, parseElectronMcpConfigText } from '../../../../shared/mcp-config'
+import { electronMcpServerConfigSchema, parseElectronMcpConfigText } from '../../../../shared/mcp-config'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+
+type McpClientTransport = StdioClientTransport | StreamableHTTPClientTransport
 
 interface McpServerSession {
   generation: number
   client: Client
-  transport: StdioClientTransport
-  config: ElectronMcpStdioServerConfig
+  transport: McpClientTransport
+  config: ElectronMcpServerConfig & ElectronMcpServerCommon
   disconnectHandled: boolean
 }
 
 interface McpServerControl {
   name: string
-  config: ElectronMcpStdioServerConfig
+  config: ElectronMcpServerConfig & ElectronMcpServerCommon
   lifecycleGeneration: number
   generation: number
   reconnectAttempt: number
@@ -59,7 +64,7 @@ interface McpServerControl {
   lastError?: string
 }
 
-type StartMcpServer = (name: string, config: ElectronMcpStdioServerConfig, reconnecting?: boolean) => Promise<void>
+type StartMcpServer = (name: string, config: ElectronMcpServerConfig & ElectronMcpServerCommon, reconnecting?: boolean) => Promise<void>
 
 export interface McpStdioManager {
   ensureConfigFile: () => Promise<{ path: string }>
@@ -67,6 +72,8 @@ export interface McpStdioManager {
   applyAndRestart: () => Promise<ElectronMcpStdioApplyResult>
   listTools: () => Promise<ElectronMcpToolDescriptor[]>
   callTool: (payload: ElectronMcpCallToolPayload) => Promise<ElectronMcpCallToolResult>
+  /** Aborts one in-flight call by correlation id. Idempotent. */
+  cancelTool: (requestId: string) => { cancelled: boolean }
   stopAll: () => Promise<void>
   getRuntimeStatus: () => ElectronMcpStdioRuntimeStatus
   readConfigText: () => Promise<ElectronMcpStdioConfigText>
@@ -74,7 +81,7 @@ export interface McpStdioManager {
   testServer: (payload: ElectronMcpStdioTestPayload) => Promise<ElectronMcpStdioTestResult>
 }
 
-const defaultMcpConfig: ElectronMcpStdioConfigFile = {
+const defaultMcpConfig: ElectronMcpConfigFile = {
   mcpServers: {},
 }
 const toolNameSeparator = '::'
@@ -99,8 +106,9 @@ function stringifyError(error: unknown) {
  * when a server sends no progress notification.
  */
 async function runMcpRequest<TResult>(
-  config: ElectronMcpStdioServerConfig,
+  config: ElectronMcpServerConfig & ElectronMcpServerCommon,
   request: (options: RequestOptions) => Promise<TResult>,
+  externalSignal?: AbortSignal,
 ): Promise<TResult> {
   const requestTimeoutMs = config.requestTimeoutMs ?? defaultMcpRequestTimeoutMs
   const maxTotalTimeoutMs = config.maxTotalTimeoutMs ?? defaultMcpMaxTotalTimeoutMs
@@ -115,13 +123,19 @@ async function runMcpRequest<TResult>(
     controller.abort(new Error(`MCP request exceeded maxTotalTimeoutMs (${maxTotalTimeoutMs}ms)`))
   }, maxTotalTimeoutMs)
 
+  // The caller's revocation signal and the total-budget signal both end the
+  // request; either one is enough, so they are combined instead of nested.
+  const signal = externalSignal
+    ? AbortSignal.any([externalSignal, controller.signal])
+    : controller.signal
+
   try {
     return await request({
       timeout: requestTimeoutMs,
       maxTotalTimeout: maxTotalTimeoutMs,
       onprogress: () => {},
       resetTimeoutOnProgress: true,
-      signal: controller.signal,
+      signal,
     })
   }
   finally {
@@ -200,6 +214,10 @@ export function createMcpStdioManager(): McpStdioManager {
   const sessions = new Map<string, McpServerSession>()
   const serverControls = new Map<string, McpServerControl>()
   const runtimeStatuses = new Map<string, ElectronMcpStdioServerRuntimeStatus>()
+  // In-flight tool calls keyed by the renderer's correlation id. The renderer
+  // sends an explicit cancel when its registration is revoked; Eventa cannot
+  // carry an AbortSignal across the process boundary.
+  const inFlightCalls = new Map<string, AbortController>()
   let updatedAt = Date.now()
   let lifecycleGeneration = 0
   let reconnectsEnabled = true
@@ -236,9 +254,11 @@ export function createMcpStdioManager(): McpStdioManager {
     const status: ElectronMcpStdioServerRuntimeStatus = {
       name: control.name,
       state,
-      command: control.config.command,
-      args: control.config.args ?? [],
-      pid: control.session?.transport.pid ?? null,
+      // Streamable HTTP/SSE transports spawn no child process, so the status
+      // carries an empty command and no pid for those entries.
+      command: control.config.kind === 'stdio' ? control.config.command : '',
+      args: control.config.kind === 'stdio' ? control.config.args ?? [] : [],
+      pid: control.session && 'pid' in control.session.transport ? control.session.transport.pid ?? null : null,
     }
     if (control.instructions !== undefined) {
       status.instructions = control.instructions
@@ -280,7 +300,7 @@ export function createMcpStdioManager(): McpStdioManager {
     return { path }
   }
 
-  const readConfigFile = async (path: string): Promise<ElectronMcpStdioConfigFile> => {
+  const readConfigFile = async (path: string): Promise<ElectronMcpConfigFile> => {
     const raw = await readFile(path, 'utf-8')
     return parseElectronMcpConfigText(raw)
   }
@@ -433,7 +453,7 @@ export function createMcpStdioManager(): McpStdioManager {
     await listToolsForSession(control.name, session)
   }
 
-  startServer = (name: string, config: ElectronMcpStdioServerConfig, reconnecting = false): Promise<void> => {
+  startServer = (name: string, config: ElectronMcpServerConfig & ElectronMcpServerCommon, reconnecting = false): Promise<void> => {
     const control = serverControls.get(name)
     if (!control || control.config !== config || !isActiveControl(control)) {
       return Promise.reject(new Error(`mcp server is not active: ${name}`))
@@ -447,31 +467,40 @@ export function createMcpStdioManager(): McpStdioManager {
 
     const generation = control.generation + 1
     control.generation = generation
+    const transport: McpClientTransport = config.kind === 'stdio'
+      ? new StdioClientTransport({
+          command: config.command,
+          args: config.args ?? [],
+          env: config.env,
+          cwd: config.cwd,
+          stderr: 'pipe',
+        })
+      : new StreamableHTTPClientTransport(new URL(config.url), {
+          requestInit: config.headers ? { headers: config.headers } : undefined,
+        })
     const session: McpServerSession = {
       generation,
       client: new Client({
         name: `proj-airi:stage-tamagotchi:mcp:${name}`,
         version: app.getVersion(),
       }),
-      transport: new StdioClientTransport({
-        command: config.command,
-        args: config.args ?? [],
-        env: config.env,
-        cwd: config.cwd,
-        stderr: 'pipe',
-      }),
+      transport,
       config,
       disconnectHandled: false,
     }
     control.session = session
     setControlStatus(control, reconnecting ? 'reconnecting' : 'starting')
     bindSessionLifecycle(control, session)
-    session.transport.stderr?.on('data', (data) => {
-      const text = data.toString('utf-8').trim()
-      if (text) {
-        log.withFields({ serverName: name }).warn(text)
-      }
-    })
+    // Only stdio spawns a child process with a stderr pipe; HTTP transports
+    // must never be touched here.
+    if (config.kind === 'stdio' && 'stderr' in session.transport) {
+      session.transport.stderr?.on('data', (data) => {
+        const text = data.toString('utf-8').trim()
+        if (text) {
+          log.withFields({ serverName: name }).warn(text)
+        }
+      })
+    }
 
     const connectPromise = (async () => {
       try {
@@ -550,8 +579,8 @@ export function createMcpStdioManager(): McpStdioManager {
         setRuntimeStatus({
           name,
           state: 'stopped',
-          command: server.command,
-          args: server.args ?? [],
+          command: server.kind === 'stdio' ? server.command : '',
+          args: server.kind === 'stdio' ? server.args ?? [] : [],
           pid: null,
         })
         continue
@@ -603,57 +632,74 @@ export function createMcpStdioManager(): McpStdioManager {
       throw new Error(mcpCallResultUnknownMessage)
     }
 
-    let result
+    const controller = new AbortController()
+    inFlightCalls.set(payload.requestId, controller)
+
     try {
-      result = await runMcpRequest(session.config, options => session.client.callTool({
-        name: toolName,
-        arguments: payload.arguments ?? {},
-      }, undefined, options))
-    }
-    catch (error) {
-      if (isConnectionLossError(error)) {
-        handleConnectionLoss(control, session, error)
-        throw new Error(mcpCallResultUnknownMessage)
+      let result
+      try {
+        result = await runMcpRequest(session.config, options => session.client.callTool({
+          name: toolName,
+          arguments: payload.arguments ?? {},
+        }, undefined, options), controller.signal)
       }
-      if (!isCurrentSession(control, session)) {
-        throw new Error(mcpCallResultUnknownMessage)
+      catch (error) {
+        if (isConnectionLossError(error)) {
+          handleConnectionLoss(control, session, error)
+          throw new Error(mcpCallResultUnknownMessage)
+        }
+        if (!isCurrentSession(control, session)) {
+          throw new Error(mcpCallResultUnknownMessage)
+        }
+        if (isRequestTimeoutError(error) || controller.signal.aborted) {
+          throw error
+        }
+
+        const fallbackToolName = resolveFallbackToolName(toolName)
+        if (!fallbackToolName || fallbackToolName === toolName) {
+          throw error
+        }
+
+        log.withFields({
+          serverName,
+          requestedToolName: toolName,
+          fallbackToolName,
+        }).warn('retrying mcp tool call with normalized tool name')
+
+        result = await runMcpRequest(session.config, options => session.client.callTool({
+          name: fallbackToolName,
+          arguments: payload.arguments ?? {},
+        }, undefined, options), controller.signal)
       }
-      if (isRequestTimeoutError(error)) {
-        throw error
+
+      const normalized: ElectronMcpCallToolResult = {}
+      if ('content' in result && Array.isArray(result.content)) {
+        normalized.content = result.content as Array<Record<string, unknown>>
+      }
+      if ('structuredContent' in result && result.structuredContent && typeof result.structuredContent === 'object' && !Array.isArray(result.structuredContent)) {
+        normalized.structuredContent = result.structuredContent as Record<string, unknown>
+      }
+      if ('isError' in result && typeof result.isError === 'boolean') {
+        normalized.isError = result.isError
+      }
+      if ('toolResult' in result) {
+        normalized.toolResult = result.toolResult
       }
 
-      const fallbackToolName = resolveFallbackToolName(toolName)
-      if (!fallbackToolName || fallbackToolName === toolName) {
-        throw error
-      }
+      return normalized
+    }
+    finally {
+      inFlightCalls.delete(payload.requestId)
+    }
+  }
 
-      log.withFields({
-        serverName,
-        requestedToolName: toolName,
-        fallbackToolName,
-      }).warn('retrying mcp tool call with normalized tool name')
-
-      result = await runMcpRequest(session.config, options => session.client.callTool({
-        name: fallbackToolName,
-        arguments: payload.arguments ?? {},
-      }, undefined, options))
+  const cancelTool = (requestId: string): { cancelled: boolean } => {
+    const controller = inFlightCalls.get(requestId)
+    if (!controller) {
+      return { cancelled: false }
     }
-
-    const normalized: ElectronMcpCallToolResult = {}
-    if ('content' in result && Array.isArray(result.content)) {
-      normalized.content = result.content as Array<Record<string, unknown>>
-    }
-    if ('structuredContent' in result && result.structuredContent && typeof result.structuredContent === 'object' && !Array.isArray(result.structuredContent)) {
-      normalized.structuredContent = result.structuredContent as Record<string, unknown>
-    }
-    if ('isError' in result && typeof result.isError === 'boolean') {
-      normalized.isError = result.isError
-    }
-    if ('toolResult' in result) {
-      normalized.toolResult = result.toolResult
-    }
-
-    return normalized
+    controller.abort(new Error(`MCP tool call ${requestId} was cancelled.`))
+    return { cancelled: true }
   }
 
   const getRuntimeStatus = (): ElectronMcpStdioRuntimeStatus => {
@@ -680,28 +726,34 @@ export function createMcpStdioManager(): McpStdioManager {
 
   const testServer = async (payload: ElectronMcpStdioTestPayload): Promise<ElectronMcpStdioTestResult> => {
     const startedAt = Date.now()
-    let transport: StdioClientTransport | null = null
+    let transport: McpClientTransport | null = null
     let client: Client | null = null
     const stderrChunks: string[] = []
 
     try {
-      const config = electronMcpStdioServerConfigSchema.parse(payload.config)
-      transport = new StdioClientTransport({
-        command: config.command,
-        args: config.args ?? [],
-        env: config.env,
-        cwd: config.cwd,
-        stderr: 'pipe',
-      })
+      const config = electronMcpServerConfigSchema.parse(payload.config)
+      if (config.kind === 'stdio') {
+        transport = new StdioClientTransport({
+          command: config.command,
+          args: config.args ?? [],
+          env: config.env,
+          cwd: config.cwd,
+          stderr: 'pipe',
+        })
+        transport.stderr?.on('data', (data) => {
+          const text = data.toString('utf-8')
+          if (text)
+            stderrChunks.push(text)
+        })
+      }
+      else {
+        transport = new StreamableHTTPClientTransport(new URL(config.url), {
+          requestInit: config.headers ? { headers: config.headers } : undefined,
+        })
+      }
       client = new Client({
         name: `proj-airi:stage-tamagotchi:mcp:test:${payload.name}`,
         version: app.getVersion(),
-      })
-
-      transport.stderr?.on('data', (data) => {
-        const text = data.toString('utf-8')
-        if (text)
-          stderrChunks.push(text)
       })
 
       await runMcpRequest(config, options => client!.connect(transport!, options))
@@ -744,6 +796,7 @@ export function createMcpStdioManager(): McpStdioManager {
     applyAndRestart,
     listTools,
     callTool,
+    cancelTool,
     stopAll,
     getRuntimeStatus,
     readConfigText,
@@ -791,6 +844,10 @@ export function createMcpServersService(params: { context: ReturnType<typeof cre
 
   defineInvokeHandler(params.context, electronMcpCallTool, async (payload) => {
     return params.manager.callTool(payload)
+  })
+
+  defineInvokeHandler(params.context, electronMcpCancelTool, async ({ requestId }) => {
+    return params.manager.cancelTool(requestId)
   })
 
   defineInvokeHandler(params.context, electronMcpReadConfigText, async () => {
