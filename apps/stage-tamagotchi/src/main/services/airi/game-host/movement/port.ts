@@ -5,8 +5,26 @@
  * implement it with a scripted fake. Everything here is per-call IO, so the
  * executor stays free of MCP shapes.
  */
+import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
 import type { SnapshotEntry } from './snapshot'
 import type { Vec3 } from './types'
+
+/**
+ * A player-state read that carried no usable position (CD-0 D4).
+ *
+ * Raised instead of fabricating zero coordinates, `onGround: true` or
+ * `fallFlying: false`. A caller that needs a position must handle this; it
+ * must not treat an unreadable state as a landing.
+ */
+export class UnreadablePlayerStateError extends Error {
+  readonly reason: string
+
+  constructor(reason: string) {
+    super(`Player state is unreadable: ${reason}`)
+    this.name = 'UnreadablePlayerStateError'
+    this.reason = reason
+  }
+}
 
 export interface MovementState {
   position: Vec3
@@ -15,10 +33,12 @@ export interface MovementState {
   onGround: boolean
   /** Velocity in blocks per tick; the elytra mover uses the horizontal speed. */
   motion?: Vec3
-  /** True while gliding with an elytra (bridge field `fallFlying`). */
+  /** True while gliding with an elytra; omitted when the read did not report it. */
   fallFlying?: boolean
   /** Health from the bridge; the elytra safety net uses it. */
   health?: number
+  /** Source, freshness and binding metadata for this read (CD-0 §3.2). */
+  observation?: ObservationEnvelope
 }
 
 export type BlockFace = 'up' | 'down' | 'north' | 'south' | 'east' | 'west'
@@ -68,6 +88,13 @@ export interface MovementInput {
 export interface MovementControlPort {
   getState: () => Promise<MovementState>
   getBlocksRegion: (from: Vec3, to: Vec3) => Promise<SnapshotEntry[]>
+  /**
+   * Coverage-aware region read (CD-0 §3.2).
+   *
+   * Optional: a bridge without collision-snapshot capability reports a typed
+   * limit through this absence instead of pretending a failed scan was empty.
+   */
+  readTerrain?: (request: TerrainReadRequest) => Promise<TerrainReadResponse>
   getBlock: (pos: Vec3) => Promise<BlockView | undefined>
   getInventory: () => Promise<InventorySlot[]>
   look: (yaw: number, pitch: number) => Promise<void>

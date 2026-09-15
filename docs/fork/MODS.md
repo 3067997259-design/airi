@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## CD-0 共同契约实现（2026-09-15，代码完成，真机待做）
+
+按[能力深化总方案](./capability-deepening-plan.md) §3 实施 CD-0。AIRI 侧：命令令牌 `GameExecutionToken`（`controlSessionId`/代次/`sequence`/`goalRevision`），`revoke` 区分已验证与 `stop_unverified`，`applyGoalUpdate` 丢弃过期更新，执行入口捕获固定令牌，旧命令的迟到回调与 `finally` 不能停止新会话；`movement/observation.ts` 提供三时钟域的误差界映射、覆盖掩码、known-air/障碍/流体/未加载/截断/读取失败与维度不匹配拒绝；连接时 `capabilities.ts` 发现能力并返回类型化限制；`get_self` 不可读时拒绝而不是伪造零坐标/`onGround`/`fallFlying`（D4 复现转正，D1–D3 仍属 G1）；`resultPhases` 分相记录请求、接受、客户端执行与服务器结算。审查中发现并修复 `stopScopeFor` 别名回归：停止必须写回执行器捕获的同一 scope 对象，否则取消无法中断行走。
+
+模组侧（mcpfabric）：新增 `ControlOwnership`（会话 id + 单调 sequence，stop/清理/重连时撤销与换代），`RpcRouter` 心跳只由控制方法续期，`control.setInput`/`nav.navigate_to` 拒绝已撤销会话或过期 sequence。**已知缺口**：AIRI 控制端口尚未携带该身份（需要 mcp-server schema 透传，且会直接影响移动），该边界待有真机验收条件时接线；registry 的 `revoke`/`applyGoalUpdate` 契约已就位、尚未接到工具面消费者。
+
+验证：game-host 定向 **301 passed / 1 skipped**（+29 例）；独立复现 **2 passed / 3 expected fail**；桌面包 typecheck 0；定向 ESLint 0；模组 `:1.21.1:build` 成功。本机构建须显式 `JAVA_HOME=C:\Program Files\Java\jdk-21`（默认是 Java 17）；Windows 下不要用管道捕获 gradle 或长命令输出，写临时文件再读。全部真机验收 NOT-RUN。
+
 ## 红石施工与局部维修范围确定（2026-09-15，尚未实施）
 
 新增 [红石施工与局部维修设计](./redstone-automation-design.md)，同步执行计划 §11 和能力深化索引。首阶段以 Litematica 甘蔗机为场景，完成给定平地居中投影、生存施工、运行验收、无故障提示的信号衰减诊断与最小维修。原始蓝图和已验收维修差异分开保存，避免施工器还原有效修复。

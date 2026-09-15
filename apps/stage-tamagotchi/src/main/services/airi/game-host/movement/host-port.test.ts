@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createMcpMovementPort } from './host-port'
+import { buildTerrainSnapshot } from './observation'
 
 function callerWith(records: Record<string, Record<string, unknown> | undefined>) {
   return vi.fn(async (name: string, _args: Record<string, unknown>) => records[name])
@@ -33,7 +34,7 @@ describe('createMcpMovementPort', () => {
     const port = createMcpMovementPort(callTool)
 
     const state = await port.getState()
-    expect(state).toEqual({
+    expect(state).toMatchObject({
       position: { x: 1.5, y: 64, z: 2.5 },
       yaw: -90,
       inWater: true,
@@ -41,6 +42,10 @@ describe('createMcpMovementPort', () => {
       motion: { x: 0.1, y: 0, z: 0.2 },
       fallFlying: true,
       health: 17,
+    })
+    expect(state.observation).toMatchObject({
+      source: 'client-loaded-world',
+      completeness: 'complete',
     })
 
     await port.setInput({ forward: true, sprint: true })
@@ -130,5 +135,79 @@ describe('createMcpMovementPort', () => {
     await port.dismount()
     expect(callTool).toHaveBeenCalledWith('set_movement', { sneak: true })
     expect(callTool).toHaveBeenCalledWith('stop_movement', {})
+  })
+
+  // ROOT CAUSE (D4):
+  //
+  // A missing `get_self` record became position zero, `onGround: true` and
+  // `fallFlying: false`. A flight loop then read a failed scan as touchdown.
+  // The port now rejects an unreadable state instead of inventing one.
+  it('rejects an unreadable player state instead of inventing a landing', async () => {
+    const port = createMcpMovementPort(async () => undefined)
+    await expect(port.getState()).rejects.toThrow('Player state is unreadable')
+  })
+
+  it('rejects a player state without a finite position', async () => {
+    const port = createMcpMovementPort(async () => ({ onGround: true, dimension: 'minecraft:overworld' }))
+    await expect(port.getState()).rejects.toThrow('no finite position')
+  })
+
+  it('does not fabricate fallFlying when the read omits it', async () => {
+    const port = createMcpMovementPort(async () => ({ x: 1, y: 2, z: 3, onGround: false }))
+    const state = await port.getState()
+    expect(state.fallFlying).toBeUndefined()
+    expect(state.onGround).toBe(false)
+  })
+
+  // D12: a response for another dimension is rejected instead of being read
+  // through `Levels.resolve`'s overworld default.
+  it('rejects a player read from another dimension', async () => {
+    const port = createMcpMovementPort(
+      async () => ({ x: 1, y: 2, z: 3, dimension: 'minecraft:the_nether' }),
+      { dimension: () => 'minecraft:overworld' },
+    )
+    await expect(port.getState()).rejects.toThrow('dimension mismatch')
+  })
+
+  it('rejects a region read from another dimension', async () => {
+    const port = createMcpMovementPort(
+      async () => ({ blocks: [], dimension: 'minecraft:the_nether' }),
+      { dimension: () => 'minecraft:overworld' },
+    )
+    await expect(port.getBlocksRegion({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 })).rejects.toThrow('dimension mismatch')
+  })
+
+  it('fails a region read that carried no block list instead of returning empty', async () => {
+    const port = createMcpMovementPort(async () => ({ unloaded: [] }))
+    await expect(port.getBlocksRegion({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 })).rejects.toThrow('no block list')
+  })
+
+  it('never reports an uncovered terrain cell as air', async () => {
+    const port = createMcpMovementPort(
+      async () => ({ blocks: [{ x: 0, y: 0, z: 0, id: 'minecraft:air' }], unloaded: [{ x: 1, y: 0, z: 0 }] }),
+      { dimension: () => 'minecraft:overworld', worldId: () => 'world-1', connectionGeneration: () => 7 },
+    )
+    const response = await port.readTerrain?.({
+      bounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 2, y: 0, z: 0 } },
+      dimension: 'minecraft:overworld',
+      worldId: 'world-1',
+      connectionGeneration: 7,
+      startedAt: 1_000,
+    })
+    expect(response).toBeDefined()
+    const snapshot = buildTerrainSnapshot(
+      {
+        bounds: { min: { x: 0, y: 0, z: 0 }, max: { x: 2, y: 0, z: 0 } },
+        dimension: 'minecraft:overworld',
+        worldId: 'world-1',
+        connectionGeneration: 7,
+        startedAt: 1_000,
+      },
+      response!,
+    )
+    expect(snapshot.isKnownAir(0, 0, 0)).toBe(true)
+    expect(snapshot.cellAt(1, 0, 0)?.kind).toBe('unloaded')
+    expect(snapshot.cellAt(2, 0, 0)).toBeUndefined()
+    expect(snapshot.isKnownAir(2, 0, 0)).toBe(false)
   })
 })

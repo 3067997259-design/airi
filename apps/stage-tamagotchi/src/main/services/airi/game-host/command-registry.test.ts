@@ -1,4 +1,4 @@
-import type { GameCommandEnvelope, GameCommandParams, GameExecutorOutcome } from './command-registry'
+import type { GameCommandEnvelope, GameCommandParams, GameExecutionToken, GameExecutorOutcome } from './command-registry'
 
 import { describe, expect, it, vi } from 'vitest'
 
@@ -6,9 +6,11 @@ import {
   commandParamsDigest,
   createGameCommandRegistry,
   GameCommandConflictError,
+  GameStaleUpdateError,
   GameWriteBusyError,
   nextStopScope,
   StaleGameBindingError,
+  stopScopeFor,
 } from './command-registry'
 
 const snapshot = {
@@ -43,14 +45,14 @@ function makeEnvelope(
 }
 
 function createTestExecutor() {
-  let behavior: (input: { envelope: GameCommandEnvelope, params: GameCommandParams }) => Promise<GameExecutorOutcome>
+  let behavior: (input: { envelope: GameCommandEnvelope, params: GameCommandParams, token: GameExecutionToken }) => Promise<GameExecutorOutcome>
     = async () => ({ endReason: 'done', finalSnapshot: snapshot })
   let stopConfirmed = true
 
   return {
-    execute: vi.fn((input: { envelope: GameCommandEnvelope, params: GameCommandParams }) => behavior(input)),
-    stop: vi.fn(async () => stopConfirmed),
-    setBehavior(next: typeof behavior) {
+    execute: vi.fn((input: { envelope: GameCommandEnvelope, params: GameCommandParams, token: GameExecutionToken }) => behavior(input)),
+    stop: vi.fn(async (_input: { envelope: GameCommandEnvelope, token: GameExecutionToken }) => stopConfirmed),
+    setBehavior(next: (input: { envelope: GameCommandEnvelope, params: GameCommandParams, token: GameExecutionToken }) => Promise<GameExecutorOutcome>) {
       behavior = next
     },
     setStopConfirmed(next: boolean) {
@@ -485,5 +487,145 @@ describe('nextStopScope', () => {
   it('keeps the running write scope for a read command', () => {
     const current = { stopped: true }
     expect(nextStopScope('observe', current)).toBe(current)
+  })
+})
+
+describe('execution ownership (CD-0 D8)', () => {
+  const baseToken: GameExecutionToken = {
+    commandId: 'cmd-1',
+    connectionGeneration: 1,
+    controlSessionId: 'control-1-1',
+    controlSessionGeneration: 1,
+    sequence: 0,
+    goalRevision: 0,
+  }
+
+  it('binds a fresh scope to the command token', () => {
+    const scope = nextStopScope('move_to', { stopped: true }, baseToken)
+    expect(scope).toMatchObject({
+      stopped: false,
+      controlSessionId: 'control-1-1',
+      controlSessionGeneration: 1,
+      commandId: 'cmd-1',
+    })
+  })
+
+  // ROOT CAUSE (D8):
+  //
+  // The stop hook set a shared boolean, so a late stop or `finally` from an
+  // old command could stop the session a newer command now owned. The scope
+  // now carries identity, and only a matching token stops it.
+  // ROOT CAUSE (CD-0 D8 follow-up):
+  //
+  // The running executor captures the scope object in its `shouldStop`
+  // closure. A stop that returned a copy would leave that closure reading
+  // `false` forever, so a cancel could not interrupt a walk. The mark must be
+  // written on the captured object itself.
+  it('marks the captured scope object, and only for its own token', () => {
+    const newToken: GameExecutionToken = { ...baseToken, commandId: 'cmd-2', controlSessionId: 'control-1-2', controlSessionGeneration: 2 }
+    const captured = nextStopScope('move_to', { stopped: false }, newToken)
+    const shouldStop = () => captured.stopped
+
+    expect(stopScopeFor(captured, baseToken)).toBe(captured)
+    expect(shouldStop()).toBe(false)
+
+    expect(stopScopeFor(captured, newToken)).toBe(captured)
+    expect(shouldStop()).toBe(true)
+  })
+
+  it('gives the executor a different token per write session', async () => {
+    const { registry, executor } = createTestRegistry()
+    const tokens: GameExecutionToken[] = []
+    executor.setBehavior(async ({ token }) => {
+      tokens.push(token)
+      return { endReason: 'reached', finalSnapshot: snapshot, finalPosition: { x: 0, y: 64, z: 0 } }
+    })
+
+    const params = { moveTo: { x: 0, y: 64, z: 0, tolerance: 1 } }
+    await registry.submit({ envelope: makeEnvelope('move_to', params, { commandId: 'session-a' }), params })
+    await registry.submit({ envelope: makeEnvelope('move_to', params, { commandId: 'session-b' }), params })
+
+    expect(tokens).toHaveLength(2)
+    expect(tokens[0]!.controlSessionId).not.toBe(tokens[1]!.controlSessionId)
+    expect(tokens[1]!.controlSessionGeneration).toBeGreaterThan(tokens[0]!.controlSessionGeneration)
+  })
+
+  it('does not let an expired command settle or revive after a newer command runs', async () => {
+    const { registry, executor } = createTestRegistry()
+    // The first command never returns and never confirms a stop: it expires.
+    executor.setBehavior(() => new Promise(() => {}))
+    executor.setStopConfirmed(false)
+    const params = { moveTo: { x: 0, y: 64, z: 0, tolerance: 1 } }
+    const expired = await registry.submit({
+      envelope: makeEnvelope('move_to', params, { commandId: 'old', deadlineMs: 25 }),
+      params,
+    })
+    expect(expired.state).toBe('expired')
+    expect(registry.listActive()).toEqual([])
+
+    // A newer command runs cleanly; the old session stays terminated.
+    executor.setBehavior(async () => ({ endReason: 'reached', finalSnapshot: snapshot, finalPosition: { x: 0, y: 64, z: 0 } }))
+    executor.setStopConfirmed(true)
+    const fresh = await registry.submit({
+      envelope: makeEnvelope('move_to', params, { commandId: 'new', deadlineMs: 500 }),
+      params,
+    })
+    expect(fresh.state).toBe('succeeded')
+    expect(registry.getState('old')).toBe('expired')
+  })
+
+  it('reports an unverified revocation as stop_unverified and never as stopped', async () => {
+    const { registry, executor } = createTestRegistry()
+    executor.setBehavior(() => new Promise(() => {}))
+    executor.setStopConfirmed(false)
+    const params = { moveTo: { x: 0, y: 64, z: 0, tolerance: 1 } }
+    void registry.submit({ envelope: makeEnvelope('move_to', params, { commandId: 'revoke-me' }), params })
+
+    const result = await registry.revoke('revoke-me')
+    expect(result).toMatchObject({ state: 'expired', phase: 'terminated', endReason: 'stop_unverified', verified: false })
+    expect(await registry.revoke('missing')).toBeUndefined()
+  })
+})
+
+describe('stale sequence and goal revision (CD-0 §3.1)', () => {
+  it('drops a submit whose sequence is older than the session high-water mark', async () => {
+    const { registry } = createTestRegistry()
+    const params = { observe: { radius: 4 } }
+    await registry.submit({
+      envelope: makeEnvelope('observe', params, { commandId: 's1', controlSessionId: 'ctrl', sequence: 5, goalRevision: 2 }),
+      params,
+    })
+    expect(() => registry.submit({
+      envelope: makeEnvelope('observe', params, { commandId: 's2', controlSessionId: 'ctrl', sequence: 4, goalRevision: 2 }),
+      params,
+    })).toThrow(GameStaleUpdateError)
+  })
+
+  it('drops a submit whose goal revision is older than the session high-water mark', async () => {
+    const { registry } = createTestRegistry()
+    const params = { observe: { radius: 4 } }
+    await registry.submit({
+      envelope: makeEnvelope('observe', params, { commandId: 'g1', controlSessionId: 'ctrl', sequence: 5, goalRevision: 2 }),
+      params,
+    })
+    expect(() => registry.submit({
+      envelope: makeEnvelope('observe', params, { commandId: 'g2', controlSessionId: 'ctrl', sequence: 6, goalRevision: 1 }),
+      params,
+    })).toThrow(GameStaleUpdateError)
+  })
+
+  it('applies a fresh goal update and drops a stale one', async () => {
+    const { registry, executor } = createTestRegistry()
+    executor.setBehavior(() => new Promise(() => {}))
+    const params = { moveTo: { x: 0, y: 64, z: 0, tolerance: 1 } }
+    void registry.submit({
+      envelope: makeEnvelope('move_to', params, { commandId: 'goal', controlSessionId: 'ctrl', sequence: 1, goalRevision: 1 }),
+      params,
+    })
+
+    const next = { moveTo: { x: 5, y: 64, z: 0, tolerance: 1 } }
+    expect(registry.applyGoalUpdate({ commandId: 'goal', sequence: 2, goalRevision: 2, params: next })).toBe('applied')
+    expect(registry.applyGoalUpdate({ commandId: 'goal', sequence: 2, goalRevision: 1 })).toBe('dropped')
+    expect(registry.applyGoalUpdate({ commandId: 'goal', sequence: 1, goalRevision: 3 })).toBe('dropped')
   })
 })

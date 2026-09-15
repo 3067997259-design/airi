@@ -17,6 +17,7 @@
 import type { createContext as createMainEventaContext } from '@moeru/eventa/adapters/electron/main'
 
 import type {
+  GameCapabilities,
   GameDomainAction,
   GameDomainResult,
   GameDomainTask,
@@ -33,6 +34,7 @@ import type {
   GameCommandEnvelope,
   GameCommandParams,
   GameCommandReceipt,
+  GameExecutionToken,
   GameExecutorOutcome,
   GameFinalSnapshot,
   GamePostCondition,
@@ -62,6 +64,7 @@ import {
   gameHostObserve,
 } from '../../../../shared/eventa'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+import { discoverGameCapabilities } from './capabilities'
 import { CHAT_COMMAND_MIN_INTERVAL_MS, CHAT_CONTEXT_BUFFER_LINES, chatCommandEventsOf, chatContextOf, classifyChatEvent, isContextEligible, nextChatCursor, parseChatCommandsConfig } from './chat-commands'
 import {
   commandParamsDigest,
@@ -70,10 +73,12 @@ import {
   GameWriteBusyError,
   nextStopScope,
   StaleGameBindingError,
+  stopScopeFor,
 } from './command-registry'
 import { cellOf } from './movement/coordinates'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
+import { actionResultPhases } from './movement/observation'
 import { DEFAULT_MOVEMENT_CONFIG } from './movement/types'
 import { runVehicleMove } from './movement/vehicle'
 
@@ -1216,6 +1221,8 @@ export async function setupGameHost(
   let connectionGeneration = 0
   /** Last terminal receipt, so `game_status` can answer without an active command. */
   let lastReceipt: GameCommandReceipt | undefined
+  /** CD-0 §3.3: capabilities discovered from the bridge at connect. */
+  let capabilities: GameCapabilities | undefined
 
   function allowedToolsOf(): string[] {
     return config?.allowedTools?.length ? config.allowedTools : DEFAULT_ALLOWED_TOOLS
@@ -1310,12 +1317,16 @@ export async function setupGameHost(
 
   // Stop scope of the running write command (collect/follow/...): the registry
   // calls `stop` while the command runs, and the loops must notice it. A read
-  // command must not clear a running write's stop flag (review R7).
-  let writeStop: StopScope = { stopped: false }
-  // The executor promise in flight. `stopGameAction` joins it so a cancel
-  // receipt keeps the facts the executor already observed (MC-4d shot list)
-  // instead of racing to a generic terminal receipt.
+  // command must not clear a running write's stop flag (review R7). CD-0 D8:
+  // the scope carries the control-session identity, so a late callback from an
+  // older command cannot stop the session a newer command now owns.
+  let writeStopScope: StopScope = { stopped: false }
+  // The executor promise in flight, tagged with its fixed token. `stopGameAction`
+  // joins it so a cancel receipt keeps the facts the executor already observed
+  // (MC-4d shot list) instead of racing to a generic terminal receipt. The tag
+  // keeps an old command's stop from joining a newer command's run (CD-0 D8).
   let inFlightExecution: Promise<void> | undefined
+  let inFlightToken: GameExecutionToken | undefined
   // Monotonic cursor for reflex-event polling; never reset, so a preemption
   // that arrives during a later command is still observed.
   let lastEventId = 0
@@ -1583,10 +1594,10 @@ export async function setupGameHost(
    * right-click intents the MC-4b contract does not expose. `requested` is the
    * minimum target; `moved` is the verified delta.
    */
-  async function transferMenuStack(containerId: number, from: number, to: number, requested: number): Promise<number> {
+  async function transferMenuStack(containerId: number, from: number, to: number, requested: number, shouldStop: () => boolean): Promise<number> {
     let moved = 0
     for (let attempt = 0; attempt < 12 && moved < requested; attempt++) {
-      if (writeStop.stopped)
+      if (shouldStop())
         break
       const before = await readMenuSnapshot()
       if (before.containerId !== containerId)
@@ -1973,9 +1984,21 @@ export async function setupGameHost(
     }
   }
 
-  /** Movement port over the private MCP session (MC-3 increment 2). */
+  /**
+   * Movement port over the private MCP session (MC-3 increment 2).
+   *
+   * CD-0 §3.2: the port receives the live world binding so a read for another
+   * dimension is rejected and every fact can carry its source and generation.
+   */
   function createTerrainPort() {
-    return createMcpMovementPort(async (name, args) => statusRecordOf(await callGameTool(name, args)))
+    return createMcpMovementPort(
+      async (name, args) => statusRecordOf(await callGameTool(name, args)),
+      {
+        worldId: () => worldIdentity?.worldId,
+        dimension: () => worldIdentity?.dimension,
+        connectionGeneration: () => connectionGeneration,
+      },
+    )
   }
 
   /**
@@ -1993,13 +2016,14 @@ export async function setupGameHost(
     envelope: GameCommandEnvelope,
     moveTo: NonNullable<GameCommandParams['moveTo']>,
     fallback: GameFinalSnapshot,
+    shouldStop: () => boolean,
   ): Promise<GameExecutorOutcome> {
     if (moveTo.vehicle) {
       const vehicleResult = await runVehicleMove(moveTo.vehicle, {
         port: createTerrainPort(),
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
-        shouldStop: () => writeStop.stopped,
+        shouldStop,
         debug: env.AIRI_TERRAIN_DEBUG ? (message: string) => log.warn(`terrain: ${message}`) : undefined,
       })
       if (vehicleResult.status !== 'reached' && moveTo.fallbackToFoot) {
@@ -2032,7 +2056,7 @@ export async function setupGameHost(
         maxDropDown: moveTo.maxFall ?? DEFAULT_MOVEMENT_CONFIG.maxDropDown,
       },
       remainingPlaceables: allowPlace ? await countScaffolding() : 0,
-      shouldStop: () => writeStop.stopped,
+      shouldStop,
       failedEdges,
       // Trace only when explicitly asked for; a normal move must stay quiet.
       debug: env.AIRI_TERRAIN_DEBUG ? (message: string) => log.warn(`terrain: ${message}`) : undefined,
@@ -2057,6 +2081,7 @@ export async function setupGameHost(
   async function runTerrainLeg(
     goal: { x: number, y: number, z: number },
     tolerance: number,
+    shouldStop: () => boolean,
     goalCells?: Array<{ x: number, y: number, z: number }>,
     failedEdges?: Map<string, FailedEdge>,
   ) {
@@ -2073,15 +2098,19 @@ export async function setupGameHost(
       tolerance,
       config: DEFAULT_MOVEMENT_CONFIG,
       remainingPlaceables: await countScaffolding(),
-      shouldStop: () => writeStop.stopped,
+      shouldStop,
       ...(failedEdges ? { failedEdges } : {}),
       debug: env.AIRI_TERRAIN_DEBUG ? (message: string) => log.warn(`terrain: ${message}`) : undefined,
     })
   }
 
   /** Maps domain actions to MCP calls (mc-0c-spec 执行器映射；mc-1a 扩展). */
-  async function executeGameAction(envelope: GameCommandEnvelope, params: GameCommandParams): Promise<GameExecutorOutcome> {
-    writeStop = nextStopScope(envelope.action, writeStop)
+  async function executeGameAction(envelope: GameCommandEnvelope, params: GameCommandParams, token: GameExecutionToken): Promise<GameExecutorOutcome> {
+    // CD-0 D8: capture this command's fixed scope and identity at the entry.
+    // Later code must use the captured binding, never a re-read global token.
+    const writeStop = nextStopScope(envelope.action, writeStopScope, token)
+    writeStopScope = writeStop
+    const shouldStop = () => writeStop.stopped
 
     if (envelope.action === 'say') {
       const text = params.say?.text?.trim()
@@ -2195,7 +2224,7 @@ export async function setupGameHost(
           { x: candidate.x, y: candidate.y + 1, z: candidate.z },
           { x: candidate.x, y: candidate.y - 1, z: candidate.z },
         ]
-        return await runTerrainLeg(candidate, tolerance, goals, failedEdges)
+        return await runTerrainLeg(candidate, tolerance, shouldStop, goals, failedEdges)
       }
 
       const countOfItem = async (): Promise<number | undefined> => (await readInventoryCounts())?.[itemId]
@@ -2552,7 +2581,7 @@ export async function setupGameHost(
           continue
         }
 
-        const leg = await runTerrainLeg(target, keepDistance, undefined, failedEdges)
+        const leg = await runTerrainLeg(target, keepDistance, shouldStop, undefined, failedEdges)
         if (env.AIRI_TERRAIN_DEBUG)
           log.warn(`follow: leg to ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)} -> ${leg.status}${leg.detail ? ` (${leg.detail})` : ''}`)
         if (leg.status === 'cancelled') {
@@ -3370,7 +3399,7 @@ export async function setupGameHost(
             for (let leg = 0; leg < 2 && distance > ATTACK_REACH; leg++) {
               if (writeStop.stopped)
                 break
-              const legResult = await runTerrainLeg(targetPosition, 2, undefined, failedEdges)
+              const legResult = await runTerrainLeg(targetPosition, 2, shouldStop, undefined, failedEdges)
               if (legResult.status === 'cancelled')
                 break
               const requery = await readEntityByUuid(targetUuid)
@@ -3647,7 +3676,7 @@ export async function setupGameHost(
       if (!source || source.empty || !source.id)
         throw new Error('slot_empty')
       const requested = Math.max(1, move.count ?? source.count ?? 1)
-      const moved = await transferMenuStack(before.containerId, move.from, move.to, requested)
+      const moved = await transferMenuStack(before.containerId, move.from, move.to, requested, shouldStop)
       return {
         endReason: moved >= requested ? 'moved' : 'not_confirmed',
         finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
@@ -3743,13 +3772,13 @@ export async function setupGameHost(
       const inputSlot = snapshot.slots.find(slot => slot.id === smelt.inputItemId && !slot.empty && typeof slot.invSlot === 'number')
       if (!inputSlot)
         throw new Error(`slot_empty: ${smelt.inputItemId} is not in the open menu`)
-      const loaded = await transferMenuStack(menu.containerId, inputSlot.index, 0, requested)
+      const loaded = await transferMenuStack(menu.containerId, inputSlot.index, 0, requested, shouldStop)
       let fuelItemId: string | undefined
       if (smelt.fuelItemId) {
         fuelItemId = smelt.fuelItemId
         const fuelSlot = (await readMenuSnapshot()).slots.find(slot => slot.id === smelt.fuelItemId && !slot.empty && typeof slot.invSlot === 'number')
         if (fuelSlot)
-          await transferMenuStack(menu.containerId, fuelSlot.index, 1, 1)
+          await transferMenuStack(menu.containerId, fuelSlot.index, 1, 1, shouldStop)
       }
       // Bounded cooking check: report the observed progress and return; the
       // furnace keeps working without holding the player's input (gaps §4.1).
@@ -4297,7 +4326,7 @@ export async function setupGameHost(
       throw new Error('move_to requires a target')
     const fallback = await readFreshSnapshot() ?? { position: { x: 0, y: 0, z: 0 }, health: 0, food: 0, heldItem: null }
     if (movementPlannerOf() === 'terrain')
-      return await executeTerrainMoveTo(envelope, moveTo, fallback)
+      return await executeTerrainMoveTo(envelope, moveTo, fallback, shouldStop)
     // MCP tool names, not bridge method names: the private session talks to
     // the Node MCP server (mc-0c executor mapping).
     const pathResult = await callGameTool('navigate_to', {
@@ -4338,9 +4367,16 @@ export async function setupGameHost(
     }
   }
 
-  async function stopGameAction(): Promise<boolean> {
+  /**
+   * Asks the game side to release input for one captured session.
+   *
+   * CD-0 D8: only the scope that the token owns is marked stopped. A late
+   * `finally` or async callback from an older command still passes its old
+   * token and must not stop the session a newer command now owns.
+   */
+  async function stopGameAction(input: { envelope: GameCommandEnvelope, token: GameExecutionToken }): Promise<boolean> {
     // Signal the multi-step loops first, then release the game-side controls.
-    writeStop.stopped = true
+    writeStopScope = stopScopeFor(writeStopScope, input.token)
     let confirmed = false
     try {
       await callGameTool('stop_navigation')
@@ -4376,7 +4412,9 @@ export async function setupGameHost(
       // No riptide task, or the bridge is already gone.
     }
     // Join the executor so the cancel receipt carries the facts it observed.
-    if (inFlightExecution) {
+    // Only this session's run is joined; a late stop for an old command must
+    // not wait on (or confirm against) a newer command's run.
+    if (inFlightExecution && inFlightToken?.controlSessionId === input.token.controlSessionId) {
       try {
         await Promise.race([
           inFlightExecution,
@@ -4394,14 +4432,17 @@ export async function setupGameHost(
   const registry = createGameCommandRegistry({
     executor: {
       execute: (input) => {
-        const run = executeGameAction(input.envelope, input.params)
+        const run = executeGameAction(input.envelope, input.params, input.token)
         // Track the in-flight run so a cancel can join it and keep the facts it
         // observed; clear only when this same run finishes.
         const tracked = run.then(() => undefined, () => undefined)
         inFlightExecution = tracked
+        inFlightToken = input.token
         void tracked.finally(() => {
-          if (inFlightExecution === tracked)
+          if (inFlightExecution === tracked) {
             inFlightExecution = undefined
+            inFlightToken = undefined
+          }
         })
         return run
       },
@@ -4488,8 +4529,13 @@ export async function setupGameHost(
   }
 
   function currentStatus(): GameHostStatus {
-    if (client)
-      return { status: 'connected', ...(worldIdentity ? { identity: worldIdentity } : {}) }
+    if (client) {
+      return {
+        status: 'connected',
+        ...(worldIdentity ? { identity: worldIdentity } : {}),
+        ...(capabilities ? { capabilities } : {}),
+      }
+    }
 
     return lastError
       ? { status: 'error', error: lastError }
@@ -4660,6 +4706,7 @@ export async function setupGameHost(
     serverClient = undefined
     worldIdentity = undefined
     lastStatusRecord = undefined
+    capabilities = undefined
     connectionId = ''
     void previousServer?.close().catch(() => {})
     // Withdraw only a published capability. `connect()` calls this before
@@ -4704,6 +4751,16 @@ export async function setupGameHost(
       await nextClient.connect(nextTransport)
       client = nextClient
       connectionGeneration += 1
+      // CD-0 §3.3: discover which capabilities the bridge actually exposes.
+      // Listing failure leaves capabilities undefined rather than assuming any.
+      try {
+        const listed = await nextClient.listTools()
+        const names = Array.isArray(listed?.tools) ? listed.tools.map(tool => tool.name) : []
+        capabilities = discoverGameCapabilities(names)
+      }
+      catch {
+        capabilities = undefined
+      }
       // Per-connect scope id (mc-1b): the generation counter restarts with
       // the app process, so world-scoped memory needs an id that is unique
       // for every connection.
@@ -4993,6 +5050,14 @@ export async function setupGameHost(
       checked: postCondition.kind !== 'none' && receipt.state !== 'expired',
       commandId: receipt.commandId,
       endReason: receipt.endReason,
+      // CD-0 §3.3: name each observed phase separately; a phase the receipt
+      // did not confirm stays unobserved instead of being inferred.
+      resultPhases: actionResultPhases({
+        requested: true,
+        accepted: receipt.state !== 'expired',
+        clientExecuted: receipt.state === 'succeeded' || receipt.state === 'failed',
+        serverSettled: postCondition.kind !== 'none' && postCondition.met,
+      }),
       finalSnapshot: freshSnapshot,
       postCondition,
       ...(receipt.crafted ? { crafted: receipt.crafted } : {}),

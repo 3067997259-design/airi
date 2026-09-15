@@ -97,10 +97,11 @@ describe('capability deepening: movement boundaries', () => {
     expect(port.setInput.mock.calls[0]?.[0].sprint).toBe(false)
   })
 
-  it.fails('rejects an unreadable player state instead of inventing a landing', async () => {
+  it('rejects an unreadable player state instead of inventing a landing', async () => {
     // ROOT CAUSE:
-    // Missing get_self data becomes position zero, onGround true and
-    // fallFlying false. A flight loop can treat a read failure as touchdown.
+    // Missing get_self data became position zero, onGround true and
+    // fallFlying false, so a flight loop could treat a read failure as
+    // touchdown. CD-0 D4 makes getState reject an unreadable state instead.
     const port = createMcpMovementPort(async () => undefined)
     await expect(port.getState()).rejects.toThrow()
   })

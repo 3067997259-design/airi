@@ -5,36 +5,153 @@
  * `jump`, `stop_movement`, `get_self`, `get_blocks_region`), not the bridge
  * method names. Extracted from the host so a mapping typo is a unit test
  * failure instead of a silently stuck walk.
+ *
+ * CD-0 §3.2/§3.3: reads carry the current world binding with them, a mismatched
+ * dimension is rejected, and an unreadable read fails loudly instead of
+ * becoming zero coordinates, `onGround: true`, or an empty world.
  */
+import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } from './observation'
 import type { MovementControlPort } from './port'
+
+import { DimensionMismatchError, TerrainReadError } from './observation'
+import { UnreadablePlayerStateError } from './port'
 
 /** Calls one MCP tool and returns its structured record, if any. */
 export type ToolCaller = (name: string, args: Record<string, unknown>) => Promise<Record<string, unknown> | undefined>
 
-export function createMcpMovementPort(callTool: ToolCaller): MovementControlPort {
+/**
+ * World binding the port verifies its reads against (CD-0 §3.2).
+ *
+ * Getters, not values: the binding changes when the player crosses a
+ * dimension. A read whose response names another dimension is rejected.
+ */
+export interface MovementPortContext {
+  worldId?: () => string | undefined
+  dimension?: () => string | undefined
+  connectionGeneration?: () => number
+  /** Wall-clock source used to stamp observation freshness; tests inject it. */
+  now?: () => number
+}
+
+function parseUnloaded(raw: unknown): Array<{ x: number, y: number, z: number }> {
+  if (!Array.isArray(raw))
+    return []
+  return raw.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      return []
+    const value = entry as Record<string, unknown>
+    const x = Number(value.x)
+    const y = Number(value.y)
+    const z = Number(value.z)
+    return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? [{ x, y, z }] : []
+  })
+}
+
+export function createMcpMovementPort(callTool: ToolCaller, context: MovementPortContext = {}): MovementControlPort {
+  const dimensionOf = () => context.dimension?.()
+  const worldIdOf = () => context.worldId?.()
+  const generationOf = () => context.connectionGeneration?.() ?? 0
+  const now = () => context.now?.() ?? Date.now()
+
+  /** Rejects a response that names a different dimension than the binding. */
+  function assertDimension(expected: string | undefined, received: string | undefined): void {
+    if (expected && received && expected !== received)
+      throw new DimensionMismatchError(expected, received)
+  }
+
+  /**
+   * One raw region read with dimension verification.
+   *
+   * A missing `blocks` array is a read failure, never an empty region: the
+   * caller must not scan a world that was never loaded.
+   */
+  async function readRegionRecord(from: { x: number, y: number, z: number }, to: { x: number, y: number, z: number }): Promise<{
+    record: Record<string, unknown>
+    dimension?: string
+    startedAt: number
+    receivedAt: number
+  }> {
+    const startedAt = now()
+    const args: Record<string, unknown> = { from, to, includeAir: true }
+    const expectedDimension = dimensionOf()
+    if (expectedDimension)
+      args.dimension = expectedDimension
+    const record = await callTool('get_blocks_region', args)
+    const receivedAt = now()
+    if (!record)
+      throw new TerrainReadError('region read returned no record')
+    const receivedDimension = typeof record.dimension === 'string' ? record.dimension : undefined
+    assertDimension(expectedDimension, receivedDimension)
+    if (record.error !== undefined && record.error !== null)
+      throw new TerrainReadError(String(record.error))
+    if (!Array.isArray(record.blocks))
+      throw new TerrainReadError('region read carried no block list')
+    return { record, ...(receivedDimension ? { dimension: receivedDimension } : {}), startedAt, receivedAt }
+  }
+
+  function observationOf(input: {
+    source: string
+    dimension?: string
+    requestStartedAt: number
+    requestEndedAt: number
+    sourceTick?: number
+    completeness?: ObservationEnvelope['completeness']
+    missingReason?: string
+  }): ObservationEnvelope {
+    return {
+      source: input.source,
+      worldId: worldIdOf() ?? '',
+      dimension: input.dimension ?? dimensionOf() ?? '',
+      connectionGeneration: generationOf(),
+      ...(input.sourceTick !== undefined ? { sourceTick: input.sourceTick } : {}),
+      receivedAt: input.requestEndedAt,
+      requestStartedAt: input.requestStartedAt,
+      requestEndedAt: input.requestEndedAt,
+      completeness: input.completeness ?? 'complete',
+      ...(input.missingReason ? { missingReason: input.missingReason } : {}),
+    }
+  }
+
   return {
     getState: async () => {
+      const startedAt = now()
       const record = await callTool('get_self', {})
-      const motion = record?.motion && typeof record.motion === 'object' && !Array.isArray(record.motion)
+      const receivedAt = now()
+      if (!record)
+        throw new UnreadablePlayerStateError('get_self returned no record')
+      const dimension = typeof record.dimension === 'string' ? record.dimension : undefined
+      assertDimension(dimensionOf(), dimension)
+      const x = Number(record.x)
+      const y = Number(record.y)
+      const z = Number(record.z)
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z))
+        throw new UnreadablePlayerStateError('get_self returned no finite position')
+      const motion = record.motion && typeof record.motion === 'object' && !Array.isArray(record.motion)
         ? record.motion as Record<string, unknown>
         : undefined
-      const health = Number(record?.health)
+      const health = Number(record.health)
       return {
-        position: { x: Number(record?.x) || 0, y: Number(record?.y) || 0, z: Number(record?.z) || 0 },
-        yaw: Number(record?.yaw) || 0,
-        inWater: record?.inWater === true,
-        onGround: record?.onGround !== false,
+        position: { x, y, z },
+        yaw: Number(record.yaw) || 0,
+        inWater: record.inWater === true,
+        // Unknown ground contact is not a landing: only an explicit true counts.
+        onGround: record.onGround === true,
         ...(motion
           ? { motion: { x: Number(motion.x) || 0, y: Number(motion.y) || 0, z: Number(motion.z) || 0 } }
           : {}),
-        ...(record?.fallFlying === true ? { fallFlying: true } : { fallFlying: false }),
+        // A missing `fallFlying` field is left absent; false is a fact, not a default.
+        ...(typeof record.fallFlying === 'boolean' ? { fallFlying: record.fallFlying } : {}),
         ...(Number.isFinite(health) ? { health } : {}),
+        observation: observationOf({ source: 'client-loaded-world', requestStartedAt: startedAt, requestEndedAt: receivedAt }),
       }
     },
     getBlocksRegion: async (from, to) => {
-      const record = await callTool('get_blocks_region', { from, to, includeAir: true })
-      const blocks = Array.isArray(record?.blocks) ? record.blocks as Array<Record<string, unknown>> : []
-      return blocks.flatMap((block) => {
+      const { record } = await readRegionRecord(from, to)
+      const blocks = record.blocks as unknown[]
+      return blocks.flatMap((raw) => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+          return []
+        const block = raw as Record<string, unknown>
         const x = Number(block.x)
         const y = Number(block.y)
         const z = Number(block.z)
@@ -47,10 +164,33 @@ export function createMcpMovementPort(callTool: ToolCaller): MovementControlPort
         return [{ x, y, z, id, ...(properties ? { properties } : {}) }]
       })
     },
+    readTerrain: async (request: TerrainReadRequest): Promise<TerrainReadResponse> => {
+      const { record, dimension, receivedAt } = await readRegionRecord(request.bounds.min, request.bounds.max)
+      const sourceTick = Number(record.sourceTick)
+      return {
+        blocks: record.blocks as unknown[],
+        unloaded: parseUnloaded(record.unloaded),
+        truncated: record.truncated === true,
+        source: typeof record.source === 'string' ? record.source : 'client-loaded-world',
+        ...(dimension ? { dimension } : {}),
+        ...(worldIdOf() ? { worldId: worldIdOf() } : {}),
+        connectionGeneration: generationOf(),
+        ...(Number.isFinite(sourceTick) ? { sourceTick } : {}),
+        endedAt: receivedAt,
+        receivedAt,
+      }
+    },
     getBlock: async (pos) => {
-      const record = await callTool('get_block', { x: pos.x, y: pos.y, z: pos.z })
+      const expectedDimension = dimensionOf()
+      const record = await callTool('get_block', {
+        x: pos.x,
+        y: pos.y,
+        z: pos.z,
+        ...(expectedDimension ? { dimension: expectedDimension } : {}),
+      })
       if (!record)
         return undefined
+      assertDimension(expectedDimension, typeof record.dimension === 'string' ? record.dimension : undefined)
       const id = typeof record.id === 'string' ? record.id : 'minecraft:air'
       const properties = record.properties && typeof record.properties === 'object'
         ? record.properties as Record<string, string>

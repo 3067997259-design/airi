@@ -101,10 +101,31 @@ export interface GameWorldIdentity {
   playerUuid: string
 }
 
+/**
+ * Capabilities discovered at connect (CD-0 §3.3).
+ *
+ * A capability is only announced when the bridge actually exposes the tools
+ * that back it. An unavailable capability carries a typed limit instead of a
+ * silent fallback or a fabricated result.
+ */
+export type GameCapabilityName = 'target-observation' | 'collision-snapshot' | 'control-session' | 'ballistic-profiles' | 'break-evidence'
+
+export interface GameCapabilityStatus {
+  available: boolean
+  /** Typed reason the capability is unavailable; absent when available. */
+  limit?: string
+  /** Tool names that satisfied the capability. */
+  tools: string[]
+}
+
+export type GameCapabilities = Record<GameCapabilityName, GameCapabilityStatus>
+
 export interface GameHostStatus {
   status: 'unconfigured' | 'connecting' | 'connected' | 'error'
   error?: string
   identity?: GameWorldIdentity
+  /** Discovered bridge capabilities; present once connected (CD-0 §3.3). */
+  capabilities?: GameCapabilities
 }
 
 export interface GameHostObservationResult {
@@ -151,6 +172,20 @@ export interface GameDomainResult {
   checked: boolean
   commandId: string | null
   endReason: string
+  /**
+   * CD-0 §3.3: which result phases were actually observed.
+   *
+   * Requested, accepted, client-executed and server-settled are separate
+   * facts; a phase stays false until observed, and `unobserved` names the
+   * phases that could not be confirmed.
+   */
+  resultPhases?: {
+    requested: boolean
+    accepted: boolean
+    clientExecuted: boolean
+    serverSettled: boolean
+    unobserved: string[]
+  }
   finalSnapshot?: {
     position: { x: number, y: number, z: number }
     health: number
