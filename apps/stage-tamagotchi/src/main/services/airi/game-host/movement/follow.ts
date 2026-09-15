@@ -241,7 +241,11 @@ export async function runWalkRun(options: {
       // impossible edge, and the "dead end" the user saw was a phantom one).
       if (pendingCell.y - position.y > MAX_STEP_JUMP_RISE) {
         debug?.(`run rejected: rise ${(pendingCell.y - position.y).toFixed(2)} at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
-        return { status: 'stuck', cursor, position }
+        // The failed edge is the rejected one, not the one before it: the
+        // executor derives its retry target from this cursor and retried an
+        // already completed edge, then charged the rejected edge again from a
+        // different entry (live chain review).
+        return { status: 'stuck', cursor: pendingIndex, position }
       }
       // Step 2: with collision shapes, prove the hop first. A missing landing
       // support, a ceiling, or a wall inside the flight rejects the edge here so
@@ -254,7 +258,7 @@ export async function runWalkRun(options: {
         if (!planned.ok) {
           if (planned.reason !== 'not-a-jump') {
             debug?.(`run rejected: ${planned.reason} (${planned.detail ?? ''}) at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
-            return { status: 'stuck', cursor, position }
+            return { status: 'stuck', cursor: pendingIndex, position }
           }
         }
         else {
@@ -262,18 +266,20 @@ export async function runWalkRun(options: {
         }
       }
       climbLatch = { cell: pendingCell, ...(plan ? { plan } : {}) }
-      // Step 3: hand the hop to the mod's per-tick task when the bridge has it.
-      // The task aims and jumps a tick at a time; the host only submits and
-      // reads the real landing back, because its 150 ms polls cannot time a
-      // takeoff or correct a landing.
-      if (plan && port.startJump) {
+      // Step 3 delegation is an execution strategy, separate from the landing
+      // strategy inside the plan. The per-tick task is used ONLY for the run's
+      // final hop, where arrival precision is the whole point (the isolated
+      // pad); a continuous narrow chain keeps the host's proven latch rhythm,
+      // and control is never handed over mid-hop. `plan.brake` describes the
+      // landing, not the strategy, so it must not select the executor.
+      if (plan && port.startJump && pendingIndex === cells.length - 1) {
         const finalEdge = pendingIndex === cells.length - 1
         const outcome = await followJumpTask({ port, plan, sleep, now, shouldStop })
         if (outcome.outcome === 'cancelled')
           return { status: 'cancelled', cursor, position }
         if (outcome.outcome === 'failed') {
-          debug?.(`run jump task failed at ${plan.takeoff.x.toFixed(2)},${plan.takeoff.z.toFixed(2)} -> ${plan.takeoff.x + plan.direction.x * plan.flight},${plan.takeoff.z + plan.direction.z * plan.flight}`)
-          return { status: 'stuck', cursor, position }
+          debug?.(`run jump task failed at ${plan.takeoff.x.toFixed(2)},${plan.takeoff.z.toFixed(2)} -> ${plan.target.x.toFixed(2)},${plan.target.z.toFixed(2)}`)
+          return { status: 'stuck', cursor: pendingIndex, position }
         }
         climbLatch = undefined
         lastAdvanceAt = now()
