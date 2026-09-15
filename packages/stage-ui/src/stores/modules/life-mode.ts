@@ -19,6 +19,7 @@ import { useChatStore } from '../chat'
 import { useChatSessionStore } from '../chat/session-store'
 import { useJournalStore } from '../journal'
 import { useTaskStore } from '../tasks'
+import { labelGameFact, useGameWorldStore } from './game-world'
 import { useMemoryStore } from './memory'
 
 export type LifeMode = 'off' | 'respond' | 'autonomous'
@@ -145,6 +146,85 @@ const STALE_CANDIDATE_AGE_MS = 6 * 60 * 60_000
 /** Repeated event IDs remain consumed; equivalent new events can recur after 30 minutes. */
 const NOVELTY_WINDOW_MS = 30 * 60_000
 
+/** Game domain tools whose results enter the compressed consideration matrix. */
+const GAME_ACTION_TOOL_NAMES = new Set(['game_observe', 'game_move_to', 'game_status', 'game_cancel', 'game_say', 'game_collect', 'game_follow'])
+/** Read-only game tools: a clean answer is steady state, not a change. */
+const READ_ONLY_GAME_TOOL_NAMES = new Set(['game_observe', 'game_status'])
+
+/** The subset of a serialized game result the consideration matrix needs. */
+interface GameResultSummary {
+  status?: string
+  endReason?: string
+  finalSnapshot?: { health?: number }
+  world?: { worldId?: string }
+}
+
+function parseGameResult(toolName: string, summary: string): GameResultSummary | undefined {
+  if (!GAME_ACTION_TOOL_NAMES.has(toolName))
+    return undefined
+  try {
+    const parsed: unknown = JSON.parse(summary)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      return undefined
+    return parsed as GameResultSummary
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Compresses one game tool result into at most one consideration candidate
+ * (mc-1b D3).
+ *
+ * A clean read-only answer is the steady state — the Minecraft context
+ * provider already carries current world facts, so it must not wake the model.
+ * Abnormal terminals (failures, cancels, reflex preemption, death) become one
+ * candidate each; the world id stays in the novelty key so equivalent events
+ * from different worlds are not merged.
+ */
+function projectGameCandidate(event: Extract<JournalEvent, { type: 'tool/result' }>): ConsiderationCandidate | undefined {
+  const result = parseGameResult(event.toolName, event.summary)
+  if (!result)
+    return undefined
+  const worldId = result.world?.worldId ?? 'connection-scoped'
+  const health = result.finalSnapshot?.health
+
+  if (typeof health === 'number' && health <= 0) {
+    return {
+      ref: `game:${event.seq}`,
+      kind: 'activity',
+      fact: `The game player died in world ${worldId}.`,
+      summary: `The game player died in world ${worldId}.`,
+      occurredAt: event.timestamp ?? 0,
+      noveltyKey: `game:death:${worldId}`,
+      salience: 1,
+    }
+  }
+
+  if (event.ok && READ_ONLY_GAME_TOOL_NAMES.has(event.toolName))
+    return undefined
+
+  const endReason = result.endReason ?? (event.ok ? 'ok' : 'failed')
+  const abnormal = !event.ok || (result.status !== undefined && result.status !== 'ok')
+  if (!abnormal)
+    return undefined
+
+  const preempted = endReason === 'reflex_preempted'
+  const fact = preempted
+    ? `A survival reflex preempted ${event.toolName} in world ${worldId}; the interrupted task needs a new decision.`
+    : `Game action ${event.toolName} ended abnormally in world ${worldId}: ${endReason}.`
+  return {
+    ref: `game:${event.seq}`,
+    kind: 'activity',
+    fact,
+    summary: fact,
+    occurredAt: event.timestamp ?? 0,
+    noveltyKey: preempted ? `game:reflex:${worldId}` : `game:${event.toolName}:${endReason}:${worldId}`,
+    salience: preempted ? 0.8 : 0.5,
+  }
+}
+
 const getSpeechPlaybackState = defineInvoke(getSpeechBusContext(), speechOutputGetPlaybackState)
 
 let port: LifeModePort | undefined
@@ -196,6 +276,12 @@ function projectEventCandidate(event: JournalEvent): ConsiderationCandidate | un
   }
 
   if (event.type === 'tool/result' && !SELF_DECISION_TOOL_NAMES.has(event.toolName)) {
+    // MC-1b: game results compress through their own matrix. A game tool that
+    // produced no candidate (clean read-only answer, clean success) must not
+    // fall back to the generic activity bucket.
+    if (GAME_ACTION_TOOL_NAMES.has(event.toolName))
+      return projectGameCandidate(event)
+
     const fact = `Tool ${event.toolName} ${event.ok ? 'completed' : 'failed'}.`
     return {
       ref: `tool:${event.seq}`,
@@ -299,6 +385,8 @@ export function buildConsiderationStimulus(input: {
   now: number
   mood?: { valence: number, arousal?: number }
   memoryFacts?: readonly MemoryFragment[]
+  /** Current game world; memory facts from other worlds are labeled historical. */
+  gameWorld?: { worldId: string, connectionId?: string, connectionGeneration: number, dimension?: string }
 }): ConsiderationStimulus | undefined {
   const decision = latestDecision(input.events)
   const watermark = decision?.consideredThroughSeq ?? 0
@@ -330,8 +418,10 @@ export function buildConsiderationStimulus(input: {
 
   for (const memoryFact of input.memoryFacts ?? []) {
     const candidate = projectMemoryCandidate(memoryFact)
-    if (candidate)
-      candidates.push(candidate)
+    if (!candidate)
+      continue
+    const labeled = labelGameFact(candidate.summary, memoryFact.sourceContext?.gameWorld, input.gameWorld, input.now)
+    candidates.push({ ...candidate, fact: labeled, summary: labeled })
   }
 
   const lastUserMessage = input.events.findLast((event): event is Extract<JournalEvent, { type: 'user/message' }> => event.type === 'user/message')
@@ -619,12 +709,23 @@ export const useLifeModeStore = defineStore('life-mode', () => {
     const memoryFacts = typeof chat.memoryScope === 'object' && chat.memoryScope
       ? await memoryStore.listShareableFacts(chat.memoryScope, MAX_SHAREABLE_MEMORY_FACTS)
       : []
+    const observation = useGameWorldStore().latest
 
     const stimulus = buildConsiderationStimulus({
       events: journalStore.events,
       now: payload.timestamp,
       mood: memoryStore.currentMood,
       memoryFacts,
+      ...(observation
+        ? {
+            gameWorld: {
+              worldId: observation.worldId,
+              connectionId: observation.connectionId,
+              connectionGeneration: observation.connectionGeneration,
+              dimension: observation.dimension,
+            },
+          }
+        : {}),
     })
     if (!stimulus) {
       const dreamResult = await memoryStore.runAutomaticDreaming({ now: payload.timestamp, scope: { ...chat.memoryScope } })

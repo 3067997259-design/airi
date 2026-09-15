@@ -11,8 +11,8 @@ import { useGithubConfigStore } from '../stores/github-config'
 import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useDiscordStore } from '../stores/modules/discord'
+import { useGameHostStore } from '../stores/modules/game-host'
 import { useFactorioStore } from '../stores/modules/gaming-factorio'
-import { useMinecraftStore } from '../stores/modules/gaming-minecraft'
 import { useHearingStore } from '../stores/modules/hearing'
 import { useLifeModeStore } from '../stores/modules/life-mode'
 import { useMemoryStore } from '../stores/modules/memory'
@@ -46,7 +46,7 @@ export function useModulesList() {
   const twitterStore = useTwitterStore()
   const githubStore = useGithubConfigStore()
   const webSearchStore = useWebSearchStore()
-  const minecraftStore = useMinecraftStore()
+  const gameHostStore = useGameHostStore()
   const factorioStore = useFactorioStore()
   const artistryStore = useArtistryStore()
   const memoryStore = useMemoryStore()
@@ -55,7 +55,7 @@ export function useModulesList() {
   const beatSyncState = ref<BeatSyncDetectorState>()
   const beatSyncSupported = isBeatSyncSupported()
 
-  minecraftStore.initialize()
+  void gameHostStore.ensureLoaded()
 
   const modulesList = computed<Module[]>(() => [
     {
@@ -199,7 +199,7 @@ export function useModulesList() {
       description: t('settings.pages.modules.gaming-minecraft.description'),
       iconColor: 'i-vscode-icons:file-type-minecraft',
       to: '/settings/modules/gaming-minecraft',
-      configured: minecraftStore.configured,
+      configured: gameHostStore.configured,
       category: 'gaming',
     },
     {

@@ -1,4 +1,5 @@
 import type { ChatHistoryItem, JournalEvent, JournalEventInput } from '@proj-airi/core-agent'
+import type { MemoryFragment } from '@proj-airi/memory-core'
 
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -136,6 +137,108 @@ describe('buildConsiderationStimulus', () => {
 
   it('returns no stimulus when no new fact or idle presence exists', () => {
     expect(buildConsiderationStimulus({ events: [], now: 1_000 })).toBeUndefined()
+  })
+
+  it('never wakes the model for a clean read-only game answer (mc-1b)', () => {
+    const events: JournalEvent[] = [
+      journalEvent({ type: 'tool/result', toolName: 'game_observe', ok: true, outcome: 'ok', summary: JSON.stringify({ status: 'ok', endReason: 'observed', world: { worldId: 'world-1' } }), timestamp: 1_000 }, 1),
+      journalEvent({ type: 'tool/result', toolName: 'game_status', ok: true, outcome: 'ok', summary: JSON.stringify({ status: 'ok', endReason: 'idle', world: { worldId: 'world-1' } }), timestamp: 2_000 }, 2),
+    ]
+
+    expect(buildConsiderationStimulus({ events, now: 3_000 })).toBeUndefined()
+  })
+
+  it('compresses abnormal game terminals, separates worlds, and stays consumed', () => {
+    const gameResult = (status: string, endReason: string, worldId: string, health = 20) =>
+      JSON.stringify({ status, endReason, finalSnapshot: { health }, world: { worldId } })
+    const events: JournalEvent[] = [
+      journalEvent({ type: 'tool/result', toolName: 'game_collect', ok: false, outcome: 'failed', summary: gameResult('failed', 'no_progress', 'world-1'), timestamp: 1_000 }, 1),
+      journalEvent({ type: 'tool/result', toolName: 'game_move_to', ok: true, outcome: 'ok', summary: gameResult('failed', 'reflex_preempted', 'world-1'), timestamp: 2_000 }, 2),
+      journalEvent({ type: 'tool/result', toolName: 'game_move_to', ok: true, outcome: 'ok', summary: gameResult('failed', 'reflex_preempted', 'world-2'), timestamp: 3_000 }, 3),
+    ]
+
+    const stimulus = buildConsiderationStimulus({ events, now: 4_000 })
+    expect(stimulus?.candidates.map(candidate => candidate.ref).sort()).toEqual(['game:1', 'game:2', 'game:3'])
+    // The same reflex cause in another world is a different event.
+    expect(stimulus?.candidates.find(candidate => candidate.ref === 'game:2')?.salience).toBe(0.8)
+    expect(JSON.stringify(stimulus)).not.toContain('Tool game_move_to')
+
+    const consumed: JournalEvent[] = [
+      ...events,
+      journalEvent({ type: 'life/decision', heartbeatId: 'h1', decisionId: 'd1', action: 'silence', reason: 'seen', sourceRefs: ['game:1', 'game:2', 'game:3'], consideredThroughSeq: 3, timestamp: 4_000 }, 4),
+    ]
+    expect(buildConsiderationStimulus({ events: consumed, now: 5_000 })).toBeUndefined()
+  })
+
+  it('treats a zero-health game snapshot as a death candidate (mc-1b)', () => {
+    const events: JournalEvent[] = [
+      journalEvent({ type: 'tool/result', toolName: 'game_move_to', ok: false, outcome: 'failed', summary: JSON.stringify({ status: 'failed', endReason: 'deadline', finalSnapshot: { health: 0 }, world: { worldId: 'world-1' } }), timestamp: 1_000 }, 1),
+    ]
+
+    const stimulus = buildConsiderationStimulus({ events, now: 2_000 })
+    expect(stimulus?.candidates[0]).toMatchObject({ ref: 'game:1', salience: 1 })
+    expect(stimulus?.candidates[0]?.fact).toContain('died in world world-1')
+  })
+
+  it('labels another world’s game fact as historical and a stale one for re-observation (mc-1b)', () => {
+    const now = 10_000_000
+    const memoryFact = (gameWorld: { worldId: string, connectionId?: string, connectionGeneration: number, dimension: string, observedAt: number }): MemoryFragment => ({
+      id: 'memory-chest',
+      content: 'A chest with iron sits at 100 64 100.',
+      memoryType: 'short_term',
+      category: 'life',
+      importance: 8,
+      emotionalImpact: 0,
+      createdAt: now - 60_000,
+      lastAccessed: now - 60_000,
+      accessCount: 1,
+      valence: 0,
+      arousal: 0,
+      halfLifeHours: 24,
+      sessionIds: ['session-1'],
+      reviewStatus: 'approved',
+      factStatus: 'active',
+      scope: { userId: 'local', characterId: 'default' },
+      sourceContext: { sessionId: 'session-1', messageId: 'message-1', sourceType: 'chat', gameWorld, neighbors: [] },
+    })
+    const current = { worldId: 'world-b', connectionId: 'connection-b', connectionGeneration: 1, dimension: 'minecraft:overworld' }
+
+    const historical = buildConsiderationStimulus({
+      events: [],
+      now,
+      memoryFacts: [memoryFact({ worldId: 'world-a', connectionId: 'connection-a', connectionGeneration: 1, dimension: 'minecraft:overworld', observedAt: now - 60_000 })],
+      gameWorld: current,
+    })
+    expect(historical?.candidates[0]?.summary).toContain('Historical (world world-a, minecraft:overworld)')
+    expect(historical?.candidates[0]?.summary).toContain('Not a current fact')
+
+    const stale = buildConsiderationStimulus({
+      events: [],
+      now,
+      memoryFacts: [memoryFact({ worldId: 'world-b', connectionId: 'connection-b', connectionGeneration: 1, dimension: 'minecraft:overworld', observedAt: now - 31 * 60_000 })],
+      gameWorld: current,
+    })
+    expect(stale?.candidates[0]?.summary).toContain('Needs re-observation')
+    expect(stale?.candidates[0]?.summary).toContain('31 minutes ago')
+
+    const fresh = buildConsiderationStimulus({
+      events: [],
+      now,
+      memoryFacts: [memoryFact({ worldId: 'world-b', connectionId: 'connection-b', connectionGeneration: 1, dimension: 'minecraft:overworld', observedAt: now - 60_000 })],
+      gameWorld: current,
+    })
+    expect(fresh?.candidates[0]?.summary).not.toContain('Historical')
+    expect(fresh?.candidates[0]?.summary).not.toContain('Needs re-observation')
+
+    // The fork reports no stable world id: the per-connect id is the scope
+    // key, so a fact from an earlier connection is history.
+    const reconnected = buildConsiderationStimulus({
+      events: [],
+      now,
+      memoryFacts: [memoryFact({ worldId: 'connection-scoped', connectionId: 'connection-old', connectionGeneration: 3, dimension: 'minecraft:overworld', observedAt: now - 60_000 })],
+      gameWorld: { worldId: 'connection-scoped', connectionId: 'connection-new', connectionGeneration: 4, dimension: 'minecraft:overworld' },
+    })
+    expect(reconnected?.candidates[0]?.summary).toContain('Historical (world connection-scoped#connection-old')
   })
 
   it('does not repeat a presence candidate that a prior decision consumed', () => {
@@ -408,5 +511,45 @@ describe('life-mode consideration heartbeat', () => {
     }))
     await vi.waitFor(() => expect(recordGate).toHaveBeenCalledWith('tools-unavailable'))
     expect(lifeStore.snapshot.lastGate).toBe('tools-unavailable')
+  })
+
+  it('stops new planning when the daily budget is exhausted, not running commands (mc-1b D4)', async () => {
+    const snapshot = {
+      config: { ...useLifeModeStore().snapshot.config, mode: 'autonomous' as const, dailyBudget: 2 },
+      revision: 2,
+      budgetUsed: 2,
+      budgetDateKey: '2026-09-04',
+    }
+    const claimDecision = vi.fn().mockResolvedValue({ claimed: false, gate: 'budget', snapshot })
+    const recordGate = vi.fn().mockResolvedValue({ ...snapshot, lastGate: 'budget' })
+    installLifeModePort({
+      getSnapshot: async () => snapshot,
+      setConfig: async () => snapshot,
+      claimDecision,
+      recordGate,
+      requestTestHeartbeat: async () => ({ emitted: false, gate: 'budget', snapshot }),
+      isHeartbeatConsumer: () => true,
+      onSnapshot: () => () => {},
+      onHeartbeat: () => () => {},
+    })
+    const lifeStore = useLifeModeStore()
+    lifeStore.snapshot.config.mode = 'autonomous'
+    // A stimulus exists: an abnormal game terminal normally wakes the model.
+    useJournalStore().append('session-1', {
+      type: 'tool/result',
+      toolName: 'game_collect',
+      ok: false,
+      outcome: 'failed',
+      summary: JSON.stringify({ status: 'failed', endReason: 'no_progress', world: { worldId: 'world-1' } }),
+      timestamp: 1,
+    })
+
+    await lifeStore.onLifeHeartbeat({ heartbeatId: 'heartbeat-budget', reason: 'schedule', timestamp: 31 * 60_000 })
+
+    // The budget gate blocks only the model turn; the game command is owned by
+    // the main-process registry and keeps running to its deadline or cancel.
+    expect(claimDecision).toHaveBeenCalledWith('heartbeat-budget')
+    expect(chat.send).not.toHaveBeenCalled()
+    expect(useJournalStore().events).toContainEqual(expect.objectContaining({ type: 'life/heartbeat', gate: 'budget' }))
   })
 })
