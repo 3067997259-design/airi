@@ -2,7 +2,7 @@
 
 日期：2026-09-09。状态：计划定稿，实施未开始。
 
-本文件把 [Fabric 实现方向](./minecraft-fabric-implementation-direction.md) 和 [勘探记录](./extension-and-minecraft-exploration.md) 落成可执行批次。方向文档负责"为什么这样设计"；本文件负责"具体做什么、契约长什么样、怎样算通过"。四项方向性决策已由用户确认，记录于下。批次代号沿用 MC-0a…MC-1c，新增 MC-0d（生存反射）。
+本文件把 [Fabric 实现方向](./minecraft-fabric-implementation-direction.md) 和 [勘探记录](./extension-and-minecraft-exploration.md) 落成可执行批次。方向文档负责"为什么这样设计"；本文件负责"具体做什么、契约长什么样、怎样算通过"。四项方向性决策已由用户确认，记录于下。批次代号沿用 MC-0a…MC-1c，新增 MC-0d（生存反射）；2026-09-12 追加 MC-2 内容模组探索实验批次（[独立文档](./mc-2-content-mod-exploration.md)，放在最后、默认关闭）。
 
 ## 决策记录
 
@@ -12,6 +12,7 @@
 | D2 | 玩家形态 | 独立 Fabric 客户端 + 离线身份；**两种环境都要能玩**：(A) 本地 offline 专用服（验收夹具），(B) LAN 联机/自建服关正版验证（陪玩环境） | 不购第二正版账号。online-mode=true 的公网服不在首批范围。两种环境共用同一客户端与身份；验收夹具只在环境 A 执行，环境 B 做主线冒烟 |
 | D3 | 生存反射 | **首批完整反射**：escape-hazard、auto-eat、defend 全部进 Fabric 执行器（MC-0d） | 用户确认：陪玩角色从第一批起就要能在野外活下来。新增 Java 反射模块 P3，验收夹具逐项覆盖。若 MC-0d 超期需降级，顺序为 escape-hazard（保命）→ auto-eat → defend（先简化为脱离战斗），降级需用户确认 |
 | D4 | 版本策略 | 从 1.21.1 起步；所有 MC 版本相关改动限制在 mod 层（我们的 MCPFabric fork），TS 适配器版本无关 | 利用 MCPFabric 的 Stonecutter 多版本构建，让补丁可移植到其支持的其他版本（1.21.1–1.21.11、26.x）。TS 侧通过 `get_status` 发现版本，契约带版本字段；MC-0a 追加一次 1.21.11 只读移植冒烟 |
+| D5 | 内容模组探索（MC-2） | 最后实验批次（2026-09-12 立项）：复用既有记忆/RAG 与 web 工具，让 AIRI 从模组数据、游戏内实测与权威 web 来源学习新内容；默认关闭、独立世界与固定模组集，知识以 modset 版本为有效期 | 实验性质：不新建 RAG 引擎、不自动下载/安装模组、web 只作未验证线索、游戏内实测是唯一可置信来源。详见 [MC-2 内容模组探索](./mc-2-content-mod-exploration.md) |
 
 ## 架构与所有权
 
@@ -131,8 +132,12 @@ stdio 子进程监管沿用近期 MCP stdio 会话生命周期的模式（提交
 | MC-1a | collect/say 上线；跟随、少量采集、补给与聊天 | MC-0c、MC-0d | 采集数量用采集事件核对；新指令可打断跟随；反射与任务行为整合无死锁 |
 | MC-1b | 世界作用域记忆、事件压缩、预算约束 | MC-1a | 旧坐标不当作当前事实；无变化不重复调用模型；预算耗尽时有界动作仍服从截止与取消 |
 | MC-1c | 一个经审阅组合技能及修订流程 | MC-1a、EP-1 | 成功、缺条件、取消、撤销、内容变更五类情形可核对 |
+| MC-2a | 内容模组知识获取：模组数据只读解析 + 游戏内实测验证 + 结构化入库与检索 | MC-1b；**MQ-2**（记忆质量闸门）；EP-1（若同批固化技能） | 无预置知识下学会 ≥1 个配方/用途并用可核对动作验证；来源/时间/有效期可追溯；模组版本变化后旧记录不再当事实 |
+| MC-2b | 权威来源 web 学习：检索 → 解析 → 候选 → 实测转 verified | MC-2a | 检索只产候选（URL+时间）；无实测不入库为 verified；web 注入不影响工具行为 |
+| MC-2c | 好奇心驱动的探索循环（未知 → 计划 → 实验 → 记录 → 复用） | MC-2a、MC-1b 预算、life-mode 空闲闸门 | 空闲窗口完成一次完整闭环且第二次直接复用；预算/停止有界收敛 |
+| MC-2d（条件） | 探索流程固化为经审阅技能 | MC-2c；EP-2a（若走包分发） | 复用 SG/EP 审阅与修订五类情形可核对 |
 
-MC-0a/b/d 不依赖 EP-0，可与 EP-0 并行；MC-0c 是自主行动门，必须等 EP-0 落地。MC-0d 与 MC-0c 可并行（前者游戏侧、后者接线侧）。
+MC-0a/b/d 不依赖 EP-0，可与 EP-0 并行；MC-0c 是自主行动门，必须等 EP-0 落地。MC-0d 与 MC-0c 可并行（前者游戏侧、后者接线侧）。**MC-2 是最后实验批次**：依赖 MC-1b 与 MQ-2，与 CP-2/EP-2 平台线无前置耦合，默认关闭。
 
 ## 验收场景
 
@@ -162,7 +167,16 @@ MC-0a/b/d 不依赖 EP-0，可与 EP-0 并行；MC-0c 是自主行动门，必�
 - [EP-0](./extension-and-minecraft-exploration.md)（工具标识、来源、权限、在途撤销）是 MC-0c 前置；MC-0a/b/d 可先行。
 - MC-1c 复用 [SG](./skill-growth-plan.md) 的审阅与修订流程和 EP-1 的固定适配器边界。
 - MC-1b 关联 [MQ](./memory-quality-plan.md) 与 [SP](./social-presence-plan.md)；持久化与恢复关联 [MD](./maintainability-and-data-plan.md)；长期目标关联 [LG](./long-horizon-goals-plan.md)。
+- [MC-2](./mc-2-content-mod-exploration.md) 依赖 MC-1b 与 MQ-2（记忆质量闸门）；知识存储复用 MQ/MD 链路，技能固化复用 EP/SG，探索触发复用 LIFE/SP，不新造记忆、调度或技能机制。
 - 方向文档的研究结论（六项目取舍、源码证据）继续作为本计划的依据层，不在此重复。
+
+## 候选固定记录（MC-0a，2026-09-11）
+
+- fork：`https://github.com/3067997259-design/mcpfabric`（parent `Etoryx/mcpfabric`），本地 `D:\mcpfabric`。
+- 固定 commit：`1881470282f2c893a6aedc06390bff5984694e04`（v0.2.1，2026-07-30），分支 `main`。
+- 许可：MIT。MC 范围：Stonecutter 13 节点，1.21.1–1.21.11 与 26.1.2/26.2。
+- 构建：`:1.21.1:build` 成功；jar `mcpfabric-0.2.1+1.21.1.jar`，SHA-256 `9157530201c9a775fa93d77f4e5f40e516822e8e428e4ef620054715c41341bf`；MCP server `npm ci && npm run build` 成功。
+- 细节与运行命令见 [固定记录](./evidence/mc-0a/mcpfabric-pin.md)。
 
 ## 本轮交付与检查
 

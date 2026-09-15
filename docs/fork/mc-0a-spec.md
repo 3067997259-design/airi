@@ -238,6 +238,15 @@ export interface GameWorldIdentity {
 - [ep-0-spec.md](./ep-0-spec.md)：`game_adapter` ownerKind 与 `game` 证据桶供 MC-0c；MC-0a 不注册工具面故不触及。
 - [cp-0-spec.md](./cp-0-spec.md)：无关；MC-0a 不经插件协议。
 
+## 实施修正记录（2026-09-11）
+
+固定 fork commit 后按源码核对，两处与规范文字有最小偏离：
+
+1. **`get_status` 不返回世界字段**。实际只返回 `minecraftVersion` 与 side/capabilities 等。`worldId` 按规范回退为 `connection-scoped`；`dimension` 改从 `get_self`（`player.getState`，客户端专属）读取；`playerUuid` 两个读工具都不提供，留空。`game-host` 连接后调 `get_status`，再 best-effort 调 `get_self` 合并缓存，验收要求的"能读出 `minecraftVersion` 且非空"不变。
+2. **token 拓扑澄清**。game-host 直连的 Node MCP server 的 HTTP 端点只绑定 loopback、不校验 Authorization；真正需要 token 的是 Node server 到模组桥（`127.0.0.1:25599`），token 经 `MCPFABRIC_TOKEN` 环境变量传入。`game-host.json` 的 token 仍按规范作为 `Authorization: Bearer` 发送（直连型端点保留契约）。
+
+细节与构建指纹见 [固定记录](./evidence/mc-0a/mcpfabric-pin.md)。
+
 ## 本轮交付与检查
 
 本轮只新增本规范文档并更新 MODS.md 索引。未安装 MCPFabric、未建 fork、未编写 Java、未运行游戏、未改动产品代码。MCPFabric 的端口与端点以其实际配置为准；规范只钉 loopback 约束与配置来源。文中代码锚点为 2026-09-11 工作区实际位置，行号漂移以符号名为准。

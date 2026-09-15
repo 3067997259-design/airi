@@ -3,6 +3,325 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## Minecraft 能力深化设计（2026-09-14，尚未实施）
+
+完成 [能力深化总方案](./capability-deepening-plan.md)、地面走廊方案及六个专题：空中跟随、长距离定位、鞘翅三维导航、投射物弹道、工具与挖矿、载具旅行。先更新执行计划 §10，再给出共同控制与观测契约、候选取舍、实施依赖、批次及需主流程采集的真机验收。
+
+本轮重新核对移动修复批 1–4、鞘翅增量与 R8/R9；澄清 Z 字抖动指沿坐标轴交替走，并校正草稿中 `query_entities` 的实际路由。现有 game-host 测试 **261 通过 / 1 跳过**；新增独立证据 **1 项对照 / 4 项预期失败**，复现上台阶误分段、跳过首拐点、斜向转弯不减速、缺失玩家状态伪造着地。预期失败表示问题仍存在。本轮只写设计和复现材料，未修改生产代码或外置模组，未操作真机。
+
+桌面包 typecheck、文档与复现材料的定向 ESLint、全仓 `pnpm lint` 通过；全仓保留既有警告。
+
+## Minecraft 能力复审与移动建议（2026-09-14）
+
+新增 [能力复审与移动改进建议](./minecraft-capability-review-20260914.md)。对照 MC-3c、MC-4a–f、真机记录及 AIRI/外置模组源码，确认能力提升，并记录角点瞄准、快照污染、材料记账、小数目标、重规划重复失败、鞘翅扫描与停止、菜单数据包、远程归属问题。给出地面连续路径跟随、三维飞行与落地计划的实施顺序。新增独立证据：平地四象限对照通过，七项错误通过预期失败测试复现，本机 1.21.1 字节码确认铁砧改名与交易选择缺服务器数据包。现有 game-host 测试 204 通过 / 1 跳过。本轮仅审查文档与复现材料，未修运行时代码，未重跑真机，长期目标与自由游玩仍为设计阶段。
+
+本轮同时清理 `chat-trigger-spec.md` 的代码块格式和 `mc-4e-spec.md` 的未使用引用。桌面包 typecheck、全仓 `pnpm lint` 通过（保留既有警告）。
+
+## 模组 0.2.15：信标原语 + 天气诊断 + backlog §9 落实（2026-09-14）
+
+- **模组 0.2.15**：`menu.set_beacon_effects`（primary/secondary → `ServerboundSetBeaconPacket`；`menu_not_beacon`/`no_effect` 类型化失败；mcp-server 注册 `menu_set_beacon_effects`，并修正 `menu_button` 描述里已被证伪的 beacon 说法）；`movement.riptideStatus` 补 `inWater`/`inRain`/`rainLevel`（`isInRain` 私有，用公开 API 等价实现）。jar SHA-256 `0e6ec6eaf4c18eeafa6adead2ab54fe5b11d9df71d5a9b1b0071faed570a4ab1`。
+- **AIRI**：`game_menu_action {action:'beacon'}`（`beacon_applied`/`beacon_sent`，2 秒状态效果有界核对）；§9-1 绑定缺失补建、§9-3 `unmetDetail` 透传、§9-4 激流耐久有界轮询、§9-6 凹洞掉落一次恢复 + `dropPosition`、§9-7 结算后新鲜读取改 2 秒有界（根因：`executeDomainCommand` 的无界 `readFreshSnapshot` 让 promise 不回）。定向 **272 passed / 1 skipped**、typecheck 0、eslint 0。
+- **深度考察草稿**：[capability-deepening-draft.md](./capability-deepening-draft.md)（鞘翅跟飞、长距离定位回退、重力弹道、挖矿工具、载具取得、鞘翅深度），待另派模型设计。
+- **真机复测（2026-09-15 凌晨，客户端 0.2.15）**：信标 `game_menu_action {action:'beacon', primary:'minecraft:speed'}` → **`beacon_applied` + `applied:true`**（4 秒窗口修复后）；`riptide_unavailable` 回执带 **`unmetDetail {inWater:false, inRain:false, rainLevel:1}`** ✓——诊断字段正好暴露“雨量=1 但 `isRainingAt` 为假”的客户端不一致细节。两项修复后全量 **272 passed / 1 skipped**。MCP 服务更新时需重建 dist 并**按端口占用杀旧 node**（按命令行匹配会漏）。
+
+## 鞘翅剩余项 + R9 远程归属（2026-09-14，真机验收待做）
+
+- **鞘翅剩余（AIRI 侧）**：就近落点选择（取消/低补给/低血/进近超时沿航向前扫 ≤24 格选安全地面列，扫描失败回退且有 `(unverified)` 标记）、巡航+进近合并 `try/finally` 释放输入、飞行中每 100 tick 刷新鞘翅耐久（低于阈值转 `safety`）、一次有界复飞。新增 6 例；定向 **253 passed / 1 skipped**。
+- **R9 远程归属（模组 0.2.14 + AIRI）**：瞄准每 tick 重读目标位置 + 预计飞行时间预判（友军检测同线）、死亡事件补 `attackerUuid`/`projectileUuid`、击杀归属仅在可关联时成立（`killEvidence ∈ projectile|attacker|window`，否则 `unobservedTargetDeath` 保留死亡事实）、忠诚返回按已发投射物 UUID/库存差判定。jar SHA-256 `801a77185dc1a8c3b1a1d9d44f932dfef16c747ca8a7e6bd54bc1ee3775d9476`；新增 8 例，定向 **261 passed / 1 skipped**、typecheck 0、eslint 0；mcp-server 未改。**注意**：`BotController.java` 曾被写入 BOM 导致 stonecutter 生成文件编译失败，已去 BOM 重建。
+- **真机验收（2026-09-14 晚，客户端 0.2.14 + 服务端 0.2.14）**：
+  - 鞘翅：**塔→庭院全程飞行 `reached`**（落点误差 0.9）、**低补给早降 `elytra_low_supply`**（离目标 64.7 格诚实落地）PASS。
+  - R9 复测：忠诚三叉戟 **`returned:true` + `endReason:returned`**（修复：击杀后三叉戟不再被立即 `combat_cancel`，交给模组的回返跟踪；AIRI 侧改动，无模组版本变更）；击杀归属 **`killEvidence:projectile`**（服务端升 0.2.14 后死亡事件带投射物 UUID）；**备用三叉戟不误报**（投普通、背包留忠诚 → `returned:false` + `return_pending`）PASS；弓/三叉戟击杀 `killed:true`、`hitEvidence:entity_death`、`aimSource:fresh`。
+  - **基建**：`%TEMP%` 清理会删除 `mcserver-wrap.cmd` / `mcp-wrap-*.cmd` / `airi-wrap.cmd`（已多次重建，服务器重启后需检查）。
+
+## 鞘翅修复批（R6 扫描 + R7 部分，2026-09-14）
+
+走廊横向筛选（`CORRIDOR_HALF_WIDTH=1.5`）与两层垂直检查、走廊内不可读方块按障碍；进近独立截止 `APPROACH_TIMEOUT_MS=40s`；烟花多组自动换槽。新增 6 例（横向 18 格不爬升等）；定向 **247 passed / 1 skipped**、typecheck 0、eslint 0。**仍待**：就近落点、复飞、飞行中耐久刷新、真机飞行验收。
+
+## 移动基础修复批 4 完成（2026-09-14）
+
+R5 尾项与长距离：失败边跨腿共享（每次写命令一份）、`FailedEdge.id` + `validatedFailedEdges` 按方块变化失效、`splitRoute`/`runTerrainRoute` 长距离分段（>32 格按 16 格一跳、局部读区）。定向 **241 passed / 1 skipped**、typecheck 0、eslint 0。**未覆盖**：路由各段的材料预算不递减。
+
+## 移动基础修复批 3 完成（2026-09-14）
+
+失败边记忆（`failedEdges` + TTL/材料失效 + 禁用格绕行）、区域目标（`goalCells`，collect 站位一次搜索取最便宜）、follow 等待态（`keepDistance` 内不跑腿、目标移动阈值、连续 3 腿失败 → `target_unreachable`）。定向 **233 passed / 1 skipped**、typecheck 0、eslint 0。**未覆盖**：失败边的世界方块变化失效、跨腿共享失败边、粗路线+局部窗口（计划批 3 的末项）。
+
+## 移动基础修复批 2 核心完成（2026-09-14）
+
+新增 `movement/follow.ts`：连续行走段（前瞻点按速度缩放、投影游标只前进、转弯收疾跑、按节点期限）；`runTerrainMove` 对纯平走长段一次性跟随（动作/parkour 边界保持单步）。定向 **225 passed / 1 skipped**、typecheck 0、eslint 0。**待做**：批 3（失败边/区域目标/粗路线）。
+
+## 移动基础修复批 1 完成（1.1–1.4，2026-09-14）
+
+按[移动基础修复计划](./movement-basis-repair-plan.md)：**1.1 坐标契约**（`coordinates.ts`、站位中心瞄准、7° 容差、`turnAhead`、`move_to` 取整；parkour/动作边界到点停）；**1.2 快照不可变**（冻结 `BlockInfo`、移除 `height += 1`）；**1.3 材料记账**（`remainingAfter` 只扣放置、规划器支配合并、主背包脚手架换槽、去沙）；**1.4 停止所有权（AIRI 侧）**（`StopScope`/`nextStopScope`：读命令不再清写命令停止标志；`elytra` 起飞 try/finally 释放输入）。定向 **224 passed / 1 skipped**、typecheck 0、eslint 0。**待做**：模组边界代次校验、批 2 连续跟随、批 3 失败边与区域目标。
+
+## MC-4g 近战与单块破坏（2026-09-14，代码完成，真机待做）
+
+新增 [mc-4g-melee-and-break-spec.md](./mc-4g-melee-and-break-spec.md)：`game_break`（单块破坏：`break_block` + 有界轮询确认；`already_air`/`out_of_reach`/`not_confirmed` 类型化失败）与 `game_attack`（近战：目标 uuid 固定、武器偏好自动选择、≤12 格内有限腿接近、按血量差/实体消失核对命中与击杀）。配套契约/注册表/事件形状/桥工具/测试（新增 7 例）；定向 213 passed / 1 skipped、typecheck 0、eslint 0。`ensurePlaceItemSelected` 泛化为 `ensureItemSelected` + `ensureHandSelected`。
+
+## 移动基础修复计划（2026-09-14，计划未实施）
+
+新增 [movement-basis-repair-plan.md](./movement-basis-repair-plan.md)：把[能力复审](./minecraft-capability-review-20260914.md) R1–R7/R9 落成三批实施（批 1 坐标契约/快照不可变/材料记账/每命令执行令牌；批 2 连续路径跟随，参考已装 mineflayer-pathfinder 的站位投影；批 3 失败边与区域目标），鞘翅与远程归属独立批；每批把复审 `it.fails` 复现转正为模块测试。R8 已修复复测（模组 0.2.13）。
+
+## MC-4 真机验收进行中（2026-09-14，大部分批次已过）
+
+- **进度**：4a/4b/4f 全 PASS（4f 含 `place`/`read_sign`/`read_item`/`set_name`/`select_trade`/`button`）；4c 的 `supply`/`sleep`/`respawn`/`collect` PASS，`follow` 待测；4d 弓/弩/三叉戟/取消/无箭 PASS，`friendly_blocked` 待测；4e 激流（水中 + 雨中）/条件失败/落地水 PASS，维度切换 PARTIAL。客户端已升到 0.2.12；服务端仍是 0.2.3。
+- **验收中修复（模组 0.2.6–0.2.12）**：0.2.6 `menu.snapshot/button` 对玩家 inventoryMenu 的 `no_menu` 守卫；0.2.7 射击计数（弹药兜底、`maxShots`、每发 `shotVerifiedBy`）；0.2.8/0.2.9 弩装填清除核对、`ItemJson` charged、弩瞄准稳定、`isCrossbowCharged` 空组件；0.2.10 `world.findBlocks` 壳层扫描、预存投射物排除、`friendlyInLine` 误伤守卫；0.2.11/0.2.12 `menu.button` 发送原版按钮点击包（真机：客户端本地 `clickMenuButton` 返回 accepted 但服务端零结算），并修掉嵌套 `ClientMc.call` 死锁（8s 超时后包才发出）。jar SHA-256 `d0f1c70e…c0ad38`。
+- **AIRI 侧**：`game_place` 增 `menu_open` 预检（菜单开启时静默 `not_confirmed` → 诚实失败）；`menu_action button` 回执改为 `sent` + `applied`（有界菜单重读），契约、事件形状与单测同步；采集器补“破块后走到掉落物拾取”和“失败轮有界重试”，接近/拾取支持邻居站位回退（目标方块不可站立导致 `no_path`）。
+- **检查**：game-host 定向 202 passed / 1 skipped；typecheck 0；eslint 0；`:1.21.1:build`、mcp-server build、应用 build 全部成功。
+- **backlog 更新**：能力缺口文档 §2 新增“跟随飞行目标（鞘翅跟飞）”“跟随的长距离定位回退”“移动目标与重力弹道”（P2）；执行计划新增 §9 真机 backlog（维度绑定缺失、移动腿不读新鲜快照、客户端天气事件丢失、激流耐久采样、寻路/搭桥质量、采集拾取凹洞、devtools promise 回传，共 7 项）。
+- **friendly_blocked（真机 PASS）**：玩家进入弹道 0.04 格 → `game_shoot` 拒绝（`friendly_blocked`、零耗箭 63→63）；玩家离开弹道 7.6 格 → 回归正常射击并击杀（箭 63→62）。修正调用参数名（`target` 而非 `targetUuid`）。
+- **`follow`（真机 PASS，含修复）**：初测一步未走（每腿 `no_path`）。**真根因**：follow 传实体小数坐标作目标，规划节点是整数格，目标永不匹配；`missing …` 只是探查越界后的诊断旁注。修复：`runTerrainLeg` 目标 `Math.floor`；另加固落点扫描按 `maxDropDown` 封顶、移动读区域下界 `2*maxDropDown+1`。复测：11 格追到 1 格并保持，期限 `timeout` 干净收尾。单测 203 passed / 1 skipped；typecheck 0；eslint 0。
+- **维度切换（复测 PASS）**：修复 `stopActive` 保留类型化原因（快速返回的执行器不再把 `dimension_changed` 改写成 `cancelled`）后复测：运行中 `move_to` 途中传送到下界 → `cancelled / dimension_changed`、回执保留签发维度；绑定刷新为 the_nether、新维度命令可用；回主世界后旧信封终止、重建后新命令 `reached`。
+- **服务端模组升级（2026-09-14，用户同意重启）**：专用服务器 0.2.3 → **0.2.12**（同 jar SHA-256 `d0f1c70e…c0ad38`），启动 `Done (2.233s)`。验证服务端 `world.findBlocks`：三个测试原木按距离升序返回（3.0 / 7.81 / 9.0 / 14.0，近处优先），夹具已清理；0.2.3 的旧排序/漏近处问题消除。
+- **MC-4f 补测（服务端升级后）**：石切机/织布机按钮、酿造台、潜行放置、告示牌双面 **PASS**；**信标按钮为规范修正**——`BeaconMenu` 不实现 `clickMenuButton`（原版用 `ServerboundSetBeaconPacket`），按钮点击包无结算，需专用原语（不在本批）。
+- **R8 修复与复测（模组 0.2.13）**：复审 R8 指出 `menu.set_name`/`menu.select_trade` 只调客户端本地方法，真机确认交易服务端零结算。修复：增发 `ServerboundSelectTradePacket` / `ServerboundRenameItemPacket`。复测：交易结算（背包 3→2 绿宝石、0→2 面包）、交易补货（`uses` 归零、`outOfStock:false`）、铁砧改名服务器侧（服务端 `custom_name`）、地图正文（`map {id, scale, dimension}`）全部 PASS。
+- **测试基建**：`%TEMP%\mcp-wrap-25600/25602.cmd` 曾被清理导致两个 MCP 服务缺席（应用报 `not_connected`/`ECONNREFUSED`）；已按原内容重建。
+- **MC-4 真机验收结论**：**MC-4a–f 全部 PASS**（4e 含落地水/激流/维度切换；4f 含上述补测）。证据 [evidence/mc-4/live-acceptance-20260914.md](./evidence/mc-4/live-acceptance-20260914.md)；六份 spec 已回填真机验收记录；定向 204 passed / 1 skipped、typecheck 0、eslint 0。
+- **未完成**：MC-0a 遗留（1.21.11 冒烟/断线场景/资源测量）、执行计划 §9 backlog（寻路/搭桥专项、天气事件诊断字段等）。
+
+## MC-4 系列代码实施完成（2026-09-14，统一真机验收待做）
+
+新增六份规范：[mc-4a-spec.md](./mc-4a-spec.md) 至 [mc-4f-spec.md](./mc-4f-spec.md)，对应[能力缺口文档](./minecraft-player-capability-gaps.md)阶段 1–6。**产物**：模组 `mcpfabric-0.2.5+1.21.1.jar`（SHA-256 `b01fa7f4ab0f7bce6886849e962008bd1575760fc037d0753d355485574bcef`）、mcp-server 重建、应用重建成功。**运行中的游戏客户端仍是 0.2.4、MCP server 仍是旧 dist**；真机验收需换 jar、重启客户端、重建并重启应用、重启两个 MCP server。
+- **4a 观察与物品使用**：模组真实使用生命周期（`control.startUsing/releaseUsing/stopUsing`，正常释放 vs 中止）、`player.getState` 增 `usingTicks/usingHand/usingItemId`、物品快照增附魔/食物/弩装填；AIRI `game_equip`、`game_use`（item/block/entity，hold/abort）与观察回执扩展（背包/装备/效果 + 截断标记与缺失记录）。
+- **4b 容器/工作台/熔炉**：模组菜单框架 `menu.open/snapshot/click/close/craft`（containerId 身份、槽位作用域、熔炉进度）；AIRI `open_container/read_menu/move_item/close_menu/craft_table/smelt_load/smelt_take`（3×3 复用 `crafted` 回执与库存差、领取前清残留；熔炼两段式不长期占输入）。
+- **4c 生存连续性**：反射补食扩展到主背包（换槽）、`player.sleep/getSpawn/respawn`；AIRI `supply/sleep/respawn`（食物差后置条件）；跟随与采集统一走地形执行器，采集按“本次破坏”归属计数（不再用整段库存差）。
+- **4d 远程武器**：模组逐 tick 武器任务 `combat.start/status/cancel`（弓/弩/三叉戟、弩装填、投射物 UUID 与发射序号、取消区分中止/发射、反射抢占）；AIRI `game_shoot`（目标 UUID 固定、`poll_events` 归属、未观察到不等于未命中、激流拒绝走射击路径）。
+- **4e 快速保命**：落地水反射（`reflex.waterLanding`、水桶、低头、有界窗口、事件与抢占）；激流移动 `movement.riptide/status/cancel`（条件不满足明确失败）；维度纳入绑定校验，切换终止活动写命令（`dimension_changed`），不重放旧命令。
+- **4f 工作站与内容**：`menu.button/select_trade/set_name`、`item.read`（成书/地图，有界、无 NBT 倾倒）、`block.read_sign`；`place_block` 增 `sneak/yaw/expectBlockId`；AIRI `menu_action/read_item/read_sign/place`（逐块结果与材料核对；内容读取不进 checked 路径；未知工作站 `unsupported_station`，知识仍归 MC-2）。
+**检查**：game-host + coding-host + mc2 定向 258 passed / 1 skipped；stage-tamagotchi 与 stage-ui typecheck 0；eslint 0；`:1.21.1:build`、mcp-server build、应用 build 全部成功。**未做**：全部真机验收（按用户要求分批次日统一做）。
+
+## MC-3c 统一真机验收完成（2026-09-13）
+
+**环境**：自建 Fabric 1.21.1 服务端（mcpfabric 0.2.3，桥 25598）+ AIRI 客户端（mcpfabric 0.2.4，SHA-256 `060ce33f…89666`，桥 25599）+ 用户客户端；MCP 25600/25602 双端点；`admins=["AfterRain"]`、采样 0.2、上下文 5；应用 electron-vite preview 带 CDP 与地形调试。夹具：发射台、150 高山脊、水岛石台、熔岩池 + 5 只鞍具炽足兽（OP 搭建，记录在案）。
+**结果**：
+- **A 环境/冒烟**：双桥连接、身份含 `playerUuid`、服务端能力组（list/give/teleport/query/summon/fill/command）实机可用、0.2.4 字段（`name/uuid/fallFlying`、`get_equipment`）验证、设置页新字段走查、资源测量（服务端 1065MB / 用户端 1019MB / AIRI 端 1175MB / Electron 1581MB / MCP 103MB，合计 ≈4.9GB）。1.21.11 冒烟 NOT-RUN。
+- **B X-10 十二场景**：管理员送达与沉默、`\` 跳过、提及、采样命中/未命中、限频窗口内复现、自身回声、黑名单、去重、配置往返 PASS；上下文单测覆盖。
+- **C 聊天端到端**：MC 聊天与 AIRI 聊天两条信道下令并执行回报；取消收敛 `cancelled`；断线 NOT-RUN。
+- **D 鞘翅 D5**：发射塔跨山脊闭环（落点 0.56）、低补给 `elytra_low_supply`（满血）、水岛着陆（0.77）PASS。
+- **E 炽足兽**：类型过滤上骑 + 熔岩横渡（0.61）PASS。
+- **F X-07**：`game_locate`、`game_drop`（库存差）PASS。
+**验收中修复**：着陆剖面（下降角 + 渐进拉平 + 落点区禁扫描 + 低空缓降烟花）、避障区域切片（覆盖薄墙）、去掉落点区爬升振荡、近损鞘翅拒绝起飞/中损提前着陆；夹具沙岛改石台（沙沉海）；`game-host.json` BOM 修复；`ELECTRON_CLI_ARGS` 开 CDP。增量 4（下界顶棚）未做。记录 [evidence/mc-3c/live-acceptance-20260913.md](./evidence/mc-3c/live-acceptance-20260913.md)。**MC-3c 完成**；MC 线剩余：MC-0a 遗留（1.21.11 冒烟、断线场景）与能力缺口文档 MC-4 系列。
+
+## MC-3c 增量 2–3 实施（2026-09-13，真机待统一验收）
+
+- **增量 2（鞘翅）**：新增 `movement/elytra.ts`（装备/备用换胸甲槽 37 → 跑下台缘 → 空中部署 → 巡航 y_goal+30 + 前方采样抬高 + 烟花推进 → 80 格进近 → 5 格拉平着陆；取消先着陆；烟花 ≤3 或低血提前着陆映射 `elytra_low_supply`），`game_move_to.vehicle` 增 `'elytra'`；模组 `player.getState` 增 `fallFlying`。
+- **增量 3（避障/补给/安全网 + 炽足兽）**：新增 `movement/strider.ts`（按类型上骑 + 钓竿脉冲 + 卡死恢复）；新增 `movement/geometry.ts` 共享助手避免循环依赖；模组 `vehicle.boardNearest` 增 `type` 过滤并支持 Strider；mcp-server `board_vehicle` schema 同步重建。
+- **产物**：`mcpfabric-0.2.4+1.21.1.jar` SHA-256 `060ce33f…89666`（含 X-10 补丁）。增量 4（下界顶棚）跳过，验收记 NOT-RUN。
+- **检查**：movement 62 passed；game-host + mc2 170 passed / 1 skipped；typecheck 0；eslint 0。统一真机验收清单见 [mc-3c-spec.md](./mc-3c-spec.md) 实施记录（D5 + X-10 D7 + X-07 + MC-0a 遗留）。
+
+## X-10 聊天触发策略规范定稿（2026-09-13）
+
+新增 [chat-trigger-spec.md](./chat-trigger-spec.md)：MC 聊天三层触发（管理员 / 黑名单 / 概率采样），替代“所有者 + 提及”门。**设计**：D1 配置 `chatCommands: { enabled, admins, blocked, mentionlessSampleRate=0.2, contextLines=5 }`（`ownerNames`/`requireMention` 不保留）；D2 纯判定（黑名单优先；管理员 `\` 前缀退出；其他人提及必达、未提及按可注入随机采样；自身 uuid 过滤）；D3 轮询保留，主进程维护 20 行滚动上下文（排除黑名单与自身），广播载荷加 `trigger` 与 `context`，并归一客户端 `sender` 与服务端 `player` 两种事件形状；D4 回合文本按 trigger 区分指令，沉默 v1 = 不执行动作、不发 `game_say`（AIRI 聊天窗口允许一条简短说明，完全静默留后续）；D5 模组补丁（client chat 事件补 `uuid`、`player.getState` 补 `uuid`/`name`）；D6 设置页字段；D7 十二个验收场景。增量：模组补丁 → main 纯函数与单测 → 接线与设置页 → 随 MC-3c-1 真机验收。本轮仅文档。
+
+- **增量 1–3 实施（2026-09-13，真机待 MC-3c-1）**：模组 `mcpfabric` 升至 0.2.4（client chat 事件补 `uuid`、`player.getState` 补 `uuid`/`name`，后并入 MC-3c 的 `fallFlying` 与 `board_vehicle` 类型过滤；`:1.21.1:build` 成功，jar SHA-256 `060ce33f…89666`；运行中客户端与 MCP server 仍是旧产物，真机前需换 jar 并重启两者）。main `chat-commands.ts` 重写（三层判定、事件形状归一、20 行上下文缓冲、可注入随机）+ 单测 15；`game-host/index.ts` 轮询接线（管理员不限频、断线清上下文）；`game-host-install.ts` 按 trigger 生成回合文本；设置页聊天字段（en + zh-Hans）。定向 159 passed；全量 768 passed / 5 既有无关失败；双包 typecheck 0；eslint 0。待 D7 十二场景真机（随 MC-3c-1）。
+
+## MC-3c 增量 0 审计与记录（2026-09-13）
+
+**磁盘审计**：MC-3c 的部分链路早已在盘但未记录——双端点 `serverUrl`（配置/连接/降级完整；服务端连接不带头属有意行为，Node MCP server 不校验，令牌经 `MCPFABRIC_TOKEN` 传给模组）、聊天指令摄取（轮询/游标/去重/限频/白名单加提及/leader 回合）、`game_drop`（库存差与槽位空双重核对）与 `game_locate`。**审计发现**：客户端 chat 事件无 uuid、服务端事件字段用 `player` 而解析器只认 `sender`（当前 `poll_events` 走客户端桥所以可用；X-10 归一两种形状）；自身回声过滤不完整；`poll_events` 描述与发射源不符（归 X-04）；`mc-2c/2d-spec` 头部已修正。**基线**：全量单测 760 passed / 4 failed（plugins gamelet 2 项确定性 + static-assets Windows 2 项；controls-island 1 项闪烁；均与 MC 无关）、MC 定向 150 passed、stage-tamagotchi 与 stage-ui typecheck 0、eslint 0。**本轮修改**：mc-2c/2d 头部状态；mc-3c-spec D4 改为三层触发（admins/blocked/采样 0.2、`\` 跳过、上下文 5 行、可沉默）；设置页新增 `serverUrl` 与 `movement.planner`（i18n en + zh-Hans）。记录 [evidence/mc-3c/increment-0-audit-20260913.md](./evidence/mc-3c/increment-0-audit-20260913.md)。未完成：drop/locate 真机验收（随 MC-3c-1）、chatCommands 设置字段（随 X-10）。
+
+## Minecraft 玩家能力执行计划定稿（2026-09-13）
+
+新增 [minecraft-player-capability-execution-plan.md](./minecraft-player-capability-execution-plan.md)：把[玩家能力缺口](./minecraft-player-capability-gaps.md)落成可执行批次，并把 [MC-3c](./mc-3c-spec.md) 放在最前（用户已开启的条件批；当前环境=用户客户端与 AIRI 客户端在同一自建本地服务器）。**磁盘审计**：MC-3c 增量 1 的部分链路已在工作树但未记录——双端点 `serverUrl`、聊天指令摄取（`chat-commands.ts` + main 轮询 + 渲染端 leader 回合）、`game_drop`/`game_locate` 域动作；设置页缺 `serverUrl`/`chatCommands`/`movement.planner` 字段；`mc-2c/2d-spec` 头部状态未更新。**批次**：MC-3c-0 审计与记录 → MC-3c-1 服务器聊天端到端（现有 foot 动作 + MC-0a 遗留冒烟）→ MC-3c-2 鞘翅闭环 → MC-3c-3 避障补给 + 炽足兽；小改动批（已确认：附录 A 全 9 项 + 聊天触发策略重构——管理员/黑名单/概率采样（默认 0.2/5 行）、`\` 前缀退出、上下文注入，先写规范 `chat-trigger-spec.md`，X-10 先于 MC-3c-1 验收）；MC-4a…MC-4f 对应缺口文档阶段 1–6（观察与物品使用、基础生存生产、生存连续性、基础远程战斗、快速保命与进阶移动、生活与内容模组），每批先写规范再实现，纯逻辑 Vitest、协议与物理真机验收。F0–F4 自由游玩设计（[minecraft-free-play-design.md](./minecraft-free-play-design.md)）为并行设计，不改变本计划顺序。本轮仅文档。
+
+## Minecraft 自由游玩设计（2026-09-13）
+
+新增 [Minecraft 自由游玩：兴趣、个人项目与自主活动](./minecraft-free-play-design.md)。设计记录五类动机、愿望与活动的生命周期、选择理由、经历与偏好更新，以及休闲、暂停和主动结束。接入沿用生命模式的调度模式、Flow、game-host、长期目标与 MC-2，明确游戏作用域、单一执行入口、预算、用户停止和跨会话恢复。给出 F0–F4 分期与验收场景。本轮仅文档，未开启自主运行，未新增游戏能力，未改变既有批次排期。
+
+## Minecraft 玩家能力盘点与实现建议（2026-09-13）
+
+新增 [Minecraft 玩家能力缺口与实现路径](./minecraft-player-capability-gaps.md)。文档按当前 Fabric 主线区分接口缺失、接入缺失和覆盖有限，汇总工作台、容器、熔炉、装备、补给、死亡恢复、移动、生活玩法和内容模组的缺口。弓、弩、三叉戟单独记录使用状态、弹药、瞄准、取消、投射物归属与回收，并给出共享基础、实施顺序和验收建议。另记录命令生命周期、实测回执、客户端反射、技能复用、世界记忆和真机证据等现有基础及其限制。本轮仅文档，未新增游戏能力，未重跑真机验收。
+
+## MC-3c 规范定稿（2026-09-13，条件批用户开启）
+
+改写 [mc-3c-spec.md](./mc-3c-spec.md)：鞘翅与炽足兽 + **服务器聊天下单端到端**（用户确认的最终验收形态）。**方向**：最终场景在一台自建本地服务器里，用户在聊天框给指令她执行（MC 聊天与 AIRI 聊天都要；语音归多信道设计，后开 `multichannel-scenario-design.md` P3）。设计：D0 环境=自建 Fabric 1.21.1 服务器（offline、fabric-api + mcpfabric **服务端入口** `environment:"*"`）+ 两客户端（AIRI 客户端=现有夹具实例、用户客户端=第二实例，玩家名区分归属），顺带补 MC-0a NOT-RUN（环境 B/服务端能力组/1.21.11 冒烟/资源测量）；D1/D2 鞘翅模式（`game_move_to.vehicle='elytra'`，装备→起飞→巡航 ≥100 格→着陆 ≤4 格，失败有界）；D3 避障/补给/安全网（烟花阈值 `elytra_low_supply`、备用鞘翅、反射安全网）；D4 **MC 聊天下令**（`chat.getRecent` 轮询 + 所有者白名单/提及规则 + 自身消息忽略 + 去重限频；新事件 `gameHostChatCommand`（channel=`game-chat`）→ leader 发起回合；非所有者只记 journal 不执行；默认关闭；字段对齐多信道候选契约）；D5 夹具含发射塔/山脉航线/水岛/低补给/炽足兽/服务器聊天下单。增量重排：**①先服务器+聊天（用现有 foot 动作端到端）→ ②鞘翅基础 → ③避障补给+炽足兽 → ④可选下界顶棚**。风险：服务端反作弊/权限如实报告、双客户端资源、多信道未实施仅做 MC 侧最小件。本轮仅文档。
+
+## MC-2d 规范定稿（2026-09-13，条件批用户开启）
+
+新增 [mc-2d-spec.md](./mc-2d-spec.md)：探索流程固化为经审阅技能（"学会一个配方"类）。**侦察**：MC-2c 探索循环的 craft 步骤为探针直连 MCP（`craft_by_recipe` 两拍 + `get_inventory`）；技能沙箱桥只有 7 个域动作（observe/status/move_to/say/collect/follow/cancel），**没有合成动作**，所以固化前必须先补 game-host 域动作。设计：D1 `craft` 域动作入库（参数 `{recipeId}`，进 `WRITE_ACTIONS`；MCP 两拍 ≤5 次 + 前后库存读数；后置条件 `crafted`＝result+具体材料 delta（tag 不计）；类型化 `unknown_recipe/recipe_needs_crafting_table/materials_missing/not_confirmed/mcp_unavailable`；每拍间可取消）；D2 桥工具 `game_craft`（声明门/`reviewedTools` 精确匹配沿用 MC-1c）；D3 固定夹具技能 `learn-recipe`（`game_status → game_craft`，`tools: ['game_status','game_craft']`，60s；**边界：技能只做游戏内实验，知识入库仍由渲染端 runner 负责**）；D4 探针 `exploreOnce({ mode: 'direct'|'skill' })`（skill 路径执行已批准技能，未批准/哈希不符类型化失败，不静默降级）；D5 六场景（成功/缺条件/取消/撤销/内容变更/闭环-技能，映射 MC-1c 五类）。增量：① 域动作+桥工具+单测+真机 → ② 技能产物+审批绑定+runner skill 分支 → ③ 五类+闭环验收+证据。**明确不做**：EP-2a 包分发、记忆写入搬进 main、模型自由设计实验。本轮仅文档。
+
+- **增量 1–3 实施 + 五类真机（2026-09-13，MC-2d 完成）**：①`craft` 域动作（契约/注册表/执行器：MCP 两拍 ≤5 + 前后库存读数 + `inventoryDelta` + 类型化失败 + 60s 租约）+ `game_craft` 桥工具；真机 `minecraft:stick` 成功（存量木板合法合成）、`cutting_board` 诚实失败、文案修为 `not_confirmed`。②固定夹具技能 `learn-recipe`（`game_status→game_craft`，声明 `tools` + 60s）经审阅创建；runner `mode:'skill'` 闭环 → `verified`，二次复用零技能调用；修 `knowledgeMatchesTarget` 主语段匹配。③五类 PASS：成功（runner+适配器）、缺条件、取消（沙箱 abort）、撤销（`revoked`+工具面移除+幂等）、内容变更（改盘阻断+原地重审恢复）；另建原版配方夹具 jar（版本 jar 超条目上限，抽 `data/minecraft/recipe` 1290 条）。单测 game-host 103 / mc2 35 / 桥工具 8；eslint/typecheck 0。记录 [evidence/mc-2d/live-acceptance-20260913.md](./evidence/mc-2d/live-acceptance-20260913.md)。**MC-2d 完成，MC-2 主线收尾**；MC 线剩余：MC-3c Phase 3（条件）+ MC-0a 遗留（环境 B/1.21.11 冒烟/资源测量/设置页走查）。
+
+## MC-2c 规范定稿（2026-09-13）
+
+新增 [mc-2c-spec.md](./mc-2c-spec.md)：好奇心驱动的探索循环（未知 → 计划 → 实验 → 记录 → 复用）。**侦察**：知识侧 MC-2a/2b 已就绪；实验动作经主进程 MCP stdio 管理器（`electronMcpListTools`/`electronMcpCallTool`，渲染端 `stores/tools/mcp.ts` 既有用法）调用 mcpfabric 的 **`craft_by_recipe`**（两拍）+ **`get_inventory`**（库存前后核对）——闭环可全在应用内完成；空闲闸门/预算用 life-mode 的**原子 claim**（`requestTestHeartbeat` + `claimDecision`，`gate` 可归因），本批不接生产 heartbeat 消费者。设计：D1 纯状态机 `shared/mc2/explore.ts`（计划顺序 reuse-check→jar→web?→craft→record；预算 `maxSteps/maxDurationMs/maxCraftAttempts`；`classifyCraftObservation` 库存差分类；`shouldReuse` 仅 verified/candidate 且 fresh）；D2 探针 `exploreOnce/exploreStop/exploreIdleOnce/exploreTrace`（MCP 工具动态查找、两拍重试上限、用户停止优先、空闲入口必须过原子 gate）；D3 复用/失效（stale 不复用→重新实验）；D4 白名单实验动作（craft+inventory）、默认关闭、不执行包内代码；D5 六场景（闭环/复用/空闲窗口/预算收敛/失效重学/诚实未知）。夹具：flint_knife 已熟悉，新增 2×2 内易取材目标（增量 1 定），失败夹具 cutting_board（3 列）。增量：① 纯状态机+探针骨架 → ② MCP 实验+空闲 claim+trace → ③ 真机验收+证据。本轮仅文档。
+
+- **增量 1–3 实施 + 真机六场景（2026-09-13，MC-2c 完成）**：①`shared/mc2/explore.ts`（计划 reuse-check→jar→web?→craft→record、预算/停止/分类、`craftExpectation`、`knowledgeMatchesTarget`）+ 探针 `exploreOnce/exploreStop/exploreTrace`。②MCP 实验（`electronMcpListTools/CallTool` 动态查找 `craft_by_recipe`/`get_inventory`，两拍 + 库存前后核对）+ `exploreIdleOnce`（life-mode 心跳 + 原子 claim）+ `lifeSnapshot/lifeSetMode`。③真机：闭环（删知识→jar→MCP 实测→verified）、复用（零实验）、空闲窗口（autonomous 全闭环预算 7→8、二次复用 8→9、gate 拒绝不做工）、预算-步数/时长与用户停止、失效重学（stale→全闭环→verified）、诚实未知/缺材料（`jar:failed`、`craft-attempts` 不伪造）。**途中修复**：复用被语义近邻事实误命中（→目标匹配）、预算计了 skipped 步。夹具前置：应用真实 userData `%APPDATA%\@proj-airi\stage-tamagotchi\mcp.json` 注册 mcpfabric stdio。单测 34/34；eslint/typecheck 0。记录 [evidence/mc-2c/live-acceptance-20260913.md](./evidence/mc-2c/live-acceptance-20260913.md)。**MC-2c 完成**；后续 MC-2d（条件批，固化技能）。
+
+## MC-2b 规范定稿（2026-09-13）
+
+新增 [mc-2b-spec.md](./mc-2b-spec.md)：引导与上网补全（MC-2a 完成后接续）。**侦察**：夹具 jar 内含指南资产——AE2 `assets/ae2/ae2guide/**/*.md` **125 个**（YAML frontmatter + 正文，如 `ae2-mechanics/channels.md` 15.6 KB）；车万女仆 `assets/touhou_little_maid/patchouli_books/.../en_us/entries/**/*.json` **56 个**（`name`/`pages[].text` 为翻译键，需配 `lang/en_us.json` 解析；含 `$(br2)` 格式码）；FD 无指南书。网络链路**复用现有**：main `web-fetch`（SSRF 加固、512 KiB 上限、`htmlToText`、拒绝私网）+ renderer `web_search`（Tavily 固定 provider、`wrapUntrusted` 不可信契约）。设计：D1 指南只读解析（`shared/mc2/guide.ts` + main 扩展；AE2 md frontmatter/正文、Patchouli JSON + lang 解析、未知页面忽略计数；总量上限 8 MiB；只读不执行代码）；D2 知识卡扩展（`originId=mc2:<modId>:guide:<entryId>`、`kind:guide`、`tier:candidate`，实测才 `verified`）；D3 web 链路（URL 列表为主、query 需已配 Tavily；**确定性提取**记录 `sourceUrl`/`fetchedAt`/`contentHash`；web-only=`lead`，与 jar 交叉一致=`candidate`，实测=`verified`；网页文本只进卡字段，工具/权限/完成门不受影响，注入嫌疑标注审计）；D4 探针扩展（`listGuides/ingestGuide/webLearn/promoteLead/markVerified`，默认关闭）。增量：① 指南解析+探针 → ② web 提取+注入夹具 → ③ tier 提升+五场景真机验收（学习-机制/学习-web/诚实-未知/边界-web注入/复用-重启）。本轮仅文档。
+
+- **增量 1–2 实施（2026-09-13）**：①`shared/mc2/guide.ts`（AE2 frontmatter/Markdown、Patchouli+lang 键、格式码、路径身份/候选、卡片/originId）+ 白名单补 `assets/<ns>/patchouli_books/**` + 探针 `listGuides/ingestGuide`；真机 AE2 **125 条**（标题正确）、女仆 **51 条**（56 JSON 含 template，过滤正确；`Broom` 键解析）PASS。②`shared/mc2/web.ts`（注入标签、确定性提取、`mc2:web:<hash>`、lead/candidate/verified 卡片）+ 探针 `webLearn/webLearnText`；单测 8（含注入夹具）。③**离线阻塞**：嵌入后端不可达 → `captureTurn` 吞错空返回；探针修为诚实失败（`memory capture stored no fragment`），离线复现 ingest 报错零写入、`webLearn` 报 `cannot resolve` 零写入。单测 20/20；eslint/typecheck 0。记录 [evidence/mc-2b/increment-1-2-20260913.md](./evidence/mc-2b/increment-1-2-20260913.md)。待网络恢复后跑事实入库/查询、真实 wiki、注入 live 与增量 3 验收。
+
+- **增量 3 + 五场景验收（2026-09-13，MC-2b 完成）**：网络恢复后——指南事实入库命中（AE2 channels、女仆 broom `candidate/fresh`）；真实网页（`zh.minecraft.wiki` 燧石页）→ `lead` 卡；`promoteLead` 负例诚实拒绝、正例（夹具事实页+jar 交叉）→ `candidate`（`交叉核对：与 data/farmersdelight/recipe/flint_knife.json 数据一致`）→ 游戏内合成实测 → `markLeadVerified` → `verified`；marker 扩展 `web=<url>` 支持重启读回；五场景（学习-机制/学习-web/诚实-未知/边界-web注入/复用-重启）全 PASS；modset 变更 → verified 降级 candidate/stale、lead 标 stale，恢复后回 `verified/fresh`。限制：主进程 fetch 不走系统代理（fandom 不可达）、github 域名解析 CGNAT 被 SSRF 守卫拒绝、MC百科 JS 渲染不可用——交叉正例用夹具事实页承载。单测 21/21；eslint/typecheck 0。记录 [evidence/mc-2b/increment-3-promotion-20260913.md](./evidence/mc-2b/increment-3-promotion-20260913.md)。**MC-2b 完成。**
+
+## MQ-2 规范定稿（2026-09-12）
+
+新增 [mq-2-spec.md](./mq-2-spec.md)：事实纠正、时间与行为采纳的归因与验收契约（MC-2a 前置闸门）。遵守计划的续批纪律：**先定位空回答共同链路，在归因完成前不调阈值/权重/模型**。D1 归因协议（每条失败样本保留原 FAIL；记忆开/关 A/B + journal 序列关联；判定矩阵 R0 召回零命中 / R1 有候选未采用 / R2 检索异常降级 / R3 请求未发出 / R4 provider 空输出 / R5 解析持久化渲染丢失，逐类映射 owner）。D2 修复规则（R0 先分"表示问题/阈值问题"；阈值策略三候选（保持 0.5 / 有证据下调 / 词面回退）**需用户确认**并以 MQ-0 90 条 + 新增夹具做前后对照；R2 在真实 IO 边界超时与显式降级；不伪造成功回答）。D3 场景矩阵（复跑 M01/M02/M04–M07 + 跨会话召回 / 纠正胜出 / 同名人物 / 相似项目 / 否定句 / 临时偏好 / 过期约束 / 无答案），含事实模型审计（缺契约先在 memory-core 定义）、失效检查四处（普通召回/muscle/reflex/dreaming/镜像）、`normalizeMemoryRetrievalQuery` 240 字符截断回归。验收映射计划四条、三增量（归因 → 按类修复 → 场景与失效）。本轮仅文档。
+
+- **增量 1 实施（2026-09-12，只读归因）**：报告见 [evidence/mq-2/attribution-20260912.md](./evidence/mq-2/attribution-20260912.md)。主因**不是阈值而是作用域漂移**——2026-09-07 gold 写在 `userId:'local'`，当前认证 scope `3bXjSq…` 过滤掉全部 approved gold；旧 scope 同查询立即命中（M01 0.558–0.673、M04 0.526）。次要：M05/M06 事实 pending 或挂 `characterId: default`；**新发现工具回路冲突**——默认步数下 M01 经 `grep/read` 从仓库证据文档答出旧名"青石"（记忆不可召回）；`maxSteps:1` 复现"步数耗尽遗留空 assistant 消息"独立分支；M07 无 gold（属 plan/journal 域）。增量 2 决策点：旧 scope 迁移政策、gold 卫生、工具回路 vs 记忆优先、空消息降级、M07 投影接线、阈值/表示为次因。未改产品代码；采样会话/事实已清理。
+- **增量 2 步骤 1–3 实施（2026-09-12）**：用户定 **1c + 不合并数据**。①可见性：`memory-core` 增 `isMemoryScopeVisible`（角色精确、user 可链接）；仓库 `search/list` 增 `linkedUserIds`；local-memory 过滤替换；stage-ui memory store 增 `link-local-history` 设置（默认开）与 `linkedUserIdsForScope()`（认证 id 链接 `local`），retrieve 双路与 shareable 传入；设置页"记忆身份"开关 + i18n。②记忆优先提示：`ingestMemoryContext` 注入"从记忆列表回答自身事实、不要在工作区搜索自己的事实"。③空消息 UI 兜底：`assistant-item.vue` 仅有工具调用且无文本时显示 `chat.message.no-text-output`。测试：memory-core 2、local-memory 11、core-agent 91 全绿；typecheck/eslint 0。
+- **增量 2 步骤 4–5 实施（2026-09-12）**：④M07 历史投影：`formatRecentPlanProjection` + `recentPlansProjection()`（终态计划渲染为"Recent work（历史，非当前任务）"：completed/failed/unverified/not finished/blockers/session + 诚实声明），`chat.ts` 无活动计划时回退注入；plans 测试 2 例。⑤确定性截断修复：`normalizeMemoryRetrievalQuery` 否定子句前置 + 子句边界截断（回归 2 例；framing 期望同步）。stage-ui typecheck/eslint 0。
+- **增量 2 步骤 5 对照评估（2026-09-12）**：评测 seam（`retrieve`/`retrieveEvaluationTrace`/`evaluateProductionRetrieval` 可选 `similarityThreshold`，产品默认未改）；隔离播种 20 条 gold（`local/mq2-eval`，双语单条、approved）后运行五配置各 90 用例、k=3：A 严格 scope/0.5 **recall 0.000** → B 1c 链接/0.5 **0.778**（主修复是可见性，非阈值）；D 0.42 **0.944**、误召回 0.144；E 0.40 被 D 支配（0.956/0.185）；C 0.35 1.000 但误召回 0.274（边际不成立）。**建议策略 b：默认阈值 0.5 → 0.42，待用户确认**。报告 [evidence/mq-2/threshold-evaluation-20260912.md](./evidence/mq-2/threshold-evaluation-20260912.md)；gold 已清理、隔离作用域剩余 0。
+- **增量 3 真机验收（2026-09-13，PASS）**：M01/M02/M04 记忆来源答对（0 工具）；M05/M06 带工件号查询走仓库工具回路，夹具卫生（批准 pending）+ 自然查询后 0 工具答对；M07 plan 历史投影生效（明确未完成/未验证）。D3 矩阵（同名/相似项目/临时偏好/否定/过期/无答案/跨会话/纠正）通过。**修复 i18n key 前缀缺陷**（空消息兜底 `chat.message...` → `stage.chat.message...`，真机复现 `maxSteps:1` 空消息后修）；设置页「记忆身份」开关与提示文案真机渲染正常。失效检查：`listShareableFacts` 9 条全 approved、泄漏 0。**阈值决策落地（2026-09-13）**：用户确认策略 b，`DEFAULT_MEMORY_SIMILARITY_THRESHOLD` 0.5 → **0.42**（`memory-core/types.ts` 注释记录对照数据；pgvector 默认阈值断言同步）；memory-core 40/40、pgvector 6 passed、stage-ui memory 47/47。遗留：工件号式查询仍触发工具回路（已知，owner chat runtime）；多账号切换/dreaming 真机未做。记录 [evidence/mq-2/increment-3-live-20260913.md](./evidence/mq-2/increment-3-live-20260913.md)。**MQ-2 完成。**
+
+## MC-1c 规范定稿（2026-09-13）
+
+新增 [mc-1c-spec.md](./mc-1c-spec.md)：经审阅组合技能与修订流程。研究钉死两个断层：①技能沙箱 `bridge` 只连 9 个 coding 工具（`createCodeModeRuntime(createCodingTools)`，未知工具直接抛错），`game_*` 是渲染端 leader 工具、经另一 main 服务执行，**技能当前不能调任何游戏动作**；②技能取消链在执行器断开——`SkillRuntimePort.runProgram` 无 `signal`（主进程与客户端类型已支持 abort），撤销只能把晚到回执标 `revoked`，不能终止在途沙箱。设计：D1 game-host 导出 `GameCommandPort`（连接状态/域工具描述/execute/cancel），coding-host 增 7 个桥工具与 `attachGameCommands` 晚绑定（main 内直连，无渲染端往返），`game_cancel` 按运行 `issued` 集合限定；D2 `meta.json` 增 `tools` 声明与 `execution.timeoutMs`，批准绑定 `reviewedTools` 精确匹配、桥层白名单、审阅 UI 展示；D3 取消贯通（EP-0 abort → `runProgram({signal})` → codingHostCodeRun → worker SIGKILL）+ 桥侧级联取消游戏命令 + 桥超时从技能超时派生（不短于租约）；D4 嵌套证据（外层 `reviewed_self_authored`，`checked` 只能由 game-host 产出，包装不提升信任）；D5 类型化错误模型（`not_connected`/`unreachable`/`target_lost`/`cancelled`/`not_allowed` 等）。五类验收（成功/缺条件/取消/撤销/内容变更）用固定夹具 `mc1c-sand-supply`（observe → move_to → collect sand → say）逐项钉死；实现落点、风险回退、明确不做（通用工具面桥、CP-2 扩展、新领域工具、包分发、技能嵌套）均已列出。本轮仅文档。
+
+- **增量 1–3 实施（2026-09-13）**：D1 桥与晚绑定（`GameCommandPort`、7 桥工具+声明门、`attachGameCommands`）；D2 声明与批准绑定（`tools`/`execution`、`reviewedTools`、磁盘 meta 比对、审阅 UI）；D3 取消贯通（`allowedTools`/`signal`/`timeoutMs` 传递；eventa 0.3.0 不投递渲染端取消 → 显式 `codingHostCodeCancel({ runId })` + 主进程 `activeRuns`；桥调用级联 `port.cancel`；桥超时随程序超时派生）；D4 内层游戏回执进 journal（`checked:true` → `game_checked`，技能不能自造）。修复：`allowedTools` 响应式数组导致结构化克隆失败（改普通拷贝）。测试：coding-harness 83、coding-host 桥/挂载/端口、skills 28、skill-submit 11；typecheck/eslint 0。
+- **真机验收（2026-09-13，五类 PASS）**：成功（collect `checked actual:1` + say + 内层 `game_checked`）、缺条件（`failed/no_target/actual 0` 无假成功；`checked` 表示回执已验证）、取消（follow 运行中 abort → 沙箱终止 + 回执 `cancelled` + 水平漂移 0）、撤销（运行中 unwrap → `revoked` + 工具面移除 + 幂等）、内容变更（改源码被拒并可重审恢复；仅改 meta `tools` → `declared tools changed`）。补充实验澄清：当时角色卡水域导致 `unreachable`/`reflex_preempted` 频发（用户移至干地）；`game_follow` 类型目标在目标死亡后会跟随同类其它实体，尸体掉落为原版自动拾取（uuid 目标才会 `target_lost`）。夹具/目录/模式键已清理。记录 [evidence/mc-1c/live-acceptance-20260913.md](./evidence/mc-1c/live-acceptance-20260913.md)。**MC-1c 完成。**
+
+## MC-3 立项评估（2026-09-13）
+
+新增 [mc-3-terrain-mobility.md](./mc-3-terrain-mobility.md)：地形与机动能力（foot / mounted / vehicle / flying）。触发：MC-1c 验收中角色卡在水域边缘（三面高一格、卡入陆地）。评估结论：①**TerminatorPlus 公开仓库只有旧暴力引擎**（直线移动、遇门即拆，`BotAgent` 是占位，引用视频所用现代引擎闭源），只可作能力清单与少量做法参考（EPL）；②**Baritone**（LGPL-3.0，1.21.1 有 NeoForge API 版 v1.11.3）是能力最全的成熟 mover，适合 Phase 0 spike / 可选委托；③**mineflayer-pathfinder**（MIT）的 movements/代价模型（挖/放、坠落上限、液体代价、塔高、parkour、游泳、动态重算）适合移植为原生规划器；④骑乘/载具与徒步**不是同一种运动模型**，需先抽象 `MovementMode`（foot/boat/horse/minecart/elytra/strider），同一时刻单一移动所有权、反射优先、证据语义不变。分期：Phase 0 Baritone spike（对照三面高一格水坑、门房、断桥）→ Phase 1 徒步 A–G（水域脱困/落差/垂直/门与障碍/垫脚搭桥/parkour/卡死恢复）→ Phase 2 船、马、矿车 → Phase 3 条件项鞘翅、炽足兽。待决策：是否立项 spike、Phase 1 路线（移植 vs 委托）、载具优先级。本轮仅文档。
+
+- **Phase 0 spike + 决策（2026-09-13）**：Baritone `v1.11.3` standalone-neoforge（sha256 `a6b3bb3d…`）装入夹具客户端，聊天控制（`#goto`/`#set`/`#stop`）驱动，无需改 Java。结果：水面齐沿游出 2s、门房开门 2s（门墙无损）、全宽 3 格沟疾跑跳 4s、全宽二格墙垫 1 块翻越 1.6s、沿高 2 水坑垫 1 块脱困 10.1s、物理无解几何正确拒绝、5 格坠落照常掉血未用落地水。**已知弱点**：挖掘瞄准不稳定（水中挖掘视角摆动重置进度，用户协助后才挖穿）。**用户决策**：Phase 1 走移植 mineflayer movements（MIT、自研），不长期委托 Baritone；如需改 Baritone 源码按 LGPL 回馈上游。记录 [evidence/mc-3/spike-20260913.md](./evidence/mc-3/spike-20260913.md)。
+
+## MC-2a 规范定稿（2026-09-13）
+
+新增 [mc-2a-spec.md](./mc-2a-spec.md)：新内容知识获取（配方/用途/机制）。**侦察**（2026-09-13）：夹具 NeoForge+Connector 已含 AE2/Create/FD/车万女仆；FD jar 333 配方可只读解析（`cutting_board.json` 为 2×2：3×planks tag + 2×stick）；主进程已有 `jszip`；**能力缺口 = 合成动作**（开放问题 1 定为 mod 侧新增）。设计：D1 main 只读 jar 解析（白名单 `data/**/recipe*`、lang、AE2 guide、Patchouli；体积/条目上限；不执行代码）；D2 mcpfabric 新增 `craft.byRecipe` + MCP 工具 `craft_by_recipe`（v1 限随身 2×2 shaped/shapeless，材料不足诚实失败，库存前后读数核对）；D3 知识契约（`originId=mc2:<modId>:<recipeId>`、tags 含 `modset:<hash>`/`tier`/`kind`、`modsetHash` 不一致降级复核，复用 `captureTurn` 与 MQ schema）；D4 v1 探针驱动（`#/devtools/mc2`：readJar/ingestRecipe/craftRecipe/markVerified/queryKnowledge/setModsetHash），不接 life-mode 循环；D5 默认关闭。增量：① mod 合成 + 真机切菜板 → ② main 解析 + 探针 → ③ 入库/召回/失效 → ④ 五场景真机验收（学习/复用/失效/诚实未知/开关）。本轮仅文档。
+
+- **增量 1 实施 + 真机（2026-09-13）**：mcpfabric `CraftHandlers.craft.byRecipe`（**两拍协议** `placed`/`claimed`、2×2 尺寸守卫、claim-first 顺序）+ MCP 工具 `craft_by_recipe`；jar `c2b5ff40…` 客户端已重启验证。真机：`farmersdelight:flint_knife`（1×2）合成 PASS（材料燧石/木棍各 −1、成品 +1）；3 宽 `cutting_board` 被守卫拒绝（`recipe_needs_crafting_table`、零消耗）。**修正**：切菜板实为 3 列图案（需工作台），v1 目标改 `flint_knife`。途中修掉：同步多拍不可靠、清理先于领取导致材料退回、缺尺寸守卫。记录 [evidence/mc-2a/increment-1-craft-20260913.md](./evidence/mc-2a/increment-1-craft-20260913.md)。待续：增量 2（main 只读 jar 解析 + `#/devtools/mc2` 探针）。
+- **增量 2 实施 + 真机（2026-09-13）**：`shared/mc2/recipe.ts`（白名单/id 推导/候选解析/2×2 判定）+ `shared/eventa/mc2.ts`（`airi:mc2:read-jar`）+ main `services/airi/mc2/{mod-data.ts,index.ts}`（`AIRI_MC2_JAR_ROOTS` 根约束、jar ≤64 MiB/条目 ≤2 万/文本 ≤2 MiB、JSZip 只读、类型化错误）+ 探针 `#/devtools/mc2`。真机：FD jar `flint_knife` 解析 `fits:true`、`cutting_board` `fits:false`、`/recipe/` 333 条、越界路径 `mc2 jar_not_allowed`。测试 8/8；typecheck/eslint 0。记录 [evidence/mc-2a/increment-2-parse-20260913.md](./evidence/mc-2a/increment-2-parse-20260913.md)。待续：增量 3（知识入库/召回/有效期）。
+- **增量 3 + 增量 4 真机验收（2026-09-13，MC-2a 核心完成）**：`shared/mc2/knowledge.ts`（`modsetHash` FNV-1a、`knowledgeTags`、卡片 + 机器可读标记 `[mc2 tier=… modset=…]`）+ 探针扩展（`setMods/getModsetHash/ingestRecipe/markVerified/listKnowledge/queryKnowledge/resetKnowledge`）；事实经 `captureTurn` 写入（`originId=mc2:<recipeId>`、`reviewStatus=approved`，真实 tags 落 `memory_tags`）。**v1 表示决策**：fragment 不返回标签，tier/modset 由卡片标记读回；真实 tags 仍写入，后续可用标签 join 替换标记。五场景全 PASS：学习（候选卡、来源/版本可读）→ 复用（`candidate/fresh`）→ 实测升级（合成库存核对 刀+1 材料−1 → `verified`）→ 失效（modset 变更 → 降级 `candidate/stale`）→ 诚实未知（0 命中）→ 恢复版本（`verified`）→ **重启后复用**（持久化 `verified/fresh`）；开关默认关闭以根白名单 + 仅探针触发为代理证据。测试 13/13；typecheck/eslint 0。记录 [evidence/mc-2a/increment-3-knowledge-20260913.md](./evidence/mc-2a/increment-3-knowledge-20260913.md)。后续子批：MC-2b（引导/上网补全）、MC-2c（多步任务）、MC-2d（固化技能）。
+
+## MC-3c 规范草案（2026-09-13，未实施）
+
+新增 [mc-3c-spec.md](./mc-3c-spec.md)：鞘翅与炽足兽（Phase 3，条件批次，**草案存档不实施**，触发条件为主线 MC-2a 之后或确有飞行/熔岩需求）。参考：**mineflayer-mcefly（MIT）为移植蓝本**（装备/起飞/烟花推进/地形扫描/避水/精确与紧急着陆/耐久与备用鞘翅），**Baritone `#elytra` 为行为 oracle**（夹具已装，仅测行为），Meteor ElytraFly 仅思路。设计：`game_move_to.vehicle` 增 `'elytra'`（复用 VehicleMover 分发）；3a 基础闭环状态机（装备→起飞→巡航高度带→进近着陆→补给统计），3b 避障/补给/安全网，3c 可选下界顶棚航线；mod 侧缺口为 `player.getState` 增 `fallFlying`。夹具（发射塔/山脉航线/水岸着陆场/补给不足/炽足兽）与验收（≥100 格、着陆 ≤4 格、低补给强制着陆）已列；明确不做花式飞行与作弊式方案。本轮仅文档。
+
+## MC-3b 规范定稿（2026-09-13）
+
+新增 [mc-3b-spec.md](./mc-3b-spec.md)：骑乘与载具（船/马/矿车）。D1 `VehicleMover` 模式抽象（`game_move_to` 增 `vehicle?: 'boat'|'horse'|'minecart'`，默认 foot，不做自动模式选择；`fallbackToFoot` 显式回退；单输入所有权、反射优先、证据语义不变）；D2 端口补 `useItem()`（空气右键：放船/水桶/烟花）、`dismount()`、`getRiding()`——与 Phase 1 的 `useBlock`（useItemOn：门/放置面）区分；D3 船（放船→上船→短段航向+搁浅有界重试→sneak 下船）；D4 马（鞍/上马/蓄力跳/摔落失败）；D5 矿车（短直轨 v1）。夹具：水渠/马栏/短轨；三增量 + 真机 3 次重复。明确不做鞘翅/炽足兽（Phase 3）、自动模式选择、载具战斗。本轮仅文档。
+
+- **增量 1 + 船真机（2026-09-13）**：`movement/vehicle.ts` 模式抽象与分发；端口补 `useItem`/`dismount`/`swapSlots`/`getRiding`/`boardNearestVehicle`/`useEntity`；`game_move_to` 接 `vehicle`/`fallbackToFoot`。**Mod fork 补丁**：`entities.query` 不返回载具 → mcpfabric 新增 `player.getVehicle`、`vehicle.boardNearest` RPC 与 MCP 工具 `get_vehicle`/`board_vehicle`（jar sha256 `3292241b…`，152,861 字节，客户端已重启验证）。真机水渠船行 **PASS** 8.9s（距离 0.86、下船）；修复两处：船进主背包需换槽、固定 yaw 放船打到岸墙（改为朝目标俯角 30°）。测试 movement 94 passed；typecheck/eslint 0。记录 [evidence/mc-3/phase-2-increment-1-20260913.md](./evidence/mc-3/phase-2-increment-1-20260913.md)。
+- **增量 2/3 + 马/矿车真机（2026-09-13）**：马 mover（多次上马尝试/转向/蓄力跳/有界失败/下马）真机 **PASS** 1.6s（NoAI 夹具马；未束缚的马会游走属预期）；矿车 v1（备轨上車、等待滚动、30s 超时、下马）真机 **PASS** 3.8s（静止上车 + 夹具 `data merge Motion` 起步；后续可选 `attackEntity` 推车）。测试 movement 98 passed；typecheck/eslint 0。记录 [evidence/mc-3/phase-2-increment-2-20260913.md](./evidence/mc-3/phase-2-increment-2-20260913.md)。**MC-3b 三个 mover 完成**；Phase 3（鞘翅/炽足兽）待启动。
+
+## MC-3 Phase 1 规范定稿（2026-09-13）
+
+新增 [mc-3-spec.md](./mc-3-spec.md)：徒步地形与机动（移植 mineflayer movements，MIT）。执行归属 main game-host（已有 MCP client），`game_move_to` 扩展参数 `allowBreak`（默认 false）/`allowPlace`（默认 true）/`maxFall`（默认 4），`movement.planner` 显式回退 mod 侧 nav（默认 terrain，不静默退回）。代价模型对齐 mineflayer（dig/place/maxDropDown/liquid/entity/1by1towers/parkour/sprint/dontCreateFlow），A\* + 动态重算，失败分类 `no_path`/`no_chunk`/`cost_limit`/`cancelled`/`stuck`。**稳定瞄准**为相对 Baritone 的核心改进（挖掘/放置锁定视角，回归=连续挖 3 块零重置）；卡死恢复有界（12 tick 无位移→退/侧/跳，3 次升级后 `stuck`）；门优先、默认不拆建筑；验收沿用 Phase 0 七个夹具 + 事故坐标回归。三个增量（快照/代价/A* → 步行执行/瞄准/卡死 → 门/垫脚/搭桥/水）+ 真机记录。明确不做骑乘/载具/飞行/PvP。本轮仅文档。
+
+- **增量 1 实施（2026-09-13）**：`game-host/movement/`（types/block-view/snapshot/movements/planner）。movements 为 mineflayer `movements.js` 2.4.5 移植（方法名与代价公式对齐；跳过实体索引/exclusion；挖掘工时按硬度近似；缺块默认 `no_chunk`；门扩展到 `_door/_trapdoor` 并修复"门上半格挡头"缺口）。A* 二叉堆 + octile 启发。测试 22 例（分类、平地、墙挖/不挖、全宽沟跳/搭桥/无路、干坑垫塔/无路、落差上限、门 use/禁开无路、`no_chunk`、`cost_limit`）；typecheck/eslint 0。
+- **增量 2 实施（2026-09-13）**：`movement/port.ts` + `region.ts`（X 切片 ≤30k/次）+ `executor.ts`（`runTerrainMove`）：逐 waypoint 走位、锁定瞄准（>25° 才转）、疾跑/跳跃/游泳、parkour 起跳沿触发、卡死恢复有界（12 tick 无位移 → 退/侧/跳 → 重规划 → `stuck`）、结果分类含 `unsupported_action`；边界外缺块 stub、边界内缺块 `no_chunk`。接线 `GameHostConfig.movement.planner`（默认仍 `legacy`，增量 3 翻默认）与 `game_move_to` 的 `allowBreak/allowPlace/maxFall`；垫脚方块计数。测试 movement 31/31、game-host 78 passed；typecheck/eslint 0。**真机（2026-09-13）**：断桥 parkour PASS（1.6s、距离 0.32）；落差 `maxFall=6` PASS（5.7s）；默认落差与二格墙正确落在 `unsupported_action`；水面齐沿水坑暴露"游泳爬出"移动缺失（上游同以 jump-up+place 处理，Baritone 可纯游出）→ 增量 3 候选 `swim-shore`。修复宿主端口工具名（`set_movement`，误用 `set_input` 导致不动）并抽 `host-port.ts` 加单测。记录 [evidence/mc-3/phase-1-increment-2-20260913.md](./evidence/mc-3/phase-1-increment-2-20260913.md)。待续增量 3（破/放/开门 + swim-shore + 默认翻 terrain + 五夹具）。
+- **增量 3 实施 + Phase 1 真机完成（2026-09-13）**：交互执行（`breakBlockStable` 启动一次 + 1.2s 重试 + 锁定瞄准、`placeBlockStable`、`useBlockStable`、支撑面选择、垫脚方块选择）；**`swim-shore` 移动**（水中可上 1–2 格到齐平/近齐平岸，代价模型扩展）；**关键修复**：mod 的 `interact.useItem` 是空气右键，开门必须走 `useItemOn`（现有 `place_block` RPC），`host-port.useBlock` 已改并加 NOTICE；默认 planner 翻到 `terrain`（`legacy` 保留回退），调试轨迹由 `AIRI_TERRAIN_DEBUG` 控制。真机七项：水坑 swim-shore PASS（4.6s）、门房开门 PASS（门 open=false→true）、断桥 parkour PASS（1.7s）、二格墙垫步 PASS（8.0s，垫 (75,67,-7)）、封闭石室稳定挖掘 PASS ×3（6.7/11.0/7.7s，挖 2 格穿过）、落差默认 `allowPlace:false` → `unreachable`、`maxFall:6` PASS（10.3s）。测试 movement 38、game-host 85；typecheck/eslint 0。记录 [evidence/mc-3/phase-1-increment-3-20260913.md](./evidence/mc-3/phase-1-increment-3-20260913.md)。**MC-3 Phase 1 完成**；Phase 2（船/马/矿车）、Phase 3（鞘翅/炽足兽）待启动。
+
+## EP-2b 规范定稿（2026-09-12）
+
+新增 [ep-2b-spec.md](./ep-2b-spec.md)：worker 试装与隔离终止。关键决策 D1 **职责切分**——worker（自包含 TS，`fork` + `--permission --allow-fs-read=<包目录>` + `--experimental-transform-types`，复用 app 既有 `emitCodingHarnessWorker` 模式）只做未受信内容的枚举/哈希/`JSON.parse`；**所有受信判定（valibot schema、技能绑定、digest 组装、lock 写入）留在 main**，不信任 worker 汇总值。D2 `trial-worker/{protocol,worker,client}` + `PackageStore.trialRunner` 注入（缺省真 worker，测试注入 in-process）+ `cancelTrial`（uninstall 取消进行中试装，宽限 2s 后 kill）+ 启动/执行超时 30s（本批不做池化）。D3 边界：试装 worker 不适用权限 resolver、不改批准绑定、不允许包入口。六个验收场景（等价/崩溃隔离/超时隔离/撤销限时/批准不变/受信判定在 main）、实现落点、风险回退与明确不做均已钉死。本轮仅文档。
+
+- **增量 1/2 实施（2026-09-12）**：`packages/trial-worker/{protocol,package-trial-worker,client}.ts` + `PackageStore.trialRunner` 注入 + `identityFromJsons`/`verifySkillBindingsFromSources`/`digestFromFileDigests`（main 受信判定）+ `emitPackageTrialWorker`；`cancelTrial` 与 uninstall 接线；25/25 测试（真实 fork worker：等价、崩溃隔离、超时杀进程、worker-error、取消限时、取消后 uninstall）。app typecheck/eslint 0。待续：真机（built emit 路径 + 设置页回归）。
+- **真机验收（2026-09-12，PASS）**：built `out/main/package-trial-worker.ts` 被实际 fork；正常路径全链路通过——worker 试装（digest `becc329a…`、覆盖 4 文件、技能校验 ok）→ 批准 → 激活（注册 + `reviewed_self_authored`）→ 沙箱执行回显 → 导出域正确。崩溃/超时/取消由 `client.test.ts`/`store.test.ts` 以同一真实 fork worker 验证。夹具与测试技能已清理。记录见 [evidence/ep-2b/live-acceptance-20260912.md](./evidence/ep-2b/live-acceptance-20260912.md)。**EP-2b 完成。**
+
+## 多信道协作场景推演（2026-09-13，仅文档）
+
+新增 [多信道协作场景设计](./multichannel-scenario-design.md)：从原木八改四、视频未结束即评论与理解修订、工作期间闲聊、及时停止、汇报中断、切窗口与断线恢复六类场景反推事件时序。逐步记录状态所有者、接受与确认边界、失败变体和验收证据；区分任务目标、实际经过与实际输出。
+
+引用最新 MC-1a/MC-1b 基础、MC-1c/MC-2 后续批次及 MQ-2、CP/EP、harness 计划；保留原验收范围。记录 N.E.K.O 固定版本的可借鉴机制。提炼五个职责边界、候选事件和 P0–P5 原型顺序；接口、后端与部署尚未定稿。未改产品代码，未执行多信道或模型验收，不改变 MC-2 排序。
+
+## CP-2 规范定稿（2026-09-12）
+
+新增 [cp-2-spec.md](./cp-2-spec.md)：权限强制（deny-by-default）与 node-worker 隔离的字段级契约。现状研究钉死了三处断层：桌面宿主不传 `permissionResolver`（SDK 回退 `?? manifest.permissions` 即自授）、批准记录零持久化、`node-worker` 传输是 throw 桩且 `FileSystemLoader` 在主进程内 `import()`（无加载器注入口）。设计：D1 `extensions/permissions.json` 批准存盘（批准面 + `manifestDigest` 绑定）；D2 resolver 接线（无记录→空 grant，绝不回退 manifest；`grant ∩ requested`；digest 不符视为未批准）；D3 最小批准面（`airi:permissions:*` + devtools plugin-host 分区）；D4 撤销（删记录 + stop + 在途按注册撤销）；D5 Eventa worker-threads 适配器填 `node-worker` 分支；D6 worker bootstrap + `ExtensionHostOptions.loader?`（fork 加法字段）与 `NodeWorkerExtensionLoader` 代理；D7 崩溃→session `degraded`、启动超时 5s、停止宽限 2s 后 `terminate()`、在途抛 `WorkerTerminatedError`；D8 消费者接线（EP-2b 复用原语）。三个增量、六个验收场景、实现落点与明确不做均已钉死。本轮仅文档。
+
+- **增量 1 实施（2026-09-12）**：`permissions/store.ts`（批准存盘/哈希绑定/三态 resolve + 7 例）；`permissionResolver` 接线（digest 绑定 registry 磁盘 manifest，直接 start 场景回退传入 manifest）；`airi:permissions:*` 契约 + facade + `App.vue` 桥；devtools plugin-host 权限分区 + `__AIRI_PERMISSIONS_SMOKE__`；SDK fork 加法：node runtime 入口补 `export * from '../shared'`（否则 `PermissionService` 运行时不可用；dist 已重建）；既有 host 测试播种批准 + 新增 deny-by-default 边界回归。typecheck/eslint 0；插件目录 58/60（2 个 symlink EPERM 为 Windows 基线）。待续：增量 2（node-worker）、增量 3（有界终止）与真机。
+- **增量 2 实施（2026-09-12）**：2a SDK 基座——`ExtensionLoader` 接口 + `ExtensionHostOptions.loader?`、`createPluginContext` node-worker 分支（Eventa worker-threads）、worker 协议/bootstrap（受限 setup ctx、ready/failed/dispose、未捕获异常上报）、tsdown+包导出（`./plugin-host/worker`、`./plugin-host/worker-bootstrap`）；2b app 侧 `NodeWorkerExtensionLoader`（握手/超时/崩溃/有界 terminate + 7 例）与宿主接线（`loadInWorker`、unload→disposeExtension、崩溃→停会话、disposeAll），新增 worker 宿主集成测试。修两处：exit 先删会话吞崩溃、worker 适配器信封 `event.body`。插件目录 66/68（2 个 symlink EPERM 基线）；typecheck/eslint 0。待续：增量 3（在途调用限时终止、devtools worker 入口、真机）。
+- **增量 3 实施（2026-09-12）**：`InFlightCallRegistry`（requestId 登记 + owner 索引 + 3 例单测）；invoke/cancel 接入，unload/disable/revoke→`abortByOwner`、before-quit→`abortAll`；worker 终止复用增量 2 的 `disposeExtension`（2s 宽限后 terminate）。devtools：`electronPluginLoadInWorker` 契约 + facade + App 桥 + store 动作 + "Load in Worker" 按钮 + `__AIRI_PLUGIN_SMOKE__` 探针。插件目录 69/71（2 个 symlink EPERM 基线）；typecheck/eslint 0。
+- **真机验收（2026-09-12，全部 PASS）**：`cp2-permission-probe`（未批准 → `permission-denied`；批准 → 加载成功；撤销 → 再次拒绝）；worker 夹具 ready/crash/hang（5s 超时，实测 ~7s，宿主存活）/late-crash（会话停止、宿主存活）。**实机发现并修复上游缺陷**：`FileSystemLoader` 对 Windows 绝对路径直接 `import()` 被默认 ESM loader 拒绝（桌面上磁盘扩展都无法加载）→ fork 补 `isAbsolute → pathToFileURL` + `fs.test.ts` 回归（记 COMPAT）。未跑：端到端慢工具调用中止夹具（由 `inflight.test.ts` + worker-loader 测试覆盖，留待 EP-2b 真实消费）。记录见 [evidence/cp-2/live-acceptance-20260912.md](./evidence/cp-2/live-acceptance-20260912.md)。夹具已清理。
+
+## MC-1b 实施（2026-09-12）：世界作用域记忆、事件压缩、预算约束
+
+- **D1 世界绑定贯通**：`GameCommandReceipt` 增 `worldId`/`dimension`（`settle` 从信封填充，世界切换后迟到回执仍归因原世界）；`GameDomainResult.world`；main 返回点分类填充（回执类用回执世界、status/idle 用当前连接、断线皆空）。测试：世界切换后迟到回执仍 `world-1`；结果面 `world` 断言；main 42 例。
+- **D2 世界作用域记忆**：`MemorySourceContext.gameWorld`（含 `connectionGeneration`；fork 不报世界名时作用域键为 `connection-scoped#<generation>`，跨连接即历史）；`copyMemorySourceContext` 拷贝；新 `stores/modules/game-world.ts`（工具结果写入、断连清空）；`chat.ts` 回合记忆附加；minecraft 上下文提供者输出最近观察与"历史坐标须重新观察"规则；life-mode 对跨世界/跨连接/过期记忆加 `Historical (world …)` / `Needs re-observation` 前缀。
+- **D3 事件压缩**：life-mode 游戏投影矩阵——只读干净结果不唤醒模型；异常终态与 `reflex_preempted`（0.5/0.8）、死亡（1.0）产生候选；noveltyKey 含 worldId 跨世界不合并；游戏结果不再落入通用 `tool:` 桶。
+- **D4 预算约束**：游戏事件复用 life-mode `claimDecision`；预算耗尽只阻断新规划（记 `budget` gate、无 `chat.send`），运行中有界命令照常服从 deadline/取消。
+- 测试：life-mode 21 例 + game-world 1 例；memory-core/stage-ui/stage-tamagotchi typecheck 0；eslint 0。**待真机**：记忆隔离、无变化不重复、预算耗尽（需 build+重启+第二世界）。
+- **真机验收（2026-09-12）**：① 无变化不重复 PASS（连续心跳 `no-stimulus`）；② 有变化一次 PASS（异常终态 → 恰好一次 `self_decide`/`note`，随后 `no-stimulus`）；③ 预算耗尽 PASS（5/5 时心跳 `budget` gate、无新规划；运行中 `game_collect` 保持 running，`game_cancel` → `cancelled`）；④ 记忆隔离 PARTIAL（按连接捕获/断开重连/无旧坐标移动 PASS；回答级标注受 MQ-2 语义召回阈值阻塞：0.5 阈值下语义改写查询 0 命中，词面重合查询正常，校准留 MQ-2 闸门）。实机修复 4 处：跨进程作用域键（新增 `connectionId`）、`parseMemorySourceContext` 丢 `gameWorld`、断连重连 `withdrawn -> withdrawn`（withdraw 幂等）、普通对话检索未标注世界（标注接入检索注入）。记录见 [evidence/mc-1b/live-acceptance-20260912.md](./evidence/mc-1b/live-acceptance-20260912.md)。
+- 规范见 [mc-1b-spec.md](./mc-1b-spec.md)。
+
+## MC-1a 实施（2026-09-12）：say / collect / follow
+
+- 契约：`GameDomainAction`/`GameCommandAction` += `follow`；`collect` 定形 `{ blockId, itemId?, maxCount, radius }`、`follow` 为 `{ target, keepDistance, timeoutSeconds? }`；`WRITE_ACTIONS` = move_to/collect/say/follow（say 沿用 MC-0b 写语义）；`GamePostConditionInput` 增可选 `endReason`（follow 的 target_lost/reflex_preempted/no_progress → `met=false`，kind 仍 none、不作变更证据）。
+- main game-host：租约 say 10s / collect 180s / follow 300s；`DOMAIN_TOOLS` 增至 7 个（`game_say`/`game_collect`/`game_follow` 描述与 schema）；执行器：say→`send_chat`；collect→`find_blocks`(center=玩家)→`navigate_to`→`break_block(survival)`→拾取轮询（库存增量，单块 5s，单轮 ≤3 候选）；follow→`query_entities`→逐腿 `navigate_to`(reachRadius=keepDistance)；`stop` 置 `stopRequested` 并 `stop_navigation`+`stop_movement`；反射检测腿内看 `navigation_status`、破坏阶段看 `poll_events.preemptedCommandId`。
+- 证据：采集后置条件由 handler 以**新鲜库存增量**（submit 前基线）重算；say/follow 不产生变更证据。
+- 验证：game-host main 40 例（新增 say/collect/follow 用例）、既有回归全绿；renderer 11；typecheck/eslint 0。
+- **真机夹具全套（2026-09-12，全部 PASS）**：① `game_say`（`said`、聊天可见）；② `game_collect`（sand 1/1，`checked:true`/`collected met`）；③ collect+cancel（运行中报 id → `cancelled`，actual 如实）；④ follow+cancel（跟随 ~11 格后停止）；⑤ follow 目标消失（uuid 移除 → `target_lost`/`met:false`）；⑥ follow+僵尸（防御反射 → `reflex_preempted`，血量 20→17，玩家被推离）；⑦ 反射后 `game_move_to` 正常结算（无死锁）；⑧ 聊天回流隔离（应用会话消息数不变、无新 turn）。夹具用桥的 `entities.summon/remove`、`world.setBlock`、`players.applyEffect` 作管理员动作。修复三处：`game_status` 活动命令误回退旧回执；近距方块（≤4）跳过导航（脚下方块无可站 A* 目标）；survival `break_block` 是启动式挖掘 → 轮询 `get_block` 至 air。夹具注意：单人世界失焦暂停会冻结一切，`options.txt` 已设 `pauseOnLostFocus:false`。MC-1a 验收场景全部覆盖（补给依赖 MC-0d 已有证据；多窗口归 MC-0c 既有验收）。
+
+## EP-2a 规范定稿（2026-09-12）
+
+新增 [ep-2a-spec.md](./ep-2a-spec.md)：声明式插件包的字段级契约。包 = 独立 `airi-package.json` 描述符（manifest schema 会剥离未知字段，故不塞进 `extension.airi.json`）+ 已审阅技能产物副本 + UI 资源 + 文件清单与整包 sha256 摘要；包内 manifest 的 `entrypoints` 一律拒绝（无任意 Node 入口，执行走技能沙箱）。生命周期：导入 → 隔离试装（不注册/不挂载）→ 用户审阅并批准**摘要** → 激活（EP-0 撤/登两步）→ 回退/升级/卸载；批准只对 `(version, digest)` 生效，替换文件即失效需再审。备份新增 `packages` 域（已批准版本 + 批准记录 + 启用指针 + 私有数据），恢复后默认**未启用**且重算摘要。验收场景、实现落点与测试、明确不做（worker 隔离/权限强制/远程分发）均已钉死。本轮仅文档。
+
+- **增量 1（2026-09-12）**：`packages/descriptor.ts`——`airi-package.json` valibot schema、整包摘要（path 排序 + 文件 sha256 列表再 sha256；覆盖 manifest/descriptor/skills/assets，排除 data/日志/派生 lock）、`assertDeclarativeManifest` 拒绝 entrypoints、类型化错误；`descriptor.test.ts` 4 例。
+- **增量 2（2026-09-12）**：`packages/store.ts` + `types.ts`——`PackageStore` 生命周期：目录/ZIP 导入到 staging（ZIP 有 64 MiB/1 万条目上限与路径逃逸检查）、试装（manifest 身份校验、技能源码 sha256 == 描述符绑定 == `dependencies.skills` 锁定 == 渲染端已审阅哈希、写派生 `airi-package.lock.json`）、批准（重验后按 `(version,digest)` 落 `packages.json`）、激活（先验证摘要再 promote staging→installed，指针最后提交）、回退（上一已批准且存在且摘要校验通过的版本；任何失败保持现役）、卸载（默认保留 `data/`，`purgeData` 才删）、列表；`packages.json` 原子替换写 + 进程内串行队列（并发批准不丢记录），损坏绝不静默重置。`store.test.ts` 11 例：试装/批准/激活/列表、entrypoints 拒绝、hash_mismatch、review_hash_mismatch、批准后替换 → `PackageDigestMismatchError` 且现役不变、升级+回退+篡改回退拒绝、未批准激活拒绝、卸载保数据/purge、并发批准、ZIP 导入、坏 `packages.json`。typecheck/eslint 0。
+- **增量 3（2026-09-12）**：eventa `airi:packages:*` 契约 + `setupPackageHost`（原生选文件；每次变更广播 `extensionPackagesChanged`，包状态不进同步 store，而是各窗口订阅后从主进程刷新）；渲染端端口注入 store `packages/stage-ui/src/stores/modules/packages.ts`（web 显示 desktop-only）+ 桥 `renderer/bridges/packages-install.ts`；设置页 `机体模块 → 自造工具` 底部新增 `PackageReviewSection`（导入 ZIP/目录、试装展示摘要/工具 schema/技能校验/内联源码、批准/启用/停用/回退/卸载 + purge；i18n en/zh-Hans）；`renderer/stores/packages-registration.ts` 仅 leader 注册工具（replace-first，链 `['plugin:<pkg>@<digest>', 'skill:<toolId>@<skillHash>']`，执行委托技能沙箱）；`resolveEvidenceAuthor` 支持包链哈希（包装不提升信任）。测试：store 16 例、注册 4 例、证据链 +1；typecheck/eslint 0。待续：备份 `packages` 域 + 真机验收表。
+- **增量 4（2026-09-12）**：备份 `packages` 域——`exportApprovedFiles` 只导出已批准且摘要可校验的版本（含 `data/**`）与 registry；渲染端 Port 加 `readPackageEntries`（新 invoke `airi:packages:export`）并把它加入 `coverage`；`data-backup.ts` 域枚举/路径正则、`checkRestoreData` 白名单（只认 `packages/registry.json` 与 `packages/versions/<id>/<version>/...`）；`prepareRestoreProfile` 落盘到 `extensions/` 后调用 `PackageStore.prepareRestoredProfile()`：一律 `enabled:false`、逐条重算摘要，缺目录/摘要不符的批准降级为待审阅、损坏 registry 重命名保留取证并以空表继续。测试：store +3、profiles +2（ZIP 往返默认停用、篡改降级），stage-ui data-backup/restore 11 例全绿；typecheck/eslint 0。**EP-2a 代码完成；仅剩真机验收表。**
+- **真机验收（2026-09-12，全部 PASS）**：demo-pack v1/v2 + evil-pack（entrypoints 拒绝）+ bad-hash-pack（hash_mismatch）夹具；整包批准/激活 → 注册链与 `reviewed_self_authored`；包工具沙箱执行回显；批准后替换 → `PackageDigestMismatchError` 且现役不变；升级无重叠、回退、卸载保 `data/`；导出域含 registry+已批准版本、排除已卸载版本；破坏技能源码 → 执行被拒 + `untrusted_plugin`，还原重审可恢复。新增 `#/devtools/packages` 探针（原生对话框无法 headless 驱动）。试装前修复真实契约缺陷：技能绑定改用 `contentHashOf`（原按文件 sha256 比对，真实已审阅技能必被拒）。未覆盖：完整应用级备份恢复往返（需 relaunch；单测已覆盖）。夹具已清理，应用复位。记录见 [evidence/ep-2a/live-acceptance-20260912.md](./evidence/ep-2a/live-acceptance-20260912.md)。
+
+## MC-1a 规范定稿（2026-09-12）
+
+新增 [mc-1a-spec.md](./mc-1a-spec.md)：say / collect / follow 三个领域动作的字段级契约。复用 MC-0b 已预留的 `collect`/`say` 参数与 `collected` 后置条件，新增 `follow` 参数；规定执行器循环（collect：findBlocks → pathTo → breakBlock → 拾取增量；follow：重规划循环）、自身消息回流过滤、反射/取消/单写者整合（无死锁）、证据分级（collect 可 checked，say/follow 不构成变更证明）、租约默认与工具面描述、验收场景与实现落点。v1 不新增 Java 补丁（现有 MCPFabric 方法组覆盖）；仅当采集增量不可靠时再评估 P4 事件第二来源。本轮仅文档，实施未开始。
+
+## CP-1 接管边界真机验证（2026-09-12）
+
+应用内证明不变量 6（`observerMode:false`）。发现并修复真实缺口：两个消费者只传了 `metadata.source`，而注册表读 `metadata.providerModuleId`（缺省落 `plugin-host`），导致观察者集合永远收不齐、接管永不发生。修复 `main/index.ts` 的 game-host 端口与 `renderer/stores/skill-adapter-capability.ts` 三处声明；inspect 快照新增 `consumerState`（eventa 契约 + `host/debug.ts` + 技能探针 `capabilityConsumerState()`）；`electronPluginUpdateCapability` main 处理器补 `CapabilityRecord → PluginCapabilityState` 映射（plugin-sdk dist 重建后才暴露），并修正 app 侧 `announced→degraded` 的非法迁移测试。真机：启动后 `observed:[game-host,plugin-host]`、`observerMode:true` → `wrap` 后 `observed` 含 `skill-adapter`、**`observerMode:false`**、能力 `ready`、工具上脸；`unwrap` 后 withdrawn。记录见 [cp-1-spec.md](./cp-1-spec.md) 接管边界真机验证节。
+
+## MC-2 内容模组探索实验批次立项（2026-09-12）
+
+新增 [MC-2 内容模组探索](./mc-2-content-mod-exploration.md)：MC 线最后的实验批次（默认关闭），验证"无预置知识下学会内容模组"的回路——配方/机制知识获取（模组数据只读解析 + 游戏内实测）、权威来源 web 学习（只作候选）、好奇心驱动的探索循环、条件性技能固化。
+
+- 四项决策：复用既有记忆/RAG 链路（不新建引擎）；来源三分级（游戏内实测唯一可置信，本地模组数据为候选，web 为线索）；知识以 `modsetHash`+版本为有效期；默认关闭、独立世界、只读模组文件。
+- 开放问题留待 `mc-2a-spec` 定稿：夹具模组选型（首批建议 Farmer's Delight）、合成动作落地方式（客户端配方书/服务端交互/mod 侧新增 craft 能力）、事实字段契约、是否固化技能（MC-2d）。
+- **夹具盘点（2026-09-12，`D:\example_models` 实测）**：7 jar 中仅 2 个 Fabric——FD Refabricated（333 配方）+ Ocean's Delight（31 配方），可直接运行；WDA 需另下 Fabric 构建；AE2（**125 篇 ae2guide Markdown** + 556 配方）、Create（1884 配方）、车万女仆（**56 个 Patchouli JSON**）为 NeoForge 构建，只作知识摄取基准。加载器纪律落为 M2-D6（可运行夹具必须 Fabric 1.21.1，不建第二套环境）；vision 兜底观测经用户确认，落为 M2-D7。轨道映射 E1（类 1，FD+OD 可玩）/E2（类 2，WDA Fabric）/E3（知识摄取：AE2 指南 + Patchouli + Create 配方）/E4（类 3-4 暂无 1.21.1 样例；格列佛 1.20.1、水桶炮无高版本、HBM 用户放弃）。
+- 批次表已登记进 [Minecraft 执行计划](./minecraft-execution-plan.md)：MC-2a/b/c（+条件 d），依赖 MC-1b 与 **MQ-2** 记忆闸门，与 CP-2/EP-2 平台线无前置耦合。
+- **夹具平台冒烟通过（2026-09-12，提前预置）**：按用户指示，本项属提前准备、不改变批次排序——MC-2 仍排在执行链路最后（依赖 MC-1b 与 MQ-2），`mc-2a-spec` 不提前起草。AE2 的 Fabric 社区移植已弃坑（2024-08 半成品），改为 **NeoForge 21.1.233 + Sinytra Connector 2.0.0-beta.17 + FFAPI 2.3.4**（2.3.5 需 NeoForge ≥21.1.248，为该平台上限）跑我们的 Fabric 桥（Connector 自动重映射 mcpfabric 并加载）；内容模组全用官方 jar：AE2 19.2.17（+GuideME 21.1.17）、Create 6.0.10、FD 1.3.4、车万女仆 1.5.3（+Patchouli 93）、WDA 2.1.68。夹具实例 `versions\1.21.1-NeoForge-MC2`（隔离目录，未动用户实例）。夹具副本两处元数据放宽：mcpfabric `fabricloader>=0.19.3→>=0.15.0`、WDA `[1.21,1.21.1)→[1.21,1.21.2)`。冒烟证据：桥 25599 监听、MCP server 重连、game-host connected、`game_observe` ok/checked/observed（坐标 20.05/64/-3.01，手持女仆物品）。工具教训：jar 内改写须用 JDK `jar uf`，.NET ZipArchive 原地改写会损坏本地头。详见 [MC-2 文档](./mc-2-content-mod-exploration.md) 的夹具平台冒烟节。
+- 本轮仅文档；未换世界、未装模组、未写 spec、未改产品代码。
+
+## Minecraft 设置页适配 MCPFabric 桥（2026-09-12）
+
+`设置 → 机体模块 → 我的世界` 原为老独立 bot（mineflayer）的配置页（服务器地址/端口/bot 用户名，经 `ui:configure` 下发）。MC-0a 退役该播报链路后页面停用；本次改为配置新的 game-host 桥。
+
+- 新增 `packages/stage-ui/src/stores/modules/game-host.ts`：注入端口模式（同 `stores/coding.ts`），`installGameHostBridgeClient` + `useGameHostStore`（状态/配置/草稿/保存/重置/ensureLoaded/configured）。Electron 壳在 `renderer/main.ts` 经 `bridges/game-host-install.ts` 安装 `createGameHostClient()`；Web 不安装，页面显示「仅桌面版可用」。
+- 重写 `components/modules/GamingMinecraft.vue`：桥接端点（loopback 校验提示、清空即断开）、桥接令牌（password，留空保留已存）、观察工具白名单（多行/逗号）、保存/刷新状态、连接状态与身份（版本/世界/维度/玩家 UUID）。模块列表入口的已配置点 = 桥接已连接。
+- 主服务语义（`main/services/airi/game-host/index.ts`）：空 URL = 断开并持久化空配置（下次启动保持未配置）；`token: undefined` = 保留已存 token，`token: ''` = 清除。
+- 消费者迁移：`use-modules-list`、`use-data-maintenance`（reset 断开并清配置）、`chat/context-providers/minecraft`（改述桥的状态/身份，不再注入老 bot 文本）；删除旧 `stores/modules/gaming-minecraft.ts` 与其 dormant NOTICE。
+- i18n：重写 en + zh-Hans 的 `settings.pages.modules.gaming-minecraft` 键组。
+- 验证：主服务 23 例、stage-ui 全量 1065 例、i18n 20 例通过；stage-tamagotchi 574 通过（5 例既有 Windows 基线）；typecheck/eslint 0。真机（重建重启）：页面字段正确、状态「已连接」并显示 1.21.1 / overworld 身份、保存回环写入 `game-host.json` 且保持连接、模块列表绿色已配置点、`game_observe` 正常。
+
+## 多窗口工具面覆盖修复（2026-09-12）
+
+打开 follower（设置窗）后约 1s，leader 的运行时工具面被 follower 本地注册的 36 个内置工具全量回推覆盖（MCP/game/plugin 丢失，`game_*` 全部不可用）。根因：`built-in.ts` 的 life-mode watcher 与 `skill-adapter-capability.ts` 的 watcher 未做 leader 门控，两者经闭包调用绕过 synced action 包装、在 follower 本地写 `llm-tools`（`state: true`），插件随即把该全量状态提案回推给 leader。修复：新增 `isSyncedLeaderWindow()` 并对两处 watcher 门控；`game-host` 工具发现改为「先武装重试再等待」（2/5/10/20/30s，成功取消），修复重载后首次发现可能空返回或悬挂导致 game 工具整会话缺失。真机复验：leader 打开/关闭 follower 全程保持 54（13 MCP + 4 game + 1 plugin），`game_observe` 可执行；follower 无本地执行器、`game_observe` 返回 `not available now`（单执行隔离）。记录见 [multi-window-tool-face-20260912.md](./evidence/mc-0c/multi-window-tool-face-20260912.md)。
+
+## Wave D 实施（2026-09-11）：MC-0c 领域工具 + CP-1 能力注册表
+
+两批并行（CP-1 子代理、MC-0c 主线）。未提交。
+
+**MC-0c（领域工具、核对、证据、完成门）**
+- 契约：`shared/eventa/game-host.ts` 增 `GameDomainAction`/`GameDomainTask`/`GameDomainResult`/`GameHostDomainToolDescriptor` 与 `gameHostListDomainTools`/`gameHostExecuteCommand`。
+- main game-host：`connectionGeneration`（连接递增）、四工具描述表、动作租约默认（observe 8s / move_to 120s / status 5s / cancel 5s）、真实执行器（observe = `get_self`+`get_inventory`+尽力区域读；move_to = MCP `navigate_to` → 轮询 `navigation_status`；stop = `stop_navigation`）、四项核对与 `checked` 分级（status/cancel 恒 false、expired 不 checked、距离后置条件用核对后的新鲜读数）。
+- 渲染端：新增 `renderer/stores/tools/game-host.ts`（`game:game-host:*` 前缀、`game_adapter` 注册、requestId 幂等、execute 走 invoke）并在 App.vue 的 leader 刷新；`stores/tools/index.ts` 导出。
+- 证据与完成门：`resolveEvidenceAuthor(…, result?)` 按 `checked` 分级；运行时 `getToolEvidenceAuthor(toolName, result?)` 加法签名；`authority/gate.ts` 排除原始 `game_adapter_report`（仅 checked 可满足步骤声明的 `tool_result`）。
+- 验证：core-agent 315、stage-ui node 146 files / 982、stage-tamagotchi 全量 568（4 例既有 Windows 基线）、game-host main 21 + renderer 2；typecheck 与改动文件 eslint 0。
+- **真机验证（2026-09-12，应用内）**：工具面 54 = 50 + 四个 `game_*`；`game_observe`/`game_move_to` 经完整链路执行（checked、`unreachable`/`path_exhausted`/`reached`、距离后置条件）；`game_status` 回最近终态；CP-1 两消费者同时 ready。发现并修复：main 执行器误用桥方法名导致主会话导航全被拒（改 MCP 工具名 `navigate_to`/`navigation_status`/`stop_navigation`）；`game_status` 补最近终态回退。记录见 [in-app-verification-20260912.md](./evidence/mc-0c/in-app-verification-20260912.md)。
+- 真机全部完成：应用内工具面/证据分级、多窗口单执行（工具面级）与**真聊天 + 完成门**。真实 provider（`openai-compatible`/`gemini-3.8-flash`）工作回合中模型按序调用 `plan_update(start)` → `game_observe` → `plan_update(complete)`；步骤 `observe` 完成且 `unverifiedSteps: []`，证据为 `checked: true` 的游戏回执（commandId/observed/坐标血量）。记录见 [real-chat-gate-20260912.md](./evidence/mc-0c/real-chat-gate-20260912.md)。
+
+**CP-1（能力注册表）**
+- `capability-registry.ts` + `core.ts` 相位 `waiting-deps`/`degraded`、旧方法委托、`getCapabilitySnapshot`/`resolveCapabilityRequirement`/`waitForCapabilityRequirement`/`subscribeCapabilities`/`getCapabilityConsumerState`、观察者模式（两消费者 id 判定）。
+- 消费者：game-host 在连接时 `announceCapability`/`markCapabilityReady`、断开 `withdrawCapability`（main/index.ts 经 `GameHostCapabilityPort`）；技能适配器经渲染端 `skill-adapter-capability` store 按 wrapped 数驱动 `electronPluginUpdateCapability`。
+- 验证：plugin-sdk typecheck 0；capability registry 9 例 + core 新块全绿（49 passed，1 例既有 Windows 路径分隔符失败）；改动文件 eslint 0。
+- 真机：两消费者已互相可见（`game.minecraft.control` + `skill.adapter.self-authored` 同时 ready，应用内记录同 MC-0c）。
+
+**MC-0d（生存反射，Java P3/P4）**
+- `ReflexController`（escape-hazard / auto-eat / defend 状态机）+ `McpConfig.ReflexConfig`（默认全开）+ `game:reflex` 事件（同 cause 合并、`failed` 不合并、仅在事件结束时发一次）+ 抢占 `reflex_preempted`（导航 `commandId` 透传）；P4 核对现有事件总线已覆盖 damage/chat，无需补。
+- 真机验证 PASS（环境 A）：火焰逃脱（含逃脱后停步复验）、抢占导航（含 `preemptedCommandId`）、自动进食（13→18、bread）、防御反击（`countered`）、低血量脱离（`disengaged`，退距 ≥8）。验证中发现并修复两个缺陷：逃脱成功未停步；按使用键不触发 `consumeClick` 致进食超时（改显式 `gameMode.useItem`）。
+- 构建：最终客户端 jar SHA-256 `5d3daf2b7dee57319f5f69db7f875fdb19d98f671c8de3360ff69b40cd2fff78`；服务端 jar 为早期 0.2.3 构建（差异仅客户端反射，下次整批重启同步）。
+- 未覆盖：窗口内二次触发的合并夹具；空手反击 10s 上界偏紧（持剑稳定）；自动复活未实现（建议随 MC-1b 掉落物找回）。证据见 [reflex-verification-20260911.md](./evidence/mc-0d/reflex-verification-20260911.md)。
+
+
+## Wave D 三批契约规范定稿（2026-09-11）
+
+新增三份批次规范：[MC-0c 规范](./mc-0c-spec.md)、[CP-1 规范](./cp-1-spec.md)、[MC-0d 规范](./mc-0d-spec.md)。wave D = MC-0c ∥ CP-1 ∥ MC-0d。
+- **MC-0c**：`game_observe`/`game_move_to`/`game_status`/`game_cancel`（`game_` 前缀防重名）、`GameDomainResult`（`checked` 信封）、main 执行链（渲染端 `requestId` = `commandId`，IPC 重试幂等）、四项回执核对（来源/授权/连接代次/新鲜状态）、`getToolEvidenceAuthor(toolName, result?)` 加法签名 + `game`/`game_checked` 按结果分级、完成门只认 checked、leader 单执行。
+- **CP-1**：`CapabilityRecord`/`CapabilityRequirement` 照上游 baseline 原样；注册表快照权威 + 增量订阅；相位只加 `waiting-deps`/`degraded`；观察者模式（game-host 与技能适配器两消费者齐全前不接管调度）；超时显式 `missing`；事件名 `fork:capability:changed`；消费者接入点（main 的 game-host 与 renderer 技能适配器）。
+- **MC-0d**：`reflex` 配置组（默认全开、阈值/合并窗口定稿）、三条反射触发/行为/事件（`GameReflexEvent`）、抢占 `reflex_preempted`、收敛与用户优先、P3 新包 + P4 事件流核对。
+- 实施顺序：MC-0c 与 CP-1 纯 TS 可并行；MC-0d 为 Java 补丁 + 夹具（需环境 A 配合）。本轮仅文档。
+
 ## C 波次计划与 MC-0b 规范定稿（2026-09-11）
 
 新增 [C 波次执行计划](./wave-c-execution-plan.md) 与 [MC-0b 契约规范](./mc-0b-spec.md)。
@@ -10,6 +329,67 @@ C 波次含三部分：B 波次入场验收测试（CP-0 证缺省等价、EP-0 
 **第三处修正**：P1-1/P1-3 已落地（`plans.ts:271-274,1095`、`turn-projection.ts:112,118`），C 波次由三项收为两项（MC-0b ∥ EP-1）。三处"计划列为待做、实际已落地"至此累计：P3-1/P3-2、P1-1/P1-3。
 MC-0b 规范钉死：命令信封语义与参数摘要正则化（信封字段不入摘要）、七态状态机、去重键 = 连接代次 + 命令 ID、租约 → 待核对、三个类型化错误、终态回执与三类后置条件、Java P1 六项清理清单 / P2 路径耗尽判定。
 另记：下游 wave D = MC-0c ∥ MC-0d ∥ CP-1（EP-1 完成解锁 CP-1 首个消费者）。本轮仅文档。
+
+## C 波次 TS 侧开工：MC-0b 步骤 1–2 + EP-1（2026-09-11）
+
+- **MC-0b 命令契约与注册表**（`apps/stage-tamagotchi/src/main/services/airi/game-host/`）
+  - `command-contract.ts`：`GameCommandAction`/`GameCommandParams`、`paramsDigest` 正则化（排序键、6 位小数、`-0` 归一；信封字段不进摘要，M1-D3）、后置条件评估（distance/collected/observed/none）。
+  - `command-registry.ts`：去重键 `${connectionGeneration}:${commandId}`（同摘要返回已有回执且不重跑、异摘要抛 `GameCommandConflictError`）；`StaleGameBindingError`（代次/世界不符）；单写者 `GameWriteBusyError`（`observe`/`status`/`cancel` 可并发）；状态机 `accepted → running → succeeded|failed|cancelled|expired`，`cancel_requested` 为过渡态；租约看门狗（到期 → 请求停止 → 确认 `cancelled`、未确认 `expired` 并计入 `listUnverified` 待核对）；`cancel` 幂等；终态后迟到结果不改状态；执行器异常转 `failed` 回执（fallback 快照）。
+  - 假执行器测试 14 例全绿（摘要正则化、去重、冲突、旧绑定、写互斥/读并发、租约两种结局、取消幂等、三类后置条件、异常）。
+  - 本批只交付无游戏可跑的状态机；真执行器（MCP 动作映射）与 Eventa 命令面留到 MC-0b 步骤 3–4 / MC-0c。
+- **EP-1 固定适配器**（`packages/stage-ui/src/stores/skill-adapter.ts` + `skills.ts`）
+  - 契约：`SkillAdapterTool`/`SkillAdapterRegistration`、`skillAdapterRegistrationFor`（`ownerKind: plugin`、chain `['plugin:skill-adapter','skill:<toolId>']`、绑定 `approvedContentHash`）、`skillAdapterToolRegistration`。
+  - store：`skillAdapterModes`（`wrapped`/`revoked`，纯数据随同步状态）；`wrapReviewedSkill` 先撤直连注册再以适配器登记（无双重所有权窗口，仅已审阅可用技能可包）；`unwrapReviewedSkill` 撤销曝光并终止在途（走 EP-0 三步语义），后续 sync 不复活，重新包装或重新批准恢复；`syncRuntimeTools` 按模式选择直连/适配器/不注册，哈希失效自动撤下。
+  - 证据判定不变：包装链最深处仍是 `reviewed_self_authored`（不提升信任）。
+  - 测试：纯契约 3 例 + store 4 例（迁移无重名窗口、拒绝未审阅、撤销不复活与重包、哈希失效撤下）。
+  - 待真机：七步闭环的 UI 入口与真机执行（wrap/unwrap 目前为 store action，可由 devtools/CDP 驱动）；CP-1 能力声明留到 wave D。
+- **EP-1 真机闭环 PASS（2026-09-11）**：新增 devtools 探针页 `#/devtools/skills-adapter`，对已审阅技能 `acc-20260909-dedupe` 跑通：包装迁移（直连 `reviewed_skill` → `plugin:skill-adapter` 链、证据仍 `reviewed_self_authored`、工具面 50→50 无重名窗口）→ 插件入口调用（`[' b ','a','b','',' a ','c'] → ['b','a','c']`，journal seq 67/68 带 `provenance: reviewed_self_authored`）→ 撤销（工具面 0、registration 0、mode revoked）→ sync 不复活 → 重包恢复。记录见 [closure-20260911.md](./evidence/ep-1/closure-20260911.md)。
+- **MC-0b Java P1/P2 实施（fork 0.2.2，2026-09-11）**：`BotController.clearAll`（输入/挖掘/使用清理 + 终态捕获）、`ClientControlGuard`（JOIN/DISCONNECT/世界退出/死亡/心跳五类触发，一个 tick 内应用）、桥心跳 = `RpcRouter.lastRequestAt` + `heartbeatTimeoutMs`（默认 30000）；P2 路径耗尽先比距离（`reached` vs `path_exhausted`）、截止原因 `deadline`、无路径抛 `unreachable` 带位置、`nav.status` 增 `endReason/endedAt/finalDistance/finalPosition/deadline`。mod 侧不重复做命令拒绝（属 TS 注册表连接代次）。jar SHA-256 `79ead8bb…ac75`；已复制到客户端与服务端 mods（旧 0.2.1 jar 被运行中进程锁定未删净，重启前需清理）。细节见 mc-0b-spec 实施修正记录。
+- **MC-0b Java P1/P2 真机 PASS（2026-09-11）**：环境 A（服务端桥 25598，和平+停刷怪夹具）下，`mc-0b-protocol-smoke.ts` 7/7：`reached 1.325`、`cancel`（停止位移 0.472）、`deadline`（finalPosition + 位移 0.009）、`unreachable`（错误码带位置）、`path_exhausted 1.307 > 容差 1.0`、心跳超时（跳跃中 → 位移 0，临时 5s 阈值后已恢复 30000）。P1 另外两触发：断连 `endReason=disconnected`（finalDistance 0.935，1s 轮询捕获）、死亡（僵尸击杀 `endReason=death`，finalDistance 53.86）。`world_exit` 兜底被 DISCONNECT 先手覆盖，未单独观察。记录见 [p1-p2-verification-20260911.md](./evidence/mc-0b/p1-p2-verification-20260911.md)。
+- **验证**：stage-ui node 全量 146 files / 981 通过；stage-tamagotchi typecheck 0、全量仅 4 例既有 Windows 基线失败（symlink EPERM ×3、路径分隔符 ×1）；两个新模块与改动文件 eslint 0。
+
+## MC-0a 候选固定与观测探针（2026-09-11）
+
+- **fork 固定**：`3067997259-design/mcpfabric`（parent `Etoryx/mcpfabric`，即文档所指向的上游）固定 commit `1881470282f2c893a6aedc06390bff5984694e04`（v0.2.1，2026-07-30），MIT，MC 1.21.1–1.21.11 与 26.1.2/26.2。记录见 [mcpfabric-pin.md](./evidence/mc-0a/mcpfabric-pin.md)，并在 MC 计划追加"候选固定记录"节。
+- **构建**：`:1.21.1:build` BUILD SUCCESSFUL；jar `mcpfabric-0.2.1+1.21.1.jar` SHA-256 `9157530201c9a775fa93d77f4e5f40e516822e8e428e4ef620054715c41341bf`；MCP server `npm ci && npm run build` 通过。Gradle wrapper 直连 `services.gradle.org` 超时，改用腾讯镜像预置 9.6.0 分发并核对 wrapper 哈希；构建需显式 JDK 21（本机 `JAVA_HOME` 是 17）。
+- **源码核对后的实现修正**：`get_status`（`info.status`）只返回版本与能力字段，没有 world/dimension/uuid；`dimension` 改从 `get_self`（客户端专属）合并，`worldId` 回退 `connection-scoped`，`playerUuid` 留空，`game-host` 连接后合并两个读结果并补单测。Node MCP server 的 HTTP 端点不校验 Authorization；token 实际经 `MCPFABRIC_TOKEN` 传给 Node server（用于 25599 模组桥），`game-host.json.token` 仍按契约发送。已记入 mc-0a-spec 实施修正记录。
+- **确定性观测探针**：新增 `game-host/observation.integration.test.ts`；未设 `MCPFABRIC_URL` 时跳过，设 env 后对真实 MCPFabric 断言 `minecraftVersion`/`dimension`/位置/背包/方块区域；支持 `MCPFABRIC_REPORT_PATH` 落盘机器可读报告。
+- **单机首跑 PASS（2026-09-11 21:04）**：PCL 版本隔离实例（1.21.1 单人世界）+ 我们的 jar（桥 25599）+ MCP server HTTP 25600，探针 1/1 通过：`minecraftVersion 1.21.1`、`dimension minecraft:overworld`、位置 (6.5, 75, -1.5)、背包 hotbar/main/armor/offhand、区域 75 体积 39 非空气方块（与截图吻合）；全程只读。记录见 [observation-20260911.md](./evidence/mc-0a/observation-20260911.md)。
+- **应用内 game-host 验证 PASS（2026-09-11）**：新增 devtools 探针页 `pages/devtools/game-host.vue`（暴露 `window.__AIRI_GAME_HOST_SMOKE__`），重建后经 CDP 9250 跑通：连接与身份、应用内 `get_self`/`get_inventory`/`get_status`、白名单拒绝 `give`、**工具面 50 → 50 零泄漏**、无 `builtIn_emitSparkCommand`、非 loopback 拒绝后恢复连接、dormant 设置页显示「服务已离线」、stdio 服务器 `student-hub RUNNING`（`todoist ERROR` 为 npx 外部链路既有状态）。记录见 [in-app-verification-20260911.md](./evidence/mc-0a/in-app-verification-20260911.md)。
+- **验证**：stage-tamagotchi typecheck 0；game-host 单测 16 通过；观测探针默认跳过、设 env 时 1 通过；改动文件 eslint 0。
+- **环境 A 只读观测 PASS（2026-09-11 23:18）**：本地 Fabric 1.21.1 专用服（offline、seed `-3029234016717445527`、仅 Fabric API、未装服务端桥），客户端桥 25599 进服；直接探针与应用内 `game-host` 链路均通过：`1.21.1 / minecraft:overworld`、位置 (23.7, 85, -4.46)、背包五键、采集时间；`get_blocks_region` 因服务端无桥按能力显式跳过（`world_read` 缺失 / `no_server`）。记录见 [environment-a-observation-20260911.md](./evidence/mc-0a/environment-a-observation-20260911.md)。排障：双客户端抢占 25599 导致探针连到旧实例；服务器属性在启动后修改导致无效会话。
+- **未完成（NOT-RUN）**：环境 B（LAN/自建服 + 第二客户端固定离线身份）、服务端装桥后的能力组验证、1.21.11 移植冒烟与资源测量、插件取消终止与多窗口撤销的真机项、设置页传输表单交互走查。
+
+## B 波次三批实施（2026-09-11）：CP-0 ∥ EP-0 ∥ MC-0a 代码落地
+
+三线并行实施（CP-0 与 MC-0a 子代理并行、EP-0 主线合流）。未创建提交。
+
+**CP-0（协议加法与台账）**
+- `plugin-protocol`：新增 `src/fork-protocol.ts`（`ForkProtocolDescriptor`、`negotiateForkProtocol`、`ForkNegotiationResult`、`ModuleForkState`、`ProtocolVersionIncompatibleError`）；`ExtensionModuleAnnounceEvent`/`ModuleAnnounceEvent` 加可选 `forkProtocol`，`ExtensionAnnounceEvent`/`ModuleAnnouncedEvent` 不加。
+- 两条发送路径穿透：`server-sdk/client.ts`（`ClientOptions`/`NormalizedClientOptions`/announce 载荷）与 `server-sdk/extension-peer.ts`（`announceModule`）；选项缺席时载荷不含该键（对照测试断言键缺席）。
+- 本地等价路径：`plugin-sdk/extension/shared.ts` 的 `RegisterExtensionModuleInput.forkProtocol`；`plugin-host/core.ts` 在 `ctx.modules.register` 求值并挂 `forkState`。
+- 接收侧接线：`server-runtime` 的 `extension:module:announce` 分支协商并挂 `RegisteredExtensionModule.forkState`，不兼容时发 error 且不注册（不静默降级）。`module:announce` 接收侧本仓无注册表，COMPAT 登记为未接线。
+- 建立 `docs/fork/capability-platform-compat.md`：五列格式、5 条预登记 + 5 条 CP-0 + 3 条 EP-0 条目。记录一处规范歧义裁决（`downgraded` 判定基准）与一处未接线。
+- 验证：plugin-protocol / server-sdk / plugin-sdk / server-runtime typecheck 全 0；plugin-protocol 9、server-sdk 23、plugin-sdk core 34（1 例 Windows 路径分隔符既有失败）、server-runtime liveness 4。
+
+**EP-0（工具标识、证据、取消、单一所有者）**
+- 注册记录：`stage-ui/stores/ai/chat-llm/tools.ts` 新增 `ToolRegistration`/`ToolRegistrationInput`/`registrations` 同步状态与 `commitRegistrations` 同步动作；`addRegisteredTools` 先提交记录再登记执行器；`commitToolRemovals` 同时移除记录。双键唯一（同 owner 刷新 / 同 id 异 owner 抛 `DuplicateToolRegistrationError` / 同 name 异 id 抛错）。
+- 四条路径登记元数据：built-in（`host` 与 `coding-host`）、MCP（descriptors 索引对齐取 `serverName`，proxy 回退 ownerId `mcp`）、插件（`extension_host`）、reviewed 技能（`coding_sandbox` + `approvedContentHash`）。
+- 证据层：`ToolEvidenceAuthor` 7 桶；`PlanningAuthoritySource` 加 `game_adapter_checked_result`(41)、`game_adapter_report`(44)、`untrusted_plugin_report`(46)；`resolveEvidenceAuthority` 补 3 个 case（消除隐式 `undefined`）；`chat.ts getToolEvidenceAuthor` 改按注册记录判定：未登记 `untrusted_plugin`、MCP `remote_agent`、game `game`、reviewed 技能按有效批准哈希、插件按执行链最深处技能批准哈希。
+- 取消链路：注册项级 AbortController（`executableToolFrom` 以 `AbortSignal.any` 组合 turn/注册信号；撤销后迟到结果改写为 `{"status":"revoked"}`）；MCP 加 `requestId` + `electronMcpCancelTool`（主进程 per-call controller → SDK signal）；插件加 `requestId` + `electronPluginCancelTool`（主进程 controller → registry `invoke` → `record.execute(input, { abortSignal })`）；沙箱 `SandboxRunnerOptions.signal` abort 即 SIGKILL、`CodeModeRuntime` 透传、workspace host `runCommand` signal → kill、coding-host exec/code 处理器接 `abortController`。
+- `ToolResultOutcome` 增 `revoked`；runtime 把 `status:'revoked'` 映射为 revoked 且跳过失败轨迹；task-run 不把 revoked 记为 `lastFailure`；证据门不采集 revoked；与 `failed`/`denied`/`timeout` 一样不入完成门。
+- 已知限制：Eventa 0.3.0 handler `abortController` 仍是上游 TODO（`invoke-LTUFMmHi.d.mts`），renderer 侧 signal 暂不到达处理器；coding-host 已按契约接线并加 `// NOTICE:`，撤销语义由注册级 abort + 迟到回执改写兜底（MCP/插件有独立 cancel invoke，不依赖该 TODO）。
+- 验证：stage-ui 与 stage-tamagotchi typecheck 0；core-agent 全量 27 files / 313、coding-harness 全量 10 files / 82、stage-tamagotchi 全量 83 files / 550（5 例为既有 Windows 基线：symlink EPERM ×3、路径分隔符 ×1、controls-island 顺序性 ×1，单跑通过）、stage-ui node 全量 145 files / 974、多窗口同步回归 `tools.browser.test.ts` 2/2；改动文件分块 eslint 全部 0。`getToolSurface` 把包装来源写进 `tool/result.surface`（不改变证据作者）。
+
+**MC-0a（MCPFabric 连接与只读观测）**
+- mcp-config 判别联合：`ElectronMcpServerConfig = stdio | streamable-http | sse`、`ElectronMcpServerCommon`、`ElectronMcpConfigFile`；Zod 判别 schema 保留 `.strict()`，无 `kind` 的旧 stdio 条目经 preprocess 归一化为 `stdio`；设置页与 `McpServerForm.vue` 支持传输选择（i18n 仅 en + zh-Hans）。
+- 主进程 transport 分支：`StdioClientTransport` / `StreamableHTTPClientTransport`；stderr 只在 `kind === 'stdio'` 时触碰。
+- game-host 服务：`main/services/airi/game-host/index.ts`（私有 MCP session、`<userData>/game-host.json`、loopback 守卫、Bearer token、只读 `allowedTools` 白名单、连接后缓存 `GameWorldIdentity`）；shared 契约与 renderer facade 新增；`main/index.ts` provider + `mainWindow.dependsOn` eager 构建。零工具面泄漏。
+- 旧入口退役：删 `spark-command.ts`/`spark-command-shared.ts`/其测试与 `tool-resolver` 接线；两个 provider 测试改用等价本地夹具；6 个 minecraft 观察面文件标 `// NOTICE:` dormant（不删）。
+- **NOT-RUN / BLOCKED**：MC-0a 工作项 7（1.21.11 移植冒烟 + 资源测量）与双环境（A/B）搭建；本机无 Minecraft/MCPFabric 环境，MCPFabric fork 未建；未伪造结果。
+- 验证：`mcp-servers` 15、`game-host` + `mcp-config` 28、tools 相关 30 全绿。
+
+**B 波次真机验收未执行**：真实 Electron/provider 的 EP-0 场景（包装不提升信任、撤销三步、多窗口撤销）、MC-0a 双环境只读观测、CP-0 与真实对端协商均为 NOT-RUN，待环境与重建后执行。
 
 ## B 波次三批契约规范定稿（2026-09-11）
 

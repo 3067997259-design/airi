@@ -263,6 +263,22 @@ export interface GameCommandReceipt {
 - 不做跨世界记忆（属 MC-1b）。
 - 不做多写动作的排队抢占策略（首批拒绝并提示）。
 
+## 实施修正记录（2026-09-11，fork 0.2.2）
+
+Java 侧 P1/P2 已按上述字段契约实现于 `D:\mcpfabric`，两处实现性澄清：
+
+1. **命令拒绝在 TS 注册表层**。规范 P1 写"租约失效，后续命令一律拒绝直到重连"；mod 侧每次工具调用无状态，无法区分调用者。实现为：mod 侧只做物理清理（输入/导航/挖掘/使用/攻击）并清除导航租约；旧世界/旧连接的命令拒绝对应 MC-0b TS 注册表的 `StaleGameBindingError`（M1-D2 连接代次），不在 mod 层重复。
+2. **心跳来源**。桥没有独立心跳帧；`RpcRouter.dispatch` 记录 `lastRequestAt`，客户端 `ClientControlGuard` 在"有控制占用且静默超过 `heartbeatTimeoutMs`（默认 30000，0 关闭）"时清理。触发条件与默认值记录在案。
+
+实现落点：
+- `BotController.clearAll(reason)`（输入/挖掘/物品使用清理 + 导航终态捕获）、`isDriving()`、终态字段 `endReason/endedAt/finalDistance/finalPosition`；`statusJson` 输出这些字段与 `deadline`。
+- `ClientControlGuard`：`ClientPlayConnectionEvents.JOIN/DISCONNECT` + 每 tick 检查世界退出、死亡、心跳；清理在触发后一个 tick 内应用（两 tick 验收线内）。
+- P2：路径耗尽先比对最终距离再判定 `reached`，否则 `path_exhausted`；`nav.pathTo` 无路径时抛 `unreachable` 错误并携带 `position` 数据；截止原因由 `timeout` 改为 `deadline`；`nav.stop` 原因由 `stopped` 改为 `cancelled`。
+- 新配置项：`heartbeatTimeoutMs`（默认 30000）。
+- 版本：`mod_version` 0.2.1 → 0.2.2；构建 SHA-256 `79ead8bb3ef8af2ce34a16fca72510672fc88e21c3cb20cd258c7f367e5eac75`。
+
+**真机验证（2026-09-11，环境 A）**：P2 五场景（`reached`/`cancel`/`deadline`/`unreachable`/`path_exhausted`）与 P1 三触发（心跳超时、断连、死亡）全部 PASS；`world_exit` 兜底因退出到标题先触发网络 `DISCONNECT`（记录为 `disconnected`）未单独观察。测试脚本 `apps/stage-tamagotchi/scripts/mc-0b-protocol-smoke.ts`（原始 RPC，不经 LLM）；记录见 [P1/P2 验证记录](../evidence/mc-0b/p1-p2-verification-20260911.md)。
+
 ## 与执行计划的关系
 
 - [minecraft-execution-plan.md](./minecraft-execution-plan.md)：MC-0b 的批次、通过条件与验收在本规范细化。计划已有的命令信封与终态字段以本文件为最终值。
