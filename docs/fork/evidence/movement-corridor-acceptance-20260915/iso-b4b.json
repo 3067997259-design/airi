@@ -1,0 +1,207 @@
+{
+  "summary": {
+    "label": "iso-b4b",
+    "start": {
+      "x": 83.5,
+      "z": -24.5
+    },
+    "end": {
+      "x": 85.5,
+      "z": -24.5
+    },
+    "straightDistance": 2,
+    "endReason": "reached",
+    "checked": true,
+    "finalSnapshot": {
+      "position": {
+        "x": 85.58099020274344,
+        "y": 76,
+        "z": -24.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:bucket"
+    },
+    "samples": 11,
+    "durationMs": 1752,
+    "pathLength": 2.08,
+    "pathRatio": 1.04,
+    "maxLateral": 0,
+    "stalls": 3,
+    "stallEpisodes": 2,
+    "perpendicularReversals": 0,
+    "yawTravelDeg": 90,
+    "planCells": 2,
+    "maxPathLateral": 0.767,
+    "pathLateralBreaches": 5
+  },
+  "receipt": {
+    "status": "ok",
+    "checked": true,
+    "commandId": "82fc02f4-c0f3-4871-b55a-32a4696ed00f",
+    "endReason": "reached",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": true,
+      "unobserved": []
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 85.58099020274344,
+        "y": 76,
+        "z": -24.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:bucket"
+    },
+    "postCondition": {
+      "kind": "distance",
+      "target": 0.5,
+      "actual": 0.08099020274343616,
+      "met": true
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "f195e57c-3d19-4cab-9408-7c1260a176e4"
+    }
+  },
+  "samples": [
+    {
+      "t": 17,
+      "x": 83.5,
+      "y": 75,
+      "z": -24.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 196,
+      "x": 83.5,
+      "y": 75,
+      "z": -24.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 398,
+      "x": 83.62740001240968,
+      "y": 75,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.0695604148553142,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 569,
+      "x": 84.5819782947459,
+      "y": 75,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.14578198485214422,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 733,
+      "x": 84.69999998807907,
+      "y": 75,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 907,
+      "x": 84.71959998802245,
+      "y": 76.00133597911214,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.017836000462502232,
+        "y": 0.16477328182606651,
+        "z": 0
+      }
+    },
+    {
+      "t": 1075,
+      "x": 84.96101695184717,
+      "y": 76.17675927506424,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.07450847982319159,
+        "y": -0.15233518685055708,
+        "z": 0
+      }
+    },
+    {
+      "t": 1247,
+      "x": 85.35413139102957,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.1057969255561574,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1409,
+      "x": 85.54923320823492,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.017220712918160748,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1583,
+      "x": 85.58099020274344,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1752,
+      "x": 85.58099020274344,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    }
+  ]
+}
