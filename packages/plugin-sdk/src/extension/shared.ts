@@ -1,11 +1,14 @@
 import type {
   ExtensionIdentity,
   ExtensionModuleIdentity,
+  ForkProtocolDescriptor,
+  ModuleForkState,
   ModulePermissionDeclaration,
   ModulePermissionGrant,
 } from '@proj-airi/plugin-protocol/types'
 
 import type { KitAvailability, KitRef, KitUseResult } from '../kit'
+import type { CapabilityRequirement } from '../plugin-host/capability-registry'
 import type { Disposable, DisposableStore } from './disposable'
 
 /**
@@ -23,6 +26,11 @@ export interface RegisterExtensionModuleInput {
   permissions?: ModulePermissionDeclaration
   /** Optional labels used for routing, policy, and inspection. */
   labels?: Record<string, string>
+  /**
+   * Fork protocol declaration. Present means the module participates in fork
+   * protocol negotiation; absent means upstream behavior.
+   */
+  forkProtocol?: ForkProtocolDescriptor
 }
 
 /**
@@ -51,6 +59,8 @@ export interface ExtensionModuleContext {
   kits: ExtensionKitRegistry
   /** Cleanup callbacks owned by this module. */
   subscriptions: DisposableStore
+  /** Fork protocol negotiation record written by the host at registration time. */
+  forkState?: ModuleForkState
   /** Disposes module-owned resources. */
   dispose: () => Promise<void>
 }
@@ -103,4 +113,10 @@ export interface Extension {
   version?: string
   /** Runs extension initialization. */
   setup: (ctx: ExtensionSetupContext) => Promise<void> | void
+  /**
+   * Optional capability requirements that gate session readiness. When set,
+   * the session enters `waiting-deps` after setup until the requirement
+   * resolves; absent means the session becomes `ready` right after setup.
+   */
+  requires?: CapabilityRequirement
 }

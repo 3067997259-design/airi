@@ -1,9 +1,11 @@
+import type { CapabilityResolution } from '.'
 import type { ExtensionManifestV1, ModulePermissionDeclaration } from './shared/types'
 
 import { join } from 'node:path'
 
+import { ProtocolVersionIncompatibleError } from '@proj-airi/plugin-protocol/types'
 import { safeParse } from 'valibot'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ExtensionHost, extensionManifestV1Schema, FileSystemLoader } from '.'
 import { defineExtension } from '../extension'
@@ -62,6 +64,89 @@ describe('for ExtensionHost', () => {
 
     expect(session.extension.id).toBe('airi-extension-test')
     expect(host.listModules().map(module => module.id)).toEqual(['module-a', 'module-b'])
+  })
+
+  it('records an absent fork negotiation when the module omits forkProtocol', async () => {
+    const host = new ExtensionHost()
+    const extension = defineExtension({
+      id: 'airi-extension-test',
+      async setup(ctx) {
+        await ctx.modules.register({ id: 'module-a' })
+      },
+    })
+
+    const session = await host.startExtension(extension, {
+      manifest: {
+        apiVersion: 'v1',
+        kind: 'manifest.extension.airi.moeru.ai' as const,
+        id: 'airi-extension-test',
+        permissions: {},
+        entrypoints: {},
+      },
+    })
+
+    const module = session.modules.get('module-a')
+    expect(module?.forkState).toEqual({
+      moduleId: 'module-a',
+      negotiation: {
+        agreedVersion: null,
+        agreedExtensions: [],
+        mode: 'absent',
+      },
+    })
+  })
+
+  it('carries forkProtocol through the local register path and negotiates exactly', async () => {
+    const host = new ExtensionHost()
+    const extension = defineExtension({
+      id: 'airi-extension-test',
+      async setup(ctx) {
+        await ctx.modules.register({
+          id: 'module-a',
+          forkProtocol: { version: 1, extensions: ['capability-registry'] },
+        })
+      },
+    })
+
+    const session = await host.startExtension(extension, {
+      manifest: {
+        apiVersion: 'v1',
+        kind: 'manifest.extension.airi.moeru.ai' as const,
+        id: 'airi-extension-test',
+        permissions: {},
+        entrypoints: {},
+      },
+    })
+
+    const module = session.modules.get('module-a')
+    expect(module?.forkState?.negotiation).toEqual({
+      agreedVersion: 1,
+      agreedExtensions: [],
+      mode: 'exact',
+    })
+  })
+
+  it('rejects local module registration when the fork version intersection is empty', async () => {
+    const host = new ExtensionHost()
+    const extension = defineExtension({
+      id: 'airi-extension-test',
+      async setup(ctx) {
+        await ctx.modules.register({
+          id: 'module-a',
+          forkProtocol: { version: 2, extensions: [] },
+        })
+      },
+    })
+
+    await expect(host.startExtension(extension, {
+      manifest: {
+        apiVersion: 'v1',
+        kind: 'manifest.extension.airi.moeru.ai' as const,
+        id: 'airi-extension-test',
+        permissions: {},
+        entrypoints: {},
+      },
+    })).rejects.toBeInstanceOf(ProtocolVersionIncompatibleError)
   })
 
   it('rejects defineExtension entrypoint ids that do not match the manifest id', async () => {
@@ -1007,5 +1092,179 @@ describe('for migrated extension testdata', () => {
 
     expect(session.phase).toBe('ready')
     expect(host.listModules().map(module => module.id)).toEqual(['test-injected-host-apis-module'])
+  })
+})
+
+describe('for ExtensionHost capability lifecycle', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function testManifest(id: string): ExtensionManifestV1 {
+    return {
+      apiVersion: 'v1',
+      kind: 'manifest.extension.airi.moeru.ai' as const,
+      id,
+      permissions: {},
+      entrypoints: {},
+    }
+  }
+
+  it('delegates the existing capability methods to the registry', () => {
+    const host = new ExtensionHost()
+
+    expect(host.isCapabilityReady('cap.manual')).toBe(false)
+
+    host.announceCapability('cap.manual', { source: 'test' })
+    expect(host.isCapabilityReady('cap.manual')).toBe(false)
+
+    host.markCapabilityReady('cap.manual', { source: 'test' })
+    expect(host.isCapabilityReady('cap.manual')).toBe(true)
+    expect(host.listCapabilities()).toContainEqual(
+      expect.objectContaining({ key: 'cap.manual', state: 'ready' }),
+    )
+
+    host.markCapabilityDegraded('cap.manual', { reason: 'flaky' })
+    expect(host.isCapabilityReady('cap.manual')).toBe(false)
+
+    host.withdrawCapability('cap.manual')
+    expect(host.listCapabilities()).toContainEqual(
+      expect.objectContaining({ key: 'cap.manual', state: 'withdrawn' }),
+    )
+  })
+
+  it('resolves a pre-existing ready capability for a late waiter immediately', async () => {
+    const host = new ExtensionHost()
+    host.markCapabilityReady('cap.ready', { source: 'bootstrap' })
+
+    await expect(host.waitForCapability('cap.ready', 1000)).resolves.toMatchObject({
+      key: 'cap.ready',
+      state: 'ready',
+    })
+
+    const resolution = await host.waitForCapabilityRequirement({ allOf: ['cap.ready'], timeoutMs: 1000 })
+    expect(resolution.satisfied).toBe(true)
+    expect(resolution.missing).toEqual([])
+    expect(typeof resolution.since).toBe('number')
+  })
+
+  it('moves a session from setting-up to waiting-deps and recovers deterministically', async () => {
+    const host = new ExtensionHost()
+    const extension = defineExtension({
+      id: 'airi-extension-waiting-deps',
+      requires: { allOf: ['cap.dependency'] },
+      async setup(ctx) {
+        await ctx.modules.register({ id: 'module-a' })
+      },
+    })
+
+    const session = await host.startExtension(extension, { manifest: testManifest(extension.id) })
+
+    expect(session.phase).toBe('waiting-deps')
+    expect(session.dependencyStatus?.missing).toEqual(['cap.dependency'])
+    expect(typeof session.dependencyStatus?.since).toBe('number')
+
+    host.markCapabilityReady('cap.dependency', { source: 'provider' })
+    expect(session.phase).toBe('ready')
+    expect(session.dependencyStatus?.missing).toEqual([])
+    expect(session.dependencyStatus?.bound).toEqual(['cap.dependency'])
+
+    host.markCapabilityDegraded('cap.dependency', { reason: 'executor lost' })
+    expect(session.phase).toBe('degraded')
+    expect(session.dependencyStatus?.degraded).toEqual({
+      capabilityId: 'cap.dependency',
+      reason: 'executor lost',
+    })
+
+    host.markCapabilityReady('cap.dependency', { source: 'recovered' })
+    expect(session.phase).toBe('ready')
+    expect(session.dependencyStatus?.degraded).toBeUndefined()
+  })
+
+  it('resolves a requirement that is already satisfied when the session starts', async () => {
+    const host = new ExtensionHost()
+    host.markCapabilityReady('cap.pre', { source: 'bootstrap' })
+    const extension = defineExtension({
+      id: 'airi-extension-late-requirement',
+      requires: { allOf: ['cap.pre'] },
+      async setup() {},
+    })
+
+    const session = await host.startExtension(extension, { manifest: testManifest(extension.id) })
+
+    expect(session.phase).toBe('ready')
+    expect(session.dependencyStatus?.bound).toEqual(['cap.pre'])
+
+    host.markCapabilityDegraded('cap.pre', { reason: 'provider restart' })
+    expect(session.phase).toBe('degraded')
+    expect(session.dependencyStatus?.degraded).toEqual({
+      capabilityId: 'cap.pre',
+      reason: 'provider restart',
+    })
+
+    host.markCapabilityReady('cap.pre', { source: 'bootstrap' })
+    expect(session.phase).toBe('ready')
+    expect(session.dependencyStatus?.degraded).toBeUndefined()
+  })
+
+  it('times out with explicit missing ids and leaves the session in waiting-deps', async () => {
+    vi.useFakeTimers()
+
+    const host = new ExtensionHost()
+    let result: (CapabilityResolution & { since: number }) | undefined
+    const extension = defineExtension({
+      id: 'airi-extension-timeout',
+      requires: { allOf: ['cap.never'] },
+      async setup() {
+        result = await host.waitForCapabilityRequirement({ allOf: ['cap.never'], timeoutMs: 50 })
+      },
+    })
+
+    const startPromise = host.startExtension(extension, { manifest: testManifest(extension.id) })
+    await vi.advanceTimersByTimeAsync(50)
+    const session = await startPromise
+
+    expect(result?.satisfied).toBe(false)
+    expect(result?.missing).toEqual(['cap.never'])
+    expect(typeof result?.since).toBe('number')
+    expect(session.phase).toBe('waiting-deps')
+    expect(session.dependencyStatus?.missing).toEqual(['cap.never'])
+  })
+
+  it('flips observer mode only after both consumer ids announce a capability', () => {
+    const host = new ExtensionHost()
+
+    expect(host.getCapabilityConsumerState()).toEqual({ observed: ['plugin-host'], observerMode: true })
+
+    host.announceCapability('game.minecraft.control', {
+      providerModuleId: 'game-host',
+      version: '1.0.0',
+    })
+    expect(host.getCapabilityConsumerState()).toEqual({
+      observed: ['game-host', 'plugin-host'],
+      observerMode: true,
+    })
+
+    host.announceCapability('skill.adapter.self-authored', { providerModuleId: 'skill-adapter' })
+    expect(host.getCapabilityConsumerState()).toEqual({
+      observed: ['game-host', 'plugin-host', 'skill-adapter'],
+      observerMode: false,
+    })
+  })
+
+  it('emits capability changes through the public subscription', () => {
+    const host = new ExtensionHost()
+    const changes: Array<{ revision: number, kind: string }> = []
+    const unsubscribe = host.subscribeCapabilities((change) => {
+      changes.push({ revision: change.revision, kind: change.kind })
+    })
+
+    host.announceCapability('cap.subscribed')
+    host.markCapabilityReady('cap.subscribed')
+    host.withdrawCapability('cap.subscribed')
+    unsubscribe()
+
+    expect(changes.map(change => change.kind)).toEqual(['upsert', 'upsert', 'withdrawn'])
+    expect(host.getCapabilitySnapshot().revision).toBeGreaterThanOrEqual(changes.length)
   })
 })

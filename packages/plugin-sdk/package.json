@@ -24,6 +24,13 @@
       "types": "./dist/plugin-host/index.d.mts",
       "node": "./dist/plugin-host/runtimes/node/index.mjs",
       "default": "./dist/plugin-host/runtimes/web/index.mjs"
+    },
+    "./plugin-host/worker": {
+      "types": "./dist/plugin-host/runtimes/node/worker/index.d.mts",
+      "default": "./dist/plugin-host/runtimes/node/worker/index.mjs"
+    },
+    "./plugin-host/worker-bootstrap": {
+      "default": "./dist/plugin-host/runtimes/node/worker/bootstrap.mjs"
     }
   },
   "main": "./dist/index.mjs",

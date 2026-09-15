@@ -1,3 +1,4 @@
+export * from './capability-registry'
 export * from './core'
 export { createPluginContext } from './runtimes/node'
 export * from './runtimes/node/loaders'

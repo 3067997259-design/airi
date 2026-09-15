@@ -4,10 +4,19 @@ import type { PluginTransport } from '../../transports'
 
 import { createContext } from '@moeru/eventa'
 
+import { createNodeWorkerContext } from './worker/context'
+
+export * from '../../capability-registry'
 export * from '../../core'
 export * from '../../shared'
 export * from '../../transports'
+// Fork addition (CP-2): the node runtime entry must expose the shared runtime
+// services (PermissionService, DependencyService, ...) just like the
+// `plugin-host` barrel does; without this, the `node` export condition
+// resolves to a subset and app-side permission wiring cannot reuse them.
+export * from '../shared'
 export * from './loaders'
+export * from './worker'
 
 /**
  * Creates the Eventa context used by node-side extension host sessions.
@@ -28,7 +37,7 @@ export function createPluginContext(transport: PluginTransport): EventContext<an
     case 'websocket':
       throw new Error('WebSocket transport is not implemented for node runtime yet.')
     case 'node-worker':
-      throw new Error('Node worker transport is not implemented yet.')
+      return createNodeWorkerContext(transport.worker)
     case 'electron':
       throw new Error('Electron transport is not implemented yet.')
     case 'web-worker':

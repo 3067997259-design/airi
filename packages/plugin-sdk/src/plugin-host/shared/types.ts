@@ -6,6 +6,7 @@ import type {
 import type { GenericSchema } from 'valibot'
 
 import type { KitDescriptor } from './kits'
+import type { ExtensionLoader } from './loader'
 
 import { isPlainObject } from 'es-toolkit'
 import {
@@ -388,6 +389,15 @@ export interface ExtensionHostInstallContext {
 export interface ExtensionHostOptions {
   /** Installable host features that can register kits, resources, and capabilities. @default [] */
   contributions?: ExtensionHostContribution[]
+  /**
+   * Loading strategy for extension entrypoints.
+   *
+   * Fork addition (CP-2): an isolated runtime can substitute a worker-backed
+   * loader; omitted keeps the in-process filesystem loader.
+   *
+   * @default FileSystemLoader
+   */
+  loader?: ExtensionLoader
   /** Callback that decides the granted permission set for one extension session. */
   permissionResolver?: (payload: {
     identity: ExtensionIdentity

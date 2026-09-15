@@ -1,6 +1,8 @@
 import type { Eventa } from '@moeru/eventa'
 import type { AssistantMessage, CommonContentPart, Message, ToolMessage, UserMessage } from '@xsai/shared-chat'
 
+import type { ForkProtocolDescriptor } from '../fork-protocol'
+
 import { defineEventa } from '@moeru/eventa'
 
 export interface DiscordGuildMember {
@@ -697,6 +699,7 @@ interface ExtensionModuleAnnounceEvent<C = undefined> {
   permissions?: ModulePermissionDeclaration
   configSchema?: ModuleConfigSchema
   dependencies?: ModuleDependency[]
+  forkProtocol?: ForkProtocolDescriptor
 }
 
 interface ExtensionKitAnnounceEvent {
@@ -750,6 +753,7 @@ interface ModuleAnnounceEvent<C = undefined> {
   permissions?: ModulePermissionDeclaration
   configSchema?: ModuleConfigSchema
   dependencies?: ModuleDependency[]
+  forkProtocol?: ForkProtocolDescriptor
 }
 export interface ModuleAnnouncedEvent {
   name: string

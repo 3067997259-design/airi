@@ -3,6 +3,7 @@ import type { ExtensionLoadOptions, ExtensionManifestV1 } from '../../../shared/
 
 import { isAbsolute, join } from 'node:path'
 import { cwd } from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 function isExtensionDefinition(value: unknown): value is Extension {
   return typeof value === 'object'
@@ -13,7 +14,7 @@ function isExtensionDefinition(value: unknown): value is Extension {
     && typeof (value as { setup?: unknown }).setup === 'function'
 }
 
-function coerceExtensionFromModule(moduleValue: unknown): Extension {
+export function coerceExtensionFromModule(moduleValue: unknown): Extension {
   if (isExtensionDefinition(moduleValue)) {
     return moduleValue
   }
@@ -71,7 +72,15 @@ export class FileSystemLoader {
 
   async loadExtensionFor(manifest: ExtensionManifestV1, options?: ExtensionLoadOptions) {
     const entrypoint = this.resolveEntrypointFor(manifest, options)
-    const extensionModule = await import(entrypoint)
+    // NOTICE:
+    // The default ESM loader rejects Windows absolute paths (`C:\...`) with
+    // "Only URLs with a scheme in: file, data, node, and electron are
+    // supported". Convert absolute entrypoints to file URLs; relative
+    // specifiers keep their resolution semantics.
+    // Source: surfaced live during CP-2 acceptance on Windows.
+    // Removal: when upstream converts absolute paths internally.
+    const specifier = isAbsolute(entrypoint) ? pathToFileURL(entrypoint).href : entrypoint
+    const extensionModule = await import(specifier)
     return coerceExtensionFromModule(extensionModule)
   }
 }

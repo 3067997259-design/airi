@@ -80,7 +80,7 @@ export interface ToolRegistryRecord {
   ownerModuleId?: string
   tool: PluginToolDefinitionRecord
   availability?: () => Promise<boolean> | boolean
-  execute: (input: unknown) => Promise<unknown> | unknown
+  execute: (input: unknown, options?: { abortSignal?: AbortSignal }) => Promise<unknown> | unknown
 }
 
 /**
@@ -226,13 +226,13 @@ export class TamagotchiToolRegistry {
     }
   }
 
-  async invoke(ownerExtensionId: string, toolId: string, input: unknown) {
+  async invoke(ownerExtensionId: string, toolId: string, input: unknown, options?: { abortSignal?: AbortSignal }) {
     const key = `${ownerExtensionId}:${toolId}`
     const record = this.tools.get(key)
     if (!record) {
       throw new Error(`Tamagotchi extension tool not found: ${key}`)
     }
 
-    return await record.execute(input)
+    return await record.execute(input, options)
   }
 }
