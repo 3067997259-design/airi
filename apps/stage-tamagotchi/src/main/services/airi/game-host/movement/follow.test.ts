@@ -148,6 +148,27 @@ describe('walk motion classification', () => {
     expect(result.cursor).toBe(0)
   })
 
+  // ROOT CAUSE (live hill "dead end"):
+  //
+  // The run hopped in place under a step whose rise was two blocks: no jump
+  // can clear it, so every attempt fell back and the run spent the stuck window
+  // plus the discrete retry timeout before the planner could route around it.
+  // The user pointed at the spot and said it is walkable; the phantom rise was
+  // the bug (plants classified as solid, fixed in block-view), and an edge that
+  // genuinely rises above the jump height must now fail at once.
+  it('fails an edge whose rise is above the jump height instead of hopping', async () => {
+    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true }
+    const { port, setInput } = controlPort(state)
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 3, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => false,
+    })
+    expect(result).toMatchObject({ status: 'stuck', cursor: 0 })
+    expect(setInput).not.toHaveBeenCalled()
+  })
+
   it('completes an ascent edge when standing on the destination', async () => {
     const state: MovementState = { position: { x: 1.5, y: 2, z: 0.5 }, yaw: 0, inWater: false, onGround: true }
     const { port } = controlPort(state)

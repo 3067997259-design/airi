@@ -13,7 +13,7 @@ import type { BlockSource, MovementConfig, PathStep, PlanFailureReason, PlanSucc
 import { normalizeBlockId } from './block-view'
 import { standPointOf } from './coordinates'
 import { buildCorridor, followCorridor, stepIndexAtProgress, worldHasCollisionShapes } from './corridor'
-import { failedRunStep, runCells, runWalkRun, walkRunLength } from './follow'
+import { classifyWalkMotion, failedRunStep, runCells, runWalkRun, walkRunLength } from './follow'
 import { planPath } from './planner'
 import { movementRegionBounds, readMovementRegion } from './region'
 import { hintCells, LONG_ROUTE_MAX_HOP, LONG_ROUTE_MIN_DISTANCE, splitRoute } from './route'
@@ -158,6 +158,8 @@ const AIM_TOLERANCE_DEG = 7
 const STEP_RADIUS = 0.45
 /** A lost break start is retried at this interval. */
 const BREAK_RETRY_MS = 1_200
+/** Bounded retry for a stuck jump-up edge; longer than that cannot succeed. */
+const JUMP_UP_RETRY_MS = 2_500
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -656,7 +658,15 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
             const failedStep = plan.steps[failedIndex]
             debug?.(`walk run stuck at ${runResult.position.x.toFixed(1)},${runResult.position.y.toFixed(1)},${runResult.position.z.toFixed(1)}; retrying ${failedStep ? `${failedStep.x},${failedStep.y},${failedStep.z}` : 'edge'} discretely`)
             if (failedStep) {
-              const retry = await walkStep(failedStep, { port, goal, tolerance, config, shouldStop, sleep, now, tickMs, stepTimeoutMs, stopOnArrival: true })
+              // A corner snag needs a bounded retry, not the full step timeout:
+              // an edge whose rise is above the jump height is already rejected
+              // inside the run, so a jump-up retry that cannot arrive must fail
+              // fast and let the planner route around it. The full timeout made
+              // every impossible edge cost eight seconds of hopping (live hill).
+              const retryTimeout = classifyWalkMotion(failedStep) === 'jump-up'
+                ? Math.min(stepTimeoutMs, JUMP_UP_RETRY_MS)
+                : stepTimeoutMs
+              const retry = await walkStep(failedStep, { port, goal, tolerance, config, shouldStop, sleep, now, tickMs, stepTimeoutMs: retryTimeout, stopOnArrival: true })
               if (retry === 'cancelled')
                 return finish('cancelled')
               if (retry === 'arrived') {

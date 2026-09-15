@@ -108,6 +108,8 @@ const LANDING_RADIUS = 0.7
 const FALLBACK_DROP = 1.2
 /** View error above which a latched climb withholds the jump key. */
 const CLIMB_ALIGN_DEG = 20
+/** Highest rise a vanilla jump can clear; above it the edge is impossible. */
+const MAX_STEP_JUMP_RISE = 1.26
 
 export interface WalkRunResult {
   status: 'arrived' | 'stuck' | 'cancelled'
@@ -215,8 +217,18 @@ export async function runWalkRun(options: {
     // un-latched steers at the far lookahead node and can step off a
     // one-block-wide chain before the next ascend latch exists (live chain
     // trace: 0.22 from the far edge with a 0.2-per-poll residual slide).
-    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE)
+    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE) {
+      // A rise no jump can clear is a planning error, not a movement failure.
+      // Fail the edge now: the executor disables its destination and replans
+      // around it, instead of hopping in place until the stuck window and the
+      // discrete retry timeout expire (live hill run: seconds lost per
+      // impossible edge, and the "dead end" the user saw was a phantom one).
+      if (pendingCell.y - position.y > MAX_STEP_JUMP_RISE) {
+        debug?.(`run rejected: rise ${(pendingCell.y - position.y).toFixed(2)} at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
+        return { status: 'stuck', cursor, position }
+      }
       climbLatch = { cell: pendingCell }
+    }
 
     const climbing = climbLatch !== undefined
     const target = climbing ? climbLatch!.cell : cells[targetIndex]!
@@ -256,6 +268,12 @@ export async function runWalkRun(options: {
     // never re-hops before the new aim is applied. A misaligned climb brakes,
     // because pressing forward while the view points away is what walked her
     // off a one-block block.
+    // NOTICE: a host-side landing brake (release forward once the flight is
+    // within LANDING_BRAKE of the destination) was tried and removed: at the
+    // 150 ms poll cadence it cannot time the air control, it made dense
+    // diagonal chains land short of their pads and fall into the gap beside
+    // them (live chain run diagonal-brake), and it did not move the hill
+    // numbers. Precise landing control needs the mod's per-tick execution.
     const jumpHeld = state.inWater || (climbing && aligned && state.onGround)
     const walkHeld = !climbing || aligned
 
