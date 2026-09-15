@@ -96,6 +96,7 @@ chat:
       airi: AIRI
       core-system: Core System
       you: You
+    no-text-output: The turn ended with tool calls and no text output.
   reasoning: Reasoning
   sessions:
     title: Conversations

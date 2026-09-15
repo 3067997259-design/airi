@@ -750,47 +750,64 @@ pages:
       username-placeholder: 输入您的异星工厂用户名
       configured: 异星工厂已正确配置！
     gaming-minecraft:
-      description: 一起玩 Minecraft！
+      description: 通过 MCPFabric 桥驱动本地 Minecraft 客户端。
       title: 我的世界 Minecraft
-      delivery:
-        sent: 已保存并送达运行中的服务。
-        pending: 已保存到本地。服务当前离线，待其上线后自动发送。
-      enable: 启用我的世界集成
-      enable-description: >-
-        在 Chat 界面 中包含 Minecraft 自己的上下文和认知，并保持 Passive runtime visibility 启用。
-      server-address: 服务器地址
-      server-address-description: Minecraft 服务器的 IP 地址或主机名。
-      server-address-placeholder: 输入服务器地址（例如 localhost 或 192.168.1.100）
-      server-port: 服务器端口
-      server-port-description: Minecraft 服务器的端口号（默认 25565）
-      username: 用户名
-      username-description: Minecraft Bot 使用的用户名。
-      username-placeholder: 输入 Minecraft Bot 用户名
-      configured: 我的世界已正确配置！
-      read-only:
-        title: 只读外壳
+      desktop-only:
+        title: 仅桌面版可用
         description: >-
-          目前此 Minecraft 管理界面将作为一个被动的外壳。你可以在这里观察运行状态，但服务配置仍然存在于 Minecraft 服务文件中。
-      setup:
-        title: 配置
-        description: >-
-          你可以在下面的文件中找到设置 Minecraft bot 的说明
-      runtime:
-        title: 可观测
-        connection: 连接
-        latest-context: 最后的 Bot 状态
-        waiting: 等待一个新的 Bot 上下文推送。
-        unknown: 未知
-      debug:
-        title: Minecraft流量
-        empty: 还没有观察到任何 Minecraft 流量。
-        source: '来源: {source}'
+          Minecraft 桥由桌面应用提供并连接。Web 版无法配置或访问本地的游戏客户端。
+      bridge-url: 桥接端点
+      bridge-url-description: >-
+        本地游戏桥的 MCP 端点。仅允许 127.0.0.1、::1 与 localhost，其他主机会被拒绝。清空并保存会断开连接并清除已存端点。
+      bridge-url-placeholder: http://127.0.0.1:25600/mcp
+      bridge-server-url: 服务端桥接端点
+      bridge-server-url-description: >-
+        可选。专用服务端上的桥接 MCP 端点，服务端权威读取走它。不可达时仅客户端桥继续工作。留空并保存会移除。
+      bridge-server-url-placeholder: http://127.0.0.1:25601/mcp
+      movement-planner: 移动规划器
+      movement-planner-description: >-
+        terrain 使用本地 A* 规划与方块读数；legacy 保留模组侧导航。默认 terrain。
+      movement-planner-terrain: terrain（本地 A*）
+      movement-planner-legacy: legacy（模组侧）
+      chat-enabled: 启用服务器聊天
+      chat-enabled-description: >-
+        关闭后，服务器聊天完全不会到达她。
+      chat-admins: 管理员名单
+      chat-admins-description: >-
+        每行一个玩家名。管理员的消息总是送达；以反斜杠开头的消息会被跳过。
+      chat-blocked: 黑名单
+      chat-blocked-description: >-
+        每行一个玩家名。黑名单的消息不会送达，也不会进入上下文。
+      chat-sample-rate: 未提及采样率
+      chat-sample-rate-description: >-
+        未提及 AIRI 的消息送达她的概率，0 到 1，默认 0.2。
+      chat-context-lines: 上下文行数
+      chat-context-lines-description: >-
+        送达消息时附带的最近聊天行数，0 到 20，默认 5。
+      bridge-token: 桥接令牌
+      bridge-token-description: >-
+        桥接配置中的 Bearer 令牌。留空表示保留已存令牌，输入新值则替换。
+      token-placeholder: 可选
+      token-stored-placeholder: 已保存令牌，留空保持不变
+      allowed-tools: 允许的观察工具
+      allowed-tools-description: >-
+        桥可用于观察的只读工具白名单，每行一个或用逗号分隔。默认为 get_status、get_self、get_inventory、get_blocks_region。
+      recheck: 刷新状态
+      save-saved: 桥接设置已保存。
+      save-failed: '保存桥接设置失败：{reason}'
       status:
-        service-online: 服务已上线
-        service-offline: 服务已离线
-        no-runtime-context: 尚未观察到 Bot 状态
-        last-context-seconds: '最后一次 Bot 状态更新：{seconds} 秒之前'
-        last-context-stale: '最后一次 Bot 状态：挂起'
+        unconfigured: 未配置
+        connecting: 连接中
+        connected: 已连接
+        error: 连接错误
+        unconfigured-hint: 输入桥接端点并保存即可连接。
+        connecting-hint: 正在连接桥接端点……
+        identity-pending: 已连接，等待世界身份信息。
+      identity:
+        version: 游戏版本
+        world: 世界
+        dimension: 维度
+        player: 本地玩家
     hearing:
       description: 语音识别
       title: 听觉
@@ -838,6 +855,7 @@ pages:
           no-selftest: 此版本没有记录自测产物。
           trace-count: '自测轨迹数量：{count}'
           sources: 外部来源
+          tools: 声明工具
           compatibility: 兼容性探测
           dream: 回顾失败调用
           dream-count: '{count} 个修订候选'
@@ -847,6 +865,38 @@ pages:
           submit: 提交审阅
           in-review: 已提交，等待审阅。
           submit-failed: '未提交：{reason}'
+        packages:
+          title: 扩展包
+          description: 声明式扩展包，其工具执行已审阅技能。试装与批准绑定整包摘要。
+          desktop-only: 扩展包管理仅在桌面应用中可用。
+          import-archive: 导入 ZIP
+          import-directory: 导入文件夹
+          refresh: 刷新
+          empty: 尚未导入任何扩展包。
+          purge-data: 同时删除私有数据（data/）
+          status:
+            staged: 待审阅
+            approved: 已批准
+            active: 已启用
+            disabled: 已停用
+          actions:
+            trial: 试装
+            approve: 批准
+            activate: 启用
+            deactivate: 停用
+            rollback: 回退到此版本
+            uninstall: 卸载
+            view-source: 查看技能源码
+          skill-check:
+            ok: 校验通过
+            source-missing: 缺少源码文件
+            hash-mismatch: 源码哈希与描述符不一致
+            review-hash-mismatch: 没有已审阅技能匹配此哈希
+            lock-mismatch: 依赖锁定与工具不一致
+          trial:
+            digest: 整包摘要
+            skill-checks: 技能绑定
+            files: '摘要覆盖 {count} 个文件'
     coding:
       description: 由主进程编码宿主驱动的 Hashline 文件工具与 Code Mode 沙箱
       title: 编码
@@ -910,6 +960,11 @@ pages:
         outbox: '{count} 条记忆等待同步'
         retry: 重试同步
         queue-existing: 将已有长期记忆加入同步队列
+      identity:
+        title: 记忆身份
+        description: 登录前记录的记忆如何保持可用。
+        link-local: 包含本地匿名历史
+        link-local-description: 让登录前记录的事实仍对本设备上的该账号可见。无论开关如何，角色身份始终相互隔离。
       sections:
         ranking:
           description: 调整记忆检索使用的五项评分因素。
@@ -1167,6 +1222,7 @@ pages:
         restart: 刷新 MCP 状态
         add-server: 添加
         add-env: 添加变量
+        add-header: 添加请求头
         remove: 移除
         test: 测试
         edit-json: 编辑 JSON
@@ -1182,6 +1238,13 @@ pages:
           label: 唯一标识符
           description: 唯一名称，作为 mcp.json 中的键。
           placeholder: 例如：filesystem
+        transport:
+          label: 传输方式
+          description: AIRI 连接该服务器的方式。
+          options:
+            stdio: Stdio（子进程）
+            streamable-http: Streamable HTTP
+            sse: SSE
         command:
           label: 命令
           description: 通过 stdio 启动的可执行程序。
@@ -1194,6 +1257,15 @@ pages:
           label: 工作目录
           description: 可选，作为启动进程时使用的当前工作目录。
           placeholder: 例如 /Users/you/project
+        url:
+          label: 端点 URL
+          description: 远程 MCP 服务器的 Streamable HTTP 端点。
+          placeholder: 例如 http://127.0.0.1:25600/mcp
+        headers:
+          label: 请求头
+          description: 每次请求附加的 HTTP 头，例如鉴权请求头。
+          key-placeholder: 名称
+          value-placeholder: 值
         env:
           label: 环境变量
           description: 注入到子进程的环境变量。
@@ -1229,6 +1301,7 @@ pages:
         empty-identifier: 服务器 # {index} is missing an identifier.
         duplicate-identifier: 标识符 "{name}" 重复了，每个服务器要用不同的名字。
         empty-command: '"{name}" 还没填启动命令。'
+        empty-url: '"{name}" 还没填端点 URL。'
         invalid-shape: mcp.json 结构不对，最外层得有 "mcpServers" 这个字段。
       messages:
         opened: 已经在文件管理器里打开 {path} 啦

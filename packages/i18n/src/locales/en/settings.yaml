@@ -780,51 +780,77 @@ pages:
       username-placeholder: Enter your Factorio username
       configured: Factorio is properly configured!
     gaming-minecraft:
-      description: Playing Minecraft!
+      description: Drive a local Minecraft client through the MCPFabric bridge.
       title: Minecraft
-      delivery:
-        sent: Saved and delivered to the running service.
-        pending: Saved locally. The service is offline; it will be sent when the bot comes online.
-      enable: Enable Minecraft Integration
-      enable-description: >-
-        Include Minecraft self-knowledge in Stage chat turns and keep passive
-        runtime visibility enabled.
-      server-address: Server Address
-      server-address-description: IP address or hostname of the Minecraft server.
-      server-address-placeholder: Enter server address (for example, localhost or 192.168.1.100)
-      server-port: Server Port
-      server-port-description: Port number of the Minecraft server (default 25565)
-      username: Username
-      username-description: Username used by the Minecraft bot.
-      username-placeholder: Enter the Minecraft bot username.
-      configured: Minecraft is properly configured!
-      read-only:
-        title: Read-only shell
+      desktop-only:
+        title: Desktop app only
         description: >-
-          Stage currently exposes Minecraft as a passive shell. Runtime status
-          and traffic are visible here, but service configuration stays in the
-          Minecraft service files.
-      setup:
-        title: Setup
-        description: >-
-          You can find the instructions for setting up the bot in the following
-          file
-      runtime:
-        title: Observed runtime
-        connection: Connection
-        latest-context: Latest bot context
-        waiting: Waiting for a fresh bot-originated context push.
-        unknown: Unknown
-      debug:
-        title: Minecraft traffic
-        empty: No Minecraft traffic observed yet.
-        source: 'Source: {source}'
+          The Minecraft bridge connects through the desktop app. This web build
+          cannot configure or reach a local game client.
+      bridge-url: Bridge Endpoint
+      bridge-url-description: >-
+        MCP endpoint of the local game-host bridge. Only 127.0.0.1, ::1, and
+        localhost are reachable; other hosts are refused. Clear the field to
+        disconnect and forget the stored endpoint.
+      bridge-url-placeholder: http://127.0.0.1:25600/mcp
+      bridge-server-url: Server Bridge Endpoint
+      bridge-server-url-description: >-
+        Optional MCP endpoint of the bridge that runs on the dedicated server.
+        Server-authoritative reads use it. When it is unreachable, the client
+        bridge keeps working alone. Clear the field to remove it.
+      bridge-server-url-placeholder: http://127.0.0.1:25601/mcp
+      movement-planner: Movement Planner
+      movement-planner-description: >-
+        Terrain uses the local A* planner with block feedback. Legacy keeps the
+        mod-side navigation. Defaults to terrain.
+      movement-planner-terrain: Terrain (local A*)
+      movement-planner-legacy: Legacy (mod-side)
+      chat-enabled: Enable Server Chat
+      chat-enabled-description: >-
+        When off, server chat never reaches AIRI.
+      chat-admins: Admins
+      chat-admins-description: >-
+        One player name per line. Their messages always reach AIRI; a message
+        that starts with a backslash is skipped.
+      chat-blocked: Blocklist
+      chat-blocked-description: >-
+        One player name per line. Their messages never reach AIRI and stay out
+        of the context.
+      chat-sample-rate: Mentionless Sample Rate
+      chat-sample-rate-description: >-
+        Probability from 0 to 1 that a message without the AIRI mention reaches
+        her. Defaults to 0.2.
+      chat-context-lines: Context Lines
+      chat-context-lines-description: >-
+        How many recent chat lines travel with a delivered message. From 0 to
+        20; defaults to 5.
+      bridge-token: Bridge Token
+      bridge-token-description: >-
+        Bearer token from the bridge config. Leave blank to keep the stored
+        token, or type a value to replace it.
+      token-placeholder: Optional
+      token-stored-placeholder: A token is stored; leave blank to keep it
+      allowed-tools: Allowed Observation Tools
+      allowed-tools-description: >-
+        Read-only tools the bridge may call for observation, one per line or
+        comma separated. Defaults to get_status, get_self, get_inventory, and
+        get_blocks_region.
+      recheck: Refresh Status
+      save-saved: Bridge settings saved.
+      save-failed: 'Failed to save the bridge settings: {reason}'
       status:
-        service-online: Service online
-        service-offline: Service offline
-        no-runtime-context: No bot context observed yet
-        last-context-seconds: 'Last bot context: {seconds}s ago'
-        last-context-stale: 'Last bot context: Stale'
+        unconfigured: Not configured
+        connecting: Connecting
+        connected: Connected
+        error: Connection error
+        unconfigured-hint: Enter the bridge endpoint and save to connect.
+        connecting-hint: Dialing the bridge endpoint...
+        identity-pending: Connected. Waiting for the world identity.
+      identity:
+        version: Game version
+        world: World
+        dimension: Dimension
+        player: Local player
     hearing:
       description: Configure how speech recognition works
       title: Hearing
@@ -877,6 +903,7 @@ pages:
           no-selftest: No self-test artifact is recorded for this revision.
           trace-count: 'Recorded self-test traces: {count}'
           sources: External sources
+          tools: Declared tools
           compatibility: Compatibility probe
           dream: Review failed calls
           dream-count: '{count} revision candidates'
@@ -886,6 +913,38 @@ pages:
           submit: Submit for review
           in-review: Submitted — waiting for review.
           submit-failed: 'Not submitted: {reason}'
+        packages:
+          title: Extension Packages
+          description: Declarative packages whose tools run reviewed skills. Trial and approve bind the exact package digest.
+          desktop-only: Package management is available in the desktop app only.
+          import-archive: Import ZIP
+          import-directory: Import folder
+          refresh: Refresh
+          empty: No packages imported yet.
+          purge-data: Also delete private data (data/)
+          status:
+            staged: staged
+            approved: approved
+            active: active
+            disabled: disabled
+          actions:
+            trial: Trial
+            approve: Approve
+            activate: Activate
+            deactivate: Disable
+            rollback: Use this version
+            uninstall: Uninstall
+            view-source: View skill source
+          skill-check:
+            ok: verified
+            source-missing: source file missing
+            hash-mismatch: source hash differs from the descriptor
+            review-hash-mismatch: no reviewed skill matches this hash
+            lock-mismatch: dependency lock does not match the tools
+          trial:
+            digest: Whole-package digest
+            skill-checks: Skill bindings
+            files: '{count} files covered by the digest'
     coding:
       description: Hashline file tools and the Code Mode sandbox powered by the main process coding host
       title: Coding
@@ -949,6 +1008,11 @@ pages:
         outbox: '{count} memories waiting to sync'
         retry: Retry sync
         queue-existing: Queue existing long-term memories
+      identity:
+        title: Memory identity
+        description: How memories recorded before you signed in stay reachable.
+        link-local: Include local anonymous history
+        link-local-description: Keep facts recorded before sign-in visible to this account on this device. Character identity stays isolated either way.
       sections:
         ranking:
           description: Adjust the five ranking terms used by memory retrieval.
@@ -1211,6 +1275,7 @@ pages:
         restart: Restart MCP
         add-server: Add server
         add-env: Add var
+        add-header: Add header
         remove: Remove
         test: Test
         edit-json: Edit JSON
@@ -1226,6 +1291,13 @@ pages:
           label: Identifier
           description: Unique name; becomes the key in mcp.json.
           placeholder: e.g. filesystem
+        transport:
+          label: Transport
+          description: How AIRI connects to this server.
+          options:
+            stdio: Stdio (child process)
+            streamable-http: Streamable HTTP
+            sse: SSE
         command:
           label: Command
           description: Executable spawned over stdio.
@@ -1238,6 +1310,15 @@ pages:
           label: Working directory
           description: Optional directory used as the process working directory.
           placeholder: e.g. /Users/you/project
+        url:
+          label: Endpoint URL
+          description: Streamable HTTP endpoint of the remote MCP server.
+          placeholder: e.g. http://127.0.0.1:25600/mcp
+        headers:
+          label: Request headers
+          description: Extra HTTP headers sent with every request, for example an authorization header.
+          key-placeholder: HEADER
+          value-placeholder: value
         env:
           label: Environment
           description: Vars passed to the child process.
@@ -1273,6 +1354,7 @@ pages:
         empty-identifier: Server # {index} is missing an identifier.
         duplicate-identifier: Identifier "{name}" is used more than once — names need to be unique.
         empty-command: '"{name}" is missing a command.'
+        empty-url: '"{name}" is missing an endpoint URL.'
         invalid-shape: That doesn't look like a valid mcp.json — the root needs an "mcpServers" field.
       messages:
         opened: Opened {path} in your file manager

@@ -96,6 +96,7 @@ chat:
       airi: AIRI
       core-system: 核心系统
       you: 你
+    no-text-output: 本轮以工具调用结束，没有文本输出。
   reasoning: 思考
   sessions:
     title: 对话
