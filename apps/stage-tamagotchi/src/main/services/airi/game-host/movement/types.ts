@@ -111,6 +111,16 @@ export interface MovementNode {
 
 export interface MovementConfig {
   canDig: boolean
+  /**
+   * CD-M1 plan-time dig authorization.
+   *
+   * A guarded block is never a break edge, so a route cannot treat a wall as
+   * cheap when no reachable tool can harvest it. The final break still
+   * re-verifies through the runtime harvest evaluation.
+   */
+  digGuard?: (block: BlockInfo) => boolean
+  /** CD-M1 plan-time dig cost, including the tool cost when the caller knows it. */
+  digCostOf?: (block: BlockInfo, baseCost: number) => number
   digCost: number
   placeCost: number
   liquidCost: number

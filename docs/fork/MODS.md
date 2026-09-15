@@ -3,6 +3,13 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 工具选择、采掘资格与掉落归属（CD-M1–M3，2026-09-15，代码完成，真机待做）
+
+按[工具选择、采掘资格与工具升级](./mining-tools-design.md)实施。M1：新增 `game-host/mining/`（`types/harvest/evidence/upgrade/session`）；模组新增 `mine.evaluateHarvest` 无副作用单块评估（blockStateId/维度、工具候选与资格、预期掉落模式、估计耗时与质量、危险、`unmet`）；`game_break`、`game_collect` 与地形 `canDig` 收敛到同一 `createMiningSession`（破坏轮询唯一实现）；策略 `fastest/conserve/specified`，默认 conserve；耐久按期望处理 unbreaking、风险时先换备用或 `tool_durability_low`；规划期用静态镐等级估计，开挖前由运行时评估复核。M2：`breakId` 账本分离破坏事实、生成掉落、拾取与库存增量；服务端破坏事务内 `Block.getDrops` + `ENTITY_LOAD` 有界窗口关联 ItemEntity；来源数量账本给出可证明下界与模糊量；无服务端证据时降级 `inventory-delta`；XP 单列。M3：木→石→铁镐有限升级链与预算；`game_collect` 默认返回结构化前置，`allowPrerequisites` 仅执行背包内 2×2 制作，工作台/熔炉步骤返回 `upgrade_incomplete`。
+
+- 验证：game-host 定向 **433 passed / 1 skipped**（+53 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；mcp-server `tsc --noEmit` 0；模组 `:1.21.1:build` 成功。
+- 真机 NOT-RUN：他人同时挖、他人扔物、实体合并/拆分/被捡、背包满、凹洞掉落；掉落关联依赖的 Fabric 事件顺序待真机核对。M3 的工作台/熔炉前置制作未执行（collect 无工位坐标）。
+
 ## 目标追踪与长距离定位（CD-L1–L3，2026-09-15，代码完成，真机待做）
 
 按[目标追踪与长距离定位](./target-tracking-design.md)实施。L1：新增 `movement/target-observation.ts`（固定 UUID 身份、来源/世界/维度、tri-state 姿态事实、可见性与完整性、位置不确定度；身份或维度不匹配直接拒绝；截断列表不等于目标消失），`game_locate` 回执补 `uuid`，跟随先解析一次名字再只认 UUID（同名新实体不顶替），所有空间读显式携带维度（D11/D12）。L2：新增 `movement/target-tracking.ts`（精细↔粗定位滞回：3 次缺失或 0.5 秒过期转粗，2 个递增新鲜样本回精；粗定位 1 秒间隔、失败退避、并发合并；3 秒无新鲜结果转 `waiting_for_target`，默认 10 秒预算），跟随失败原因扩为 `target_offline`/`target_dimension_changed`/`locator_unavailable`/`entity_unloaded`/`waiting_for_target`。L3：模组 `entities.get` 补姿态/骑乘/碰撞盒等字段，客户端短时轨迹历史在传送、换乘、起降、换维度时重置。

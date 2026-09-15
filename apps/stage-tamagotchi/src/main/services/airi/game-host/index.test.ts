@@ -2029,6 +2029,237 @@ describe('setupGameHost', () => {
       postCondition: { kind: 'collected', target: 4, actual: 0, met: false },
     })
   })
+
+  it('evaluates the harvest, equips the tool from the main inventory and breaks', async () => {
+    let blockReads = 0
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1', dimension: 'minecraft:overworld' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [{ slot: 9, id: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250 }], armor: [], offhand: { empty: true } } }
+      if (name === 'mine_evaluate_harvest') {
+        return {
+          content: [],
+          structuredContent: {
+            blockStateId: 'minecraft:stone',
+            x: 1,
+            y: 64,
+            z: 0,
+            dimension: 'minecraft:overworld',
+            requiresTool: true,
+            harvestEligible: true,
+            estimateQuality: 'exact',
+            candidates: [{ slot: 9, hotbar: false, itemId: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250, harvestEligible: true, destroySpeed: 6, estimatedTicks: 4 }],
+            hazards: [],
+            unmet: [],
+          },
+        }
+      }
+      if (name === 'get_block') {
+        blockReads += 1
+        return { content: [], structuredContent: { id: blockReads <= 2 ? 'minecraft:stone' : 'minecraft:air' } }
+      }
+      if (name === 'get_equipment')
+        return { content: [], structuredContent: { mainHand: { id: 'minecraft:iron_pickaxe', count: 1 } } }
+      if (name === 'break_block')
+        return { content: [], structuredContent: { started: true, mode: 'survival' } }
+      if (name === 'select_hotbar_slot' || name === 'swap_slots' || name === 'look_at')
+        return { content: [], structuredContent: { ok: true } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-mining-break-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-mine-break',
+      action: 'break',
+      params: { x: 1, y: 64, z: 0 },
+    })
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      checked: true,
+      endReason: 'broken',
+      broken: { blockId: 'minecraft:stone', tool: 'minecraft:iron_pickaxe' },
+    })
+    expect(result.broken?.breakId).toBeTruthy()
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).toContain('mine_evaluate_harvest')
+    expect(names).toContain('swap_slots')
+    expect(names).toContain('select_hotbar_slot')
+  })
+
+  it('refuses a break no reachable tool can harvest, before mining', async () => {
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
+      if (name === 'get_block')
+        return { content: [], structuredContent: { id: 'minecraft:stone' } }
+      if (name === 'mine_evaluate_harvest') {
+        return {
+          content: [],
+          structuredContent: {
+            blockStateId: 'minecraft:stone',
+            x: 1,
+            y: 64,
+            z: 0,
+            requiresTool: true,
+            harvestEligible: false,
+            candidates: [],
+            unmet: ['no_tool'],
+          },
+        }
+      }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-mining-reject-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-mine-reject',
+      action: 'break',
+      params: { x: 1, y: 64, z: 0 },
+    })
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      endReason: 'no_tool',
+      broken: { rejection: { reason: 'no_tool' } },
+    })
+    const breaks = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'break_block')
+    expect(breaks).toHaveLength(0)
+  })
+
+  it('attributes a required product from server break evidence', async () => {
+    let blockReads = 0
+    let broken = false
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
+      if (name === 'get_inventory') {
+        return {
+          content: [],
+          structuredContent: broken
+            ? { selectedSlot: 0, hotbar: [{ slot: 0, id: 'minecraft:raw_iron', count: 2 }], main: [], armor: [], offhand: { empty: true } }
+            : { selectedSlot: 0, hotbar: [{ slot: 0, id: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250 }], main: [], armor: [], offhand: { empty: true } },
+        }
+      }
+      if (name === 'mine_evaluate_harvest') {
+        return {
+          content: [],
+          structuredContent: {
+            blockStateId: 'minecraft:iron_ore',
+            x: 1,
+            y: 64,
+            z: 0,
+            requiresTool: true,
+            harvestEligible: true,
+            candidates: [{ slot: 0, hotbar: true, itemId: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250, harvestEligible: true, destroySpeed: 6, estimatedTicks: 4 }],
+            hazards: [],
+            unmet: [],
+          },
+        }
+      }
+      if (name === 'get_block') {
+        blockReads += 1
+        return { content: [], structuredContent: { id: blockReads <= 2 ? 'minecraft:iron_ore' : 'minecraft:air' } }
+      }
+      if (name === 'get_equipment')
+        return { content: [], structuredContent: { mainHand: { id: 'minecraft:iron_pickaxe', count: 1 } } }
+      if (name === 'break_block') {
+        broken = true
+        return { content: [], structuredContent: { started: true, mode: 'survival' } }
+      }
+      if (name === 'mine_break_evidence')
+        return { content: [], structuredContent: { records: [{ drops: [{ itemId: 'minecraft:raw_iron', count: 2, entityUuids: ['e1', 'e2'] }] }] } }
+      if (name === 'select_hotbar_slot' || name === 'look_at')
+        return { content: [], structuredContent: { ok: true } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-mining-evidence-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-mine-evidence',
+      action: 'break',
+      params: { x: 1, y: 64, z: 0, itemId: 'minecraft:raw_iron' },
+    })
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      endReason: 'broken',
+      broken: {
+        tool: 'minecraft:iron_pickaxe',
+        product: { itemId: 'minecraft:raw_iron', lowerBound: 2, fuzzy: 0, evidence: 'server-attributed' },
+      },
+    })
+    const evidenceCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'mine_break_evidence')
+    expect(evidenceCalls).toHaveLength(1)
+  })
+
+  it('returns structured tool prerequisites when collect lacks the tool', async () => {
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'find_blocks')
+        return { content: [], structuredContent: { matches: [{ x: 2, y: 64, z: 0, id: 'minecraft:iron_ore', distance: 2 }] } }
+      if (name === 'mine_evaluate_harvest') {
+        return {
+          content: [],
+          structuredContent: {
+            blockStateId: 'minecraft:iron_ore',
+            x: 2,
+            y: 64,
+            z: 0,
+            requiresTool: true,
+            harvestEligible: false,
+            candidates: [],
+            unmet: ['no_tool'],
+          },
+        }
+      }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-mining-prereq-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-collect-prereq',
+      action: 'collect',
+      params: { blockId: 'minecraft:iron_ore', maxCount: 1, radius: 16 },
+    })
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      endReason: 'missing_tool',
+      prerequisites: { target: 'minecraft:stone_pickaxe', craftable: false },
+    })
+    expect(result.prerequisites?.missing.some(entry => entry.itemId === 'minecraft:cobblestone')).toBe(true)
+    const breaks = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'break_block')
+    expect(breaks).toHaveLength(0)
+  })
 })
 
 interface FakeMenuStack { id: string, count: number }

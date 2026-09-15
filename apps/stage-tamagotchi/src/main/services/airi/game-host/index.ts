@@ -29,7 +29,7 @@ import type {
   GameWorldIdentity,
 } from '../../../../shared/eventa'
 import type { EventaWindowBroadcast } from '../../../libs/electron/eventa-window-broadcast'
-import type { AttackWeapon, BreakMode, EquipTarget, GameAttackedReceipt, GameBrokenReceipt, GameItemContentReceipt, GameMenuActionReceipt, GameMenuReceipt, GameMenuSlotReceipt, GameMenuSnapshotReceipt, GamePlacedBlock, GamePlacedReceipt, GameRiptideReceipt, GameRiptideUnmetDetail, GameShotReceipt, GameSignContentReceipt, GameSmeltReceipt } from './command-contract'
+import type { AttackWeapon, BreakMode, BreakToolStrategy, EquipTarget, GameAttackedReceipt, GameBrokenReceipt, GameItemContentReceipt, GameMenuActionReceipt, GameMenuReceipt, GameMenuSlotReceipt, GameMenuSnapshotReceipt, GamePlacedBlock, GamePlacedReceipt, GamePrerequisiteReport, GameRiptideReceipt, GameRiptideUnmetDetail, GameShotReceipt, GameSignContentReceipt, GameSmeltReceipt } from './command-contract'
 import type {
   GameCommandEnvelope,
   GameCommandParams,
@@ -40,8 +40,11 @@ import type {
   GamePostCondition,
   StopScope,
 } from './command-registry'
+import type { MiningPort, MiningSlot } from './mining/session'
+import type { BreakFact, GeneratedDrop } from './mining/types'
 import type { FailedEdge } from './movement/executor'
 import type { TargetObservation, TargetObservationSource } from './movement/target-observation'
+import type { MovementConfig } from './movement/types'
 
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -76,6 +79,9 @@ import {
   StaleGameBindingError,
   stopScopeFor,
 } from './command-registry'
+import { parseHarvestEvaluation } from './mining/harvest'
+import { MiningSession, nextBreakId } from './mining/session'
+import { planToolUpgrade, requiredPickaxeFor } from './mining/upgrade'
 import { cellOf } from './movement/coordinates'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
@@ -499,7 +505,7 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
   {
     name: 'game_collect',
     action: 'collect',
-    description: 'Find blocks of one id within a radius, walk to them, break them and pick up the drops. Reports how many target items this command actually collected.',
+    description: 'Find blocks of one id within a radius, walk to them, break them and pick up the drops. Reports how many target items this command actually collected. Selects the tool by conserve policy and refuses to mine a block no reachable tool can harvest; when the tool is missing it returns structured prerequisites instead. Set allowPrerequisites to let it run the bounded tool-preparation flow.',
     parameters: {
       type: 'object',
       properties: {
@@ -507,6 +513,7 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
         itemId: { type: 'string', description: 'Dropped item id to count; defaults to blockId.' },
         maxCount: { type: 'number', description: 'How many items to collect (default 1, max 16).' },
         radius: { type: 'number', description: 'Search radius in blocks (default 16, max 48).' },
+        allowPrerequisites: { type: 'boolean', description: 'Allow the bounded tool-preparation flow when the required tool is missing (default false: report structured prerequisites only).' },
       },
       required: ['blockId'],
       additionalProperties: false,
@@ -838,7 +845,7 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
   {
     name: 'game_break',
     action: 'break',
-    description: 'Break one block at x/y/z and confirm it with a bounded fresh world read. She must already be within reach; walk with game_move_to first. Fails with already_air, out_of_reach, or not_confirmed (the receipt carries lastBlockId). The drop is left for the caller to pick up.',
+    description: 'Break one block at x/y/z and confirm it with a bounded fresh world read. She must already be within reach; walk with game_move_to first. Selects a tool by strategy (default conserve: avoid burning rare enchanted tools) and refuses a block no reachable tool can harvest before mining starts. Fails with already_air, out_of_reach, not_confirmed, or a tool rejection (no_tool, tool_level_too_low, unbreakable, inventory_full, tool_durability_low). The drop is left for the caller unless itemId names a required product, which is then picked up and attributed.',
     parameters: {
       type: 'object',
       properties: {
@@ -846,6 +853,9 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
         y: { type: 'number', description: 'Target block y.' },
         z: { type: 'number', description: 'Target block z.' },
         mode: { type: 'string', enum: ['survival', 'instant'], description: 'Break mode: survival starts a tick-driven dig, instant removes it in one beat (default survival).' },
+        itemId: { type: 'string', description: 'Required product item id; when set the command waits for and attributes the pickup.' },
+        strategy: { type: 'string', enum: ['fastest', 'conserve', 'specified'], description: 'Tool policy (default conserve).' },
+        tool: { type: 'string', description: 'Item id to pin for strategy=specified.' },
       },
       required: ['x', 'y', 'z'],
       additionalProperties: false,
@@ -908,7 +918,15 @@ function toGameCommandParams(action: GameDomainAction, params: Record<string, un
       const maxCount = Math.min(Math.max(Number(params.maxCount ?? 1) || 1, 1), 16)
       const radius = Math.min(Math.max(Number(params.radius ?? 16) || 16, 4), 48)
       const itemId = typeof params.itemId === 'string' && params.itemId.trim() ? params.itemId.trim() : undefined
-      return { collect: { blockId: String(params.blockId ?? '').trim(), ...(itemId ? { itemId } : {}), maxCount, radius } }
+      return {
+        collect: {
+          blockId: String(params.blockId ?? '').trim(),
+          ...(itemId ? { itemId } : {}),
+          maxCount,
+          radius,
+          ...(params.allowPrerequisites === true ? { allowPrerequisites: true } : {}),
+        },
+      }
     }
     case 'follow': {
       const keepDistance = Math.min(Math.max(Number(params.keepDistance ?? 3) || 3, 1), 16)
@@ -1085,12 +1103,21 @@ function toGameCommandParams(action: GameDomainAction, params: Record<string, un
     case 'break': {
       const rawMode = String(params.mode ?? 'survival')
       const mode: BreakMode = rawMode === 'instant' ? 'instant' : 'survival'
+      const rawStrategy = String(params.strategy ?? '')
+      const strategy: BreakToolStrategy = rawStrategy === 'fastest' || rawStrategy === 'specified'
+        ? rawStrategy
+        : 'conserve'
+      const itemId = typeof params.itemId === 'string' && params.itemId.trim() ? params.itemId.trim() : undefined
+      const tool = typeof params.tool === 'string' && params.tool.trim() ? params.tool.trim() : undefined
       return {
         breakBlock: {
           x: Number(params.x) || 0,
           y: Number(params.y) || 0,
           z: Number(params.z) || 0,
           mode,
+          strategy,
+          ...(itemId ? { itemId } : {}),
+          ...(tool ? { tool } : {}),
         },
       }
     }
@@ -1165,7 +1192,7 @@ function vec3RecordOf(value: unknown): { x: number, y: number, z: number } | und
   return [x, y, z].every(Number.isFinite) ? { x, y, z } : undefined
 }
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
 
 /**
  * Resolves with the value when `promise` settles in time, otherwise with
@@ -1250,6 +1277,7 @@ export async function setupGameHost(
     'list_dimensions',
     'list_players',
     'message_player',
+    'mine_break_evidence',
     'poll_server_events',
     'query_entities',
     'raycast',
@@ -1749,6 +1777,164 @@ export async function setupGameHost(
       throw new Error(selectError)
   }
 
+  /**
+   * Parses one `get_inventory` item record into the mining slot shape.
+   *
+   * The mining module needs damage/maxDamage to estimate durability; the
+   * movement port's slot shape does not carry them.
+   */
+  function miningSlotOf(entry: Record<string, unknown>, hotbar: boolean, fallbackSlot: number): MiningSlot | undefined {
+    const itemId = typeof entry.id === 'string' ? entry.id : undefined
+    if (!itemId)
+      return undefined
+    const damage = Number(entry.damage)
+    const maxDamage = Number(entry.maxDamage)
+    return {
+      slot: Number.isFinite(Number(entry.slot)) ? Number(entry.slot) : fallbackSlot,
+      hotbar,
+      itemId,
+      count: Number(entry.count) || 1,
+      ...(Number.isFinite(damage) ? { damage } : {}),
+      ...(Number.isFinite(maxDamage) ? { maxDamage } : {}),
+    }
+  }
+
+  /**
+   * Builds one mining session for a command.
+   *
+   * `shouldStop` is the command's fixed stop scope (CD-0 D8), so a cancelled
+   * command's session cannot be resumed by a later one.
+   */
+  function createMiningSession(shouldStop: () => boolean): MiningSession {
+    const port: MiningPort = {
+      evaluate: async (pos) => {
+        try {
+          const record = statusRecordOf(await callGameTool('mine_evaluate_harvest', {
+            x: pos.x,
+            y: pos.y,
+            z: pos.z,
+            ...(worldIdentity?.dimension ? { dimension: worldIdentity.dimension } : {}),
+          }))
+          return record ? parseHarvestEvaluation(record) : undefined
+        }
+        catch {
+          return undefined
+        }
+      },
+      equip: async (itemId) => {
+        try {
+          await ensureItemSelected(itemId)
+        }
+        catch {
+          return undefined
+        }
+        const equipment = await readEquipment()
+        const entry = equipment?.mainHand
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+          return undefined
+        const item = entry as { id?: unknown, empty?: unknown }
+        if (item.empty === true)
+          return undefined
+        return typeof item.id === 'string' ? item.id : undefined
+      },
+      hand: async () => {
+        await ensureHandSelected()
+      },
+      aim: async (pos) => {
+        // Fixed aim ages out; the caller re-aims during the break poll. A bridge
+        // without look_at degrades to the mod's own face computation.
+        try {
+          await callGameTool('look_at', { x: pos.x + 0.5, y: pos.y + 0.5, z: pos.z + 0.5 })
+        }
+        catch {
+          // Best-effort aim.
+        }
+      },
+      startBreak: async (pos, mode) => {
+        const result = await callGameTool('break_block', { x: pos.x, y: pos.y, z: pos.z, mode })
+        const error = gameToolResultError(result)
+        if (error)
+          throw new Error(error)
+      },
+      readBlock: pos => readBlockIdAt(pos),
+      countItem: async itemId => (await readInventoryCounts())?.[itemId],
+      readSlots: async () => {
+        try {
+          const record = statusRecordOf(await callGameTool('get_inventory'))
+          if (!record)
+            return undefined
+          const hotbar = Array.isArray(record.hotbar) ? record.hotbar as Array<Record<string, unknown>> : []
+          const main = Array.isArray(record.main) ? record.main as Array<Record<string, unknown>> : []
+          const slots: MiningSlot[] = []
+          hotbar.forEach((entry, index) => {
+            const slot = miningSlotOf(entry, true, index)
+            if (slot)
+              slots.push(slot)
+          })
+          main.forEach((entry, index) => {
+            const slot = miningSlotOf(entry, false, index + 9)
+            if (slot)
+              slots.push(slot)
+          })
+          return slots
+        }
+        catch {
+          return undefined
+        }
+      },
+      readDropEvidence: async (fact: BreakFact) => {
+        try {
+          // The server-game-tick and the client Date clocks are different
+          // domains (CD-0 §3.2): match by player, position and dimension only,
+          // and take the most recent record the server still holds.
+          const record = statusRecordOf(await callGameTool('mine_break_evidence', {
+            x: fact.x,
+            y: fact.y,
+            z: fact.z,
+            ...(fact.dimension ? { dimension: fact.dimension } : {}),
+            ...(fact.playerUuid ? { playerUuid: fact.playerUuid } : {}),
+          }))
+          const records = record && Array.isArray(record.records) ? record.records as Array<Record<string, unknown>> : []
+          const newest = records[0]
+          const drops = newest && Array.isArray(newest.drops) ? newest.drops as Array<Record<string, unknown>> : undefined
+          if (!drops)
+            return undefined
+          return drops.flatMap((entry): GeneratedDrop[] => {
+            const itemId = typeof entry.itemId === 'string' ? entry.itemId : undefined
+            const count = Number(entry.count)
+            if (!itemId || !Number.isFinite(count) || count <= 0)
+              return []
+            const entityUuids = Array.isArray(entry.entityUuids)
+              ? entry.entityUuids.filter((value): value is string => typeof value === 'string')
+              : undefined
+            return [{ itemId, count, ...(entityUuids && entityUuids.length > 0 ? { entityUuids } : {}) }]
+          })
+        }
+        catch {
+          return undefined
+        }
+      },
+      playerPosition: async () => {
+        try {
+          const self = statusRecordOf(await callGameTool('get_self'))
+          if (!self)
+            return undefined
+          const x = Number(self.x)
+          const y = Number(self.y)
+          const z = Number(self.z)
+          return [x, y, z].every(Number.isFinite) ? { x, y, z } : undefined
+        }
+        catch {
+          return undefined
+        }
+      },
+      now: () => Date.now(),
+      sleep,
+      shouldStop,
+    }
+    return new MiningSession(port)
+  }
+
   /** Maps the mod's raw offer record onto the receipt shape; undefined when unreadable. */
   function parseTradeOffer(raw: unknown): GameMenuActionReceipt['offer'] | undefined {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw))
@@ -1797,13 +1983,20 @@ export async function setupGameHost(
     return { inventory, truncated }
   }
 
-  function blockMatchesOf(record: Record<string, unknown> | undefined): Array<{ x: number, y: number, z: number }> {
+  function blockMatchesOf(record: Record<string, unknown> | undefined): Array<{ x: number, y: number, z: number, id?: string }> {
     const list = record?.matches
     if (!Array.isArray(list))
       return []
     return list
       .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
-      .map(item => ({ x: Number(item.x) || 0, y: Number(item.y) || 0, z: Number(item.z) || 0 }))
+      .map(item => ({
+        x: Number(item.x) || 0,
+        y: Number(item.y) || 0,
+        z: Number(item.z) || 0,
+        // The id from the search is the pre-break state; the manual break path
+        // needs it without an extra `get_block` read that could race the dig.
+        ...(typeof item.id === 'string' ? { id: item.id } : {}),
+      }))
   }
 
   /** Reads one entity's position from a query result entry, or undefined when unnamed. */
@@ -2185,6 +2378,51 @@ export async function setupGameHost(
     }
   }
 
+  /** Pickaxe material tier; a higher number can harvest strictly more blocks. */
+  function pickaxeTierOf(itemId: string): number | undefined {
+    const name = itemId.slice(itemId.indexOf(':') + 1)
+    const material = /^(wooden|stone|iron|golden|diamond|netherite)_pickaxe$/.exec(name)?.[1]
+    if (!material)
+      return undefined
+    return { wooden: 1, stone: 2, golden: 2, iron: 3, diamond: 4, netherite: 5 }[material]
+  }
+
+  /**
+   * Best pickaxe tier reachable in the inventory, read once per route.
+   *
+   * This is a plan-time estimate only: the final break re-verifies through
+   * `mine_evaluate_harvest` (CD-M1 §5).
+   */
+  async function bestPickaxeTier(): Promise<number> {
+    const slots = await readInventorySlots()
+    let best = 0
+    for (const entry of [...(slots?.hotbar ?? []), ...(slots?.main ?? [])]) {
+      const tier = pickaxeTierOf(entry.id)
+      if (tier !== undefined)
+        best = Math.max(best, tier)
+    }
+    return best
+  }
+
+  /**
+   * Plan-time dig authorization and cost for a route (CD-M1).
+   *
+   * A block whose required pickaxe tier exceeds the inventory is not a break
+   * edge, so a wall is never treated as cheap when it cannot be harvested. A
+   * block with no tool is costed much higher so the route prefers another way.
+   */
+  function digOptionsOf(bestTier: number): Pick<MovementConfig, 'digGuard' | 'digCostOf'> {
+    return {
+      digGuard: (block) => {
+        const required = requiredPickaxeFor(block.id)
+        if (!required)
+          return true
+        return bestTier >= (pickaxeTierOf(required) ?? Number.POSITIVE_INFINITY)
+      },
+      digCostOf: (block, base) => requiredPickaxeFor(block.id) && bestTier === 0 ? base * 4 : base,
+    }
+  }
+
   /**
    * Movement port over the private MCP session (MC-3 increment 2).
    *
@@ -2245,6 +2483,9 @@ export async function setupGameHost(
     // One failed-edge map per write command: the long-route legs share it, so
     // an edge that failed in one leg is not retried in the next (review R5).
     const failedEdges = new Map<string, FailedEdge>()
+    // CD-M1: when the walk may dig, authorize each break edge and price the
+    // tool cost from the best pickaxe the inventory currently holds.
+    const digOptions = moveTo.allowBreak === true ? digOptionsOf(await bestPickaxeTier()) : {}
     const result = await runTerrainRoute({
       port: createTerrainPort(),
       // Planner nodes are integer cells; a fractional goal never matches them
@@ -2255,6 +2496,7 @@ export async function setupGameHost(
         ...DEFAULT_MOVEMENT_CONFIG,
         canDig: moveTo.allowBreak === true,
         maxDropDown: moveTo.maxFall ?? DEFAULT_MOVEMENT_CONFIG.maxDropDown,
+        ...digOptions,
       },
       remainingPlaceables: allowPlace ? await countScaffolding() : 0,
       shouldStop,
@@ -2405,6 +2647,13 @@ export async function setupGameHost(
       // One failed-edge map for the whole collect: every candidate leg shares
       // it, so a blocked approach is not retried for the next candidate.
       const failedEdges = new Map<string, FailedEdge>()
+      // CD-M1: one mining session per collect command owns tool evaluation,
+      // selection and the break poll, shared with `game_break`.
+      const miningSession = createMiningSession(shouldStop)
+      // CD-M3: a missing tool is reported as structured prerequisites unless the
+      // caller explicitly allows the bounded preparation flow.
+      const allowPrerequisites = collect.allowPrerequisites === true
+      let prerequisiteReport: GamePrerequisiteReport | undefined
 
       /**
        * Walks to the candidate, or to a neighbor, as a region goal: the target
@@ -2431,27 +2680,97 @@ export async function setupGameHost(
       const countOfItem = async (): Promise<number | undefined> => (await readInventoryCounts())?.[itemId]
 
       /**
-       * Bounded pickup window for one break: only the increase measured inside
-       * the window is attributed to this break. An item absent before the
-       * break starts from zero, never from a post-break read.
+       * Builds the structured tool prerequisite report (CD-M3).
+       *
+       * The plan is a candidate chain (wood -> stone -> iron pickaxe) whose
+       * recipe and station are still verified on the server before any craft.
        */
-      const waitForPickup = async (before: number): Promise<number> => {
-        const pickupUntil = Math.min(deadline, Date.now() + 5_000)
-        while (Date.now() < pickupUntil) {
-          await sleep(500)
-          if (writeStop.stopped) {
-            endReason = 'cancelled'
-            return 0
-          }
-          if (await reflexPreemptedFor(envelope.commandId)) {
-            endReason = 'reflex_preempted'
-            return 0
-          }
-          const current = await countOfItem()
-          if (current !== undefined && current > before)
-            return current - before
+      const prepareToolPrerequisites = async (blockId: string): Promise<GamePrerequisiteReport | undefined> => {
+        const target = requiredPickaxeFor(blockId)
+        if (!target)
+          return undefined
+        const inventory = await readInventoryCounts() ?? {}
+        const plan = planToolUpgrade(inventory, target, {
+          maxCrafts: 8,
+          maxMissingPrerequisites: 3,
+          allowedStations: ['inventory', 'crafting_table'],
+        })
+        return {
+          target,
+          craftable: plan.craftable,
+          steps: plan.steps.map(step => ({
+            kind: step.kind,
+            itemId: step.itemId,
+            station: step.station,
+            outputCount: step.outputCount,
+            ingredients: step.ingredients,
+            ...(step.fuel ? { fuel: step.fuel } : {}),
+          })),
+          missing: plan.missing,
+          reason: plan.reason,
         }
-        return 0
+      }
+
+      /**
+       * Runs the inventory-grid steps of a tool plan through the two-beat
+       * `craft_by_recipe` primitive.
+       *
+       * A crafting-table or furnace step is left for the caller: this command
+       * has no station position, so the flow stays bounded and reports the
+       * remaining steps instead of guessing a station.
+       */
+      const runInventoryUpgradeSteps = async (plan: GamePrerequisiteReport): Promise<{
+        completed: string[]
+        remaining: Array<{ itemId: string, station: string }>
+      }> => {
+        const completed: string[] = []
+        const remaining: Array<{ itemId: string, station: string }> = []
+        for (const step of plan.steps) {
+          if (writeStop.stopped || step.station !== 'inventory') {
+            remaining.push({ itemId: step.itemId, station: step.station })
+            continue
+          }
+          let crafted = false
+          for (let attempt = 0; attempt < 4 && !crafted; attempt++) {
+            try {
+              const result = await callGameTool('craft_by_recipe', { recipeId: step.itemId })
+              if (gameToolResultError(result))
+                break
+              const record = statusRecordOf(result)
+              if (record && typeof record.error === 'string')
+                break
+              if (record?.claimed === true)
+                crafted = true
+            }
+            catch {
+              break
+            }
+          }
+          if (crafted)
+            completed.push(step.itemId)
+          else
+            remaining.push({ itemId: step.itemId, station: step.station })
+        }
+        return { completed, remaining }
+      }
+
+      /**
+       * Bounded pickup window for one break, delegated to the mining session.
+       *
+       * Only the increase measured inside the window is attributed to this
+       * break, and the session ledger grades it: a delta without server drop
+       * evidence is indirect, never a precise claim.
+       */
+      const waitForPickup = async (breakId: string, before: number): Promise<number> => {
+        const window = Math.max(0, Math.min(deadline - Date.now(), 5_000))
+        const picked = await miningSession.waitForPickup(breakId, itemId, before, window)
+        if (picked === 0) {
+          if (writeStop.stopped)
+            endReason = 'cancelled'
+          else if (await reflexPreemptedFor(envelope.commandId))
+            endReason = 'reflex_preempted'
+        }
+        return picked
       }
 
       /** The last broken block whose drop could not be picked up. */
@@ -2539,7 +2858,7 @@ export async function setupGameHost(
         }
 
         const center = (await readFreshSnapshot())?.position ?? ZERO_SNAPSHOT.position
-        let candidates: Array<{ x: number, y: number, z: number }> = []
+        let candidates: Array<{ x: number, y: number, z: number, id?: string }> = []
         try {
           candidates = blockMatchesOf(statusRecordOf(await callGameTool('find_blocks', {
             center,
@@ -2594,46 +2913,57 @@ export async function setupGameHost(
 
           // The pre-break count for this break only.
           const beforeBreak = await countOfItem()
+          const breakId = nextBreakId(envelope.commandId)
+          const plannedBlocks = Math.max(1, maxCount - collected)
 
-          const breakResult = await callGameTool('break_block', { x: candidate.x, y: candidate.y, z: candidate.z, mode: 'survival' })
-          const breakError = gameToolResultError(breakResult)
+          // CD-M1: evaluate, select and equip through the shared session. A
+          // rejection stops before mining; a missing tool becomes structured
+          // prerequisites instead of a slow bare-hand dig.
+          const prepared = await miningSession.prepare(candidate, {
+            strategy: 'conserve',
+            expectedItemId: itemId,
+            plannedBlocks,
+          })
+          if (prepared.status === 'rejected') {
+            if (prepared.rejection.reason === 'no_tool' || prepared.rejection.reason === 'tool_level_too_low') {
+              let report = await prepareToolPrerequisites(collect.blockId)
+              // Only an explicit caller permission runs the bounded preparation
+              // flow; by default the plan is returned as structured data.
+              if (report && allowPrerequisites && report.craftable) {
+                const run = await runInventoryUpgradeSteps(report)
+                report = {
+                  ...report,
+                  craftable: run.remaining.length === 0,
+                  reason: run.remaining.length === 0 ? 'upgrade_ready' : 'upgrade_incomplete',
+                  steps: report.steps.filter(step => run.remaining.some(entry => entry.itemId === step.itemId)),
+                }
+              }
+              prerequisiteReport = report
+            }
+            endReason = prerequisiteReport ? 'missing_tool' : prepared.rejection.reason
+            break
+          }
+          if (prepared.status === 'ready' && prepared.durabilityRisk) {
+            endReason = 'tool_durability_low'
+            break
+          }
+
+          const candidateId = prepared.status === 'ready'
+            ? prepared.evaluation.blockStateId
+            : candidate.id ?? collect.blockId
+          const pollMs = Math.min(deadline - Date.now(), 15_000)
+          const breakOutcome = prepared.status === 'ready'
+            ? await miningSession.runBreak(prepared, { breakId, commandId: envelope.commandId, mode: 'survival', pollMs })
+            : await miningSession.runManualBreak({ breakId, commandId: envelope.commandId, pos: candidate, blockIdBefore: candidateId, mode: 'survival', pollMs })
           if (env.AIRI_TERRAIN_DEBUG)
-            log.warn(`collect: break ${candidate.x},${candidate.y},${candidate.z} distance=${distance.toFixed(1)} error=${breakError ?? 'none'}`)
-          if (breakError)
+            log.warn(`collect: break ${candidate.x},${candidate.y},${candidate.z} distance=${distance.toFixed(1)} status=${breakOutcome.status}`)
+          if (breakOutcome.status === 'cancelled') {
+            endReason = 'cancelled'
+            break
+          }
+          if (breakOutcome.status !== 'broken')
             continue
           brokeAny = true
-
-          // `break_block` survival mode only *starts* tick-driven mining and
-          // returns immediately, so poll the block until it is gone before
-          // waiting for the drop (live smoke 2026-09-12).
-          const mineUntil = Math.min(deadline, Date.now() + 15_000)
-          let broken = false
-          while (Date.now() < mineUntil) {
-            await sleep(300)
-            if (writeStop.stopped) {
-              endReason = 'cancelled'
-              break
-            }
-            if (await reflexPreemptedFor(envelope.commandId)) {
-              endReason = 'reflex_preempted'
-              break
-            }
-            try {
-              const block = statusRecordOf(await callGameTool('get_block', { x: candidate.x, y: candidate.y, z: candidate.z }))
-              const id = typeof block?.id === 'string' ? block.id : undefined
-              if (id?.endsWith('air')) {
-                broken = true
-                break
-              }
-            }
-            catch {
-              // Keep polling while the chunk read is transiently unavailable.
-            }
-          }
-          if (endReason !== 'collected')
-            break
-          if (!broken)
-            continue
 
           // The drop lands where the block was; step onto it (bounded) so the
           // pickup range covers it before the attribution window starts.
@@ -2650,7 +2980,7 @@ export async function setupGameHost(
           }
 
           const before = beforeBreak ?? 0
-          const pickedUp = await waitForPickup(before)
+          const pickedUp = await waitForPickup(breakId, before)
           if (pickedUp > 0) {
             collected += pickedUp
             if (collected >= maxCount)
@@ -2682,7 +3012,7 @@ export async function setupGameHost(
                 endReason = 'reflex_preempted'
                 break
               }
-              const retried = await waitForPickup(before)
+              const retried = await waitForPickup(breakId, before)
               if (retried > 0) {
                 collected += retried
                 lastDropPosition = undefined
@@ -2713,6 +3043,7 @@ export async function setupGameHost(
         finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
         collectedCount: collected,
         ...(lastDropPosition ? { dropPosition: lastDropPosition } : {}),
+        ...(prerequisiteReport ? { prerequisites: prerequisiteReport } : {}),
       }
     }
 
@@ -4481,49 +4812,114 @@ export async function setupGameHost(
         }
       }
 
-      const breakResult = await callGameTool('break_block', { x: target.x, y: target.y, z: target.z, mode })
-      const breakError = gameToolResultError(breakResult)
-      if (breakError)
-        throw new Error(breakError)
+      // CD-M1: one mining session owns evaluation, tool selection, equip and
+      // the break poll. An unavailable evaluation keeps the explicit manual
+      // break; a rejection stops before any mining instead of lowering the
+      // harvest requirement.
+      const session = createMiningSession(shouldStop)
+      const breakId = nextBreakId(envelope.commandId)
+      const prepared = await session.prepare(target, {
+        strategy: breakBlock.strategy ?? 'conserve',
+        ...(breakBlock.itemId ? { expectedItemId: breakBlock.itemId } : {}),
+        ...(breakBlock.tool ? { toolItemId: breakBlock.tool } : {}),
+        plannedBlocks: 1,
+      })
 
-      // Survival mode only starts tick-driven mining, so poll a fresh block
-      // read until the block is no longer the one that was broken. The window
-      // is the default 10s, capped by the lease.
-      const pollUntil = Math.min(Date.now() + envelope.deadlineMs, Date.now() + BREAK_POLL_MS)
-      let lastBlockId: string | undefined = existingId
-      let confirmed = false
-      let endReason = 'not_confirmed'
-      while (Date.now() < pollUntil) {
-        if (writeStop.stopped) {
-          endReason = 'cancelled'
-          break
-        }
-        await sleep(300)
-        const current = await readBlockIdAt(target)
-        if (current === undefined)
-          continue
-        lastBlockId = current
-        if (current !== existingId) {
-          confirmed = true
-          endReason = 'broken'
-          break
-        }
-      }
-
-      if (!confirmed) {
+      if (prepared.status === 'rejected') {
         return {
-          endReason,
+          endReason: prepared.rejection.reason,
           finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
-          broken: { ...target, blockId: existingId, mode, lastBlockId },
+          broken: {
+            ...target,
+            blockId: existingId,
+            mode,
+            breakId,
+            rejection: {
+              reason: prepared.rejection.reason,
+              ...(prepared.rejection.detail ? { detail: prepared.rejection.detail } : {}),
+            },
+          },
         }
       }
 
-      const brokenReceipt: GameBrokenReceipt = { ...target, blockId: existingId, mode }
+      const tool = prepared.status === 'ready' ? prepared.equipped : undefined
+      const hazards = prepared.status === 'ready' ? prepared.hazards : []
+      const durability = prepared.status === 'ready' ? prepared.selection?.durability : undefined
+      const baseReceipt: GameBrokenReceipt = {
+        ...target,
+        blockId: existingId,
+        mode,
+        breakId,
+        ...(tool ? { tool } : {}),
+        ...(hazards.length > 0 ? { hazards } : {}),
+        ...(durability
+          ? { durability: { known: durability.known, remaining: durability.remaining, expectedBlocks: durability.expectedBlocks, riskOfBreak: durability.riskOfBreak } }
+          : {}),
+      }
+
+      // A tool that may run out before the block is refused, not consumed.
+      if (prepared.status === 'ready' && prepared.durabilityRisk) {
+        return {
+          endReason: 'tool_durability_low',
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          broken: baseReceipt,
+        }
+      }
+
+      const pollMs = Math.min(envelope.deadlineMs, BREAK_POLL_MS)
+      // The pickup baseline is read before the break so only the increase the
+      // break caused is attributed to it.
+      const productBaseline = breakBlock.itemId ? ((await readInventoryCounts())?.[breakBlock.itemId] ?? 0) : 0
+      const outcome = prepared.status === 'ready'
+        ? await session.runBreak(prepared, { breakId, commandId: envelope.commandId, mode, pollMs })
+        : await session.runManualBreak({ breakId, commandId: envelope.commandId, pos: target, blockIdBefore: existingId, mode, pollMs })
+
+      if (outcome.status === 'cancelled') {
+        return {
+          endReason: 'cancelled',
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          broken: baseReceipt,
+        }
+      }
+      if (outcome.status !== 'broken') {
+        return {
+          endReason: outcome.status === 'refused' ? 'refused' : 'not_confirmed',
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          broken: {
+            ...baseReceipt,
+            ...(outcome.blockIdAfter !== undefined ? { lastBlockId: outcome.blockIdAfter } : {}),
+          },
+        }
+      }
+
+      // A required product makes the block disappearance insufficient: wait for
+      // the pickup in a bounded window and report the graded attribution.
+      if (breakBlock.itemId) {
+        await session.waitForPickup(breakId, breakBlock.itemId, productBaseline, 5_000)
+        const attribution = session.attribution(breakId, breakBlock.itemId)
+        const met = attribution.lowerBound >= 1
+        return {
+          endReason: met ? 'broken' : 'broken_no_product',
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          brokenCount: met ? 1 : 0,
+          broken: {
+            ...baseReceipt,
+            product: {
+              itemId: breakBlock.itemId,
+              count: attribution.lowerBound,
+              lowerBound: attribution.lowerBound,
+              fuzzy: attribution.fuzzy,
+              evidence: attribution.evidence,
+            },
+          },
+        }
+      }
+
       return {
         endReason: 'broken',
         finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
         brokenCount: 1,
-        broken: brokenReceipt,
+        broken: baseReceipt,
       }
     }
 
@@ -5361,6 +5757,7 @@ export async function setupGameHost(
       ...(receipt.broken ? { broken: receipt.broken } : {}),
       ...(receipt.attacked ? { attacked: receipt.attacked } : {}),
       ...(receipt.dropPosition ? { dropPosition: receipt.dropPosition } : {}),
+      ...(receipt.prerequisites ? { prerequisites: receipt.prerequisites } : {}),
       ...receiptWorldFields(receipt),
     }
   }

@@ -78,6 +78,8 @@ export class Movements {
       return false
     if (block.hardness < 0 || block.replaceable || block.liquid)
       return false
+    if (this.config.digGuard && !this.config.digGuard(block))
+      return false
 
     if (this.config.dontCreateFlow) {
       if (this.getBlock(block, 0, 1, 0).liquid)
@@ -129,7 +131,8 @@ export class Movements {
     if (!this.safeToBreak(block))
       return COST_BLOCK
     toBreak.push({ x: block.x, y: block.y, z: block.z })
-    cost += (1 + 3 * block.hardness * 5) * this.config.digCost
+    const base = (1 + 3 * block.hardness * 5) * this.config.digCost
+    cost += this.config.digCostOf ? this.config.digCostOf(block, base) : base
     return cost
   }
 

@@ -431,6 +431,18 @@ export interface GameDomainResult {
     blockId: string
     mode: 'survival' | 'instant'
     lastBlockId?: string
+    /** CD-M2: correlation id linking the break fact, drop and pickup. */
+    breakId?: string
+    /** CD-M1: the equipped tool, or `hand` for a bare-hand break. */
+    tool?: string
+    /** CD-M1: environmental risks the evaluation named. */
+    hazards?: string[]
+    /** CD-M1: durability outlook for the chosen tool. */
+    durability?: { known: boolean, remaining: number, expectedBlocks: number, riskOfBreak: boolean }
+    /** CD-M1: the harvest requirement that stopped the break before mining. */
+    rejection?: { reason: string, detail?: string }
+    /** CD-M2: graded product attribution when a product was required. */
+    product?: { itemId: string, count: number, lowerBound: number, fuzzy: number, evidence: string }
   }
   /**
    * MC-4g melee receipt: the fixed target, swings made, and only observed
@@ -458,6 +470,26 @@ export interface GameDomainResult {
    * of the drop's position, and are reported so a caller can return to it.
    */
   dropPosition?: { x: number, y: number, z: number }
+  /**
+   * CD-M3: structured tool prerequisites for a collect that lacks the tool.
+   *
+   * `craftable` is a plan, not an execution; the server verifies the recipe and
+   * station before any craft.
+   */
+  prerequisites?: {
+    target: string
+    craftable: boolean
+    steps: Array<{
+      kind: 'craft' | 'smelt'
+      itemId: string
+      station: string
+      outputCount: number
+      ingredients: Array<{ itemId: string, count: number }>
+      fuel?: { itemId: string, count: number }
+    }>
+    missing: Array<{ itemId: string, count: number }>
+    reason: string
+  }
 }
 
 export interface GameHostDomainToolDescriptor {

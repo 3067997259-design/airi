@@ -20,6 +20,9 @@ export type ShootWeapon = 'auto' | 'bow' | 'crossbow' | 'trident'
 /** MC-4g break modes: survival starts a tick-driven dig, instant removes in one beat. */
 export type BreakMode = 'survival' | 'instant'
 
+/** CD-M1 tool policy for a break: fastest, cheapest (default) or one pinned tool. */
+export type BreakToolStrategy = 'fastest' | 'conserve' | 'specified'
+
 /**
  * MC-4g melee weapon categories the `attack` action can request.
  *
@@ -183,7 +186,7 @@ export interface GameCommandParams {
     /** MC-3b: walk the same target when the vehicle mover fails. */
     fallbackToFoot?: boolean
   }
-  collect?: { blockId: string, itemId?: string, maxCount: number, radius: number }
+  collect?: { blockId: string, itemId?: string, maxCount: number, radius: number, allowPrerequisites?: boolean }
   say?: { text: string }
   follow?: { target: string, keepDistance: number, timeoutSeconds?: number }
   /** MC-2d: two-beat craft of a known recipe that fits the player's 2x2 grid. */
@@ -240,11 +243,12 @@ export interface GameCommandParams {
    */
   place?: { x: number, y: number, z: number, face?: string, itemId?: string, sneak?: boolean, yaw?: number, count?: number, attempts?: number }
   /**
-   * MC-4g: break one block at x/y/z. The executor never walks; it fails with
-   * `out_of_reach` when the player is farther than the break reach, so the
-   * caller walks with `move_to` first.
+   * MC-4g/CD-M1: break one block at x/y/z. The executor never walks; it fails
+   * with `out_of_reach` when the player is farther than the break reach, so the
+   * caller walks with `move_to` first. `itemId` makes the product a requirement,
+   * `strategy`/`tool` choose the tool policy (default `conserve`).
    */
-  breakBlock?: { x: number, y: number, z: number, mode: BreakMode }
+  breakBlock?: { x: number, y: number, z: number, mode: BreakMode, itemId?: string, strategy?: BreakToolStrategy, tool?: string }
   /**
    * MC-4g: melee-attack one target. `target` is a name/uuid/type resolved once
    * and pinned for the whole command; `maxSwings` bounds the loop; `weapon`
@@ -505,6 +509,39 @@ export interface GameBrokenReceipt {
   blockId: string
   mode: BreakMode
   lastBlockId?: string
+  /** CD-M2: correlation id for this break, linking fact, drop and pickup. */
+  breakId?: string
+  /** CD-M1: the tool actually equipped, or `hand` for a bare-hand break. */
+  tool?: string
+  /** CD-M1: environmental risks the evaluation named. */
+  hazards?: string[]
+  /** CD-M1: durability outlook for the chosen tool. */
+  durability?: { known: boolean, remaining: number, expectedBlocks: number, riskOfBreak: boolean }
+  /** CD-M1: the harvest requirement that stopped the break before mining. */
+  rejection?: { reason: string, detail?: string }
+  /** CD-M2: graded pickup attribution when a product was required. */
+  product?: { itemId: string, count: number, lowerBound: number, fuzzy: number, evidence: string }
+}
+
+/**
+ * CD-M3: structured prerequisites for a collect that lacks the tool.
+ *
+ * `craftable` is a plan, not an execution: the recipe and station are still
+ * verified on the server before any craft.
+ */
+export interface GamePrerequisiteReport {
+  target: string
+  craftable: boolean
+  steps: Array<{
+    kind: 'craft' | 'smelt'
+    itemId: string
+    station: string
+    outputCount: number
+    ingredients: Array<{ itemId: string, count: number }>
+    fuel?: { itemId: string, count: number }
+  }>
+  missing: Array<{ itemId: string, count: number }>
+  reason: string
 }
 
 /**

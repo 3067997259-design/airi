@@ -107,6 +107,48 @@ describe('planPath obstacles', () => {
     if (result.ok)
       expect(result.steps.some(step => step.toBreak.length > 0)).toBe(true)
   })
+
+  // CD-M1: an unauthorized block is never a break edge, so a wall cannot be
+  // planned as a cheap path when no reachable tool can harvest it.
+  it('refuses a break edge the dig guard rejects', () => {
+    const result = planPath({
+      source: buildWorld(bounds, [...floor, ...wall]),
+      start: { x: 1, y: 64, z: 4 },
+      goal: { x: 5, y: 64, z: 4 },
+      config: config({
+        canDig: true,
+        allowParkour: false,
+        // Reject the wall and the floor so no tunnel can route around it. The
+        // snapshot normalizes ids, so the guard sees `stone_bricks`, not the
+        // namespaced form.
+        digGuard: block => block.id !== 'stone_bricks' && block.id !== 'stone',
+      }),
+      ...STUB,
+    })
+    expect(result.ok).toBe(false)
+    if (!result.ok)
+      expect(result.reason).toBe('no_path')
+  })
+
+  it('prices the dig through digCostOf', () => {
+    const cheap = planPath({
+      source: buildWorld(bounds, [...floor, ...wall]),
+      start: { x: 1, y: 64, z: 4 },
+      goal: { x: 5, y: 64, z: 4 },
+      config: config({ canDig: true, allowParkour: false }),
+      ...STUB,
+    })
+    const expensive = planPath({
+      source: buildWorld(bounds, [...floor, ...wall]),
+      start: { x: 1, y: 64, z: 4 },
+      goal: { x: 5, y: 64, z: 4 },
+      config: config({ canDig: true, allowParkour: false, digCostOf: (_block, base) => base * 4 }),
+      ...STUB,
+    })
+    expect(cheap.ok && expensive.ok).toBe(true)
+    if (cheap.ok && expensive.ok)
+      expect(expensive.cost).toBeGreaterThan(cheap.cost)
+  })
 })
 
 describe('planPath gaps', () => {

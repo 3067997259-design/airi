@@ -1,4 +1,4 @@
-import type { GameAttackedReceipt, GameBrokenReceipt, GameCommandAction, GameCommandParams, GameCraftReceipt, GameEquipReceipt, GameFedReceipt, GameFinalSnapshot, GameItemContentReceipt, GameMenuActionReceipt, GameMenuReceipt, GameMenuSnapshotReceipt, GameMovedReceipt, GameObservedReceipt, GamePlacedReceipt, GamePostCondition, GamePostConditionInput, GameRespawnedReceipt, GameRiptideReceipt, GameShotReceipt, GameSignContentReceipt, GameSleptReceipt, GameSmeltReceipt, GameUseReceipt } from './command-contract'
+import type { GameAttackedReceipt, GameBrokenReceipt, GameCommandAction, GameCommandParams, GameCraftReceipt, GameEquipReceipt, GameFedReceipt, GameFinalSnapshot, GameItemContentReceipt, GameMenuActionReceipt, GameMenuReceipt, GameMenuSnapshotReceipt, GameMovedReceipt, GameObservedReceipt, GamePlacedReceipt, GamePostCondition, GamePostConditionInput, GamePrerequisiteReport, GameRespawnedReceipt, GameRiptideReceipt, GameShotReceipt, GameSignContentReceipt, GameSleptReceipt, GameSmeltReceipt, GameUseReceipt } from './command-contract'
 
 /**
  * MC-0b command registry (TS side).
@@ -196,6 +196,8 @@ export interface GameCommandReceipt {
   attacked?: GameAttackedReceipt
   /** MC-4c: last broken block whose drop could not be collected. */
   dropPosition?: { x: number, y: number, z: number }
+  /** CD-M3: structured tool prerequisites for a collect that lacks the tool. */
+  prerequisites?: GamePrerequisiteReport
 }
 
 /** Raised when a command id is reused with different params. */
@@ -315,6 +317,8 @@ export interface GameExecutorOutcome extends GamePostConditionInput {
   attacked?: GameAttackedReceipt
   /** MC-4c: last broken block whose drop could not be collected. */
   dropPosition?: { x: number, y: number, z: number }
+  /** CD-M3: structured tool prerequisites for a collect that lacks the tool. */
+  prerequisites?: GamePrerequisiteReport
 }
 
 export interface GameCommandExecutor {
@@ -600,6 +604,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
     broken?: GameBrokenReceipt
     attacked?: GameAttackedReceipt
     dropPosition?: { x: number, y: number, z: number }
+    prerequisites?: GamePrerequisiteReport
   }): GameCommandReceipt {
     if (record.timer) {
       clearTimeout(record.timer)
@@ -643,6 +648,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
       ...(input.broken ? { broken: input.broken } : {}),
       ...(input.attacked ? { attacked: input.attacked } : {}),
       ...(input.dropPosition ? { dropPosition: input.dropPosition } : {}),
+      ...(input.prerequisites ? { prerequisites: input.prerequisites } : {}),
     }
     record.receipt = receipt
     record.resolveSettled(receipt)
@@ -674,6 +680,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
       ...(outcome.broken ? { broken: outcome.broken } : {}),
       ...(outcome.attacked ? { attacked: outcome.attacked } : {}),
       ...(outcome.dropPosition ? { dropPosition: outcome.dropPosition } : {}),
+      ...(outcome.prerequisites ? { prerequisites: outcome.prerequisites } : {}),
     }
   }
 
