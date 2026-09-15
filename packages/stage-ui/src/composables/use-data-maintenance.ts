@@ -14,8 +14,8 @@ import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useConsciousnessSettingsStore } from '../stores/modules/consciousness-settings'
 import { useDiscordStore } from '../stores/modules/discord'
+import { useGameHostStore } from '../stores/modules/game-host'
 import { useFactorioStore } from '../stores/modules/gaming-factorio'
-import { useMinecraftStore } from '../stores/modules/gaming-minecraft'
 import { useHearingStore } from '../stores/modules/hearing'
 import { useSpeechStore } from '../stores/modules/speech'
 import { useTwitterStore } from '../stores/modules/twitter'
@@ -42,7 +42,7 @@ export function useDataMaintenance() {
   const webSearchStore = useWebSearchStore()
   const discordStore = useDiscordStore()
   const factorioStore = useFactorioStore()
-  const minecraftStore = useMinecraftStore()
+  const gameHostStore = useGameHostStore()
   const mcpStore = useMcpStore()
   const onboardingStore = useOnboardingStore()
   const airiCardStore = useAiriCardStore()
@@ -67,7 +67,8 @@ export function useDataMaintenance() {
     webSearchStore.resetState()
     discordStore.resetState()
     factorioStore.resetState()
-    minecraftStore.resetState()
+    // Disconnects the MCPFabric game bridge and clears the persisted endpoint.
+    await gameHostStore.resetState()
   }
 
   function deleteAllChatSessions() {

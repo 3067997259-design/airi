@@ -164,8 +164,17 @@ export function checkRestoreData(backup: InspectedDataBackup) {
       throw new Error(`Required backup file is missing: ${path}`)
   }
   for (const entry of backup.entries) {
-    if (!required.has(entry.path) && !/^journal\/[a-f0-9]{32}\.jsonl$/.test(entry.path))
-      throw new Error(`Backup contains an unsupported domain file: ${entry.path}`)
+    if (required.has(entry.path))
+      continue
+    if (/^journal\/[a-f0-9]{32}\.jsonl$/.test(entry.path))
+      continue
+    // EP-2a: package files are extracted by the desktop profile staging, not
+    // by a browser owner. The registry and the version layout are the only
+    // accepted shapes; the package store re-verifies digests during restore
+    // normalization, so no approval survives tampered bytes.
+    if (entry.path === 'packages/registry.json' || /^packages\/versions\/[\w.-]+\/[\w.-]+\/[\w./-]+$/.test(entry.path))
+      continue
+    throw new Error(`Backup contains an unsupported domain file: ${entry.path}`)
   }
   return { identity, chats, plans, settings, skills, outbox }
 }

@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { contentHashOf } from '@proj-airi/skill-forge'
 import { createDataBackup } from '@proj-airi/stage-ui/services/data-backup'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { computePackageDigest } from '../plugins/packages/descriptor'
 import { createProfileRestore, prepareRestoreProfile } from './profiles'
 
 const directories: string[] = []
@@ -19,7 +21,7 @@ afterEach(async () => {
   await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
 })
 
-async function createArchive(ownerId = 'local') {
+async function createArchive(ownerId = 'local', extraEntries: Array<{ path: string, domain: 'packages', data: Uint8Array }> = []) {
   const card = {
     name: 'Test',
     version: '1',
@@ -52,8 +54,65 @@ async function createArchive(ownerId = 'local') {
       { path: 'skills/registry.json', domain: 'skills', data: bytes(skills) },
       { path: 'outbox/held.json', domain: 'outbox', data: bytes(outbox) },
       ...memory.map(table => ({ path: `memory/${table}.parquet`, domain: 'memory' as const, data: new Uint8Array() })),
+      ...extraEntries,
     ],
   })
+}
+
+async function listFixtureFiles(rootDir: string, relativeDir = ''): Promise<string[]> {
+  const files: string[] = []
+  for (const entry of await readdir(join(rootDir, relativeDir), { withFileTypes: true })) {
+    const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      files.push(...await listFixtureFiles(rootDir, relativePath))
+      continue
+    }
+    files.push(relativePath)
+  }
+  return files
+}
+
+/**
+ * Builds the `packages` backup entries for one approved version, matching the
+ * export layout the package store produces. `tamperSource` changes the bytes
+ * after the approval digest was computed.
+ */
+async function createPackageFixture(options: { tamperSource?: boolean } = {}) {
+  const directory = await mkdtemp(join(tmpdir(), 'airi-package-fixture-'))
+  directories.push(directory)
+  const source = 'export function run() { return 1 }\n'
+  await mkdir(join(directory, 'skills', 'skill-a'), { recursive: true })
+  await mkdir(join(directory, 'data'), { recursive: true })
+  await writeFile(join(directory, 'extension.airi.json'), JSON.stringify({ apiVersion: 'v1', id: 'demo-pack', kind: 'manifest.extension.airi.moeru.ai', permissions: {}, entrypoints: {} }))
+  await writeFile(join(directory, 'airi-package.json'), JSON.stringify({
+    packageVersion: 1,
+    id: 'demo-pack',
+    version: '1.0.0',
+    tools: [{
+      name: 'demo_tool',
+      description: 'Demo tool.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      skill: { toolId: 'skill-a', contentHash: contentHashOf(source) },
+    }],
+  }))
+  await writeFile(join(directory, 'skills', 'skill-a', 'source.mjs'), source)
+  await writeFile(join(directory, 'data', 'state.json'), '{"private":true}')
+
+  const { digest, files } = await computePackageDigest(directory)
+  if (options.tamperSource)
+    await writeFile(join(directory, 'skills', 'skill-a', 'source.mjs'), 'export function run() { return 2 }\n')
+
+  const registry = {
+    packageVersion: 1,
+    approvals: [{ packageId: 'demo-pack', version: '1.0.0', digest, approvedBy: 'user', approvedAt: 1, fileDigests: files }],
+    active: { 'demo-pack': { version: '1.0.0', digest, enabled: true, activatedAt: 1 } },
+  }
+  const entries: Array<{ path: string, domain: 'packages', data: Uint8Array }> = [
+    { path: 'packages/registry.json', domain: 'packages', data: new TextEncoder().encode(JSON.stringify(registry)) },
+  ]
+  for (const relativePath of await listFixtureFiles(directory))
+    entries.push({ path: `packages/versions/demo-pack/1.0.0/${relativePath}`, domain: 'packages', data: new Uint8Array(await readFile(join(directory, relativePath))) })
+  return { entries }
 }
 
 describe('isolated restore profiles', () => {
@@ -185,5 +244,35 @@ describe('isolated restore profiles', () => {
     const restarted = await createProfileRestore(profile)
     await expect(restarted.begin(true)).rejects.toThrow('incomplete')
     await writeFile(join(profile, 'restore-state.json'), JSON.stringify({ state: 'failed', snapshotId: 'restore-test', workspaceRoot: join(profile, 'workspace') }))
+  })
+
+  it('restores approved package files disabled and keeps their approval', async () => {
+    const pkg = await createPackageFixture()
+    const parent = await mkdtemp(join(tmpdir(), 'airi-restore-test-'))
+    directories.push(parent)
+    const profile = await prepareRestoreProfile(parent, await createArchive('local', pkg.entries))
+
+    const registry = JSON.parse(await readFile(join(profile, 'extensions', 'packages.json'), 'utf8')) as {
+      approvals: unknown[]
+      active: Record<string, { version: string, enabled: boolean }>
+    }
+    expect(registry.active['demo-pack']).toMatchObject({ version: '1.0.0', enabled: false })
+    expect(registry.approvals).toHaveLength(1)
+    expect(await readFile(join(profile, 'extensions', 'packages', 'demo-pack', '1.0.0', 'skills', 'skill-a', 'source.mjs'), 'utf8')).toBe('export function run() { return 1 }\n')
+    expect(await readFile(join(profile, 'extensions', 'packages', 'demo-pack', '1.0.0', 'data', 'state.json'), 'utf8')).toBe('{"private":true}')
+  })
+
+  it('demotes a restored package whose bytes no longer match its approval', async () => {
+    const pkg = await createPackageFixture({ tamperSource: true })
+    const parent = await mkdtemp(join(tmpdir(), 'airi-restore-test-'))
+    directories.push(parent)
+    const profile = await prepareRestoreProfile(parent, await createArchive('local', pkg.entries))
+
+    const registry = JSON.parse(await readFile(join(profile, 'extensions', 'packages.json'), 'utf8')) as {
+      approvals: unknown[]
+      active: Record<string, { enabled: boolean }>
+    }
+    expect(registry.approvals).toHaveLength(0)
+    expect(registry.active['demo-pack']?.enabled).toBe(false)
   })
 })

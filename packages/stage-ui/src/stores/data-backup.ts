@@ -1,4 +1,4 @@
-import type { DataBackupEntry } from '../services/data-backup'
+import type { DataBackupDomain, DataBackupEntry } from '../services/data-backup'
 
 import { defineStore } from 'pinia'
 import { toRaw } from 'vue'
@@ -26,6 +26,12 @@ export interface DataBackupPort {
   stageRestore?: (data: Uint8Array) => Promise<string>
   relaunchRestore?: (profilePath: string) => Promise<void>
   adoptRestore?: () => Promise<void>
+  /**
+   * Reads approved package versions and the approval registry (EP-2a). The
+   * paths already use the `packages/...` domain layout. Absent in builds
+   * without the package host; coverage then omits the domain.
+   */
+  readPackageEntries?: () => Promise<Array<{ path: string, data: Uint8Array }>>
 }
 
 let port: DataBackupPort | undefined
@@ -106,13 +112,20 @@ export const useDataBackupStore = defineStore('data-backup', () => {
           entries.push({ path, domain: 'skills', data: new TextEncoder().encode(content) })
         }
       }
+      const coverage: DataBackupDomain[] = ['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox']
+      const readPackageEntries = port!.readPackageEntries
+      if (readPackageEntries) {
+        for (const entry of await readPackageEntries())
+          entries.push({ path: entry.path, domain: 'packages', data: entry.data })
+        coverage.push('packages')
+      }
       if (before !== sourceState())
         throw new Error('Profile state changed during the snapshot. Export again when all owners are idle.')
       return createDataBackup({
         snapshotId: crypto.randomUUID(),
         createdAt: Date.now(),
         buildId,
-        coverage: ['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox'],
+        coverage,
         missing,
         prerequisites: ['Configure provider credentials separately.', 'Keep outbox delivery and goal scheduling paused.', 'Recheck skill artifacts and embedding source before use.'],
         entries,

@@ -2,8 +2,8 @@ import JSZip from 'jszip'
 
 import * as v from 'valibot'
 
-const domainSchema = v.picklist(['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox'])
-const pathSchema = v.pipe(v.string(), v.regex(/^(?:memory|plans|journal|skills|chats|identity|outbox)\/[\w./-]+$/), v.check(path => !path.split('/').some(part => !part || part === '.' || part === '..')))
+const domainSchema = v.picklist(['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox', 'packages'])
+const pathSchema = v.pipe(v.string(), v.regex(/^(?:memory|plans|journal|skills|chats|identity|outbox|packages)\/[\w./-]+$/), v.check(path => !path.split('/').some(part => !part || part === '.' || part === '..')))
 const entrySchema = v.object({
   path: pathSchema,
   domain: domainSchema,
@@ -80,7 +80,7 @@ export function compareDataBackups(before: InspectedDataBackup, after: Inspected
   const afterEntries = new Map(after.manifest.entries.map(entry => [entry.path, entry]))
   const changes: DataBackupPathChange[] = []
   const unchangedPaths: string[] = []
-  const domains: DataBackupDomain[] = ['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox']
+  const domains: DataBackupDomain[] = ['memory', 'plans', 'journal', 'skills', 'chats', 'identity', 'outbox', 'packages']
   const byDomain = Object.fromEntries(domains.map(domain => [domain, { added: 0, removed: 0, changed: 0, unchanged: 0 }])) as Record<DataBackupDomain, { added: number, removed: number, changed: number, unchanged: number }>
 
   for (const [path, entry] of beforeEntries) {

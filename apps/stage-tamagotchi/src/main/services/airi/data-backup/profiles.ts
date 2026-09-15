@@ -1,13 +1,15 @@
 import type { RestoreBootstrap } from '../../../../shared/eventa/data-backup'
 
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { inspectDataBackup } from '@proj-airi/stage-ui/services/data-backup'
 import { checkRestoreData } from '@proj-airi/stage-ui/services/data-restore'
 import { Mutex } from 'async-mutex'
 
 import * as v from 'valibot'
+
+import { PackageStore } from '../plugins/packages/store'
 
 const markerSchema = v.object({
   state: v.picklist(['pending', 'importing', 'complete', 'failed']),
@@ -41,7 +43,27 @@ export async function prepareRestoreProfile(parent: string, data: Uint8Array): P
       await mkdir(directory, { recursive: true })
       await writeFile(join(directory, file!), entry.data, { flag: 'wx' })
     }
+    if (entry.domain === 'packages') {
+      // Registry → `<profile>/extensions/packages.json`; version files →
+      // `<profile>/extensions/packages/<id>/<version>/...`. The package host
+      // reads these on boot, so they must be on disk before the profile is.
+      const extensions = join(profile, 'extensions')
+      if (entry.path === 'packages/registry.json') {
+        await mkdir(extensions, { recursive: true })
+        await writeFile(join(extensions, 'packages.json'), entry.data, { flag: 'wx' })
+        continue
+      }
+      if (entry.path.startsWith('packages/versions/')) {
+        const target = join(extensions, entry.path.slice('packages/'.length).replace(/^versions\//, 'packages/'))
+        await mkdir(dirname(target), { recursive: true })
+        await writeFile(target, entry.data, { flag: 'wx' })
+      }
+    }
   }
+  // Restored packages stay disabled and unverifiable approvals are demoted
+  // before the profile can boot (EP-2a restore semantics).
+  if (backup.entries.some(entry => entry.domain === 'packages'))
+    await new PackageStore({ extensionsDir: join(profile, 'extensions') }).prepareRestoredProfile()
   await writeFile(join(profile, 'coding-host.json'), JSON.stringify({ workspaceRoot }), { flag: 'wx' })
   // The marker is published last. Incomplete staging never becomes bootable.
   await writeFile(join(profile, 'restore-state.json'), JSON.stringify({
