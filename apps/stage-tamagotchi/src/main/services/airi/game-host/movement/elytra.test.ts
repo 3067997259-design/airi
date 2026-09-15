@@ -140,30 +140,47 @@ class ElytraFakePort implements MovementControlPort {
       yaw: this.yaw,
       inWater: false,
       onGround: this.onGround,
-      motion: { x: speed, y: 0, z: 0 },
+      // A settled player reports no residual motion; while gliding the fake
+      // reports the configured speed so the cruise thrust logic still works.
+      motion: this.onGround ? { x: 0, y: 0, z: 0 } : { x: speed, y: 0, z: 0 },
       fallFlying: this.fallFlying,
       health: 20,
     }
   }
 
   async getBlocksRegion(from: Vec3, to: Vec3): Promise<SnapshotEntry[]> {
-    const entries: SnapshotEntry[] = []
-    const inBounds = (block: SnapshotEntry) =>
-      block.x >= Math.floor(from.x) && block.x <= Math.floor(to.x)
-      && block.y >= Math.floor(from.y) && block.y <= Math.floor(to.y)
-      && block.z >= Math.floor(from.z) && block.z <= Math.floor(to.z)
+    // Mirrors the bridge's `includeAir: true` read: every covered cell is
+    // returned, so a missing cell means the read did not cover it (unknown).
+    const x0 = Math.floor(from.x)
+    const x1 = Math.floor(to.x)
+    const y0 = Math.floor(from.y)
+    const y1 = Math.floor(to.y)
+    const z0 = Math.floor(from.z)
+    const z1 = Math.floor(to.z)
+    const key = (x: number, y: number, z: number) => `${x},${y},${z}`
+    const byKey = new Map<string, SnapshotEntry>()
     const wall = this.options.wall
     if (wall) {
-      for (let x = Math.floor(from.x); x <= Math.floor(to.x); x++) {
-        for (let z = Math.floor(from.z); z <= Math.floor(to.z); z++) {
-          if (x >= wall.x && x <= wall.x + 2 && from.y <= wall.top)
-            entries.push({ x, y: from.y, z, id: 'minecraft:stone' })
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          if (x >= wall.x && x <= wall.x + 2 && y0 <= wall.top)
+            byKey.set(key(x, y0, z), { x, y: y0, z, id: 'minecraft:stone' })
         }
       }
     }
     for (const block of this.options.blocks ?? []) {
-      if (inBounds(block) && !entries.some(entry => entry.x === block.x && entry.y === block.y && entry.z === block.z))
-        entries.push(block)
+      const bx = Math.floor(block.x)
+      const by = Math.floor(block.y)
+      const bz = Math.floor(block.z)
+      if (bx >= x0 && bx <= x1 && by >= y0 && by <= y1 && bz >= z0 && bz <= z1)
+        byKey.set(key(bx, by, bz), block)
+    }
+    const entries: SnapshotEntry[] = []
+    for (let y = y0; y <= y1; y++) {
+      for (let z = z0; z <= z1; z++) {
+        for (let x = x0; x <= x1; x++)
+          entries.push(byKey.get(key(x, y, z)) ?? { x, y, z, id: 'minecraft:air' })
+      }
     }
     return entries
   }
@@ -358,9 +375,12 @@ describe('runElytraMove', () => {
       deps: { now: () => clock, sleep: async () => { clock += 15_000 } },
       debug: message => messages.push(message),
     })
-    expect(port.fallFlying).toBe(false)
+    // The approach deadline is enforced at the top of the loop instead of only
+    // when the gap stops improving; the safety landing is bounded, so the
+    // receipt reports an unverified stop rather than a fabricated reach.
     expect(messages.some(message => message.includes(':timeout'))).toBe(true)
-    expect(result.status).toBe('reached')
+    expect(result.status).toBe('unknown')
+    expect(result.failure).toBe('touchdown_unverified')
   })
 
   it('switches to the next firework stack when the selected one runs out', async () => {
@@ -429,7 +449,28 @@ describe('runElytraMove', () => {
     expect(target).not.toContain('200.0')
   })
 
-  it('scans ahead for a grounded landing spot when landing early', async () => {
+  it('scans ahead for a verified support area when landing early', async () => {
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({
+      goal,
+      inventory: [
+        { slot: 4, id: 'minecraft:firework_rocket', count: 2, hotbar: true },
+        { slot: 12, id: 'minecraft:elytra', count: 1, hotbar: false },
+      ],
+      // A single block is not a landing site (design §7); a 2x2 patch is.
+      blocks: [
+        { x: 10, y: 98, z: 0, id: 'minecraft:stone' },
+        { x: 11, y: 98, z: 0, id: 'minecraft:stone' },
+        { x: 10, y: 98, z: 1, id: 'minecraft:stone' },
+        { x: 11, y: 98, z: 1, id: 'minecraft:stone' },
+      ],
+    })
+    const messages: string[] = []
+    await runElytraMove({ port, goal, deps: FAST, debug: message => messages.push(message) })
+    expect(messages.some(message => message.includes('elytra landing target 11.0,99,1.0'))).toBe(true)
+  })
+
+  it('never records a single block as a landing site', async () => {
     const goal = { x: 200, y: 64, z: 0 }
     const port = new ElytraFakePort({
       goal,
@@ -441,7 +482,58 @@ describe('runElytraMove', () => {
     })
     const messages: string[] = []
     await runElytraMove({ port, goal, deps: FAST, debug: message => messages.push(message) })
-    expect(messages.some(message => message.includes('elytra landing target 10.5,99,0.5'))).toBe(true)
+    expect(messages.some(message => message.includes('(unverified)'))).toBe(true)
+    expect(messages.some(message => message.includes('10.0,99'))).toBe(false)
+  })
+
+  it('cancels during the approach instead of waiting for the landing branch', async () => {
+    // The goal is inside the approach radius on the first poll, so a cancel
+    // here exercises the exact case the old `!landing` guard blocked (CD-E0).
+    const goal = { x: 40, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal })
+    let flyingPolls = 0
+    const stopAfterApproach = () => {
+      if (port.fallFlying)
+        flyingPolls++
+      return flyingPolls > 2
+    }
+    const result = await runElytraMove({ port, goal, deps: FAST, shouldStop: stopAfterApproach })
+    expect(result.status).toBe('cancelled')
+    expect(port.onGround).toBe(true)
+  })
+
+  it('stays unknown when the glide state is never observed', async () => {
+    const goal = { x: 40, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal })
+    // After deploy, `fallFlying` is not reported at all; the loop must end and
+    // the touch-down classifier must return unknown, never a landing.
+    const readState = port.getState.bind(port)
+    let reads = 0
+    port.getState = async () => {
+      reads++
+      const state = await readState()
+      if (reads > 4)
+        return { ...state, fallFlying: undefined, onGround: false }
+      return state
+    }
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('unknown')
+    expect(result.failure).toBe('touchdown_unverified')
+  })
+
+  it('reports water as its own outcome instead of a normal landing', async () => {
+    const goal = { x: 0, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal })
+    // Land the fake on water: the mover re-reads the final state.
+    const readState = port.getState.bind(port)
+    port.getState = async () => {
+      const state = await readState()
+      if (!state.fallFlying && state.onGround)
+        return { ...state, inWater: true }
+      return state
+    }
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.failure).toBe('landing_in_water')
   })
 
   it('picks a nearby landing target instead of the goal when cancelled', async () => {

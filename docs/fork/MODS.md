@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 鞘翅三维导航、轨迹控制与降落（CD-E0–E3，2026-09-15，离线完成，真机待做）
+
+按[鞘翅三维航路、轨迹控制与降落](./elytra-navigation-design.md)实施。E0：取消在任意阶段立即改业务原因并由有界安全降落收尾；各阶段截止在循环顶部独立判定（不再被"距离仍改善"绕过）；复飞改为 recover/leave/re-align 三阶段有界过程；着地由 `classifyTouchdown` 核对新鲜 `onGround`、低残余速度与合理接地点，落水单列，缺读保持 unknown；落点用 `evaluatePatch` 校验 2×2 支撑、净空与危险方块，未核实坐标仅用于操舵并显式标注。E1：新增 `game-host/flight/`（`contracts/profile/simulation/...`），五个会话契约、版本化 `FlightProfile`、纯 `stepFlight` 逐 tick 模拟与轨迹记录；常数取自 1.21.1 映射 `LivingEntity#travel` 与 `FireworkRocketEntity#tick` 并记录（0.08 重力、`-1+0.75cos²`、阻力 0.99/0.98/0.99、烟花推力式、寿命下界 10）。E2：三维粗自由空间（4 格粗单元、净空入口、含爬升与烟花估计的代价）、有限候选（5 yaw×3 pitch×2 thrust）、姿态盒连续扫掠、安全与偏好分离、超预算使用已核对前缀。E3：完整状态机与独立 `GoAround`/`EmergencyLanding`；起飞点评估与 `launch_unavailable`；进近先选支撑区；应急落点持续维护与 `no_reachable_landing`；类型化结果 `touchdown_unverified`/`landing_in_water`/`go_around_exhausted`。
+
+- 验证：game-host 定向 **624 passed / 1 skipped**（+81 例，其中 `flight/` 77 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；模组未变更。
+- **已知缺口**：走廊、候选与生命周期目前是纯客户端会话域模块（离线测试完整），**尚未替换 live elytra 的驾驶路径**（只接入共享 `LandingSite`/`classifyTouchdown` 契约），校准前不改变真机行为；粗单元对未知/占用采取"标记不可用"；烟花推进与滑翔的同 tick 次序尚未用真机证明。
+- 真机 NOT-RUN：预测残差标定、侧滑与低顶棚穿行、复飞真实性、烟花经济、真地形落点安全、单程闭环验收。
+
 ## 移动目标与投射物弹道（CD-B1–B3，2026-09-15，代码完成，真机待做）
 
 按[移动目标与投射物弹道](./projectile-aiming-design.md)实施。B1：新增 `game-host/ballistics/{profile,simulation,intercept}.ts`，版本化 `ProjectileProfile` 与纯逐 tick 模拟（无副作用，不生成实弹试射）；常数取自 1.21.1 映射类并逐一记录来源（箭重力 0.05、空气阻力 0.99、箭水中 0.6、三叉戟水中 0.99、投掷物水中 0.8、散布 0.0172275、弓/弩/三叉戟蓄力曲线等）；静止标靶基线通过。B2：截获求解（固定 UUID、新鲜观测、短期匀速预测、候选角度、逐 tick 相交、局部细化、同曲线友军与方块拦截、低弧优先、预算耗尽返回 `no_ballistic_solution` 并保弹）；`GameShotReceipt` 增 `profileId/solutionRevision/observationAgeMs/predictedFlightTicks/closestDistance/arc/fireReason/refusalReason`；预测命中不写成实际命中。B3：雪球、喷溅与滞留药水、烟花弩、光谱箭与药水箭各自档案、影响半径与附魔规则，模块级单测。

@@ -2480,6 +2480,7 @@ export async function setupGameHost(
     moveTo: NonNullable<GameCommandParams['moveTo']>,
     fallback: GameFinalSnapshot,
     shouldStop: () => boolean,
+    stillOwnsControl: () => boolean,
   ): Promise<GameExecutorOutcome> {
     if (moveTo.vehicle) {
       const vehicleResult = await runVehicleMove(moveTo.vehicle, {
@@ -2487,6 +2488,9 @@ export async function setupGameHost(
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
         shouldStop,
+        // CD-0 D8: a mover's late cleanup must not write to a session a newer
+        // write command now owns.
+        stillOwnsControl,
         ...(moveTo.vehicleStrategy ? { strategy: moveTo.vehicleStrategy } : {}),
         ...(moveTo.vehicleUuid ? { vehicleUuid: moveTo.vehicleUuid } : {}),
         ...(moveTo.allowTame === true ? { allowTame: true } : {}),
@@ -2599,6 +2603,9 @@ export async function setupGameHost(
     const writeStop = nextStopScope(envelope.action, writeStopScope, token)
     writeStopScope = writeStop
     const shouldStop = () => writeStop.stopped
+    // Identity, not the boolean: `nextStopScope` replaces the scope object for
+    // a newer write command, so an old mover can tell it no longer owns input.
+    const stillOwnsControl = () => writeStopScope === writeStop
 
     if (envelope.action === 'say') {
       const text = params.say?.text?.trim()
@@ -5105,7 +5112,7 @@ export async function setupGameHost(
       throw new Error('move_to requires a target')
     const fallback = await readFreshSnapshot() ?? { position: { x: 0, y: 0, z: 0 }, health: 0, food: 0, heldItem: null }
     if (movementPlannerOf() === 'terrain')
-      return await executeTerrainMoveTo(envelope, moveTo, fallback, shouldStop)
+      return await executeTerrainMoveTo(envelope, moveTo, fallback, shouldStop, stillOwnsControl)
     // MCP tool names, not bridge method names: the private session talks to
     // the Node MCP server (mc-0c executor mapping).
     const pathResult = await callGameTool('navigate_to', {

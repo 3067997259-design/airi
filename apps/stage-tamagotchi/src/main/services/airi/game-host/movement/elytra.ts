@@ -1,20 +1,36 @@
 /**
- * Elytra mover (MC-3c D2/D3).
+ * Elytra mover (MC-3c D2/D3; elytra-navigation CD-E0).
  *
- * The client keeps the flight physics; this loop owns the intent: it wears
- * the elytra, runs off the launch edge, deploys on the way down, holds a
- * cruise band with firework thrust, and lands near the goal. Low firework
- * supply, low durability, or low health turn the loop into a bounded early
- * landing instead of a hard failure.
+ * The client keeps the flight physics; this loop owns the intent: it wears the
+ * elytra, runs off the launch edge, deploys on the way down, holds a cruise
+ * band with firework thrust, and lands near the goal. Low firework supply, low
+ * durability, or low health turn the loop into a bounded early landing instead
+ * of a hard failure.
  *
- * Cancellation never abandons the flight mid-air: stop turns into a landing,
- * and the final status tells the caller what actually happened.
+ * CD-E0 lifecycle rules:
+ *
+ * - Cancellation changes the business reason immediately at any phase, then a
+ *   bounded safety landing owns the cleanup. An in-progress approach never
+ *   blocks it.
+ * - Every phase has its own deadline, checked at the top of the loop. A slowly
+ *   improving distance cannot extend the approach deadline.
+ * - A go-around is a real bounded process (recover altitude, leave the approach
+ *   zone, re-align). It never flips `landing` back to false into another
+ *   immediate approach.
+ * - Touch-down is verified from a fresh `onGround`, a plausible contact and a
+ *   low residual speed. Stopping the glide is not a landing; water is its own
+ *   outcome; a missing state read stays unknown.
+ * - Landing targets must be verified support areas. A same-height coordinate is
+ *   never recorded as a safe landing.
  */
+import type { LandingSite } from '../flight/landing-site'
 import type { MovementControlPort, MovementState } from './port'
 import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
 
-import { clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
+import { evaluatePatch } from '../flight/landing-site'
+import { classifyTouchdown } from '../flight/touchdown'
+import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
 
 const FLIGHT_POLL_MS = 200
 /** Preferred altitude above the goal while cruising (MC-3c D2). */
@@ -35,7 +51,7 @@ const LANDING_ASSIST_FALL_SPEED = -0.6
 const CLIMB_PITCH = -30
 /** Terrain this close ahead forces a climb, never a level glide. */
 const TERRAIN_GUARD_DISTANCE = 12
-/** The final flare starts only this close to the goal. */
+/** The final flare starts only this close to the aim point. */
 const FLARE_DISTANCE = 16
 /** Terrain scan window along the heading, in blocks. */
 const SCAN_FROM = 8
@@ -48,6 +64,22 @@ const DEPLOY_TIMEOUT_MS = 4_000
 const CRUISE_TIMEOUT_MS = 180_000
 /** The goal approach gets its own deadline so it cannot circle before touch-down. */
 const APPROACH_TIMEOUT_MS = 40_000
+/** A safety landing owns a total deadline; it cannot hover forever (CD-E0). */
+const SAFETY_LANDING_TIMEOUT_MS = 30_000
+/** The whole go-around (all three phases) is bounded. */
+const GO_AROUND_TIMEOUT_MS = 20_000
+/** Height above the goal the go-around must recover before it stops climbing. */
+const GO_AROUND_MIN_HEIGHT = 8
+/** Distance past the approach radius before a go-around may re-align. */
+const GO_AROUND_LEAVE_DISTANCE = APPROACH_DISTANCE + 12
+/** Heading error under which the re-align phase hands back to the approach. */
+const GO_AROUND_REALIGN_TOLERANCE_DEG = 20
+/** An approach whose gap reopens by this much counts as an overshoot. */
+const GO_AROUND_GAP_MARGIN = 6
+/** A glide needs at least this much height per block of remaining distance. */
+const MIN_GLIDE_RATIO = 0.08
+/** At most this many go-arounds before the mover lands nearby instead. */
+const MAX_GO_AROUNDS = 1
 const STUCK_WINDOW_POLLS = 15
 const STUCK_MIN_MOVE = 0.5
 /** Touch-down drift the mover may close on foot before declaring a miss. */
@@ -61,28 +93,37 @@ const LANDING_WALK_TIMEOUT_MS = 15_000
 const CHEST_ARMOR_SLOT = 37
 /** Bound on the forward landing scan; the mover never aims farther ahead. */
 const LANDING_SCAN_MAX = 24
+/** First forward offset the landing scan tries; the nearest patch wins. */
+const LANDING_SCAN_MIN = 2
+/** Blocks to either side of the heading the landing scan checks. */
+const LANDING_SCAN_LATERAL = 4
+/** How far below the current feet the landing column scan may descend. */
+const LANDING_SCAN_DEPTH = 24
 /** Refresh the equipped elytra durability every 100 flight ticks (50 ms each). */
 const DURABILITY_REFRESH_TICKS = 100
 const MS_PER_TICK = 50
 const DURABILITY_REFRESH_MS = DURABILITY_REFRESH_TICKS * MS_PER_TICK
-/** An approach whose gap reopens by this much counts as an overshoot. */
-const GO_AROUND_GAP_MARGIN = 6
-/** Below this height over the goal, a glider cannot bank around for another pass. */
-const GO_AROUND_MIN_HEIGHT = 8
-/** At most one go-around; after that the mover lands nearby instead of looping. */
-const MAX_GO_AROUNDS = 1
+/** Bounded wait after the glide ends for the touch-down sample to settle. */
+const TOUCHDOWN_SETTLE_MS = 5_000
+/** Hard cap on settle re-reads so a stuck sample cannot spin the loop. */
+const SETTLE_MAX_POLLS = 10
 /** Worn this far, the suit still flies but only to the nearest landing. */
 const WORN_ELYTRA_RATIO = 0.75
 /** Worn this far without a backup, the mover refuses to take off at all. */
 const BROKEN_ELYTRA_RATIO = 0.9
 
 type LandingReason = 'goal' | 'cancelled' | 'low_supply' | 'safety' | 'timeout'
+/** The lifecycle phase the loop is in. `safety-landing` owns the cleanup. */
+type FlightPhase = 'cruise' | 'approach' | 'go-around' | 'flare' | 'safety-landing'
+/** The three ordered go-around phases (design §6). */
+type GoAroundPhase = 'recover' | 'leave' | 're-align'
 
 export async function runElytraMove(options: VehicleMoveOptions): Promise<VehicleMoveResult> {
   const sleep = options.deps?.sleep ?? defaultSleep
   const now = options.deps?.now ?? (() => Date.now())
   const tolerance = options.tolerance ?? 4
   const shouldStop = options.shouldStop ?? (() => false)
+  const ownsControl = options.stillOwnsControl ?? (() => true)
   const port = options.port
   const debug = options.debug
   const goal: Vec3 = { x: options.goal.x, y: options.goal.y, z: options.goal.z }
@@ -107,11 +148,11 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     const takeoffDeadline = now() + TAKEOFF_TIMEOUT_MS
     while (state.onGround) {
       if (shouldStop()) {
-        await port.stopMovement()
+        await stopIfOwner(port, ownsControl)
         return { status: 'cancelled' }
       }
       if (now() > takeoffDeadline) {
-        await port.stopMovement()
+        await stopIfOwner(port, ownsControl)
         return { status: 'stuck', detail: 'no takeoff edge reached' }
       }
       await sleep(FLIGHT_POLL_MS)
@@ -132,7 +173,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   finally {
     // The takeoff inputs must be released on every path: a state read error
     // used to leave forward+sprint held (review R7).
-    await port.stopMovement().catch(() => {})
+    await stopIfOwner(port, ownsControl)
   }
   if (!deployed) {
     return { status: 'unavailable', detail: 'elytra did not deploy' }
@@ -141,105 +182,184 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
 
   // 4. Cruise and land. A worn suit turns the flight into an early landing;
   // the mover never cruises on an elytra that may break mid-air.
-  let landing = equip.lowDurability
   let reason: LandingReason = equip.lowDurability ? 'safety' : 'goal'
+  let phase: FlightPhase = equip.lowDurability ? 'safety-landing' : 'cruise'
   let cruiseY = Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
   let lastFireworkAt = 0
   let lastDurabilityAt = now()
   let approachDeadline = 0
   let minApproachGap = Infinity
   let goArounds = 0
+  let goAroundPhase: GoAroundPhase = 'recover'
+  let goAroundDeadline = 0
+  let safetyDeadline = 0
   const recent: Vec3[] = []
   const cruiseDeadline = now() + CRUISE_TIMEOUT_MS
-  // Every early landing aims at a verified spot ahead; the goal landing keeps
-  // the goal. The target resolves once, from the heading held when it starts.
-  let landingTarget: Vec3 = goal
-  let landingTargetResolved = false
-  const resolveLandingTarget = async (): Promise<void> => {
-    if (landingTargetResolved)
+
+  // The landing target resolves once and is then held: an early landing keeps
+  // one verified site instead of chasing a new one every poll.
+  let landingSite: LandingSite | undefined
+  let landingPoint: Vec3 = goal
+  let landingResolved = false
+  /** True when no verified support area existed; an unverified point is not a site. */
+  let noReachableLanding = false
+
+  /**
+   * Resolves the landing aim once. A verified site steers the glider; when no
+   * site exists the mover keeps an unverified point for steering and marks the
+   * flight so the receipt reports `no_reachable_landing` instead of a safe site.
+   */
+  const resolveLanding = async (): Promise<void> => {
+    if (landingResolved)
       return
-    landingTarget = await chooseLandingTarget(port, state, debug)
-    landingTargetResolved = true
+    landingResolved = true
+    landingSite = await findLandingSite(port, state, now, debug)
+    if (landingSite) {
+      landingPoint = {
+        x: landingSite.support.x + landingSite.support.width / 2,
+        y: landingSite.contactY,
+        z: landingSite.support.z + landingSite.support.depth / 2,
+      }
+      return
+    }
+    noReachableLanding = reason !== 'goal'
+    landingPoint = unverifiedPointAhead(state)
+    debug?.(`elytra landing target ${landingPoint.x.toFixed(1)},${landingPoint.y},${landingPoint.z.toFixed(1)} (unverified)`)
   }
   if (reason !== 'goal')
-    await resolveLandingTarget()
+    await resolveLanding()
 
+  /** Enters the bounded safety landing that owns cancellation and timeouts. */
+  const enterSafetyLanding = async (): Promise<FlightPhase> => {
+    safetyDeadline = now() + SAFETY_LANDING_TIMEOUT_MS
+    await resolveLanding()
+    return 'safety-landing'
+  }
+
+  /** Enters a bounded go-around, or falls back to a safety landing. */
+  const enterGoAround = async (): Promise<FlightPhase> => {
+    if (goArounds >= MAX_GO_AROUNDS || fireworks <= FIREWORK_LOW_SUPPLY) {
+      if (reason === 'goal')
+        reason = 'timeout'
+      return await enterSafetyLanding()
+    }
+    goArounds++
+    goAroundPhase = 'recover'
+    goAroundDeadline = now() + GO_AROUND_TIMEOUT_MS
+    debug?.(`elytra overshot the goal; go-around ${goArounds}/${MAX_GO_AROUNDS}`)
+    return 'go-around'
+  }
+
+  // The main loop only runs while the glide is observed. A missing `fallFlying`
+  // ends the loop and the touch-down classifier decides the outcome.
   try {
     while (state.fallFlying === true) {
-      if (shouldStop() && !landing) {
-        landing = true
+      // Ownership first: a newer command that took the input must not be
+      // disturbed by this session's writes (CD-0 D8).
+      if (!ownsControl())
+        return { status: 'unknown', failure: 'unverified_stop', detail: 'input ownership moved to a newer command' }
+
+      // Cancellation changes the business reason at any phase; the safety
+      // landing below owns the cleanup. It is never blocked by `phase`.
+      if (shouldStop() && reason !== 'cancelled') {
         reason = 'cancelled'
-        await resolveLandingTarget()
+        phase = await enterSafetyLanding()
       }
-      if (!landing && now() > cruiseDeadline) {
-        landing = true
+      // Independent deadlines are checked at the top, not inside a branch that
+      // a slowly improving distance could skip (CD-E0).
+      if (phase === 'cruise' && reason === 'goal' && now() > cruiseDeadline) {
         reason = 'timeout'
-        await resolveLandingTarget()
+        phase = await enterSafetyLanding()
       }
-      if (!landing && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE) {
-        landing = true
-        reason = 'goal'
+      if ((phase === 'approach' || phase === 'flare') && now() > approachDeadline) {
+        if (reason !== 'cancelled')
+          reason = 'timeout'
+        phase = await enterSafetyLanding()
+      }
+      if (phase === 'go-around' && now() > goAroundDeadline) {
+        if (reason !== 'cancelled')
+          reason = 'timeout'
+        phase = await enterSafetyLanding()
+      }
+      if (phase === 'safety-landing' && now() > safetyDeadline) {
+        // The safety landing owns the cleanup but not forever. The touch-down
+        // classifier below reports whether the bounded stop actually landed.
+        debug?.('elytra safety landing deadline reached')
+        break
+      }
+
+      if (phase === 'cruise' && reason === 'goal' && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE) {
+        phase = 'approach'
         approachDeadline = now() + APPROACH_TIMEOUT_MS
         minApproachGap = horizontalDistance(state.position, goal)
       }
-      if (landing && reason === 'goal') {
+      if (phase === 'cruise' && reason !== 'goal' && !landingResolved)
+        await resolveLanding()
+
+      if (phase === 'approach' || phase === 'flare') {
         const gapToGoal = horizontalDistance(state.position, goal)
         if (gapToGoal < minApproachGap) {
           minApproachGap = gapToGoal
         }
-        else if (now() > approachDeadline) {
-          reason = 'timeout'
-          await resolveLandingTarget()
+        else if (gapToGoal > minApproachGap + GO_AROUND_GAP_MARGIN && state.position.y - goal.y < GO_AROUND_MIN_HEIGHT) {
+          // The glide carried past the goal with no height to bank around.
+          phase = await enterGoAround()
         }
-        else if (
-          gapToGoal > minApproachGap + GO_AROUND_GAP_MARGIN
-          && state.position.y - goal.y < GO_AROUND_MIN_HEIGHT
-        ) {
-          // The glide carried past the goal with no height left to bank around.
-          // Spend the one go-around, then land nearby instead of turning back
-          // to the same point forever.
-          if (goArounds < MAX_GO_AROUNDS) {
-            goArounds++
-            landing = false
-            reason = 'goal'
-            minApproachGap = Infinity
-            debug?.('elytra overshot the goal; one go-around')
-          }
-          else {
-            reason = 'timeout'
-            await resolveLandingTarget()
-          }
+        else if (!canReachAim(state, landingPoint)) {
+          // Too low to glide the remaining distance: go around early instead of
+          // overflying the site and then turning (design §6).
+          phase = await enterGoAround()
+        }
+        else if (phase === 'approach' && gapToGoal <= FLARE_DISTANCE) {
+          phase = 'flare'
+        }
+        else if (phase === 'flare' && gapToGoal > FLARE_DISTANCE + GO_AROUND_GAP_MARGIN) {
+          phase = 'approach'
         }
       }
-      if (!landing && fireworks <= FIREWORK_LOW_SUPPLY) {
-        landing = true
+      else if (phase === 'go-around') {
+        if (goAroundPhase === 'recover' && state.position.y >= goal.y + GO_AROUND_MIN_HEIGHT) {
+          goAroundPhase = 'leave'
+        }
+        else if (goAroundPhase === 'leave' && horizontalDistance(state.position, goal) >= GO_AROUND_LEAVE_DISTANCE) {
+          goAroundPhase = 're-align'
+        }
+        else if (goAroundPhase === 're-align' && Math.abs(angleDelta(state.yaw, yawTo(state.position, goal))) <= GO_AROUND_REALIGN_TOLERANCE_DEG) {
+          phase = 'approach'
+          approachDeadline = now() + APPROACH_TIMEOUT_MS
+          minApproachGap = horizontalDistance(state.position, goal)
+        }
+      }
+
+      // Early-landing reasons raised while cruising enter the bounded safety
+      // landing the deadlines own. `cancelled` is sticky and never upgraded.
+      if (!landingResolved && reason === 'goal' && fireworks <= FIREWORK_LOW_SUPPLY) {
         reason = 'low_supply'
-        await resolveLandingTarget()
+        phase = await enterSafetyLanding()
       }
-      if (!landing && (state.health ?? 20) <= LOW_HEALTH) {
-        landing = true
+      if (!landingResolved && reason === 'goal' && (state.health ?? 20) <= LOW_HEALTH) {
         reason = 'safety'
-        await resolveLandingTarget()
+        phase = await enterSafetyLanding()
       }
-      // A suit that wears down in flight lands at the nearest spot instead of
+      // A suit that wears down in flight lands at the nearest site instead of
       // breaking mid-air; the read is skipped when the bridge cannot report it.
-      if (reason !== 'safety' && now() - lastDurabilityAt >= DURABILITY_REFRESH_MS) {
+      if (reason !== 'safety' && reason !== 'cancelled' && now() - lastDurabilityAt >= DURABILITY_REFRESH_MS) {
         lastDurabilityAt = now()
         const ratio = await equippedDurabilityRatio(port)
         if (ratio !== undefined && ratio >= WORN_ELYTRA_RATIO) {
-          landing = true
           reason = 'safety'
-          await resolveLandingTarget()
+          phase = await enterSafetyLanding()
           debug?.(`elytra worn in flight (${Math.round(ratio * 100)}% used); early landing`)
         }
       }
-      const target = landing ? landingTarget : goal
+
+      const target = phase === 'cruise' ? goal : landingPoint
       const yaw = yawTo(state.position, target)
       const gap = horizontalDistance(state.position, target)
       // Landings still scan: flying into a hillside is worse than an early
       // touch-down. Inside the landing zone the scan stops — terrain there is
       // the ground she is about to touch, not an obstacle to climb.
-      const scan = (landing && gap <= FLARE_DISTANCE)
+      const scan = (phase !== 'cruise' && gap <= FLARE_DISTANCE)
         ? { cruiseY, obstacleDistance: undefined }
         : await scanTerrainAhead(port, state, target, cruiseY, debug)
       cruiseY = scan.cruiseY
@@ -248,12 +368,19 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
 
       let pitch: number
       let wantThrust = false
-      if (!landing) {
+      if (phase === 'cruise') {
         // Climb over anything close ahead; the scan may only see terrain at
         // the last safe distance, so the nose-up must be decisive.
         const climbing = state.position.y < cruiseY - 4 || emergency
         pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, 35)
         wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
+      }
+      else if (phase === 'go-around') {
+        // Recover altitude on the way out, then keep a shallow climb so the
+        // re-align has room to turn.
+        const climbing = state.position.y < goal.y + GO_AROUND_MIN_HEIGHT
+        pitch = climbing || emergency ? CLIMB_PITCH : -8
+        wantThrust = climbing
       }
       else if (gap <= FLARE_DISTANCE) {
         // Landing zone: ease the nose up and touch down. A rocket may arrest
@@ -277,7 +404,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         pitch = clamp(required, 0, 35)
       }
       await port.look(yaw, pitch)
-      debug?.(`elytra fly y=${state.position.y.toFixed(1)} h=${(state.position.y - goal.y).toFixed(1)} d=${gap.toFixed(1)} vy=${(state.motion?.y ?? 0).toFixed(2)} pitch=${pitch.toFixed(1)} fw=${fireworks}${landing ? `:${reason}` : ''}`)
+      debug?.(`elytra fly y=${state.position.y.toFixed(1)} h=${(state.position.y - goal.y).toFixed(1)} d=${gap.toFixed(1)} vy=${(state.motion?.y ?? 0).toFixed(2)} pitch=${pitch.toFixed(1)} fw=${fireworks}${phase !== 'cruise' ? `:${reason}` : ''}`)
 
       if (fireworks > 0 && wantThrust && now() - lastFireworkAt > FIREWORK_INTERVAL_MS) {
         await port.selectHotbar(fireworkSlot)
@@ -298,11 +425,10 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       if (recent.length > STUCK_WINDOW_POLLS) {
         recent.shift()
         const oldest = recent[0]!
-        if (!landing && horizontalDistance(oldest, state.position) < STUCK_MIN_MOVE && fireworks === 0) {
+        if (phase === 'cruise' && reason === 'goal' && horizontalDistance(oldest, state.position) < STUCK_MIN_MOVE && fireworks === 0) {
           // No thrust and no progress: land instead of hovering forever.
-          landing = true
           reason = 'timeout'
-          await resolveLandingTarget()
+          phase = await enterSafetyLanding()
         }
       }
 
@@ -310,28 +436,41 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       state = await port.getState()
     }
 
-    let distance = horizontalDistance(state.position, goal)
-    // Touch-down can stop a few blocks short of the aimed point; close the gap
-    // on foot (bounded) so the final distance is measured after the walk.
-    const targetGap = horizontalDistance(state.position, landingTarget)
-    if (reason !== 'cancelled' && targetGap > tolerance && targetGap <= LANDING_WALK_LIMIT) {
-      await walkCloser(port, landingTarget, tolerance, shouldStop, sleep, now)
-      const walked = await port.getState()
-      distance = horizontalDistance(walked.position, goal)
-      debug?.(`elytra landed short; walked to ${distance.toFixed(1)} blocks`)
-    }
-
-    if (reason === 'cancelled')
-      return { status: 'cancelled', detail: `landed ${distance.toFixed(1)} blocks from the goal` }
-    if (reason === 'low_supply')
-      return { status: 'low_supply', detail: `landed early with ${fireworks} rockets` }
-    if (distance <= tolerance)
-      return { status: 'reached' }
-    return { status: 'stuck', detail: `landing miss: ${distance.toFixed(1)} blocks` }
+    return await finishFlight({
+      port,
+      finalState: state,
+      reason,
+      goal,
+      landingPoint,
+      landingSite,
+      noReachableLanding,
+      tolerance,
+      fireworks,
+      shouldStop,
+      ownsControl,
+      sleep,
+      now,
+      debug,
+    })
   }
   finally {
-    await port.stopMovement().catch(() => {})
+    await stopIfOwner(port, ownsControl)
   }
+}
+
+/** Calls `port.stopMovement()` only while this session still owns the input. */
+async function stopIfOwner(port: MovementControlPort, ownsControl: () => boolean): Promise<void> {
+  if (!ownsControl())
+    return
+  await port.stopMovement().catch(() => {})
+}
+
+/** Whether the remaining height can still glide to the aim point. */
+function canReachAim(state: MovementState, aim: Vec3): boolean {
+  const gap = horizontalDistance(state.position, aim)
+  if (gap <= FLARE_DISTANCE)
+    return true
+  return state.position.y - aim.y >= gap * MIN_GLIDE_RATIO
 }
 
 /** Walks the remaining gap after a short landing; stops at tolerance or the timeout. */
@@ -340,12 +479,16 @@ async function walkCloser(
   goal: Vec3,
   tolerance: number,
   shouldStop: () => boolean,
+  ownsControl: () => boolean,
   sleep: (ms: number) => Promise<void>,
   now: () => number,
 ): Promise<void> {
   const deadline = now() + LANDING_WALK_TIMEOUT_MS
   try {
     for (;;) {
+      // A newer command that took the input must not be steered by this walk.
+      if (!ownsControl())
+        return
       const state = await port.getState()
       if (horizontalDistance(state.position, goal) <= tolerance)
         return
@@ -357,8 +500,185 @@ async function walkCloser(
     }
   }
   finally {
-    await port.stopMovement().catch(() => {})
+    await stopIfOwner(port, ownsControl)
   }
+}
+
+/** The furthest point ahead on the current heading, explicitly unverified. */
+function unverifiedPointAhead(state: MovementState): Vec3 {
+  const radians = state.yaw * Math.PI / 180
+  return {
+    x: state.position.x - Math.sin(radians) * LANDING_SCAN_MAX,
+    y: state.position.y,
+    z: state.position.z + Math.cos(radians) * LANDING_SCAN_MAX,
+  }
+}
+
+/** Maps a player-state read to the touch-down sample the classifier takes. */
+function touchdownSampleOf(state: MovementState) {
+  return {
+    position: state.position,
+    ...(state.motion ? { motion: state.motion } : {}),
+    onGround: state.onGround,
+    inWater: state.inWater,
+    // A missing `fallFlying` stays absent so the classifier returns unknown.
+    ...(state.fallFlying !== undefined ? { fallFlying: state.fallFlying } : {}),
+  }
+}
+
+/**
+ * Confirms the touch-down, walks a short gap, and builds the typed receipt.
+ *
+ * Stopping the glide is not a landing: only a settled `onGround` touch-down is
+ * accepted. Water is its own outcome; an unreadable or incomplete final sample
+ * stays `unknown` instead of being reported as a safe landing (CD-E0).
+ */
+async function finishFlight(input: {
+  port: MovementControlPort
+  finalState: MovementState
+  reason: LandingReason
+  goal: Vec3
+  landingPoint: Vec3
+  landingSite: LandingSite | undefined
+  noReachableLanding: boolean
+  tolerance: number
+  fireworks: number
+  shouldStop: () => boolean
+  /** Whether this session still owns the input during the final walk. */
+  ownsControl: () => boolean
+  sleep: (ms: number) => Promise<void>
+  now: () => number
+  debug?: (message: string) => void
+}): Promise<VehicleMoveResult> {
+  const { port, goal, landingPoint, landingSite, reason, shouldStop, ownsControl, sleep, now, debug, fireworks } = input
+  // Only a verified site or the goal can be the reference; an unverified point
+  // ahead is not a support claim, so contact there is not a plausible landing.
+  const reference = landingSite ? { x: landingPoint.x, y: landingPoint.y, z: landingPoint.z } : goal
+  let finalState = input.finalState
+  let outcome = classifyTouchdown(touchdownSampleOf(finalState), reference)
+  const settleDeadline = now() + TOUCHDOWN_SETTLE_MS
+  // Only a falling or still-sliding sample is transient; `unknown` is decisive
+  // and must never be retried into a fabricated landing.
+  let settlePolls = 0
+  while ((outcome.kind === 'lost-flight' || outcome.kind === 'unsettled') && settlePolls < SETTLE_MAX_POLLS && now() < settleDeadline) {
+    settlePolls++
+    if (shouldStop() && reason !== 'cancelled')
+      break
+    await sleep(FLIGHT_POLL_MS)
+    try {
+      finalState = await port.getState()
+    }
+    catch {
+      break
+    }
+    outcome = classifyTouchdown(touchdownSampleOf(finalState), reference)
+  }
+
+  if (outcome.kind === 'water') {
+    return { status: 'stuck', failure: 'landing_in_water', detail: 'touch-down landed in water' }
+  }
+  if (outcome.kind !== 'landed' && outcome.kind !== 'unsettled') {
+    if (outcome.kind === 'still-flying')
+      return { status: 'unknown', failure: 'touchdown_unverified', detail: 'the glide was still active at the deadline' }
+    if (input.noReachableLanding)
+      return { status: 'unknown', failure: 'no_reachable_landing', detail: 'no verified landing site on the flight' }
+    const detail = outcome.kind === 'lost-flight'
+      ? 'the glide ended without a confirmed ground contact'
+      : outcome.kind === 'unknown' ? outcome.reason : 'the touch-down was never verified'
+    return { status: 'unknown', failure: 'touchdown_unverified', detail }
+  }
+
+  // A confirmed ground contact can stop a few blocks short of the aim; close
+  // the gap on foot (bounded) so the final distance is measured after the walk.
+  let distance = horizontalDistance(finalState.position, goal)
+  const targetGap = horizontalDistance(finalState.position, landingPoint)
+  if (reason !== 'cancelled' && targetGap > input.tolerance && targetGap <= LANDING_WALK_LIMIT) {
+    await walkCloser(port, landingPoint, input.tolerance, shouldStop, ownsControl, sleep, now)
+    try {
+      finalState = await port.getState()
+    }
+    catch {
+      // Keep the last known position; the walk is already the approximate part.
+    }
+    distance = horizontalDistance(finalState.position, goal)
+    debug?.(`elytra landed short; walked to ${distance.toFixed(1)} blocks`)
+  }
+
+  if (reason === 'cancelled') {
+    return {
+      status: 'cancelled',
+      ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
+      detail: `landed ${distance.toFixed(1)} blocks from the goal`,
+    }
+  }
+  if (reason === 'low_supply')
+    return { status: 'low_supply', detail: `landed early with ${fireworks} rockets` }
+  if (distance <= input.tolerance)
+    return { status: 'reached' }
+  return {
+    status: 'stuck',
+    ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
+    detail: `landing miss: ${distance.toFixed(1)} blocks`,
+  }
+}
+
+/**
+ * Finds a verified landing patch ahead and to the sides of the heading.
+ *
+ * The scan reads one forward region, then evaluates 2x2 patches nearest-first.
+ * An empty or failed read returns `undefined`; the caller must not substitute a
+ * same-height coordinate (design §7).
+ */
+async function findLandingSite(
+  port: MovementControlPort,
+  state: MovementState,
+  now: () => number,
+  debug?: (message: string) => void,
+): Promise<LandingSite | undefined> {
+  const radians = state.yaw * Math.PI / 180
+  const dirX = -Math.sin(radians)
+  const dirZ = Math.cos(radians)
+  const topY = Math.floor(state.position.y)
+  const bottomY = topY - LANDING_SCAN_DEPTH
+  const startX = state.position.x + dirX * LANDING_SCAN_MIN
+  const startZ = state.position.z + dirZ * LANDING_SCAN_MIN
+  const endX = state.position.x + dirX * LANDING_SCAN_MAX
+  const endZ = state.position.z + dirZ * LANDING_SCAN_MAX
+  const margin = LANDING_SCAN_LATERAL + 1
+  let entries
+  try {
+    entries = await port.getBlocksRegion(
+      { x: Math.min(startX, endX) - margin, y: bottomY, z: Math.min(startZ, endZ) - margin },
+      { x: Math.max(startX, endX) + margin, y: topY + 2, z: Math.max(startZ, endZ) + margin },
+    )
+  }
+  catch {
+    // A missing region is unknown, not an empty world: no site is claimed.
+    return undefined
+  }
+
+  const lateralOffsets = [0, -1, 1, -2, 2, -3, 3, -4, 4]
+  // Step by one block: a two-block step can skip the only patch min-corner.
+  for (let step = LANDING_SCAN_MIN; step <= LANDING_SCAN_MAX; step++) {
+    for (const lateral of lateralOffsets) {
+      const x = Math.floor(state.position.x + dirX * step - dirZ * lateral)
+      const z = Math.floor(state.position.z + dirZ * step + dirX * lateral)
+      const site = evaluatePatch({
+        entries,
+        x,
+        z,
+        from: state.position,
+        topY,
+        scanDepth: LANDING_SCAN_DEPTH,
+        now: now(),
+      })
+      if (site) {
+        debug?.(`elytra landing target ${(site.support.x + site.support.width / 2).toFixed(1)},${site.contactY},${(site.support.z + site.support.depth / 2).toFixed(1)}`)
+        return site
+      }
+    }
+  }
+  return undefined
 }
 
 function horizontalSpeed(state: MovementState): number {
@@ -367,10 +687,6 @@ function horizontalSpeed(state: MovementState): number {
 
 function durabilityRatio(item: { damage?: number, maxDamage?: number }): number {
   return item.damage !== undefined && item.maxDamage ? item.damage / item.maxDamage : 0
-}
-
-function isLiquidId(id: string): boolean {
-  return id.includes('water') || id.includes('lava')
 }
 
 /** Reads the worn elytra wear; undefined skips the refresh when unreadable. */
@@ -383,70 +699,6 @@ async function equippedDurabilityRatio(port: MovementControlPort): Promise<numbe
   if (!worn || worn.damage === undefined || !worn.maxDamage)
     return undefined
   return worn.damage / worn.maxDamage
-}
-
-/**
- * Picks a landing spot on the current heading. It walks forward up to
- * `LANDING_SCAN_MAX` blocks and descends one block per step, returning the
- * first column with solid ground and open space above it. When the scan finds
- * nothing verified, it returns a point straight ahead at the current altitude
- * and does not claim that point is safe.
- */
-async function chooseLandingTarget(
-  port: MovementControlPort,
-  state: MovementState,
-  debug?: (message: string) => void,
-): Promise<Vec3> {
-  const radians = state.yaw * Math.PI / 180
-  const dirX = -Math.sin(radians)
-  const dirZ = Math.cos(radians)
-  const topY = Math.floor(state.position.y)
-  for (let step = 1; step <= LANDING_SCAN_MAX; step++) {
-    const x = Math.floor(state.position.x + dirX * step)
-    const z = Math.floor(state.position.z + dirZ * step)
-    const ground = await safeGroundBelow(port, x, z, topY, topY - step)
-    if (ground === undefined)
-      continue
-    const target = { x: x + 0.5, y: ground + 1, z: z + 0.5 }
-    debug?.(`elytra landing target ${target.x.toFixed(1)},${target.y},${target.z.toFixed(1)}`)
-    return target
-  }
-  const target = {
-    x: state.position.x + dirX * LANDING_SCAN_MAX,
-    y: state.position.y,
-    z: state.position.z + dirZ * LANDING_SCAN_MAX,
-  }
-  debug?.(`elytra landing target ${target.x.toFixed(1)},${target.y},${target.z.toFixed(1)} (unverified)`)
-  return target
-}
-
-/**
- * Finds the solid ground in one column between `topY` and `bottomY`. The two
- * blocks above the ground must be open and dry. An unreadable block fails the
- * column, because an unknown space is not proof of landing room.
- */
-async function safeGroundBelow(
-  port: MovementControlPort,
-  x: number,
-  z: number,
-  topY: number,
-  bottomY: number,
-): Promise<number | undefined> {
-  for (let y = topY; y >= bottomY; y--) {
-    const ground = await port.getBlock({ x, y, z })
-    if (!ground || ground.air)
-      continue
-    if (isLiquidId(ground.id))
-      return undefined
-    const head = await port.getBlock({ x, y: y + 1, z })
-    const above = await port.getBlock({ x, y: y + 2, z })
-    if (!head || !above || !head.air || !above.air)
-      return undefined
-    if (isLiquidId(head.id) || isLiquidId(above.id))
-      return undefined
-    return y
-  }
-  return undefined
 }
 
 async function equipElytra(

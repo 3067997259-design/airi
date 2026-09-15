@@ -85,6 +85,12 @@ export type VehicleFailureReason
     | 'unverified_stop'
     | 'capability_unavailable'
     | 'deadline'
+    // Elytra lifecycle outcomes (elytra-navigation §6–§7, CD-E0/E3). Each names
+    // a definite end that is not a clean arrival or a plain cancellation.
+    | 'no_reachable_landing'
+    | 'touchdown_unverified'
+    | 'landing_in_water'
+    | 'go_around_exhausted'
 
 /** One consumed spawn item and where it went. */
 export interface VehicleAssetReceipt {

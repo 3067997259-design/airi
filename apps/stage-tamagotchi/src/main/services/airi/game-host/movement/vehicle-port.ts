@@ -12,8 +12,13 @@ import type { VehicleAcquireStrategy, VehicleFailureReason, VehicleKind, Vehicle
 /** Base movement port plus the optional vehicle observation surface. */
 export type VehicleControlPort = MovementControlPort & VehicleObservationPort
 
-/** Status of a vehicle drive, kept compatible with the MC-3b surface. */
-export type VehicleMoveStatus = 'reached' | 'stuck' | 'cancelled' | 'unavailable' | 'low_supply'
+/**
+ * Status of a vehicle drive, kept compatible with the MC-3b surface.
+ *
+ * `unknown` is a bounded ending whose final condition could not be confirmed
+ * (a failed touch-down read). It is never reported as `reached`.
+ */
+export type VehicleMoveStatus = 'reached' | 'stuck' | 'cancelled' | 'unavailable' | 'low_supply' | 'unknown'
 
 export interface VehicleMoveResult {
   status: VehicleMoveStatus
@@ -29,6 +34,14 @@ export interface VehicleMoveOptions {
   goal: Vec3
   tolerance?: number
   shouldStop?: () => boolean
+  /**
+   * Whether this session still owns the player's input (CD-0 D8).
+   *
+   * A late `finally` from an old command must not release input a newer command
+   * now owns. When this returns false the mover stops writing controls; the
+   * default owner is the command that started it.
+   */
+  stillOwnsControl?: () => boolean
   /** Acquire strategy; `existing` by default (design §3). */
   strategy?: VehicleAcquireStrategy
   /** Explicit vehicle UUID: the only non-ambiguous acquisition target. */
