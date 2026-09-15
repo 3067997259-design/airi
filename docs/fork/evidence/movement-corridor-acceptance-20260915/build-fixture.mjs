@@ -34,6 +34,17 @@ else if (name === 'maze') {
   await fill({ x: 93, y: 75, z: -23 }, { x: 102, y: 77, z: -23 }, stone)
   await fill({ x: 84, y: 75, z: -22 }, { x: 84, y: 77, z: -17 }, stone)
 }
+else if (name === 'arena') {
+  // Sealed arena: the outer wall removes natural-terrain bypasses, and the
+  // internal detour stays inside the planner's local window (start/goal +/- 8).
+  await fill({ x: 73, y: 75, z: -31 }, { x: 73, y: 78, z: -9 }, stone)
+  await fill({ x: 99, y: 75, z: -31 }, { x: 99, y: 78, z: -9 }, stone)
+  await fill({ x: 73, y: 75, z: -31 }, { x: 99, y: 78, z: -31 }, stone)
+  await fill({ x: 73, y: 75, z: -9 }, { x: 99, y: 78, z: -9 }, stone)
+  await fill({ x: 74, y: 75, z: -23 }, { x: 80, y: 78, z: -23 }, stone)
+  await fill({ x: 83, y: 75, z: -22 }, { x: 83, y: 78, z: -18 }, stone)
+  await fill({ x: 81, y: 75, z: -19 }, { x: 86, y: 75, z: -19 }, stone)
+}
 else if (name === 'staircase') {
   // Three full-block steps up (jump-up edges) then a plateau at top y=78.
   await fill({ x: 84, y: 75, z: -26 }, { x: 84, y: 75, z: -22 }, stone)
