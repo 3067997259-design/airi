@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 红石施工、局部维修与开放探索（RS-1–RS-4、RS-E，2026-09-15，宿主侧完成，Litematica 集成 BLOCKED）
+
+按[红石施工、局部维修与开放探索](./redstone-automation-design.md)实施。RS-1：新增 `game-host/redstone/`（`geometry/blueprint/siting/projection/adapter`），蓝图记录（身份、摘要、版本、子区域、相对原点、方块状态、材料）、选址（旋转包围盒含子区域偏移、奇偶偏差记录、朝向与维护空间、冲突如实返回）；投影仅输出放置数据（不实现实体粘贴）。RS-2：`placement/construction/progress/state` 提供支撑与触及顺序、水与活塞的阶段边界、精确放置参数、结构调整，并将（中继器档位、朝向等）静态配置与运行状态分开核对；暂停恢复不重复已完成步骤。RS-3：`observation/diagnosis` 有界批次、来源与完整性、遗漏不等于信号为零、人工与自然分离、触发→传输→执行→收集逐段定位，且诊断数据不含夹具答案。RS-4：`diff/repair` 约束优先的最小维修、逐方案执行与完整复测、仅撤销本任务可恢复的改动、原始蓝图/进度/候选/已验收四层分离、结构目标 = 原图 + 已验收差异。RS-E：小实验记录与预算。
+
+- 验证：game-host 定向 **734 passed / 1 skipped**（+77 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；模组未变更。
+- **BLOCKED**：Gradle cache 与 mavenLocal 均无 Litematica/MaLiLib 产物；未新增网络依赖、未伪造 API。按设计规则实现完整宿主侧模块与可编译适配器边界（`BlueprintAdapter`、`LITEMATICA_ADAPTER_TOOLS` 工具名与 schema、`blueprint_unavailable`/`adapter_unavailable`）。真实投影、生存施工、三轮受控触发、盲测与甘蔗夹具均 NOT-RUN/BLOCKED，等待用户提供蓝图与 Litematica 环境。
+- 夹具故障答案未写入任何可检索领域数据（测试断言诊断报告不包含修复答案词汇）。
+
 ## 空中跟随与地空切换（CD-F1–F3，2026-09-15，代码完成，真机待做）
 
 按[空中跟随与地空切换](./air-follow-design.md)实施。F1：`game_follow` 增 `travelMode: 'ground' | 'auto'`（默认 ground 保持既有语义；auto 允许烟花与鞘翅）；新增 `movement/air-follow.ts`（状态机 `GroundFollow→AssessLaunch→Launching→AirTrack⇄Intercept→ApproachLanding→GroundFollow`，`SafetyLanding` 独立；目标 `fallFlying` 连续 3 tick 消抖；落地判定结合 `onGround`、速度、姿态与连续样本；取消进入有界安全降落且不自动恢复；预算覆盖期限、烟花与备用储备、耐久与生命阈值）。F2：新增 `movement/air-spacing.ts` 与 `air-track.ts`（滞后 1.5 秒轨迹 + 侧向偏移 + 切向平滑、间距带与推进强度、有界会合区、走廊角色 `transit/track/landing` 且 track 不触发落地、更新门控 session/uuid/revision/validity、连续跟飞驱动）。F3：同一命令内空地交接；回执记录活动时间、在带时间、丢失次数、模式切换、烟花消耗与最终观测；正常结束为 `follow_completed`。
