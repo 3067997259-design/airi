@@ -349,6 +349,21 @@ export interface GameDomainResult {
     aimTarget?: { x: number, y: number, z: number }
     /** Where the aim came from: `fresh` re-read or `pin` fallback. */
     aimSource?: string
+    /**
+     * CD-B1/B2 ballistic prediction. `profileId`/`solutionRevision` name the
+     * model, the remaining fields are the predicted curve. A prediction is not
+     * a hit; hits and kills stay with the real projectile and server events.
+     */
+    profileId?: string
+    solutionRevision?: number
+    observationAgeMs?: number
+    predictedFlightTicks?: number
+    closestDistance?: number
+    arc?: 'low' | 'high'
+    /** Why the shot was released, e.g. a solved ballistics curve. */
+    fireReason?: string
+    /** Why no shot was released, when a pre-flight check refused. */
+    refusalReason?: string
     endReason: string
   }
   /**

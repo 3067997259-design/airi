@@ -75,6 +75,29 @@ export interface GameShotReceipt {
   aimSource?: string
   /** Trident return observed; a timeout reports `return_pending`/`lost` instead. */
   returned?: boolean
+  /**
+   * CD-B1/B2: the projectile profile the shot was planned with. Absent when no
+   * profile could be resolved (the endReason then names the refusal).
+   */
+  profileId?: string
+  /** CD-B2: revision of the ballistic model that produced the prediction. */
+  solutionRevision?: number
+  /** CD-B2: age of the target observation the prediction used, in ms. */
+  observationAgeMs?: number
+  /** CD-B2: flight ticks the simulation predicted for the chosen curve. */
+  predictedFlightTicks?: number
+  /** CD-B2: smallest predicted distance from the curve to the target box. */
+  closestDistance?: number
+  /** CD-B2: which arc the solution used; a low arc is preferred. */
+  arc?: 'low' | 'high'
+  /**
+   * CD-B2: why the shot was released. `ballistic_solution` means a predicted
+   * curve existed; this is never an actual hit, which stays with the real
+   * projectile and death events.
+   */
+  fireReason?: string
+  /** CD-B2: why no shot was released, when one of the pre-flight checks refused. */
+  refusalReason?: string
   endReason: string
 }
 
@@ -739,6 +762,11 @@ export function evaluateGamePostCondition(
         || outcome.endReason === 'not_confirmed'
         // MC-4e/d: a bystander in the line of fire holds the shot.
         || outcome.endReason === 'friendly_blocked'
+        // CD-B1/B2: an unknown projectile or a curve with no valid solution
+        // keeps the ammo instead of firing on a guessed speed.
+        || outcome.endReason === 'unsupported_projectile_profile'
+        || outcome.endReason === 'no_ballistic_solution'
+        || outcome.endReason === 'insufficient_charge'
       return { kind: 'none', target: 0, actual: 0, met: !failed }
     }
     case 'place': {

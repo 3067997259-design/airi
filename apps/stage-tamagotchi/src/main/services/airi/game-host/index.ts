@@ -68,6 +68,8 @@ import {
   gameHostObserve,
 } from '../../../../shared/eventa'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+import { planShotFromObservation } from './ballistics/intercept'
+import { fullChargeTicks, resolveWeaponProfile } from './ballistics/profile'
 import { discoverGameCapabilities } from './capabilities'
 import { CHAT_COMMAND_MIN_INTERVAL_MS, CHAT_CONTEXT_BUFFER_LINES, chatCommandEventsOf, chatContextOf, classifyChatEvent, isContextEligible, nextChatCursor, parseChatCommandsConfig } from './chat-commands'
 import {
@@ -195,6 +197,14 @@ const STUCK_DROP_DIG_POLL_MS = 3_000
 
 /** §9-7: upper bound on the fresh-state read attached to a terminal result. */
 const FRESH_STATE_TIMEOUT_MS = 2_000
+
+/**
+ * CD-B2: shooter eye height above the feet, used to place a ballistic launch.
+ *
+ * The projectile spawns at `eyeY - 0.1` (see {@link ./ballistics/profile}), so
+ * this is the shooter's feet-to-eye offset, not the projectile offset.
+ */
+const PLAYER_EYE_HEIGHT = 1.62
 
 export interface GameHostOptions {
   /** Overrides where the game host config is stored. */
@@ -3660,6 +3670,54 @@ export async function setupGameHost(
         }
       }
 
+      // CD-B1/B2: resolve the versioned projectile profile and predict the
+      // curve before the client task starts. The client still owns per-tick aim
+      // and release timing; the main process owns the target, the ammo budget
+      // and this summary. An unknown projectile or a curve with no valid
+      // solution keeps the ammo instead of firing on a guessed speed.
+      const profileResolution = resolveWeaponProfile(weapon)
+      if (!profileResolution.ok) {
+        return {
+          endReason: profileResolution.reason,
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          shot: { weapon, targetUuid, shots: [], refusalReason: profileResolution.reason, endReason: profileResolution.reason },
+        }
+      }
+      const projectileProfile = profileResolution.profile
+      const planChargeTicks = shoot.chargeTicks ?? fullChargeTicks(projectileProfile)
+      let ballisticPlan: ReturnType<typeof planShotFromObservation> | undefined
+      try {
+        const planSelf = await readFreshSnapshot()
+        if (planSelf) {
+          const observation = await readTargetObservationByUuid(targetUuid, 'server-entity')
+          ballisticPlan = planShotFromObservation({
+            observation,
+            profile: projectileProfile,
+            chargeTicks: planChargeTicks,
+            selfEye: { x: planSelf.position.x, y: planSelf.position.y + PLAYER_EYE_HEIGHT, z: planSelf.position.z },
+            nowMs: Date.now(),
+          })
+        }
+      }
+      catch {
+        // A failed read is not a refusal: the client task still runs and the
+        // receipt simply carries no prediction (CD-0: never fabricate a read).
+        ballisticPlan = undefined
+      }
+      // A predicted curve that cannot reach, or that crosses a friendly first,
+      // holds the shot. `target_unobserved` is not a refusal here: the pinned
+      // target was resolved above and a fresh read may lag behind the client.
+      if (ballisticPlan && !ballisticPlan.ok
+        && (ballisticPlan.reason === 'no_ballistic_solution'
+          || ballisticPlan.reason === 'friendly_blocked'
+          || ballisticPlan.reason === 'insufficient_charge')) {
+        return {
+          endReason: ballisticPlan.reason,
+          finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
+          shot: { weapon, targetUuid, shots: [], profileId: projectileProfile.id, refusalReason: ballisticPlan.reason, endReason: ballisticPlan.reason },
+        }
+      }
+
       const statusRecordOfCall = async (name: string, args: Record<string, unknown> = {}) => statusRecordOf(await callGameTool(name, args))
 
       const start = statusRecordOf(await callGameTool('combat_start', {
@@ -3925,12 +3983,23 @@ export async function setupGameHost(
         weapon,
         targetUuid,
         shots,
+        profileId: projectileProfile.id,
         ...(killed ? { killed: true } : {}),
         ...(killEvidence ? { killEvidence } : {}),
         ...(pendingDeaths.length > 0 ? { unobservedTargetDeath: true } : {}),
         ...(returned !== undefined ? { returned } : {}),
         ...(aimTarget ? { aimTarget } : {}),
         ...(aimSource ? { aimSource } : {}),
+        ...(ballisticPlan?.ok
+          ? {
+              solutionRevision: ballisticPlan.solution.solutionRevision,
+              observationAgeMs: ballisticPlan.observationAgeMs,
+              predictedFlightTicks: ballisticPlan.solution.predictedFlightTicks,
+              closestDistance: ballisticPlan.solution.closestDistance,
+              arc: ballisticPlan.solution.arc,
+              fireReason: 'ballistic_solution',
+            }
+          : {}),
         endReason,
       }
       return {

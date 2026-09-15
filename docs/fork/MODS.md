@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 移动目标与投射物弹道（CD-B1–B3，2026-09-15，代码完成，真机待做）
+
+按[移动目标与投射物弹道](./projectile-aiming-design.md)实施。B1：新增 `game-host/ballistics/{profile,simulation,intercept}.ts`，版本化 `ProjectileProfile` 与纯逐 tick 模拟（无副作用，不生成实弹试射）；常数取自 1.21.1 映射类并逐一记录来源（箭重力 0.05、空气阻力 0.99、箭水中 0.6、三叉戟水中 0.99、投掷物水中 0.8、散布 0.0172275、弓/弩/三叉戟蓄力曲线等）；静止标靶基线通过。B2：截获求解（固定 UUID、新鲜观测、短期匀速预测、候选角度、逐 tick 相交、局部细化、同曲线友军与方块拦截、低弧优先、预算耗尽返回 `no_ballistic_solution` 并保弹）；`GameShotReceipt` 增 `profileId/solutionRevision/observationAgeMs/predictedFlightTicks/closestDistance/arc/fireReason/refusalReason`；预测命中不写成实际命中。B3：雪球、喷溅与滞留药水、烟花弩、光谱箭与药水箭各自档案、影响半径与附魔规则，模块级单测。
+
+- 验证：game-host 定向 **543 passed / 1 skipped**（+40 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；mcp-server `tsc --noEmit` 0；模组 `:1.21.1:build` 成功。
+- **已知缺口**：客户端 `BotController.aimAtTarget` 的线性预判与固定 3.0 初速未替换（逐 tick 瞄准归客户端，本轮只加只读 `ballistic_profile` 工具使其可被发现）；`game_shoot` 未接地形回调，薄墙拦截仅在纯模块验证；特殊弩弹药的装填识别与效果应用未接线。
+- 真机 NOT-RUN：命中率与距离-高差扫描、物理档案残差校准、特殊弹药效果应用。
+
 ## 载具取得与旅行（CD-V1–V3，2026-09-15，代码完成，真机待做）
 
 按[船、马与矿车的完整旅行流程](./vehicle-travel-design.md)实施。V1：新增 `movement/vehicle-types/observation/port/acquire/session.ts`，统一生命周期 `Discover→Prepare→Acquire→VerifyControl→Plan→Travel→Dock→Finish`；按 UUID 或明确空闲对象取得（策略 `existing` 默认、`prepare_owned` 需自身材料、驯服需显式许可与预算）；修正"被骑不等于可控/已启动"、上骑类型固定、骆驼不再并入马；安全下骑与清理隔离（旧会话不卸新任务的载具）。V2：新增 `vehicle-route.ts`（水路/道路/轨道图：船宽与净空、马体积步高与跳跃、真实 `RailShape`/坡度/供电的有向连接）与 `vehicle-drive.ts`（船体转向、马跳跃估计、矿车启动-制动与靠岸选择）；取消按介质保守处理（水面不盲目下骑，矿车按速度阈值）。V3：回执记录取得方式、载具 UUID、里程、停靠点、是否下骑、资产与结束原因；类型化失败 24 项；死亡/断线/换维度/载具消失/乘客变更使会话失效。

@@ -2817,6 +2817,91 @@ describe('ranged weapon commands (mc-4d)', () => {
     expect(clientMocks.callTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'combat_start' }))
   })
 
+  it('records the resolved profile and predicted curve on the receipt', async () => {
+    let statusCalls = 0
+    clientMocks.callTool.mockImplementation(shootClient({
+      combat_start: () => ({ state: 'running', weapon: 'bow' }),
+      combat_status: () => {
+        statusCalls++
+        return statusCalls === 1
+          ? { state: 'running', weapon: 'bow', shotsFired: 0, projectileUuids: [] }
+          : { state: 'done', weapon: 'bow', shotsFired: 1, projectileUuids: ['proj-meta'], endReason: 'done' }
+      },
+    }))
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-ballistic-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-ballistic',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'bow', maxShots: 1 },
+    })
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      shot: {
+        weapon: 'bow',
+        profileId: 'bow-arrow',
+        fireReason: 'ballistic_solution',
+        arc: 'low',
+      },
+    })
+    expect(result.shot?.solutionRevision).toBe(1)
+    expect(result.shot?.predictedFlightTicks ?? 0).toBeGreaterThan(0)
+    expect(result.shot?.closestDistance).toBe(0)
+  })
+
+  it('refuses a bow shot with no ballistic solution and keeps the ammo', async () => {
+    const base = shootClient({
+      combat_start: () => ({ state: 'running', weapon: 'bow' }),
+      combat_status: () => ({ state: 'done', weapon: 'bow', shotsFired: 0, projectileUuids: [], endReason: 'done' }),
+    })
+    clientMocks.callTool.mockImplementation(async (call: { name: string }) => {
+      if (call.name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Zombie', uuid: 'target-uuid', type: 'minecraft:zombie', position: { x: 400, y: 64, z: 0 } }] } }
+      return base(call)
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-nosolution-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-nosolution',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'bow', maxShots: 1 },
+    })
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      endReason: 'no_ballistic_solution',
+      shot: { shots: [], refusalReason: 'no_ballistic_solution' },
+    })
+    expect(clientMocks.callTool).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'combat_start' }))
+  })
+
+  it('refuses an under-drawn bow before starting the client task', async () => {
+    clientMocks.callTool.mockImplementation(shootClient({ combat_start: () => ({ state: 'running', weapon: 'bow' }) }))
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-charge-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-charge',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'bow', maxShots: 1, chargeTicks: 1 },
+    })
+
+    expect(result).toMatchObject({ status: 'failed', endReason: 'insufficient_charge' })
+    expect(clientMocks.callTool).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'combat_start' }))
+  })
+
   it('maps ammo-verified shots without a projectile uuid by shot order', async () => {
     let statusCalls = 0
     clientMocks.callTool.mockImplementation(shootClient({
