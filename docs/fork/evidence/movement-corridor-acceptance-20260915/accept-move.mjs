@@ -152,6 +152,8 @@ const straight = Math.hypot(dx, dz)
 let path = 0
 let maxLateral = 0
 let stalls = 0
+let stallEpisodes = 0
+let inStall = false
 let reversals = 0
 let previousPerp = undefined
 let yawTravel = 0
@@ -162,8 +164,17 @@ for (let index = 0; index < samples.length; index++) {
     path += Math.hypot(sample.x - previous.x, sample.z - previous.z)
     yawTravel += Math.abs(((sample.yaw - previous.yaw + 540) % 360) - 180)
     const speed = Math.hypot(sample.motion?.x ?? 0, sample.motion?.z ?? 0)
-    if (index > 2 && index < samples.length - 2 && speed < 0.02)
+    const stalled = index > 2 && index < samples.length - 2 && speed < 0.02
+    if (stalled) {
       stalls++
+      if (!inStall) {
+        stallEpisodes++
+        inStall = true
+      }
+    }
+    else {
+      inStall = false
+    }
   }
   const along = straight > 1e-6 ? ((sample.x - (start.x + 0.5)) * dx + (sample.z - (start.z + 0.5)) * dz) / straight : 0
   const perpendicular = straight > 1e-6 ? ((sample.x - (start.x + 0.5)) * dz - (sample.z - (start.z + 0.5)) * dx) / straight : 0
@@ -192,6 +203,7 @@ const summary = {
   pathRatio: Number((path / Math.max(1e-6, straight)).toFixed(3)),
   maxLateral: Number(maxLateral.toFixed(3)),
   stalls,
+  stallEpisodes,
   perpendicularReversals: reversals,
   yawTravelDeg: Number(yawTravel.toFixed(1)),
   planCells: planPath?.length,

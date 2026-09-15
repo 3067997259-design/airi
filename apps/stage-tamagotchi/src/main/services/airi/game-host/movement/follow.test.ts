@@ -72,6 +72,35 @@ describe('walk motion classification', () => {
     expect(setInput.mock.calls[0]?.[0]).toMatchObject({ forward: true, jump: true })
   })
 
+  // ROOT CAUSE (real-hill v4/v5):
+  //
+  // The cursor advanced on a horizontal pass alone, so a corner bump below a
+  // step skipped that step and made the run chase cells several blocks up.
+  // An ascent edge is now complete only at the destination's standing level.
+  it('does not complete an ascent edge from below it', async () => {
+    const state: MovementState = { position: { x: 1.2, y: 1, z: 0.5 }, yaw: 0, inWater: false, onGround: true }
+    const { port, setInput } = controlPort(state)
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => setInput.mock.calls.length > 0,
+    })
+    expect(result.cursor).toBe(0)
+  })
+
+  it('completes an ascent edge when standing on the destination', async () => {
+    const state: MovementState = { position: { x: 1.5, y: 2, z: 0.5 }, yaw: 0, inWater: false, onGround: true }
+    const { port } = controlPort(state)
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => false,
+    })
+    expect(result).toMatchObject({ status: 'arrived', cursor: 1 })
+  })
+
   it('distinguishes a half-block step-up from a full-block jump-up by support height', () => {
     const stepUp = makeStep({ x: 0, y: 1, z: 0 }, { x: 1, y: 1, z: 0 }, { fromSupportHeight: 1, supportHeight: 1.5 })
     const jumpUp = makeStep({ x: 0, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { fromSupportHeight: 1, supportHeight: 2 })

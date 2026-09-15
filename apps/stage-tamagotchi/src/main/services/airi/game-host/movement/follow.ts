@@ -100,6 +100,14 @@ const TURN_SPRINT_DEG = 30
 const LARGE_TURN_DEG = 45
 /** Small view corrections move at most this many degrees per poll. */
 const MAX_YAW_RATE_DEG = 20
+/** A destination this far above the feet still counts as reached and landed. */
+const COMPLETION_HEIGHT_TOLERANCE = 0.35
+/** Horizontal radius that confirms standing on a jump destination. */
+const LANDING_RADIUS = 0.7
+/** Dropping this far below a jump destination ends the attempt. */
+const FALLBACK_DROP = 1.2
+/** Ground distance at which a latched climb starts jumping. */
+const JUMP_TRIGGER_RANGE = 1.5
 
 export interface WalkRunResult {
   status: 'arrived' | 'stuck' | 'cancelled'
@@ -134,6 +142,16 @@ export async function runWalkRun(options: {
   let position: Vec3 = cells[0]!
   let lastAdvanceAt = now()
   const recent: Vec3[] = []
+  /**
+   * The jump currently in flight.
+   *
+   * A jump-up edge is not complete until the bot stands on the destination
+   * support, so the attempt is latched: the bearing stays on the latched cell
+   * while airborne (a mid-air height change cannot switch back to plain
+   * walking) and the latch clears only on landing confirmation or on a fall
+   * back to the lower level.
+   */
+  let climbLatch: { cell: Vec3 } | undefined
 
   for (;;) {
     if (shouldStop())
@@ -141,6 +159,10 @@ export async function runWalkRun(options: {
     const state: MovementState = await port.getState()
     position = state.position
 
+    // Progress advances only across completed edges. A horizontal pass below
+    // the destination does not complete an ascent: without the height check a
+    // corner bump could skip a step and make the run chase a cell that is
+    // several blocks up.
     while (cursor < cells.length - 1) {
       const a = cells[cursor]!
       const b = cells[cursor + 1]!
@@ -149,6 +171,8 @@ export async function runWalkRun(options: {
       const apx = position.x - a.x
       const apz = position.z - a.z
       if (abx * apx + abz * apz <= 0)
+        break
+      if (b.y - position.y > COMPLETION_HEIGHT_TOLERANCE)
         break
       cursor += 1
       lastAdvanceAt = now()
@@ -166,19 +190,38 @@ export async function runWalkRun(options: {
     const lookahead = clamp(0.8 + 0.4 * speed, LOOKAHEAD_MIN, LOOKAHEAD_MAX)
     const targetIndex = lookaheadTargetIndex(cells, cursor, position, lookahead)
 
-    // A one-block ascent ahead: aim at the nearest un-reached cell and jump at
-    // the edge instead of stopping for a discrete step. `cells` holds the
-    // destination of each edge, so the pending cell is `cells[cursor]` until
-    // the bot reaches it. Aiming at the far lookahead points into the slope on
-    // a diagonal staircase, so both the bearing and the jump use the pending
-    // cell; the rise is measured against the player's own feet, so the first
-    // edge of a run is covered too. The pulse repeats while grounded.
-    const pendingIndex = horizontalDistance(position, cells[cursor]!) > 0.45
+    // The pending cell is the next un-reached one: horizontal distance alone is
+    // not enough, a bot still below the cursor cell has not reached it.
+    const pendingIndex = (horizontalDistance(position, cells[cursor]!) > 0.45 || position.y - cells[cursor]!.y < -0.5)
       ? cursor
       : Math.min(cursor + 1, cells.length - 1)
     const pendingCell = cells[pendingIndex]!
-    const climbing = pendingCell.y - position.y > 0.6
-    const target = climbing ? pendingCell : cells[targetIndex]!
+
+    // Start a jump attempt for a one-block ascent; landing or falling back
+    // ends it in the block below.
+    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE)
+      climbLatch = { cell: pendingCell }
+
+    if (climbLatch) {
+      const landed = state.onGround
+        && horizontalDistance(position, climbLatch.cell) <= LANDING_RADIUS
+        && Math.abs(position.y - climbLatch.cell.y) <= COMPLETION_HEIGHT_TOLERANCE
+      const fellBack = position.y < climbLatch.cell.y - FALLBACK_DROP
+      if (landed) {
+        // The edge is complete: the progress loop above now passes it because
+        // the bot stands at the destination level.
+        climbLatch = undefined
+      }
+      else if (fellBack) {
+        // Recover at the actual position: the cursor stays on the unfinished
+        // edge and the bot re-approaches from where it landed.
+        climbLatch = undefined
+      }
+    }
+
+    const climbing = climbLatch !== undefined
+    const target = climbing ? climbLatch!.cell : cells[targetIndex]!
+    const distanceToTarget = horizontalDistance(position, target)
 
     // A bend anywhere in the lookahead window releases the sprint early. The
     // directions are normalized, so a 45-degree corner is detected regardless
@@ -197,11 +240,11 @@ export async function runWalkRun(options: {
       await port.look(state.yaw + applied, 0)
     }
 
-    const needJump = climbing && state.onGround && horizontalDistance(position, target) <= 1.5
+    const needJump = climbing && state.onGround && distanceToTarget <= JUMP_TRIGGER_RANGE
 
     await port.setInput({
       forward: true,
-      // Climbing runs walk the edge instead of sprinting into it.
+      // A latched jump keeps the walk speed; ordinary bends still release it.
       sprint: config.allowSprinting && !climbing && !turnAhead && targetIndex < cells.length - 1,
       jump: state.inWater || needJump,
     })
