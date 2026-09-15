@@ -1128,7 +1128,107 @@ describe('setupGameHost', () => {
       endReason: 'located',
       located: { name: 'AfterRain', position: { x: 36.7, y: 87, z: -11.6 }, dimension: 'minecraft:overworld' },
     })
+    // CD-L1: the locate receipt carries the uuid the player list already has.
+    expect(result.located?.uuid).toBe('u1')
   })
+
+  it('resolves a follow target through the player list when the entity list is truncated', async () => {
+    const crowd = Array.from({ length: 100 }, (_, index) => ({ uuid: `u-${index}`, name: `Entity${index}`, type: 'minecraft:cow', position: { x: 0, y: 64, z: 0 } }))
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: crowd, total: 130, returned: 100, dimension: 'minecraft:overworld' } }
+      if (name === 'list_players')
+        return { content: [], structuredContent: { players: [{ name: 'Alice', uuid: 'u-alice', x: 8, y: 64, z: 8, dimension: 'minecraft:overworld' }] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-truncated-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-truncated',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 1 },
+    })
+
+    // The truncated entity list did not hide the target: the player list
+    // resolved it, so the follow is not a target_lost (CD-L1).
+    expect(result.endReason).not.toBe('target_lost')
+    expect(result.endReason).not.toBe('target_not_in_read')
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).toContain('list_players')
+  }, 20_000)
+
+  it('reports target_not_in_read when a truncated list cannot resolve a non-player target', async () => {
+    const crowd = Array.from({ length: 100 }, (_, index) => ({ uuid: `u-${index}`, name: `Entity${index}`, type: 'minecraft:cow', position: { x: 0, y: 64, z: 0 } }))
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: crowd, total: 130, returned: 100, dimension: 'minecraft:overworld' } }
+      if (name === 'list_players')
+        return { content: [], structuredContent: { players: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-truncated-none-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-truncated-none',
+      action: 'follow',
+      params: { target: 'Ghost', keepDistance: 3 },
+    })
+
+    expect(result).toMatchObject({ status: 'failed', endReason: 'target_not_in_read', postCondition: { kind: 'none', met: false } })
+  })
+
+  it('passes the binding dimension to the follow entity query', async () => {
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1', dimension: 'minecraft:overworld' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', position: { x: 5, y: 64, z: 0 } }], dimension: 'minecraft:overworld' } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-dimension-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-dimension',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 1 },
+    })
+
+    // D12: the spatial read must name the dimension it belongs to.
+    const queryArgs = (clientMocks.callTool.mock.calls.find(([args]) => args.name === 'query_entities')?.[0] as { arguments?: Record<string, unknown> } | undefined)?.arguments
+    expect(queryArgs?.dimension).toBe('minecraft:overworld')
+  }, 20_000)
 
   it('equips an item from the main inventory into the armor slot and verifies it', async () => {
     clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
@@ -1740,7 +1840,7 @@ describe('setupGameHost', () => {
     }
   }, 20_000)
 
-  it('ends follow with target_lost when the fixed target disappears', async () => {
+  it('ends follow with target_offline when the fixed player leaves every read', async () => {
     let entityQueries = 0
     clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
       if (name === 'get_self')
@@ -1753,6 +1853,9 @@ describe('setupGameHost', () => {
           ? { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', position: { x: 5, y: 64, z: 0 } }] } }
           : { content: [], structuredContent: { entities: [] } }
       }
+      // CD-L2 coarse fallback: the player is not in the server player list.
+      if (name === 'list_players')
+        return { content: [], structuredContent: { players: [] } }
       if (name === 'get_blocks_region')
         return { content: [], structuredContent: { blocks: [] } }
       if (name === 'poll_events')
@@ -1771,7 +1874,12 @@ describe('setupGameHost', () => {
       params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 2 },
     })
 
-    expect(result).toMatchObject({ status: 'failed', checked: false, endReason: 'target_lost', postCondition: { kind: 'none', met: false } })
+    // The target left the loaded fine range and the server player list no
+    // longer has it: `target_offline` is the typed coarse result (CD-L2), not a
+    // plain `target_lost`.
+    expect(result).toMatchObject({ status: 'failed', checked: false, endReason: 'target_offline', postCondition: { kind: 'none', met: false } })
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).toContain('list_players')
   }, 20_000)
 
   it('ends follow with target_unreachable after three failed legs', async () => {

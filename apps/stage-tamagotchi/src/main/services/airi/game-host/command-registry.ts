@@ -157,7 +157,7 @@ export interface GameCommandReceipt {
   /** MC-3c: present only for drop commands. */
   dropped?: { itemId: string, count: number, slot: number, verifiedBy?: 'inventory-delta' | 'slot-empty' }
   /** MC-3c: present only for locate commands. */
-  located?: { name: string, position: { x: number, y: number, z: number }, dimension?: string }
+  located?: { name: string, uuid?: string, position: { x: number, y: number, z: number }, dimension?: string }
   /** MC-4a: present only for equip commands. */
   equipped?: GameEquipReceipt
   /** MC-4a: present only for use commands. */
@@ -287,7 +287,7 @@ export interface GameExecutorOutcome extends GamePostConditionInput {
   crafted?: GameCraftReceipt
   /** MC-3c: drop and locate details copied onto the receipt. */
   dropped?: { itemId: string, count: number, slot: number, verifiedBy?: 'inventory-delta' | 'slot-empty' }
-  located?: { name: string, position: { x: number, y: number, z: number }, dimension?: string }
+  located?: { name: string, uuid?: string, position: { x: number, y: number, z: number }, dimension?: string }
   /** MC-4a: equip and use details, and the observe snapshot, copied onto the receipt. */
   equipped?: GameEquipReceipt
   used?: GameUseReceipt
@@ -580,7 +580,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
     endedAt?: number
     crafted?: GameCraftReceipt
     dropped?: { itemId: string, count: number, slot: number, verifiedBy?: 'inventory-delta' | 'slot-empty' }
-    located?: { name: string, position: { x: number, y: number, z: number }, dimension?: string }
+    located?: { name: string, uuid?: string, position: { x: number, y: number, z: number }, dimension?: string }
     equipped?: GameEquipReceipt
     used?: GameUseReceipt
     observed?: GameObservedReceipt

@@ -664,10 +664,18 @@ export function evaluateGamePostCondition(
     case 'follow': {
       // Following has no countable postcondition, but a lost target, a
       // reflex preemption or a target the terrain planner cannot reach must
-      // not read as a clean success (mc-1a, review R5).
+      // not read as a clean success (mc-1a, review R5). CD-L2 adds the typed
+      // locate outcomes so a target that is offline, in another dimension,
+      // unloaded or unlocatable is never reported as a clean follow.
       const failed = outcome.endReason === 'reflex_preempted'
         || outcome.endReason === 'target_lost'
+        || outcome.endReason === 'target_not_in_read'
         || outcome.endReason === 'target_unreachable'
+        || outcome.endReason === 'target_offline'
+        || outcome.endReason === 'target_dimension_changed'
+        || outcome.endReason === 'locator_unavailable'
+        || outcome.endReason === 'entity_unloaded'
+        || outcome.endReason === 'waiting_for_target'
         || outcome.endReason === 'no_progress'
       return { kind: 'none', target: 0, actual: 0, met: !failed }
     }

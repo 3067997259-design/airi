@@ -235,6 +235,8 @@ export interface GameDomainResult {
   /** MC-3c locate receipt: where a player was when the read ran. */
   located?: {
     name: string
+    /** CD-L1: the uuid the player list already carries, kept for follow identity. */
+    uuid?: string
     position: { x: number, y: number, z: number }
     dimension?: string
   }

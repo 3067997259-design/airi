@@ -18,7 +18,9 @@ import type { GameCapabilities, GameCapabilityName, GameCapabilityStatus } from 
  * add; until the bridge exposes one, the capability is honestly unavailable.
  */
 const CAPABILITY_TOOLS: Record<GameCapabilityName, string[]> = {
-  'target-observation': ['get_player', 'query_entities', 'get_entities'],
+  // `get_entity` is the CD-L3 loaded-entity read with pose fields; a bridge
+  // that lacks it still supports target observation through `query_entities`.
+  'target-observation': ['get_entity', 'get_player', 'query_entities', 'get_entities'],
   'collision-snapshot': ['get_blocks_region'],
   'control-session': ['set_movement', 'stop_movement'],
   'ballistic-profiles': ['get_ballistics', 'ballistic_profile', 'get_projectile_profile'],

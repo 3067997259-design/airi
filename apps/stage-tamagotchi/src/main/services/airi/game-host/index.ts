@@ -41,6 +41,7 @@ import type {
   StopScope,
 } from './command-registry'
 import type { FailedEdge } from './movement/executor'
+import type { TargetObservation, TargetObservationSource } from './movement/target-observation'
 
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -78,7 +79,9 @@ import {
 import { cellOf } from './movement/coordinates'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
-import { actionResultPhases } from './movement/observation'
+import { actionResultPhases, DimensionMismatchError } from './movement/observation'
+import { buildTargetObservation, entityListOf, positionOf, selectTargetFromList, TARGET_QUERY_MAX_RESULTS, TARGET_QUERY_RADIUS } from './movement/target-observation'
+import { createCoarseLocateGate, createTargetTracker } from './movement/target-tracking'
 import { DEFAULT_MOVEMENT_CONFIG } from './movement/types'
 import { runVehicleMove } from './movement/vehicle'
 
@@ -1239,6 +1242,7 @@ export async function setupGameHost(
     'find_blocks',
     'get_block',
     'get_blocks_region',
+    'get_entity',
     'get_player',
     'get_time_and_weather',
     'give_item',
@@ -1813,43 +1817,240 @@ export async function setupGameHost(
     return { x, y, z }
   }
 
+  /** One resolved follow/shoot/attack target; identity is fixed by uuid. */
+  type FollowTargetResolution
+    = | {
+      status: 'resolved'
+      uuid: string
+      x: number
+      y: number
+      z: number
+      entityType?: string
+      isPlayer?: boolean
+      dimension: string
+      /** True when the entity list hit its cap, so another entity was not read. */
+      truncated: boolean
+      source: TargetObservationSource
+    }
+    | {
+      status: 'not-found'
+      /** True when the list dropped a tail; the target may be outside the read. */
+      truncated: boolean
+    }
+
   /**
-   * Resolves a follow target to its uuid and position. Accepts an exact entity
-   * name, a uuid, or an entity type id; returns undefined when nothing matches
-   * so the caller can end with `target_lost`.
+   * Resolves a follow target once. Accepts an exact uuid, an exact entity name
+   * or an entity type id.
+   *
+   * The entity query is centered on the player and passes the binding
+   * dimension explicitly (D12). A truncated list is reported and falls back to
+   * the server player list, so truncation is not reported as `target_lost`
+   * (CD-L1). A resolved target keeps its uuid for the rest of the command.
    */
-  async function resolveFollowTarget(target: string): Promise<{ uuid: string, x: number, y: number, z: number } | undefined> {
+  async function resolveFollowTarget(target: string): Promise<FollowTargetResolution> {
     // The query must be centered on the player: the server-side default is the
     // world spawn, so an omitted center misses targets only tens of blocks away.
     const self = await readFreshSnapshot()
-    const center = self?.position ?? { x: 0, y: 0, z: 0 }
-    const result = await callGameTool('query_entities', { center, radius: 64, includePlayers: true, maxResults: 100 })
-    const record = statusRecordOf(result)
-    const list = Array.isArray(record?.entities) ? record.entities as Array<Record<string, unknown>> : []
-    const match = list.find((entity) => {
-      const name = typeof entity.name === 'string' ? entity.name : undefined
-      const uuid = typeof entity.uuid === 'string' ? entity.uuid : undefined
-      const type = typeof entity.type === 'string' ? entity.type : undefined
-      return name === target || uuid === target || type === target
+    const center = self?.position ?? ZERO_SNAPSHOT.position
+    const dimension = worldIdentity?.dimension ?? ''
+    const result = await callGameTool('query_entities', {
+      center,
+      radius: TARGET_QUERY_RADIUS,
+      includePlayers: true,
+      maxResults: TARGET_QUERY_MAX_RESULTS,
+      ...(dimension ? { dimension } : {}),
     })
-    if (!match)
-      return undefined
-    const position = entityPositionOf(match)
-    const uuid = typeof match.uuid === 'string' ? match.uuid : undefined
-    if (!position || !uuid)
-      return undefined
-    return { uuid, ...position }
+    const { list, total, returned } = entityListOf(statusRecordOf(result))
+    const truncated = total !== undefined ? total > returned : returned >= TARGET_QUERY_MAX_RESULTS
+    const selection = selectTargetFromList(list, target, { ...(total !== undefined ? { total } : {}), maxResults: TARGET_QUERY_MAX_RESULTS })
+    if (selection.match?.position) {
+      return {
+        status: 'resolved',
+        uuid: selection.match.uuid,
+        x: selection.match.position.x,
+        y: selection.match.position.y,
+        z: selection.match.position.z,
+        ...(selection.match.entityType ? { entityType: selection.match.entityType } : {}),
+        ...(selection.match.isPlayer !== undefined ? { isPlayer: selection.match.isPlayer } : {}),
+        dimension,
+        truncated: selection.truncated,
+        source: 'server-entity',
+      }
+    }
+    // A truncated entity list may hide the target: fall back to the server
+    // player list by name or uuid so truncation is not read as a lost target.
+    if (truncated) {
+      const player = await locatePlayerFromList(target)
+      if (player)
+        return { ...player, status: 'resolved', truncated: true, source: 'server-player-locate' }
+    }
+    return { status: 'not-found', truncated }
   }
 
-  /** Re-reads the fixed target's position by uuid; undefined when it disappears. */
-  async function readFollowPositionByUuid(uuid: string): Promise<{ x: number, y: number, z: number } | undefined> {
-    const self = await readFreshSnapshot()
-    const center = self?.position ?? { x: 0, y: 0, z: 0 }
-    const result = await callGameTool('query_entities', { center, radius: 64, includePlayers: true, maxResults: 100 })
+  /** Reads one server player by name or uuid from the player list. */
+  async function locatePlayerFromList(target: string): Promise<{ uuid: string, x: number, y: number, z: number, entityType: string, isPlayer: true, dimension: string } | undefined> {
+    const result = await callGameTool('list_players', {})
     const record = statusRecordOf(result)
-    const list = Array.isArray(record?.entities) ? record.entities as Array<Record<string, unknown>> : []
-    const match = list.find(entity => entity.uuid === uuid)
-    return match ? entityPositionOf(match) : undefined
+    const players = Array.isArray(record?.players) ? record.players as Array<Record<string, unknown>> : []
+    const match = players.find(player => player.uuid === target || (typeof player.name === 'string' && player.name === target))
+    if (!match || typeof match.uuid !== 'string')
+      return undefined
+    const position = positionOf(match)
+    if (!position)
+      return undefined
+    return {
+      uuid: match.uuid,
+      x: position.x,
+      y: position.y,
+      z: position.z,
+      entityType: 'minecraft:player',
+      isPlayer: true,
+      dimension: typeof match.dimension === 'string' ? match.dimension : '',
+    }
+  }
+
+  /**
+   * Reads one target observation by uuid from the server entity query (CD-L1).
+   *
+   * Always returns an observation, even when the target is not in the read:
+   * the visibility carries `out-of-range` or `list-truncated` and the position
+   * stays absent. A mismatched dimension is rejected by the builder (D12).
+   */
+  async function readTargetObservationByUuid(uuid: string, source: TargetObservationSource = 'server-entity'): Promise<TargetObservation> {
+    const dimension = worldIdentity?.dimension ?? ''
+    const worldId = worldIdentity?.worldId ?? 'connection-scoped'
+    const startedAt = Date.now()
+    const request = {
+      targetUuid: uuid,
+      dimension,
+      worldId,
+      connectionGeneration,
+      source,
+      radius: TARGET_QUERY_RADIUS,
+      maxResults: TARGET_QUERY_MAX_RESULTS,
+      startedAt,
+    }
+
+    // CD-L3: prefer the loaded-entity detail read when the bridge exposes it.
+    // It carries pose fields (fallFlying, riding, bounds) and a source tick.
+    // It lives on the server endpoint, so a host without that endpoint falls
+    // back to the list read below.
+    const preferDetail = serverClient !== undefined && capabilities?.['target-observation']?.tools.includes('get_entity') === true
+    if (preferDetail) {
+      try {
+        const detail = statusRecordOf(await callGameTool('get_entity', { uuid }))
+        if (detail && detail.uuid === uuid) {
+          const receivedAt = Date.now()
+          const receivedDimension = typeof detail.dimension === 'string' ? detail.dimension : undefined
+          const sourceTick = Number(detail.sourceTick)
+          return buildTargetObservation(request, {
+            uuid,
+            ...(receivedDimension ? { dimension: receivedDimension } : {}),
+            ...(Number.isFinite(sourceTick) ? { sourceTick } : {}),
+            entity: detail,
+            receivedAt,
+            endedAt: receivedAt,
+          })
+        }
+      }
+      catch (error) {
+        // A dimension mismatch is a real rejection (D12); any other failure of
+        // the detail read is not a lost target, so the list read still runs.
+        if (error instanceof DimensionMismatchError)
+          throw error
+      }
+    }
+
+    const self = await readFreshSnapshot()
+    const center = self?.position ?? ZERO_SNAPSHOT.position
+    const result = await callGameTool('query_entities', {
+      center,
+      radius: TARGET_QUERY_RADIUS,
+      includePlayers: true,
+      maxResults: TARGET_QUERY_MAX_RESULTS,
+      ...(dimension ? { dimension } : {}),
+    })
+    const receivedAt = Date.now()
+    const record = statusRecordOf(result)
+    const { list, total, returned } = entityListOf(record)
+    const receivedDimension = typeof record?.dimension === 'string' ? record.dimension : undefined
+    const truncated = total !== undefined ? total > returned : returned >= TARGET_QUERY_MAX_RESULTS
+    const match = list.find(entry => entry.uuid === uuid)
+    return buildTargetObservation(
+      { ...request, receiveTime: receivedAt },
+      match
+        ? { uuid, ...(receivedDimension ? { dimension: receivedDimension } : {}), entity: match, listTruncated: truncated, receivedAt, endedAt: receivedAt }
+        : { uuid, ...(receivedDimension ? { dimension: receivedDimension } : {}), absence: 'out-of-range', listTruncated: truncated, receivedAt, endedAt: receivedAt },
+    )
+  }
+
+  /** One coarse locate result for a target that fine tracking cannot see. */
+  type CoarseReadResult
+    = | { kind: 'sample', observation: TargetObservation }
+      | { kind: 'offline' }
+      | { kind: 'dimension-changed' }
+      | { kind: 'unavailable' }
+      | { kind: 'unloaded' }
+
+  /**
+   * Coarse locate for a target outside fine range (CD-L2).
+   *
+   * A player is read from the server player list (`list_players`), a non-player
+   * from the server entity query. The two results carry distinct sources. A
+   * read failure is `unavailable`, not an offline target.
+   */
+  async function readCoarseTargetObservation(uuid: string, isPlayer: boolean | undefined): Promise<CoarseReadResult> {
+    if (!isPlayer) {
+      try {
+        const observation = await readTargetObservationByUuid(uuid, 'server-entity')
+        return observation.position ? { kind: 'sample', observation } : { kind: 'unloaded' }
+      }
+      catch (error) {
+        if (error instanceof DimensionMismatchError)
+          return { kind: 'dimension-changed' }
+        return { kind: 'unavailable' }
+      }
+    }
+    let record: Record<string, unknown> | undefined
+    try {
+      record = statusRecordOf(await callGameTool('list_players', {}))
+    }
+    catch {
+      return { kind: 'unavailable' }
+    }
+    const players = Array.isArray(record?.players) ? record.players as Array<Record<string, unknown>> : []
+    const match = players.find(player => player.uuid === uuid)
+    if (!match)
+      return { kind: 'offline' }
+    const position = positionOf(match)
+    if (!position)
+      return { kind: 'unloaded' }
+    const receivedAt = Date.now()
+    const dimension = typeof match.dimension === 'string' ? match.dimension : ''
+    const bindingDimension = worldIdentity?.dimension ?? ''
+    if (dimension && bindingDimension && dimension !== bindingDimension)
+      return { kind: 'dimension-changed' }
+    return {
+      kind: 'sample',
+      observation: buildTargetObservation(
+        {
+          targetUuid: uuid,
+          dimension: bindingDimension || dimension,
+          worldId: worldIdentity?.worldId ?? 'connection-scoped',
+          connectionGeneration,
+          source: 'server-player-locate',
+          startedAt: receivedAt,
+          receiveTime: receivedAt,
+        },
+        {
+          uuid,
+          ...(dimension ? { dimension } : {}),
+          entity: { ...match, isPlayer: true, type: 'minecraft:player' },
+          receivedAt,
+          endedAt: receivedAt,
+        },
+      ),
+    }
   }
 
   /**
@@ -1862,7 +2063,7 @@ export async function setupGameHost(
   async function readEntityByUuid(uuid: string): Promise<{ x: number, y: number, z: number, health?: number } | undefined> {
     const self = await readFreshSnapshot()
     const center = self?.position ?? ZERO_SNAPSHOT.position
-    const result = await callGameTool('query_entities', { center, radius: 64, includePlayers: true, maxResults: 100 })
+    const result = await callGameTool('query_entities', { center, radius: TARGET_QUERY_RADIUS, includePlayers: true, maxResults: TARGET_QUERY_MAX_RESULTS, ...(worldIdentity?.dimension ? { dimension: worldIdentity.dimension } : {}) })
     const record = statusRecordOf(result)
     const list = Array.isArray(record?.entities) ? record.entities as Array<Record<string, unknown>> : []
     const match = list.find(entity => entity.uuid === uuid)
@@ -2528,6 +2729,7 @@ export async function setupGameHost(
       // Resolve once, then keep the target uuid fixed: a later re-query that
       // matches the same name must not silently switch to another entity.
       let targetUuid: string | undefined
+      let targetIsPlayer: boolean | undefined
       let target: { x: number, y: number, z: number } | undefined
       // The position of the target the last leg was planned against, and
       // whether that leg reached. A leg is only replanned when the target
@@ -2539,6 +2741,11 @@ export async function setupGameHost(
       // edges of earlier legs instead of planning them again (review R5).
       const failedEdges = new Map<string, FailedEdge>()
 
+      // CD-L2: one tracker and one coarse gate per follow command. The gate
+      // caps coarse locates at one per second and never overlaps them.
+      const tracker = createTargetTracker()
+      const coarseGate = createCoarseLocateGate()
+
       while (Date.now() < deadline) {
         if (writeStop.stopped) {
           endReason = 'cancelled'
@@ -2548,27 +2755,96 @@ export async function setupGameHost(
           endReason = 'reflex_preempted'
           break
         }
+        const now = Date.now()
+
         if (!targetUuid) {
           const resolved = await resolveFollowTarget(follow.target)
-          if (!resolved) {
-            endReason = 'target_lost'
+          if (resolved.status !== 'resolved') {
+            // A truncated read reports the miss honestly instead of claiming
+            // the target no longer exists (CD-L1).
+            endReason = resolved.truncated ? 'target_not_in_read' : 'target_lost'
             break
           }
           targetUuid = resolved.uuid
+          targetIsPlayer = resolved.isPlayer
           target = { x: resolved.x, y: resolved.y, z: resolved.z }
         }
-        else {
-          // Re-read the fixed target's fresh position each leg.
-          target = await readFollowPositionByUuid(targetUuid)
+
+        const outcome = tracker.outcome(now)
+        if (outcome === 'fine') {
+          let observation: TargetObservation | undefined
+          try {
+            observation = await readTargetObservationByUuid(targetUuid)
+          }
+          catch (error) {
+            if (error instanceof DimensionMismatchError)
+              tracker.forceOutcome('target_dimension_changed')
+            observation = undefined
+          }
+          if (observation?.position) {
+            if (tracker.acceptFine(observation, Date.now()))
+              target = observation.position
+          }
+          else {
+            tracker.missFine(Date.now())
+            await sleep(200)
+            continue
+          }
         }
+        else {
+          // Coarse: a bounded locate at most once per second. A coarse sample
+          // that stays stale past the start window is `waiting_for_target`.
+          if (outcome === 'waiting_for_target' && tracker.waitingBudgetExceeded(now)) {
+            endReason = tracker.snapshot().forced ?? 'waiting_for_target'
+            break
+          }
+          if (coarseGate.tryAcquire(now)) {
+            let coarse: CoarseReadResult
+            try {
+              coarse = await readCoarseTargetObservation(targetUuid, targetIsPlayer)
+            }
+            catch {
+              coarse = { kind: 'unavailable' }
+            }
+            if (coarse.kind === 'sample') {
+              coarseGate.release('success')
+              tracker.acceptCoarse(coarse.observation, Date.now())
+              if (coarse.observation.position)
+                target = coarse.observation.position
+            }
+            else {
+              coarseGate.release('failure')
+              if (coarse.kind === 'offline') {
+                endReason = 'target_offline'
+                break
+              }
+              if (coarse.kind === 'dimension-changed') {
+                endReason = 'target_dimension_changed'
+                break
+              }
+              // `unloaded` and `unavailable` keep the last observation age and
+              // let the waiting budget decide; they do not claim the target is
+              // offline or gone.
+              tracker.forceOutcome(coarse.kind === 'unloaded' ? 'entity_unloaded' : 'locator_unavailable')
+            }
+          }
+          if (!target || tracker.outcome(Date.now()) !== 'coarse') {
+            await sleep(200)
+            continue
+          }
+        }
+
         if (!target) {
-          endReason = 'target_lost'
-          break
+          await sleep(200)
+          continue
         }
 
         const self = (await readFreshSnapshot())?.position ?? ZERO_SNAPSHOT.position
+        // Coarse tracking walks to a rendezvous, not into the target: a wide
+        // coarse position must not become a close-follow leg.
+        const activeKeepDistance = tracker.snapshot().mode === 'coarse' ? Math.max(keepDistance, 8) : keepDistance
         const distance = Math.hypot(target.x - self.x, target.z - self.z)
-        if (distance <= keepDistance) {
+        if (distance <= activeKeepDistance) {
           // Already within the keep distance: a leg would only jitter.
           await sleep(500)
           continue
@@ -2581,7 +2857,7 @@ export async function setupGameHost(
           continue
         }
 
-        const leg = await runTerrainLeg(target, keepDistance, shouldStop, undefined, failedEdges)
+        const leg = await runTerrainLeg(target, activeKeepDistance, shouldStop, undefined, failedEdges)
         if (env.AIRI_TERRAIN_DEBUG)
           log.warn(`follow: leg to ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)} -> ${leg.status}${leg.detail ? ` (${leg.detail})` : ''}`)
         if (leg.status === 'cancelled') {
@@ -2701,6 +2977,9 @@ export async function setupGameHost(
         finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
         located: {
           name: String(match.name),
+          // The player list already carries the uuid; passing it through keeps
+          // the locate identity stable for a later follow (CD-L1).
+          ...(typeof match.uuid === 'string' ? { uuid: match.uuid } : {}),
           position: { x, y, z },
           ...(typeof match.dimension === 'string' ? { dimension: match.dimension } : {}),
         },
@@ -2985,7 +3264,7 @@ export async function setupGameHost(
       // that matches the same name must never silently switch to another entity
       // (gaps §3.3). The executable mod path is chosen from the resolved weapon.
       const resolved = await resolveFollowTarget(shoot.target)
-      if (!resolved) {
+      if (resolved.status !== 'resolved') {
         // Target gone before any shot: no phantom shots.
         return {
           endReason: 'target_lost',
@@ -3304,7 +3583,7 @@ export async function setupGameHost(
       // Resolve once, then pin the uuid: a later query that matches the same
       // name must never silently switch to another entity.
       const resolved = await resolveFollowTarget(attack.target)
-      if (!resolved) {
+      if (resolved.status !== 'resolved') {
         return {
           endReason: 'target_lost',
           finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,

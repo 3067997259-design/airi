@@ -3,6 +3,14 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 目标追踪与长距离定位（CD-L1–L3，2026-09-15，代码完成，真机待做）
+
+按[目标追踪与长距离定位](./target-tracking-design.md)实施。L1：新增 `movement/target-observation.ts`（固定 UUID 身份、来源/世界/维度、tri-state 姿态事实、可见性与完整性、位置不确定度；身份或维度不匹配直接拒绝；截断列表不等于目标消失），`game_locate` 回执补 `uuid`，跟随先解析一次名字再只认 UUID（同名新实体不顶替），所有空间读显式携带维度（D11/D12）。L2：新增 `movement/target-tracking.ts`（精细↔粗定位滞回：3 次缺失或 0.5 秒过期转粗，2 个递增新鲜样本回精；粗定位 1 秒间隔、失败退避、并发合并；3 秒无新鲜结果转 `waiting_for_target`，默认 10 秒预算），跟随失败原因扩为 `target_offline`/`target_dimension_changed`/`locator_unavailable`/`entity_unloaded`/`waiting_for_target`。L3：模组 `entities.get` 补姿态/骑乘/碰撞盒等字段，客户端短时轨迹历史在传送、换乘、起降、换维度时重置。
+
+- 验证：game-host 定向 **380 passed / 1 skipped**（+39 例）；独立复现 5 passed / 0 expected fail；桌面包 typecheck 0；定向 ESLint 0；模组 `:1.21.1:build` 成功。
+- 注意：Gradle 必须在 `D:\mcpfabric` 目录下运行；在其它工作目录调用 `gradlew.bat` 会以当前目录为构建根并失败。
+- 真机 NOT-RUN：64 格边界、超过 100 实体、同名目标、主世界与下界同坐标、起飞/落地/骑乘/瞬移/网络抖动；`get_entity` 细节读位于服务端端点，双端点拓扑待真机确认。
+
 ## 地面走廊与连续跟随（CD-G1–G3，2026-09-15，代码完成，真机待做）
 
 按[地面走廊、连续跟随与长距离路线](./movement-corridor-design.md)实施。G1：`walkRunLength` 改为按运动类型（walk/step-up/jump-up/fall/swim/climb/parkour/interaction）分段，完整方块上升不再进入平走段（D1）；前瞻起点改为未到达节点，首个拐点先到再转向（D2）；转向用归一化线段方向与有界 yaw 速率，斜转直提前收疾跑（D3）；失败边按实际游标定位（D7）。G2：新增 `movement/corridor.ts`（玩家 AABB 沿线扫掠、支撑与头顶核对、弧长路径 `P(s)`、局部投影窗口防 U 形对折、拐点截断前瞻、速度与转向调节、未证实时回退离散路径）。G3：`planner.ts` 改为单调 ID 标签与非支配保留、父链稳定（D5）；`route.ts` 增加入口图区域序列、直线分点降级为提示（D6）、材料预算递减与未知前沿；`runTerrainRoute` 不再做 Y 线性插值。
