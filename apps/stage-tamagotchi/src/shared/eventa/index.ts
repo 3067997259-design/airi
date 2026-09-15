@@ -65,6 +65,10 @@ export interface ElectronServerChannelConfig {
 export const electronGetServerChannelConfig = defineInvokeEventa<ElectronServerChannelConfig>('eventa:invoke:electron:server-channel:get-config')
 
 export * from './data-backup'
+export * from './game-host'
+export * from './mc2'
+export * from './packages'
+export * from './permissions'
 export const electronApplyServerChannelConfig = defineInvokeEventa<ElectronServerChannelConfig, Partial<ElectronServerChannelConfig>>('eventa:invoke:electron:server-channel:apply-config')
 export const electronGetServerChannelQrPayload = defineInvokeEventa<ServerChannelQrPayload>('eventa:invoke:electron:server-channel:get-qr-payload')
 
@@ -260,11 +264,14 @@ export interface PluginHostDebugSnapshot {
   refreshedAt: number
 }
 
-export interface ElectronMcpStdioServerConfig {
-  command: string
-  args?: string[]
-  env?: Record<string, string>
-  cwd?: string
+/** One MCP server entry: stdio child, or a remote HTTP/SSE endpoint. */
+export type ElectronMcpServerConfig
+  = | { kind: 'stdio', command: string, args?: string[], env?: Record<string, string>, cwd?: string }
+    | { kind: 'streamable-http', url: string, headers?: Record<string, string> }
+    | { kind: 'sse', url: string, headers?: Record<string, string> }
+
+/** Common optional fields shared by every transport. */
+export interface ElectronMcpServerCommon {
   enabled?: boolean
   /** Maximum idle time for one request. Progress notifications reset this timer. */
   requestTimeoutMs?: number
@@ -272,8 +279,8 @@ export interface ElectronMcpStdioServerConfig {
   maxTotalTimeoutMs?: number
 }
 
-export interface ElectronMcpStdioConfigFile {
-  mcpServers: Record<string, ElectronMcpStdioServerConfig>
+export interface ElectronMcpConfigFile {
+  mcpServers: Record<string, ElectronMcpServerConfig & ElectronMcpServerCommon>
 }
 
 export interface ElectronMcpStdioApplyResult {
@@ -309,6 +316,8 @@ export interface ElectronMcpToolDescriptor {
 }
 
 export interface ElectronMcpCallToolPayload {
+  /** Correlation id for one call; the cancel invoke targets exactly this call. */
+  requestId: string
   name: string
   arguments?: Record<string, unknown>
 }
@@ -334,7 +343,7 @@ export interface ElectronMcpStdioTestResult {
 
 export interface ElectronMcpStdioTestPayload {
   name: string
-  config: ElectronMcpStdioServerConfig
+  config: ElectronMcpServerConfig & ElectronMcpServerCommon
 }
 
 export const electronMcpOpenConfigFile = defineInvokeEventa<{ path: string }>('eventa:invoke:electron:mcp:open-config-file')
@@ -342,6 +351,8 @@ export const electronMcpApplyAndRestart = defineInvokeEventa<ElectronMcpStdioApp
 export const electronMcpGetRuntimeStatus = defineInvokeEventa<ElectronMcpStdioRuntimeStatus>('eventa:invoke:electron:mcp:get-runtime-status')
 export const electronMcpListTools = defineInvokeEventa<ElectronMcpToolDescriptor[]>('eventa:invoke:electron:mcp:list-tools')
 export const electronMcpCallTool = defineInvokeEventa<ElectronMcpCallToolResult, ElectronMcpCallToolPayload>('eventa:invoke:electron:mcp:call-tool')
+/** Cancels one in-flight MCP call by correlation id. Idempotent. */
+export const electronMcpCancelTool = defineInvokeEventa<{ cancelled: boolean }, { requestId: string }>('eventa:invoke:electron:mcp:cancel-tool')
 export const electronMcpReadConfigText = defineInvokeEventa<ElectronMcpStdioConfigText>('eventa:invoke:electron:mcp:read-config-text')
 export const electronMcpWriteConfigText = defineInvokeEventa<ElectronMcpStdioConfigText, { text: string }>('eventa:invoke:electron:mcp:write-config-text')
 export const electronMcpTestServer = defineInvokeEventa<ElectronMcpStdioTestResult, ElectronMcpStdioTestPayload>('eventa:invoke:electron:mcp:test-server')
@@ -608,6 +619,19 @@ export interface CodingCodeRunParams {
   timeoutMs?: number
   /** Bind reviewed skill IO to the workspace where its source was checked. */
   expectedWorkspaceRoot?: string
+  /**
+   * Game bridge tools the reviewed skill declared (mc-1c D2). Reviewed skills
+   * pass the approved list; calls to declaration-requiring tools outside it
+   * are rejected inside the sandbox runtime.
+   */
+  allowedTools?: string[]
+  /**
+   * Renderer-minted id for `codingHostCodeCancel` (mc-1c D3).
+   *
+   * Eventa 0.3.0 does not deliver renderer cancellation to handlers, so the
+   * cancel path is an explicit second invoke keyed by this id.
+   */
+  runId?: string
 }
 
 export interface CodingToolAvailability {
@@ -750,6 +774,7 @@ export const codingHostSetWorkspaceRoot = defineInvokeEventa<CodingWorkspaceRoot
 export const codingWorkspaceRootChanged = defineEventa<CodingWorkspaceRootChangedPayload>('eventa:event:electron:coding-host:workspace-root:changed')
 export const codingHostExecRun = defineInvokeEventa<CodingExecRunResult, CodingExecRunParams>('eventa:invoke:electron:coding-host:exec:run')
 export const codingHostCodeRun = defineInvokeEventa<CodingCodeRunResult, CodingCodeRunParams>('eventa:invoke:electron:coding-host:code:run')
+export const codingHostCodeCancel = defineInvokeEventa<void, { runId: string }>('eventa:invoke:electron:coding-host:code:cancel')
 export const codingHostListTools = defineInvokeEventa<CodingToolsStatusResult, void>('eventa:invoke:electron:coding-host:tools:list')
 
 // Bash approval tri-state (CAPABILITY-PLAN §三):

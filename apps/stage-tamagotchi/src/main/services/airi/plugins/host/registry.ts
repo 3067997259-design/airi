@@ -263,7 +263,7 @@ function appendCacheBustKey(entrypoint: string, cacheBustKey: string): string {
  */
 export function createManifestForLoad(
   entry: ManifestEntry,
-  options: { cacheBustKey?: string },
+  options: { cacheBustKey?: string } = {},
 ): ExtensionManifestV1 {
   const loadManifest = entry.manifest
   if (!options.cacheBustKey) {

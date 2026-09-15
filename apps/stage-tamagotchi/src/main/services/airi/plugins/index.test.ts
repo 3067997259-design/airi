@@ -9,14 +9,15 @@ import type {
 import type { WidgetsAddPayload, WidgetSnapshot, WidgetsUpdatePayload } from '../../../../shared/eventa'
 import type { ExtensionHostService } from './types'
 
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { useLogg } from '@guiiai/logg'
 import { defineInvoke } from '@moeru/eventa'
-import { ExtensionHost } from '@proj-airi/plugin-sdk/plugin-host'
+import { ExtensionHost, extensionManifestV1Schema } from '@proj-airi/plugin-sdk/plugin-host'
+import { safeParse } from 'valibot'
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import { electronPluginGetAssetBaseUrl } from '../../../../shared/eventa/plugin/assets'
@@ -37,6 +38,7 @@ import { setupExtensionHost as setupExtensionHostService } from './index'
 import { gameletPluginKitDescriptor } from './kits/gamelet'
 import { createGameletOrchestrationRuntime } from './kits/gamelet/orchestration'
 import { widgetPluginKitDescriptor } from './kits/widget'
+import { PermissionStore } from './permissions/store'
 
 const appMock = vi.hoisted(() => ({
   getPath: vi.fn(),
@@ -317,10 +319,45 @@ function createWidgetsManagerDouble(options: { respondToRequests?: boolean } = {
   }
 }
 
+async function approveManifestForTest(manifest: ExtensionManifestV1) {
+  const userData = appMock.getPath('userData') as unknown as string
+  await new PermissionStore({ extensionsDir: join(userData, 'extensions') }).approve({ extensionId: manifest.id, manifest })
+}
+
 async function setupExtensionHostForTest() {
+  // CP-2: approvals are deny-by-default, so the legacy host tests seed one
+  // approval per discovered fixture manifest before startup. Permission
+  // enforcement itself is covered by the permission store tests and the
+  // dedicated deny-by-default case.
+  await approveDiscoveredManifestsForTest()
   const widgets = createWidgetsManagerDouble()
   const service = await setupExtensionHostService({ widgetsManager: widgets.widgetsManager })
   return { service, ...widgets }
+}
+
+async function approveDiscoveredManifestsForTest() {
+  // The describe-scope variables are not visible here; derive the same paths
+  // the host uses from the mocked Electron userData path.
+  const userData = appMock.getPath('userData') as unknown as string
+  const testPluginsDir = join(userData, 'extensions', 'v1')
+  const store = new PermissionStore({ extensionsDir: join(userData, 'extensions') })
+  const entries = await readdir(testPluginsDir, { withFileTypes: true }).catch(() => [])
+  for (const entry of entries) {
+    if (!entry.isDirectory())
+      continue
+    try {
+      const raw = JSON.parse(await readFile(join(testPluginsDir, entry.name, 'extension.airi.json'), 'utf8')) as unknown
+      // Parse through the manifest schema exactly like the registry does; the
+      // approval digest covers the whole parsed manifest, so a partial object
+      // would never match at resolve time.
+      const manifest = safeParse(extensionManifestV1Schema, raw)
+      if (manifest.success)
+        await store.approve({ extensionId: manifest.output.id, manifest: manifest.output })
+    }
+    catch {
+      // A malformed fixture is that test's concern, not the approval seed.
+    }
+  }
 }
 
 async function setupExtensionHostServiceInternalForTest() {
@@ -997,6 +1034,14 @@ describe('setupExtensionHost', () => {
     const invokeInspect = defineInvoke(contextState.lastContext!, electronPluginInspect)
     const invokeUpdateCapability = defineInvoke(contextState.lastContext!, electronPluginUpdateCapability)
 
+    // CP-1 transition table: only `ready` may degrade. The registry rejects
+    // `announced -> degraded` (CapabilityTransitionError), so take the legal
+    // path first; this mirrors how real consumers announce and settle.
+    await invokeUpdateCapability({
+      key: 'cap:renderer-status',
+      state: 'ready',
+    })
+
     await invokeUpdateCapability({
       key: 'cap:renderer-status',
       state: 'degraded',
@@ -1039,7 +1084,9 @@ describe('setupExtensionHost', () => {
       name: 'test-dynamic-module.ts',
       contents: createEmptyExtensionEntrypoint('test-dynamic-module'),
     })
-    const session = await host.start(createDynamicModuleManifest(dynamicEntrypoint), { cwd: pluginsDir })
+    const dynamicManifest = createDynamicModuleManifest(dynamicEntrypoint)
+    await approveManifestForTest(dynamicManifest)
+    const session = await host.start(dynamicManifest, { cwd: pluginsDir })
     host.bindExtensionKitModule(session.id, {
       moduleId: 'widget-shell',
       kitId: 'kit.widget',
@@ -1106,6 +1153,67 @@ describe('setupExtensionHost', () => {
     ]))
   })
 
+  // CP-2: the manifest declaration is a request, never a grant. This pins the
+  // app boundary the permission store tests cannot: the resolver wiring in
+  // `setupExtensionHostServiceInternal`.
+  it('denies manifest permissions until the user approves the manifest digest (cp-2)', async () => {
+    const { host } = await setupExtensionHost()
+
+    const dynamicEntrypoint = await writeEntrypoint({
+      dir: pluginsDir,
+      name: 'test-cp2-permission.ts',
+      contents: createEmptyExtensionEntrypoint('test-cp2-permission'),
+    })
+    const manifest = createDynamicModuleManifest(dynamicEntrypoint, 'test-cp2-permission')
+
+    const denied = await host.start(manifest, { cwd: pluginsDir })
+    expect(() => host.bindExtensionKitModule(denied.id, {
+      moduleId: 'cp2-shell',
+      kitId: 'kit.widget',
+      kitModuleType: 'window',
+      config: {},
+    })).toThrow(/Permission denied/)
+
+    // A user approval for the same manifest bytes enables the same call.
+    await approveManifestForTest(manifest)
+    const allowed = await host.start(manifest, { cwd: pluginsDir })
+    host.bindExtensionKitModule(allowed.id, {
+      moduleId: 'cp2-shell',
+      kitId: 'kit.widget',
+      kitModuleType: 'window',
+      config: {},
+    })
+    expect(host.getBinding('cp2-shell')).toBeDefined()
+  })
+
+  // CP-2: `runtime: 'node'` loads the extension inside a worker bootstrap; the
+  // host only observes ready/failed. The fixture needs no host APIs, which is
+  // the increment-2 scope (kit/module proxying comes with its consumer).
+  it('loads an extension inside a node-worker and stops it on unload (cp-2)', async () => {
+    const extensionId = 'test-worker-extension'
+    const pluginDir = join(pluginsDir, 'test-worker')
+    await mkdir(pluginDir, { recursive: true })
+    await writeFile(
+      join(pluginDir, 'entry.mjs'),
+      `export const id = ${JSON.stringify(extensionId)}\nexport function setup() {}\n`,
+    )
+    await writeFile(join(pluginDir, 'extension.airi.json'), JSON.stringify({
+      apiVersion: 'v1',
+      entrypoints: { node: './entry.mjs' },
+      id: extensionId,
+      kind: 'manifest.extension.airi.moeru.ai',
+      permissions: {},
+    }))
+
+    const { service } = await setupExtensionHostServiceInternalForTest()
+
+    const loadedSnapshot = await service.loadInWorker(extensionId)
+    expect(loadedSnapshot.plugins.find(plugin => plugin.extensionId === extensionId)?.loaded).toBe(true)
+
+    const unloadedSnapshot = await service.unload(extensionId)
+    expect(unloadedSnapshot.plugins.find(plugin => plugin.extensionId === extensionId)?.loaded).toBe(false)
+  })
+
   it('sources built-in kit descriptors from installable kit modules', () => {
     expect(widgetPluginKitDescriptor).toEqual({
       kitId: 'kit.widget',
@@ -1163,7 +1271,9 @@ describe('setupExtensionHost', () => {
       ].join('\n'),
     })
 
-    const session = await service.host.start(createExtensionGameletKitManifest(entrypointPath), { cwd: pluginDir })
+    const gameletKitManifest = createExtensionGameletKitManifest(entrypointPath)
+    await approveManifestForTest(gameletKitManifest)
+    const session = await service.host.start(gameletKitManifest, { cwd: pluginDir })
     const binding = service.host.getBinding('kit-module:gamelet')
 
     expect(binding).toEqual(expect.objectContaining({
@@ -1238,7 +1348,9 @@ describe('setupExtensionHost', () => {
       ].join('\n'),
     })
 
-    await service.host.start(createExtensionGameletKitManifest(entrypointPath, 'test-extension-gamelet-orchestration'), { cwd: pluginDir })
+    const orchestrationManifest = createExtensionGameletKitManifest(entrypointPath, 'test-extension-gamelet-orchestration')
+    await approveManifestForTest(orchestrationManifest)
+    await service.host.start(orchestrationManifest, { cwd: pluginDir })
 
     expect(widgetsManager.pushWidget).toHaveBeenCalledWith(expect.objectContaining({
       id: 'kit-module:board',
@@ -1306,7 +1418,9 @@ describe('setupExtensionHost', () => {
       ].join('\n'),
     })
 
-    const session = await service.host.start(createExtensionGameletKitManifest(entrypointPath, 'test-extension-gamelet-session-cleanup'), { cwd: pluginDir })
+    const cleanupManifest = createExtensionGameletKitManifest(entrypointPath, 'test-extension-gamelet-session-cleanup')
+    await approveManifestForTest(cleanupManifest)
+    const session = await service.host.start(cleanupManifest, { cwd: pluginDir })
     await service.host.stop(session.id)
 
     expect(widgetsManager.removeWidget).toHaveBeenCalledWith('chess:board')

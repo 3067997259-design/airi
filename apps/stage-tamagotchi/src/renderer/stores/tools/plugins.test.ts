@@ -6,7 +6,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invokeMocks = vi.hoisted(() => ({
-  invokePluginTool: vi.fn(async (payload: unknown) => payload),
+  invokePluginTool: vi.fn(async (payload: { requestId?: string, ownerExtensionId: string, name: string, input: unknown }) => payload),
+  cancelPluginTool: vi.fn(async (_payload: { requestId: string }) => ({ cancelled: true })),
   listPluginXsaiTools: vi.fn(async () => ({
     tools: [
       {
@@ -39,6 +40,8 @@ vi.mock('@proj-airi/electron-vueuse', () => ({
       return invokeMocks.listPluginXsaiTools
     if (event?.receiveEvent?.id === 'eventa:invoke:electron:plugins:tools:invoke-receive')
       return invokeMocks.invokePluginTool
+    if (event?.receiveEvent?.id === 'eventa:invoke:electron:plugins:tools:cancel-receive')
+      return invokeMocks.cancelPluginTool
 
     throw new Error(`Unexpected eventa invoke: ${JSON.stringify(event)}`)
   },
@@ -51,6 +54,7 @@ describe('useTamagotchiPluginToolsStore', async () => {
     setActivePinia(createPinia())
     invokeMocks.listPluginXsaiTools.mockClear()
     invokeMocks.invokePluginTool.mockClear()
+    invokeMocks.cancelPluginTool.mockClear()
   })
 
   afterEach(() => {
@@ -82,20 +86,20 @@ describe('useTamagotchiPluginToolsStore', async () => {
       move: 'e2e4',
     }, toolOptions)
 
-    expect(invokeMocks.invokePluginTool).toHaveBeenCalledWith({
+    expect(invokeMocks.invokePluginTool.mock.calls[0]?.[0]).toEqual(expect.objectContaining({
       ownerExtensionId: 'plugin-chess',
       name: 'play_chess',
       input: {
         move: 'e2e4',
       },
-    })
-    expect(executionResult).toEqual({
+    }))
+    expect(executionResult).toEqual(expect.objectContaining({
       ownerExtensionId: 'plugin-chess',
       name: 'play_chess',
       input: {
         move: 'e2e4',
       },
-    })
+    }))
 
     store.dispose()
 
@@ -136,5 +140,27 @@ describe('useTamagotchiPluginToolsStore', async () => {
     expect(console.warn).toHaveBeenCalledWith(
       expect.stringContaining('[plugin-tools] Failed to list plugin xsai tools'),
     )
+  })
+
+  it('sends a cancel invoke with the same request id when the call is aborted', async () => {
+    const llmToolsStore = useLlmToolsStore()
+    const store = useTamagotchiPluginToolsStore()
+    const controller = new AbortController()
+    let capturedRequestId: string | undefined
+    invokeMocks.invokePluginTool.mockImplementation(async (payload) => {
+      capturedRequestId = payload.requestId
+      return await new Promise((_resolve, reject) => {
+        controller.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      })
+    })
+
+    await store.refresh()
+    const tool = llmToolsStore.activeTools.find(candidate => candidate.function.name === 'play_chess')
+    const pending = tool!.execute({ move: 'e2e4' }, { abortSignal: controller.signal } as Parameters<Tool['execute']>[1])
+    controller.abort()
+
+    await expect(pending).rejects.toThrow('aborted')
+    expect(capturedRequestId).toBeTypeOf('string')
+    expect(invokeMocks.cancelPluginTool).toHaveBeenCalledWith({ requestId: capturedRequestId })
   })
 })

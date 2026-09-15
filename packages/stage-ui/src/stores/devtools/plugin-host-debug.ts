@@ -68,14 +68,49 @@ export interface PluginHostDebugSnapshot {
   refreshedAt: number
 }
 
+/** One permission scope an extension manifest asks for (CP-2). */
+export interface PluginPermissionSpec {
+  key: string
+  actions: string[]
+}
+
+/** Structural mirror of the SDK `ModulePermissionDeclaration`. */
+export interface PluginPermissionDeclaration {
+  apis?: PluginPermissionSpec[]
+  resources?: PluginPermissionSpec[]
+  capabilities?: PluginPermissionSpec[]
+  processors?: PluginPermissionSpec[]
+  pipelines?: PluginPermissionSpec[]
+}
+
+/** One extension's requested/approved permission state (CP-2). */
+export interface PluginPermissionEntry {
+  extensionId: string
+  version: string
+  path: string
+  enabled: boolean
+  loaded: boolean
+  requested: PluginPermissionDeclaration
+  approved?: {
+    grant: PluginPermissionDeclaration
+    approvedAt: number
+  }
+  manifestDigestMatches?: boolean
+}
+
 interface PluginHostDebugBridge {
   list: () => Promise<PluginRegistrySnapshot>
   setEnabled: (payload: { extensionId: string, enabled: boolean, path?: string }) => Promise<PluginRegistrySnapshot>
   setAutoReload: (payload: { extensionId: string, enabled: boolean }) => Promise<PluginRegistrySnapshot>
   loadEnabled: () => Promise<PluginRegistrySnapshot>
   load: (payload: { extensionId: string }) => Promise<PluginRegistrySnapshot>
+  /** CP-2: loads one extension inside a node-worker. */
+  loadInWorker: (payload: { extensionId: string }) => Promise<PluginRegistrySnapshot>
   unload: (payload: { extensionId: string }) => Promise<PluginRegistrySnapshot>
   inspect: () => Promise<PluginHostDebugSnapshot>
+  listPermissions: () => Promise<PluginPermissionEntry[]>
+  approvePermission: (payload: { extensionId: string, grant?: PluginPermissionDeclaration }) => Promise<PluginPermissionEntry[]>
+  revokePermission: (payload: { extensionId: string }) => Promise<PluginPermissionEntry[]>
 }
 
 export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-debug', () => {
@@ -92,6 +127,7 @@ export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-deb
   const sessions = ref<PluginHostSessionSummary[]>([])
   const kits = ref<PluginHostKitSummary[]>([])
   const capabilities = ref<PluginCapabilityState[]>([])
+  const permissions = ref<PluginPermissionEntry[]>([])
   const refreshedAt = ref<number>()
   const error = ref<string>()
   const loading = ref(false)
@@ -167,8 +203,15 @@ export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-deb
     return snapshot
   }
 
+  async function refreshPermissions() {
+    const entries = await withBridge(activeBridge => activeBridge.listPermissions())
+    permissions.value = entries
+    return entries
+  }
+
   async function refreshAll() {
-    return refreshInspection()
+    await refreshInspection()
+    return refreshPermissions()
   }
 
   async function setEnabled(payload: { extensionId: string, enabled: boolean, path?: string }) {
@@ -199,6 +242,13 @@ export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-deb
     return nextRegistry
   }
 
+  async function loadInWorker(payload: { extensionId: string }) {
+    const nextRegistry = await withBridge(activeBridge => activeBridge.loadInWorker(payload))
+    assignRegistry(nextRegistry)
+    await refreshInspection()
+    return nextRegistry
+  }
+
   async function unload(payload: { extensionId: string }) {
     const nextRegistry = await withBridge(activeBridge => activeBridge.unload(payload))
     assignRegistry(nextRegistry)
@@ -206,11 +256,26 @@ export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-deb
     return nextRegistry
   }
 
+  async function approvePermission(payload: { extensionId: string, grant?: PluginPermissionDeclaration }) {
+    const entries = await withBridge(activeBridge => activeBridge.approvePermission(payload))
+    permissions.value = entries
+    await refreshInspection()
+    return entries
+  }
+
+  async function revokePermission(payload: { extensionId: string }) {
+    const entries = await withBridge(activeBridge => activeBridge.revokePermission(payload))
+    permissions.value = entries
+    await refreshInspection()
+    return entries
+  }
+
   return {
     registry,
     sessions,
     kits,
     capabilities,
+    permissions,
     refreshedAt,
     loading,
     error,
@@ -223,11 +288,15 @@ export const usePluginHostInspectorStore = defineStore('devtools:plugin-host-deb
     clearError,
     refreshRegistry,
     refreshInspection,
+    refreshPermissions,
     refreshAll,
     setEnabled,
     setAutoReload,
     loadEnabled,
     load,
+    loadInWorker,
     unload,
+    approvePermission,
+    revokePermission,
   }
 })

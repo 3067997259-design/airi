@@ -80,6 +80,7 @@ export function buildPluginHostDebugSnapshot(options: {
     kits: options.host.listKits(),
     modules: resolvedModules,
     capabilities: options.host.listCapabilities(),
+    consumerState: options.host.getCapabilityConsumerState(),
     refreshedAt: Date.now(),
   }))
 }

@@ -1,4 +1,5 @@
-import type { ExecutableTool } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
+import type { ExecutableTool, ToolRegistrationInput } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
+import type { ToolExecuteOptions } from '@xsai/shared-chat'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
@@ -7,13 +8,14 @@ import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-ll
 import { rawTool } from '@xsai/tool'
 import { defineStore } from 'pinia'
 
-import { electronPluginInvokeTool, electronPluginListXsaiTools } from '../../../shared/eventa/plugin/tools'
+import { electronPluginCancelTool, electronPluginInvokeTool, electronPluginListXsaiTools } from '../../../shared/eventa/plugin/tools'
 
 export const useTamagotchiPluginToolsStore = defineStore('tamagotchi-plugin-tools', () => {
   const llmToolsStore = useLlmToolsStore()
   const llmToolsetPromptsStore = useLlmToolsetPromptsStore()
   const listPluginXsaiToolDefinitions = useElectronEventaInvoke(electronPluginListXsaiTools)
   const invokePluginTool = useElectronEventaInvoke(electronPluginInvokeTool)
+  const cancelPluginTool = useElectronEventaInvoke(electronPluginCancelTool)
   const toolIdPrefix = 'plugin:'
 
   function registeredToolIds() {
@@ -44,22 +46,54 @@ export const useTamagotchiPluginToolsStore = defineStore('tamagotchi-plugin-tool
       })),
     )
 
-    const tools = definitions.tools.map((definition): ExecutableTool => ({
-      ...rawTool({
-        name: definition.name,
-        description: definition.description,
-        parameters: definition.parameters,
-        execute: async input => invokePluginTool({
-          ownerExtensionId: definition.ownerExtensionId,
-          name: definition.name,
-          input,
-        }),
-      }),
-      id: `${toolIdPrefix}${definition.ownerExtensionId}:${definition.name}`,
-    }))
+    const entries = definitions.tools.map((definition): { tool: ExecutableTool, registration: ToolRegistrationInput } => {
+      const id = `${toolIdPrefix}${definition.ownerExtensionId}:${definition.name}`
+      return {
+        tool: {
+          ...rawTool({
+            name: definition.name,
+            description: definition.description,
+            parameters: definition.parameters,
+            execute: async (input: unknown, options?: ToolExecuteOptions) => {
+              // One correlation id per call: the main process aborts exactly
+              // this call when the registration is revoked.
+              const requestId = crypto.randomUUID()
+              const signal = options?.abortSignal
+              const cancel = () => {
+                void cancelPluginTool({ requestId }).catch(() => {})
+              }
+              if (signal?.aborted)
+                cancel()
+              else
+                signal?.addEventListener('abort', cancel, { once: true })
+
+              try {
+                return await invokePluginTool({
+                  requestId,
+                  ownerExtensionId: definition.ownerExtensionId,
+                  name: definition.name,
+                  input,
+                }, signal ? { signal } : undefined)
+              }
+              finally {
+                signal?.removeEventListener('abort', cancel)
+              }
+            },
+          }),
+          id,
+        },
+        registration: {
+          toolId: id,
+          toolName: definition.name,
+          ownerKind: 'plugin' as const,
+          ownerId: definition.ownerExtensionId,
+          execution: { kind: 'extension_host' as const, chain: ['plugin', definition.ownerExtensionId] },
+        },
+      }
+    })
 
     await llmToolsStore.removeToolsByIds(...registeredToolIds())
-    await llmToolsStore.addTools(...tools)
+    await llmToolsStore.addRegisteredTools(...entries)
   }
 
   async function dispose() {

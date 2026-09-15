@@ -100,8 +100,12 @@ export interface ElectronPluginToolsChangedPayload {
 export const electronPluginListAgentTools = defineInvokeEventa<ElectronPluginToolDescriptor[]>('eventa:invoke:electron:plugins:tools:list')
 export const electronPluginListXsaiTools = defineInvokeEventa<ElectronPluginXsaiToolsetDefinition>('eventa:invoke:electron:plugins:tools:list-xsai')
 export const electronPluginInvokeTool = defineInvokeEventa<unknown, {
+  /** Correlation id for one call; the cancel invoke targets exactly this call. */
+  requestId: string
   ownerExtensionId: string
   name: string
   input: unknown
 }>('eventa:invoke:electron:plugins:tools:invoke')
+/** Cancels one in-flight plugin tool call by correlation id. Idempotent. */
+export const electronPluginCancelTool = defineInvokeEventa<{ cancelled: boolean }, { requestId: string }>('eventa:invoke:electron:plugins:tools:cancel')
 export const electronPluginToolsChanged = defineEventa<ElectronPluginToolsChangedPayload>('eventa:event:electron:plugins:tools:changed')

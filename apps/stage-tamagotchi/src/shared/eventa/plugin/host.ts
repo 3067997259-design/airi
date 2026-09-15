@@ -183,6 +183,11 @@ export interface PluginHostDebugSnapshot {
   kits: PluginHostKitSummary[]
   modules: PluginHostModuleSummary[]
   capabilities: PluginCapabilityState[]
+  /**
+   * CP-1 observer boundary: which capability consumers were observed and
+   * whether the registry still runs in observer mode (spec invariant 6).
+   */
+  consumerState: { observed: string[], observerMode: boolean }
   refreshedAt: number
 }
 
@@ -191,5 +196,7 @@ export const electronPluginSetEnabled = defineInvokeEventa<PluginRegistrySnapsho
 export const electronPluginSetAutoReload = defineInvokeEventa<PluginRegistrySnapshot, { extensionId: string, enabled: boolean }>('eventa:invoke:electron:plugins:set-auto-reload')
 export const electronPluginLoadEnabled = defineInvokeEventa<PluginRegistrySnapshot>('eventa:invoke:electron:plugins:load-enabled')
 export const electronPluginLoad = defineInvokeEventa<PluginRegistrySnapshot, { extensionId: string }>('eventa:invoke:electron:plugins:load')
+/** CP-2: loads one extension inside a node-worker (isolated runtime). */
+export const electronPluginLoadInWorker = defineInvokeEventa<PluginRegistrySnapshot, { extensionId: string }>('eventa:invoke:electron:plugins:load-in-worker')
 export const electronPluginUnload = defineInvokeEventa<PluginRegistrySnapshot, { extensionId: string }>('eventa:invoke:electron:plugins:unload')
 export const electronPluginInspect = defineInvokeEventa<PluginHostDebugSnapshot>('eventa:invoke:electron:plugins:inspect')

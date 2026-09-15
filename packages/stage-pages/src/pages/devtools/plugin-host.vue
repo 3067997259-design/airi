@@ -2,14 +2,35 @@
 import type {
   PluginHostSessionSummary,
   PluginManifestSummary,
+  PluginPermissionDeclaration,
+  PluginPermissionEntry,
 } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
 
 import { errorMessageFrom } from '@moeru/std'
 import { Section } from '@proj-airi/stage-ui/components'
 import { usePluginHostInspectorStore } from '@proj-airi/stage-ui/stores/devtools/plugin-host-debug'
 import { Button, Callout, GhostButton, Input } from '@proj-airi/ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
+
+declare global {
+  interface Window {
+    /** CP-2 acceptance probe: approve/revoke permissions from a CDP session. */
+    __AIRI_PERMISSIONS_SMOKE__?: {
+      refresh: () => Promise<PluginPermissionEntry[]>
+      list: () => PluginPermissionEntry[]
+      approve: (extensionId: string, grant?: PluginPermissionDeclaration) => Promise<PluginPermissionEntry[]>
+      revoke: (extensionId: string) => Promise<PluginPermissionEntry[]>
+    }
+    /** CP-2 acceptance probe: drive worker isolation loads from CDP. */
+    __AIRI_PLUGIN_SMOKE__?: {
+      registry: () => PluginManifestSummary[]
+      load: (extensionId: string) => Promise<unknown>
+      loadInWorker: (extensionId: string) => Promise<unknown>
+      unload: (extensionId: string) => Promise<unknown>
+    }
+  }
+}
 
 const store = usePluginHostInspectorStore()
 const filter = ref('')
@@ -141,6 +162,15 @@ async function loadPlugin(plugin: PluginManifestSummary) {
   }
 }
 
+async function loadPluginInWorker(plugin: PluginManifestSummary) {
+  try {
+    await store.loadInWorker({ extensionId: plugin.extensionId })
+  }
+  catch (error) {
+    toast.error(errorMessageFrom(error) ?? `Failed to load plugin ${plugin.extensionId} in a worker.`)
+  }
+}
+
 async function unloadPlugin(plugin: PluginManifestSummary) {
   try {
     await store.unload({ extensionId: plugin.extensionId })
@@ -166,8 +196,64 @@ async function loadSelectedPlugin() {
 }
 
 onMounted(async () => {
+  window.__AIRI_PERMISSIONS_SMOKE__ = {
+    refresh: () => store.refreshPermissions(),
+    list: () => store.permissions,
+    approve: (extensionId, grant) => store.approvePermission({ extensionId, ...(grant ? { grant } : {}) }),
+    revoke: extensionId => store.revokePermission({ extensionId }),
+  }
+  window.__AIRI_PLUGIN_SMOKE__ = {
+    registry: () => store.discoveredPlugins,
+    load: extensionId => store.load({ extensionId }),
+    loadInWorker: extensionId => store.loadInWorker({ extensionId }),
+    unload: extensionId => store.unload({ extensionId }),
+  }
   await refresh()
 })
+
+onUnmounted(() => {
+  delete window.__AIRI_PERMISSIONS_SMOKE__
+  delete window.__AIRI_PLUGIN_SMOKE__
+})
+
+const permissionEntries = computed(() => store.permissions)
+
+const PERMISSION_AREAS = ['apis', 'resources', 'capabilities', 'processors', 'pipelines'] as const
+
+function permissionScopeLines(declaration: PluginPermissionDeclaration | undefined): string[] {
+  if (!declaration)
+    return []
+  return PERMISSION_AREAS.flatMap(area =>
+    (declaration[area] ?? []).map(spec => `${area} · ${spec.key} [${spec.actions.join(', ')}]`),
+  )
+}
+
+async function refreshPermissions() {
+  try {
+    await store.refreshPermissions()
+  }
+  catch (error) {
+    toast.error(errorMessageFrom(error) ?? 'Failed to refresh extension permissions.')
+  }
+}
+
+async function approvePermission(entry: PluginPermissionEntry) {
+  try {
+    await store.approvePermission({ extensionId: entry.extensionId })
+  }
+  catch (error) {
+    toast.error(errorMessageFrom(error) ?? `Failed to approve permissions for ${entry.extensionId}.`)
+  }
+}
+
+async function revokePermission(entry: PluginPermissionEntry) {
+  try {
+    await store.revokePermission({ extensionId: entry.extensionId })
+  }
+  catch (error) {
+    toast.error(errorMessageFrom(error) ?? `Failed to revoke permissions for ${entry.extensionId}.`)
+  }
+}
 </script>
 
 <template>
@@ -268,6 +354,107 @@ onMounted(async () => {
     </div>
 
     <Section
+      title="Extension Permissions"
+      icon="i-solar:shield-check-bold-duotone"
+      inner-class="gap-3"
+    >
+      <div :class="['flex', 'flex-wrap', 'items-center', 'gap-2']">
+        <Button
+          label="Refresh Permissions"
+          icon="i-solar:refresh-bold-duotone"
+          size="sm"
+          :loading="store.loading"
+          @click="refreshPermissions"
+        />
+        <span :class="['text-xs', 'opacity-70']">
+          Approvals bind to the current manifest bytes; an edited manifest needs re-approval.
+        </span>
+      </div>
+
+      <div
+        v-if="permissionEntries.length === 0"
+        :class="['rounded-xl', 'border', 'border-dashed', 'border-neutral-400/50', 'p-4', 'text-sm', 'opacity-70']"
+      >
+        No discovered extension manifests.
+      </div>
+
+      <div v-else :class="['grid', 'gap-3']">
+        <div
+          v-for="entry in permissionEntries"
+          :key="entry.extensionId"
+          :class="['rounded-xl', 'border', 'border-neutral-300', 'bg-white/70', 'p-3', 'dark:border-neutral-800', 'dark:bg-neutral-950/60']"
+        >
+          <div :class="['flex', 'flex-wrap', 'items-center', 'justify-between', 'gap-2']">
+            <div :class="['flex', 'flex-wrap', 'items-center', 'gap-2']">
+              <div :class="['font-semibold']">
+                {{ entry.extensionId }}
+              </div>
+              <span :class="['text-xs', 'opacity-70']">v{{ entry.version }}</span>
+              <span :class="['rounded-full', 'border', 'px-2', 'py-0.5', 'text-xs', ...chipClasses(entry.approved ? 'emerald' : 'neutral')]">
+                {{ entry.approved ? 'approved' : 'not approved' }}
+              </span>
+              <span
+                v-if="entry.manifestDigestMatches === false"
+                :class="['rounded-full', 'border', 'px-2', 'py-0.5', 'text-xs', ...chipClasses('amber')]"
+              >
+                manifest changed
+              </span>
+              <span :class="['rounded-full', 'border', 'px-2', 'py-0.5', 'text-xs', ...chipClasses(entry.loaded ? 'emerald' : 'neutral')]">
+                {{ entry.loaded ? 'loaded' : 'not loaded' }}
+              </span>
+            </div>
+            <div :class="['flex', 'flex-wrap', 'items-center', 'gap-2']">
+              <Button
+                size="sm"
+                label="Approve Requested"
+                icon="i-solar:check-circle-bold-duotone"
+                :loading="store.loading"
+                :disabled="permissionScopeLines(entry.requested).length === 0"
+                @click="approvePermission(entry)"
+              />
+              <GhostButton
+                size="sm"
+                label="Revoke"
+                icon="i-solar:close-circle-bold-duotone"
+                :disabled="!entry.approved && !entry.manifestDigestMatches"
+                :loading="store.loading"
+                @click="revokePermission(entry)"
+              />
+            </div>
+          </div>
+
+          <div :class="['mt-2', 'grid', 'gap-1']">
+            <div :class="['text-xs', 'uppercase', 'opacity-60']">
+              Requested
+            </div>
+            <div v-if="permissionScopeLines(entry.requested).length === 0" :class="['text-xs', 'opacity-60']">
+              (none)
+            </div>
+            <div
+              v-for="line in permissionScopeLines(entry.requested)"
+              :key="`requested:${line}`"
+              :class="['font-mono', 'text-xs']"
+            >
+              {{ line }}
+            </div>
+            <template v-if="entry.approved">
+              <div :class="['mt-1', 'text-xs', 'uppercase', 'opacity-60']">
+                Approved
+              </div>
+              <div
+                v-for="line in permissionScopeLines(entry.approved.grant)"
+                :key="`approved:${line}`"
+                :class="['font-mono', 'text-xs']"
+              >
+                {{ line }}
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Section>
+
+    <Section
       title="Discovered Plugins"
       icon="i-solar:list-check-bold-duotone"
       inner-class="gap-3"
@@ -328,6 +515,16 @@ onMounted(async () => {
                 :disabled="plugin.loaded"
                 :loading="store.loading"
                 @click="loadPlugin(plugin)"
+              />
+              <Button
+                v-if="plugin.entrypoints.node"
+                size="sm"
+
+                label="Load in Worker"
+                icon="i-solar:cpu-bolt-bold-duotone"
+                :disabled="plugin.loaded"
+                :loading="store.loading"
+                @click="loadPluginInWorker(plugin)"
               />
               <GhostButton
                 size="sm"

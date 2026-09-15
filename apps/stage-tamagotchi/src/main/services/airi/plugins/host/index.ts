@@ -1,5 +1,7 @@
 import type { TamagotchiToolRegistry } from '@proj-airi/plugin-sdk-tamagotchi/tools'
+import type { ModulePermissionDeclaration } from '@proj-airi/plugin-sdk/plugin-host'
 
+import type { ExtensionPermissionEntry } from '../../../../../shared/eventa/permissions'
 import type {
   PluginHostDebugSnapshot,
   PluginRegistrySnapshot,
@@ -11,6 +13,7 @@ import type {
 } from '../features/static-assets'
 import type { ExtensionHostService, SetupExtensionHostOptions } from '../types'
 
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 
 import { useLogg } from '@guiiai/logg'
@@ -20,6 +23,7 @@ import { app, session as electronSession } from 'electron'
 import { createExtensionAutoReloadFeature } from '../features/auto-reload'
 import { createExtensionAssetService } from '../features/static-assets'
 import { createBuiltInExtensionKitRuntime } from '../kits'
+import { manifestDigestOf, PermissionStore } from '../permissions/store'
 import { createExtensionHostConfigStore } from './config'
 import { buildPluginHostDebugSnapshot } from './debug'
 import {
@@ -29,6 +33,7 @@ import {
   manifestIdOf,
   resolvePluginRuntimeEntrypointPath,
 } from './registry'
+import { NodeWorkerExtensionLoader } from './worker-loader'
 
 const extensionAssetSessionTtlMs = 30 * 24 * 60 * 60 * 1000
 
@@ -69,6 +74,40 @@ function createElectronExtensionAssetCookieAdapter() {
 export interface ExtensionHostServiceInternal extends ExtensionHostService {
   /** Tamagotchi-owned extension tool registry used by IPC tool bridges. */
   tools: TamagotchiToolRegistry
+
+  /**
+   * Lists discovered extensions with requested and approved permission state.
+   *
+   * Use when:
+   * - The devtools approval surface needs the request/approval diff per extension
+   *
+   * Expects:
+   * - Manifests are refreshed before mapping; approvals load from disk
+   *
+   * Returns:
+   * - One entry per discovered manifest, with `approved` only while the digest
+   *   still matches the current manifest bytes
+   */
+  listPermissionEntries: () => Promise<ExtensionPermissionEntry[]>
+
+  /**
+   * Persists a user approval for one extension and stops its session if loaded.
+   *
+   * Expects:
+   * - `extensionId` resolves to a discovered manifest; `grant` may narrow it
+   *
+   * Returns:
+   * - The refreshed permission entries after the approval
+   */
+  approvePermission: (input: { extensionId: string, grant?: ModulePermissionDeclaration }) => Promise<ExtensionPermissionEntry[]>
+
+  /**
+   * Removes one extension's approval and stops its session if loaded.
+   *
+   * Returns:
+   * - The refreshed permission entries after the revocation
+   */
+  revokePermission: (extensionId: string) => Promise<ExtensionPermissionEntry[]>
 
   /**
    * Lists the current extension registry snapshot.
@@ -145,6 +184,17 @@ export interface ExtensionHostServiceInternal extends ExtensionHostService {
    * - The extension registry snapshot after the load completes
    */
   load: (extensionId: string) => Promise<PluginRegistrySnapshot>
+
+  /**
+   * Loads one extension inside a node-worker (CP-2 isolation).
+   *
+   * Expects:
+   * - The manifest declares an entrypoint for the node runtime
+   *
+   * Returns:
+   * - The extension registry snapshot after the worker reports ready
+   */
+  loadInWorker: (extensionId: string) => Promise<PluginRegistrySnapshot>
 
   /**
    * Stops one loaded extension by manifest id.
@@ -233,12 +283,44 @@ export async function setupExtensionHostServiceInternal(
 
   // Kit API, Host
   const builtInKitRuntime = createBuiltInExtensionKitRuntime(options)
-  const host = new ExtensionHost({ runtime: 'electron' })
-  log.withFields({ extensionsRoot }).log('loading extension manifests')
-  builtInKitRuntime.registerHostKits(host)
+  // CP-2: permissions resolve only from persisted user approvals. Without a
+  // record (or with a changed manifest), the resolver returns an empty grant —
+  // the manifest declaration is never a self-grant.
+  const permissionStore = new PermissionStore({ extensionsDir: join(app.getPath('userData'), 'extensions') })
 
   // extension registry
   const extensionRegistry = createExtensionHostRegistry({ extensionsRoot, log })
+
+  // CP-2: extensions started with `runtime: 'node'` load inside a worker; the
+  // bootstrap comes from the SDK package so the worker entry is one file.
+  const resolvePackage = createRequire(import.meta.url)
+  // Assigned after `stopLoadedExtensionById` exists; the crash callback only
+  // runs once a worker has started, which happens after setup completes.
+  let stopExtensionAfterCrash: (extensionId: string) => void = () => {}
+  const workerExtensionLoader = new NodeWorkerExtensionLoader({
+    bootstrapPath: resolvePackage.resolve('@proj-airi/plugin-sdk/plugin-host/worker-bootstrap'),
+    onCrash: (extensionId, error) => {
+      log.withError(error).withFields({ extensionId }).warn('worker extension stopped after a crash')
+      stopExtensionAfterCrash(extensionId)
+    },
+  })
+
+  const host = new ExtensionHost({
+    runtime: 'electron',
+    loader: workerExtensionLoader,
+    permissionResolver: async ({ manifest, requested }) => {
+      // The resolver payload carries the load manifest, whose entrypoints were
+      // rewritten by `createManifestForLoad` (absolute path + cache bust).
+      // Approvals bind the on-disk manifest, so prefer the registry entry for
+      // the digest source; a directly started extension (no on-disk manifest)
+      // falls back to the manifest it was started with.
+      const entry = extensionRegistry.findManifestEntry(manifest.id)
+      const approvalManifest = entry?.manifest ?? manifest
+      return (await permissionStore.resolve({ extensionId: manifest.id, manifest: approvalManifest, requested })).grant
+    },
+  })
+  log.withFields({ extensionsRoot }).log('loading extension manifests')
+  builtInKitRuntime.registerHostKits(host)
 
   await extensionRegistry.refresh()
   log.withFields({ count: extensionRegistry.listEntries().length }).log('extension manifests loaded')
@@ -360,21 +442,46 @@ export async function setupExtensionHostServiceInternal(
     log.withFields({ extensionId, sessionId: session.id }).log('extension loaded')
   }
 
+  const loadExtensionInWorkerById = async (extensionId: string) => {
+    if (loaded.has(extensionId))
+      return
+
+    const entry = extensionRegistry.findManifestEntry(extensionId)
+    if (!entry) {
+      throw new Error(`Extension manifest not found: ${extensionId}`)
+    }
+
+    const manifestForLoad = createManifestForLoad(entry)
+    // `runtime: 'node'` routes the start through the worker-backed loader.
+    const session = await host.start(manifestForLoad, { cwd: dirname(entry.path), runtime: 'node' })
+    loaded.add(extensionId)
+    loadedSessionIds.set(extensionId, session.id)
+    log.withFields({ extensionId, sessionId: session.id }).log('extension loaded in worker')
+  }
+
   const stopLoadedExtensionById = async (extensionId: string) => {
     const sessionId = loadedSessionIds.get(extensionId)
     if (!sessionId) {
       loaded.delete(extensionId)
+      await workerExtensionLoader.disposeExtension(extensionId).catch(() => undefined)
       return
     }
 
     await host.stop(sessionId)
     loadedSessionIds.delete(extensionId)
     loaded.delete(extensionId)
+    // CP-2: the host session is stopped; terminate the worker within its grace.
+    await workerExtensionLoader.disposeExtension(extensionId).catch(() => undefined)
 
     clearModuleAssetSessionCacheByOwnerSessionId(sessionId)
     await extensionAssetService.revokeByOwnerSessionId(sessionId)
 
     log.withFields({ extensionId, sessionId }).log('extension unloaded')
+  }
+
+  // A post-ready worker crash stops the host session but keeps the app alive.
+  stopExtensionAfterCrash = (extensionId: string) => {
+    void stopLoadedExtensionById(extensionId).catch(() => undefined)
   }
 
   const resolveAutoReloadWatchPaths = (extensionId: string) => {
@@ -431,6 +538,26 @@ export async function setupExtensionHostServiceInternal(
   await refreshManifests()
   await loadEnabledExtensions()
   autoReloadFeature.sync()
+
+  const permissionEntriesFor = async (): Promise<ExtensionPermissionEntry[]> => {
+    await refreshManifests()
+    const grants = await permissionStore.list()
+    return extensionRegistry.listEntries().map((entry) => {
+      const extensionId = manifestIdOf(entry.manifest)
+      const record = grants.find(grant => grant.extensionId === extensionId)
+      const manifestDigestMatches = record ? record.manifestDigest === manifestDigestOf(entry.manifest) : undefined
+      return {
+        extensionId,
+        version: entry.version,
+        path: entry.path,
+        enabled: getConfig().enabled.includes(extensionId),
+        loaded: loaded.has(extensionId),
+        requested: entry.manifest.permissions,
+        ...(record && manifestDigestMatches ? { approved: { grant: record.grant, approvedAt: record.approvedAt } } : {}),
+        ...(record ? { manifestDigestMatches: Boolean(manifestDigestMatches) } : {}),
+      }
+    })
+  }
 
   return {
     host,
@@ -504,10 +631,37 @@ export async function setupExtensionHostServiceInternal(
       autoReloadFeature.sync()
       return listSnapshot()
     },
+    async loadInWorker(extensionId) {
+      await refreshManifests()
+      await loadExtensionInWorkerById(extensionId)
+      autoReloadFeature.sync()
+      return listSnapshot()
+    },
     async unload(extensionId) {
       await unloadExtensionById(extensionId)
       autoReloadFeature.sync()
       return listSnapshot()
+    },
+    async listPermissionEntries() {
+      return await permissionEntriesFor()
+    },
+    async approvePermission({ extensionId, grant }) {
+      await refreshManifests()
+      const entry = extensionRegistry.findManifestEntry(extensionId)
+      if (!entry)
+        throw new Error(`Unknown extension: ${extensionId}`)
+      await permissionStore.approve({ extensionId, manifest: entry.manifest, grant })
+      // The approved ceiling applies to the next session; stop the old one so
+      // a revoked/narrowed grant cannot keep running on the previous snapshot.
+      await unloadExtensionById(extensionId)
+      autoReloadFeature.sync()
+      return await permissionEntriesFor()
+    },
+    async revokePermission(extensionId) {
+      await permissionStore.revoke(extensionId)
+      await unloadExtensionById(extensionId)
+      autoReloadFeature.sync()
+      return await permissionEntriesFor()
     },
     async inspect() {
       await refreshManifests()
@@ -522,6 +676,7 @@ export async function setupExtensionHostServiceInternal(
       builtInKitRuntime.dispose()
 
       moduleAssetSessionCache.clear()
+      await workerExtensionLoader.disposeAll()
       await extensionAssetService.revokeAll()
       await extensionAssetService.stop()
     },
