@@ -84,6 +84,10 @@ export interface MovementInput {
 
 /** One planned hop handed to the mod's per-tick jump task (Step 3). */
 export interface JumpTask {
+  /** Identity of this edge, echoed in the status and the completion records. */
+  edgeId: string
+  /** Source stand point of the edge, from the planned path step. */
+  from: Vec3
   /** Landing stand point (block center X/Z, foot level Y). */
   target: Vec3
   /** Takeoff line point; the task presses jump once the bot passes it. */
@@ -93,6 +97,16 @@ export interface JumpTask {
   sprint: boolean
   /** Nothing past the landing absorbs the flight overshoot: brake in the air. */
   brake: boolean
+  /** `stop` settles here; `continue` hands over to the queued next edge. */
+  landingIntent: 'stop' | 'continue'
+  /**
+   * Second edge executed in the same task.
+   *
+   * The host cannot submit it fast enough: every key release between two hops
+   * still lets the bot slide, so the mod gets both edges at once and hands over
+   * at the first touchdown.
+   */
+  next?: Omit<JumpTask, 'next' | 'landingIntent' | 'deadlineMs'>
   /** Absolute deadline in epoch milliseconds. */
   deadlineMs: number
 }
@@ -107,6 +121,17 @@ export interface JumpTaskStatus {
   /** Horizontal distance to the landing at the read time. */
   distance?: number
   takeoffPassed?: boolean
+  /** Which edge the task is on, and the state machine phase it is in. */
+  edgeId?: string
+  phase?: string
+  landingIntent?: string
+  nextEdgeId?: string
+  /** How many edges of this task reported a real touchdown. */
+  completedCount?: number
+  /** Motion at the read time, blocks per tick. */
+  motion?: { x: number, z: number }
+  /** Block id the player stands on. */
+  support?: string
 }
 
 export interface MovementControlPort {

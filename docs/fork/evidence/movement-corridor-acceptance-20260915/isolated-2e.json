@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "label": "isolated-2e",
+    "start": {
+      "x": 83.5,
+      "z": -24.5
+    },
+    "end": {
+      "x": 85.5,
+      "z": -24.5
+    },
+    "straightDistance": 2,
+    "endReason": "reached",
+    "checked": true,
+    "finalSnapshot": {
+      "position": {
+        "x": 85.36571644685274,
+        "y": 76,
+        "z": -24.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:bucket"
+    },
+    "samples": 8,
+    "durationMs": 1334,
+    "pathLength": 1.87,
+    "pathRatio": 0.933,
+    "maxLateral": 0,
+    "stalls": 1,
+    "stallEpisodes": 1,
+    "perpendicularReversals": 0,
+    "yawTravelDeg": 90,
+    "planCells": 2,
+    "maxPathLateral": 0.619,
+    "pathLateralBreaches": 2
+  },
+  "receipt": {
+    "status": "ok",
+    "checked": true,
+    "commandId": "526fcab4-a47f-4acf-859c-da5b31477cf7",
+    "endReason": "reached",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": true,
+      "unobserved": []
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 85.36571644685274,
+        "y": 76,
+        "z": -24.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:bucket"
+    },
+    "postCondition": {
+      "kind": "distance",
+      "target": 0.5,
+      "actual": 0.13428355314725593,
+      "met": true
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "f7c1325c-7119-4113-8c41-a9fc380af890"
+    }
+  },
+  "samples": [
+    {
+      "t": 12,
+      "x": 83.5,
+      "y": 75,
+      "z": -24.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 181,
+      "x": 83.5,
+      "y": 75,
+      "z": -24.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 383,
+      "x": 83.82436043967468,
+      "y": 75,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.10754040577779149,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 626,
+      "x": 84.69999998807907,
+      "y": 75.41999998688698,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0,
+        "y": 0.33319999363422365,
+        "z": 0
+      }
+    },
+    {
+      "t": 817,
+      "x": 84.8791395038517,
+      "y": 76.25220334025373,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.06227744805208603,
+        "y": -0.07544406518948656,
+        "z": 0
+      }
+    },
+    {
+      "t": 987,
+      "x": 85.16036415061278,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.09576723704912601,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1157,
+      "x": 85.33697005743663,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0.015588166551333823,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1334,
+      "x": 85.36571644685274,
+      "y": 76,
+      "z": -24.5,
+      "yaw": -90,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    }
+  ]
+}

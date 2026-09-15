@@ -179,7 +179,9 @@ describe('walk motion classification', () => {
       ...OPTIONS,
       shouldStop: () => false,
     })
-    expect(result).toMatchObject({ status: 'stuck', cursor: 0 })
+    // The cursor names the rejected edge, not the cell before it: the executor
+    // retried an already completed edge when it read the old value.
+    expect(result).toMatchObject({ status: 'stuck', cursor: 1 })
     expect(setInput).not.toHaveBeenCalled()
   })
 
@@ -241,7 +243,8 @@ describe('walk motion classification', () => {
       world,
       shouldStop: () => false,
     })
-    expect(result).toMatchObject({ status: 'stuck', cursor: 0 })
+    // Same as the rejection above: the failed edge carries the failure.
+    expect(result).toMatchObject({ status: 'stuck', cursor: 1 })
     expect(setInput).not.toHaveBeenCalled()
   })
 

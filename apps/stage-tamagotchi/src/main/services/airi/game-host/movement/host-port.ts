@@ -80,10 +80,22 @@ function jumpStatusOf(record: Record<string, unknown> | undefined): JumpTaskStat
   const y = Number(position?.y)
   const z = Number(position?.z)
   const distance = Number(record?.distance)
+  const motion = record?.motion && typeof record.motion === 'object' && !Array.isArray(record.motion)
+    ? record.motion as Record<string, unknown>
+    : undefined
+  const motionX = Number(motion?.x)
+  const motionZ = Number(motion?.z)
   return {
     state: state as JumpTaskStatus['state'],
     endReason: typeof record?.endReason === 'string' ? record.endReason : 'unknown',
     ticks: Number(record?.ticks) || 0,
+    ...(typeof record?.edgeId === 'string' ? { edgeId: record.edgeId } : {}),
+    ...(typeof record?.phase === 'string' ? { phase: record.phase } : {}),
+    ...(typeof record?.landingIntent === 'string' ? { landingIntent: record.landingIntent } : {}),
+    ...(typeof record?.nextEdgeId === 'string' ? { nextEdgeId: record.nextEdgeId } : {}),
+    ...(Number.isFinite(Number(record?.completedCount)) ? { completedCount: Number(record?.completedCount) } : {}),
+    ...(Number.isFinite(motionX) && Number.isFinite(motionZ) ? { motion: { x: motionX, z: motionZ } } : {}),
+    ...(typeof record?.support === 'string' ? { support: record.support } : {}),
     ...(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { position: { x, y, z } } : {}),
     ...(typeof record?.onGround === 'boolean' ? { onGround: record.onGround } : {}),
     ...(Number.isFinite(distance) ? { distance } : {}),
@@ -438,6 +450,10 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
       ? {
           startJump: async (task: JumpTask): Promise<JumpTaskStatus> => jumpStatusOf(
             await callTool('jump_plan', {
+              edgeId: task.edgeId,
+              fromX: task.from.x,
+              fromY: task.from.y,
+              fromZ: task.from.z,
               targetX: task.target.x,
               targetY: task.target.y,
               targetZ: task.target.z,
@@ -447,6 +463,19 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
               dirZ: task.direction.z,
               sprint: task.sprint,
               brake: task.brake,
+              landingIntent: task.landingIntent,
+              ...(task.next
+                ? {
+                    nextEdgeId: task.next.edgeId,
+                    nextTargetX: task.next.target.x,
+                    nextTargetY: task.next.target.y,
+                    nextTargetZ: task.next.target.z,
+                    nextTakeoffX: task.next.takeoff.x,
+                    nextTakeoffZ: task.next.takeoff.z,
+                    nextDirX: task.next.direction.x,
+                    nextDirZ: task.next.direction.z,
+                  }
+                : {}),
               deadlineMs: task.deadlineMs,
             }),
           ),

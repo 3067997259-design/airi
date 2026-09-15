@@ -16,7 +16,7 @@
  * remain action boundaries the executor handles separately.
  */
 import type { JumpPlan } from './jump-plan'
-import type { MovementControlPort, MovementState } from './port'
+import type { JumpTask, MovementControlPort, MovementState } from './port'
 import type { BlockSource, MovementConfig, MovementMotionKind, PathStep, Vec3 } from './types'
 
 import { standPointOf } from './coordinates'
@@ -267,14 +267,24 @@ export async function runWalkRun(options: {
       }
       climbLatch = { cell: pendingCell, ...(plan ? { plan } : {}) }
       // Step 3 delegation is an execution strategy, separate from the landing
-      // strategy inside the plan. The per-tick task is used ONLY for the run's
-      // final hop, where arrival precision is the whole point (the isolated
-      // pad); a continuous narrow chain keeps the host's proven latch rhythm,
-      // and control is never handed over mid-hop. `plan.brake` describes the
+      // strategy inside the plan. The per-tick task covers the run's last one or
+      // two hops: two hops go in one submission so no host round trip sits
+      // between them (that gap slid the bot even with every key released), and
+      // control is never handed over mid-hop. `plan.brake` describes the
       // landing, not the strategy, so it must not select the executor.
-      if (plan && port.startJump && pendingIndex === cells.length - 1) {
-        const finalEdge = pendingIndex === cells.length - 1
-        const outcome = await followJumpTask({ port, plan, sleep, now, shouldStop })
+      const firstDelegated = cells.length - 2
+      const lastDelegated = cells.length - 1
+      if (plan && port.startJump && pendingIndex >= firstDelegated) {
+        const finalEdge = pendingIndex === lastDelegated
+        // Queue the last edge when this submission covers the second-to-last
+        // hop as well: the mod then hands over at the first touchdown.
+        let next: JumpPlan | undefined
+        if (!finalEdge && world) {
+          const plannedNext = planStepUp({ from: cells[pendingIndex]!, to: cells[lastDelegated]!, world, config })
+          if (plannedNext.ok)
+            next = plannedNext
+        }
+        const outcome = await followJumpTask({ port, plan, next, sleep, now, shouldStop })
         if (outcome.outcome === 'cancelled')
           return { status: 'cancelled', cursor, position }
         if (outcome.outcome === 'failed') {
@@ -282,20 +292,22 @@ export async function runWalkRun(options: {
           return { status: 'stuck', cursor: pendingIndex, position }
         }
         climbLatch = undefined
+        // A success result must carry a valid landing: the task's vote when
+        // present, otherwise one state read. Silently keeping the pre-jump
+        // position reported the bot as arrived where it no longer stood.
+        position = outcome.position ?? (await port.getState()).position
         lastAdvanceAt = now()
-        // The task's verdict is authoritative for the edge it ran: `landed`
+        // The task's verdict is authoritative for the edges it ran: `landed`
         // means grounded on the destination within its landing radius, and for
         // the final edge that ends the run. Re-checking with the run's tighter
         // walk radius made the follower fight the settle for the last
         // centimetres and end `stuck` on a pad it already stood on (live lone
         // step: landed 0.28 from the centre, run required 0.45).
-        if (finalEdge) {
-          // A success result must carry a valid landing: the task's vote when
-          // present, otherwise one state read. Silently keeping the pre-jump
-          // position reported the bot as arrived where it no longer stood.
-          position = outcome.position ?? (await port.getState()).position
+        if (finalEdge)
           return { status: 'arrived', cursor: pendingIndex, position }
-        }
+        // The submission covered the final edge too (the task landed both
+        // hops): the cursor can advance to it.
+        cursor = lastDelegated
         continue
       }
     }
@@ -392,22 +404,28 @@ export async function runWalkRun(options: {
 async function followJumpTask(options: {
   port: MovementControlPort
   plan: JumpPlan
+  /** Second edge queued in the same task, executed after the first touchdown. */
+  next?: JumpPlan
   sleep: (ms: number) => Promise<void>
   now: () => number
   shouldStop: () => boolean
-}): Promise<{ outcome: 'landed' | 'failed' | 'cancelled', position?: Vec3 }> {
-  const { port, plan, sleep, now, shouldStop } = options
-  // The plan's own landing, never a reconstruction: the clamped takeoff line
-  // makes `takeoff + direction * flight` a different point.
-  const target = plan.target
+}): Promise<{ outcome: 'landed' | 'failed' | 'cancelled', position?: Vec3, completedCount?: number }> {
+  const { port, plan, next, sleep, now, shouldStop } = options
+  const edgeOf = (jump: JumpPlan, index: number): Omit<JumpTask, 'next' | 'landingIntent' | 'deadlineMs'> => ({
+    edgeId: `edge-${index}`,
+    from: { x: jump.takeoff.x - jump.direction.x * jump.flight, y: jump.takeoff.y, z: jump.takeoff.z - jump.direction.z * jump.flight },
+    target: jump.target,
+    takeoff: jump.takeoff,
+    direction: jump.direction,
+    sprint: jump.sprint,
+    brake: jump.brake,
+  })
   const deadlineMs = now() + JUMP_TASK_TIMEOUT_MS
   try {
     await port.startJump!({
-      target,
-      takeoff: plan.takeoff,
-      direction: plan.direction,
-      sprint: plan.sprint,
-      brake: plan.brake,
+      ...edgeOf(plan, 0),
+      landingIntent: next ? 'continue' : 'stop',
+      ...(next ? { next: edgeOf(next, 1) } : {}),
       deadlineMs,
     })
   }
@@ -432,11 +450,20 @@ async function followJumpTask(options: {
     if (status.state === 'running')
       continue
     if (status.state === 'done') {
+      // Every submitted edge must have reported a real touchdown: a completed
+      // count below the submission means the mod stopped somewhere else.
+      const expected = next ? 2 : 1
+      if (status.completedCount !== undefined && status.completedCount < expected)
+        return { outcome: 'failed' }
       // The task's own landing position is the authority: a fresh player read
       // made right after a hop lags the mod's vote and can report the bot still
       // short of the pad, which made the executor walk a reached goal back into
       // a replan (live lone step: 0.134 from the centre, receipt `stuck`).
-      return { outcome: 'landed', ...(status.position ? { position: status.position } : {}) }
+      return {
+        outcome: 'landed',
+        ...(status.position ? { position: status.position } : {}),
+        ...(status.completedCount !== undefined ? { completedCount: status.completedCount } : {}),
+      }
     }
     return { outcome: 'failed' }
   }
