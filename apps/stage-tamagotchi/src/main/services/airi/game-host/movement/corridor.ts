@@ -314,7 +314,10 @@ export function buildCorridor(
   }
   for (let index = start; index < start + length; index++) {
     const kind = classifyWalkMotion(steps[index]!)
-    if (kind !== 'walk') {
+    // The corridor sweeps a level band, so it covers level walks and
+    // half-block step-ups only. A jump-up (or any other motion) falls back to
+    // the continuous run controller, which scripts the jump.
+    if (kind !== 'walk' && kind !== 'step-up') {
       const step = steps[index]!
       debug?.(`corridor rejected: ${kind} at ${step.x},${step.y},${step.z}`)
       return undefined

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * One acceptance walk for the movement corridor work.
  *
  * Teleports the bot to the start, submits `game_move_to` through the AIRI app
@@ -12,12 +12,13 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 
-const [startXRaw, startZRaw, endXRaw, endZRaw, tolRaw, labelRaw] = process.argv.slice(2)
+const [startXRaw, startZRaw, endXRaw, endZRaw, tolRaw, labelRaw, startYRaw, goalYRaw] = process.argv.slice(2)
 const start = { x: Number(startXRaw), z: Number(startZRaw) }
 const end = { x: Number(endXRaw), z: Number(endZRaw) }
 const tolerance = Number(tolRaw ?? 1)
 const label = labelRaw ?? `move-${start.x}-${start.z}-${end.x}-${end.z}`
-const y = 75
+const startY = Number(startYRaw ?? 75)
+const goalY = Number(goalYRaw ?? 75)
 
 const server = new Client({ name: 'accept-server', version: '1.0.0' })
 await server.connect(new StreamableHTTPClientTransport(new URL('http://127.0.0.1:25602/mcp')))
@@ -50,7 +51,7 @@ async function evalJs(expression) {
 
 const teleport = await server.callTool({
   name: 'teleport_player',
-  arguments: { player: 'airitest', x: start.x + 0.5, y, z: start.z + 0.5, yaw: 0, pitch: 0 },
+  arguments: { player: 'airitest', x: start.x + 0.5, y: startY, z: start.z + 0.5, yaw: 0, pitch: 0 },
 })
 console.log('[teleport]', teleport.isError ? (teleport.content ?? []).map(part => part.text).join('') : 'ok')
 // Keep hostile mobs and damage out of the movement sample.
@@ -73,7 +74,7 @@ for (let attempt = 0; attempt < 10; attempt++) {
   await new Promise(resolve => setTimeout(resolve, 1000))
 }
 
-const payload = JSON.stringify({ x: end.x, y, z: end.z, tolerance, allowPlace: false })
+const payload = JSON.stringify({ x: end.x, y: goalY, z: end.z, tolerance, allowPlace: false })
 await evalJs(`window.__moveResult = 'pending'
 window.__AIRI_GAME_HOST_SMOKE__.executeGameTool('game_move_to', ${payload})
   .then(result => { window.__moveResult = result })

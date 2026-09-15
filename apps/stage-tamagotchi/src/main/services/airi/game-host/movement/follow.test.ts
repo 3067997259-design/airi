@@ -52,12 +52,24 @@ describe('walk motion classification', () => {
     ], 0)).toBe(2)
   })
 
-  it('ends the run at a full-block ascent', () => {
+  it('keeps a full-block ascent inside the run with a scripted jump', () => {
     expect(classifyWalkMotion(makeStep({ x: 0, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }))).toBe('jump-up')
     expect(walkRunLength([
       makeStep({ x: 0, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }),
       makeStep({ x: 1, y: 2, z: 0 }, { x: 2, y: 2, z: 0 }),
-    ], 0)).toBe(0)
+    ], 0)).toBe(2)
+  })
+
+  it('jumps at the edge of a one-block rise instead of stopping', async () => {
+    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: 0, inWater: false, onGround: true }
+    const { port, setInput } = controlPort(state)
+    await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => setInput.mock.calls.length > 0,
+    })
+    expect(setInput.mock.calls[0]?.[0]).toMatchObject({ forward: true, jump: true })
   })
 
   it('distinguishes a half-block step-up from a full-block jump-up by support height', () => {

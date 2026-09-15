@@ -28,6 +28,12 @@ else if (name === 'stepup') {
   // One full-block platform, extended past the pad edges.
   await fill({ x: 66, y: 75, z: -34 }, { x: 106, y: 75, z: -23 }, stone)
 }
+else if (name === 'maze') {
+  // S-shaped route: a wall with one gap, then a wall forcing a second bend.
+  await fill({ x: 70, y: 75, z: -23 }, { x: 89, y: 77, z: -23 }, stone)
+  await fill({ x: 93, y: 75, z: -23 }, { x: 102, y: 77, z: -23 }, stone)
+  await fill({ x: 84, y: 75, z: -22 }, { x: 84, y: 77, z: -17 }, stone)
+}
 else if (name === 'staircase') {
   // Three full-block steps up (jump-up edges) then a plateau at top y=78.
   await fill({ x: 84, y: 75, z: -26 }, { x: 84, y: 75, z: -22 }, stone)

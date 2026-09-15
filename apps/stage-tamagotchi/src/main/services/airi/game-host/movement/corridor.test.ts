@@ -170,12 +170,17 @@ describe('corridor build and fallback', () => {
     expect(buildCorridor(steps, 0, 3, world, DEFAULT_MOVEMENT_CONFIG)).toBeUndefined()
   })
 
-  it('rejects a run that contains a non-walk edge', () => {
+  it('rejects a run that contains a jump-up edge but accepts a step-up', () => {
     const world = floorWorld()
-    const steps = pathSteps([{ x: 1, y: 1, z: 0 }, { x: 2, y: 1, z: 0 }], { x: 0, y: 1, z: 0 })
-    steps[1]!.supportHeight = 1.5
-    steps[1]!.fromSupportHeight = 1
-    expect(buildCorridor(steps, 0, 2, world, DEFAULT_MOVEMENT_CONFIG)).toBeUndefined()
+    const jumpSteps = pathSteps([{ x: 1, y: 1, z: 0 }, { x: 2, y: 1, z: 0 }], { x: 0, y: 1, z: 0 })
+    jumpSteps[1]!.supportHeight = 2
+    jumpSteps[1]!.fromSupportHeight = 1
+    expect(buildCorridor(jumpSteps, 0, 2, world, DEFAULT_MOVEMENT_CONFIG)).toBeUndefined()
+
+    const stepUpSteps = pathSteps([{ x: 1, y: 1, z: 0 }, { x: 2, y: 1, z: 0 }], { x: 0, y: 1, z: 0 })
+    stepUpSteps[1]!.supportHeight = 1.5
+    stepUpSteps[1]!.fromSupportHeight = 1
+    expect(buildCorridor(stepUpSteps, 0, 2, world, DEFAULT_MOVEMENT_CONFIG)).toBeDefined()
   })
 
   it('exposes the player box used by the sweep', () => {

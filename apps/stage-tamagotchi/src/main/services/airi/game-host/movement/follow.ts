@@ -9,9 +9,11 @@
  * skipped, the first unreached bend is visited before steering across it, and
  * turns release the sprint using normalized segment directions.
  *
- * A run only contains plain level walk edges. Any height change, break/place
- * action or parkour edge is an action boundary the executor handles separately,
- * because the run controller never jumps or interacts (CD-G1 D1).
+ * A run may contain level walk edges, half-block step-ups and full-block
+ * jump-ups. The run controller holds forward and jumps at the edge of a
+ * one-block ascent instead of stopping for a discrete step, so a hill is
+ * crossed continuously (CD-G2 hill follow). Break/place/use and parkour edges
+ * remain action boundaries the executor handles separately.
  */
 import type { MovementControlPort, MovementState } from './port'
 import type { MovementConfig, MovementMotionKind, PathStep, Vec3 } from './types'
@@ -20,7 +22,7 @@ import { standPointOf } from './coordinates'
 import { clamp } from './geometry'
 
 /** Motions a continuous run may contain without an action boundary. */
-const CONTINUOUS_MOTIONS: ReadonlySet<MovementMotionKind> = new Set<MovementMotionKind>(['walk'])
+const CONTINUOUS_MOTIONS: ReadonlySet<MovementMotionKind> = new Set<MovementMotionKind>(['walk', 'step-up', 'jump-up'])
 
 /**
  * Classifies one edge from its action flags, height change and known support
@@ -51,11 +53,11 @@ export function classifyWalkMotion(step: PathStep): MovementMotionKind {
 }
 
 /**
- * Length of the consecutive continuous-walk run starting at `start`.
+ * Length of the consecutive continuous run starting at `start`.
  *
- * A full-block ascent, a drop, a break/place/use action or a parkour edge ends
- * the run at that edge, so the executor can perform the boundary action before
- * the next run (CD-G1 D1).
+ * A drop, a break/place/use action or a parkour edge ends the run at that
+ * edge; level walks, half-block step-ups and one-block jump-ups stay inside
+ * it (CD-G1 D1, CD-G2 hill follow).
  */
 export function walkRunLength(steps: PathStep[], start: number): number {
   let length = 0
@@ -182,10 +184,18 @@ export async function runWalkRun(options: {
       await port.look(state.yaw + applied, 0)
     }
 
+    // A one-block ascent ahead: jump at the edge instead of stopping for a
+    // discrete step. The rise is measured against the player's own feet, so
+    // the first edge of a run is covered too. The pulse repeats while grounded
+    // until the rise is done.
+    const targetCell = cells[targetIndex]!
+    const riseAhead = targetCell.y - position.y
+    const needJump = riseAhead > 0.6 && state.onGround && horizontalDistance(position, targetCell) <= 1.2
+
     await port.setInput({
       forward: true,
       sprint: config.allowSprinting && !turnAhead && targetIndex < cells.length - 1,
-      jump: state.inWater,
+      jump: state.inWater || needJump,
     })
 
     recent.push({ ...position })

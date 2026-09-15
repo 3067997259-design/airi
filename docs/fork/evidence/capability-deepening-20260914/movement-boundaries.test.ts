@@ -46,16 +46,18 @@ describe('capability deepening: movement boundaries', () => {
     ], 0)).toBe(2)
   })
 
-  it('keeps a full-block ascent outside a plain walk run', () => {
+  it('keeps a full-block ascent in the run with a scripted jump', () => {
     // ROOT CAUSE:
     // The classifier checked actions and parkour but not the height change, so
     // a full-block ascent entered the run controller, which only jumps in
-    // water. The motion classifier now reads the support-height rise and marks
-    // the ascent `jump-up`, so the run stops at that edge.
+    // water. The classifier now marks the ascent `jump-up` and the run
+    // controller jumps at the edge, so the ascent stays in a continuous run
+    // without being walked into as if it were flat. A drop, break/place/use
+    // and parkour still end the run.
     expect(walkRunLength([
       step({ x: 0, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }),
       step({ x: 1, y: 2, z: 0 }, { x: 2, y: 2, z: 0 }),
-    ], 0)).toBe(0)
+    ], 0)).toBe(2)
   })
 
   it('visits the first bend before steering across unchecked space', async () => {
