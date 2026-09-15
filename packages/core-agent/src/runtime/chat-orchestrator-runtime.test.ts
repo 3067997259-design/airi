@@ -34,6 +34,8 @@ function createHarness(options: {
   reviewFlowCompletion?: (input: { flow: FlowState, declaration: string, events: readonly JournalEvent[] }) => FlowReviewVerdict | Promise<FlowReviewVerdict>
   onFlowCompleted?: (event: { flow: FlowState, sessionMessages: ChatHistoryItem[] }) => void | Promise<void>
   authorizeFlowToolExecution?: (context: FlowToolExecutionContext) => { allowed: true } | { allowed: false, reason: string, message: string }
+  getToolEvidenceAuthor?: (toolName: string, result?: unknown) => import('../authority/provenance').ToolEvidenceAuthor | undefined
+  getToolSurface?: (toolName: string) => string | undefined
 } = {}) {
   const sessionMessages: Record<string, ChatHistoryItem[]> = {
     'session-1': [
@@ -134,6 +136,8 @@ function createHarness(options: {
     },
     getPlanStepCandidates: sendOptions => options.planSteps?.[sendOptions.planId ?? ''] ?? [],
     authorizeFlowToolExecution: options.authorizeFlowToolExecution,
+    getToolEvidenceAuthor: options.getToolEvidenceAuthor,
+    getToolSurface: options.getToolSurface,
     readJournalEvents: sessionId => (sessionId === 'session-1' ? options.journalSource?.() : undefined),
     journalIntegrity: options.journalIntegrity,
     getFlowResumeSnapshot: options.getFlowResumeSnapshot,
@@ -3174,6 +3178,113 @@ describe('createChatOrchestratorRuntime', () => {
 
     expect(execute).toHaveBeenCalledTimes(3)
     expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'tool/result', outcome: 'failed', tier: 'medium' }))
+  })
+
+  it('marks revoked receipts without feeding the repeated-failure guard', async () => {
+    const harness = createHarness()
+    const execute = vi.fn(async () => JSON.stringify({ status: 'revoked', toolName: 'mcp_demo_slow', message: 'registration revoked' }))
+    const slowTool: Tool = {
+      type: 'function',
+      function: { name: 'mcp_demo_slow', parameters: {} },
+      execute,
+    }
+    harness.runtime.startFlow('session-1', 'command')
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
+      const tool = tools?.find(candidate => candidate.function.name === 'mcp_demo_slow')
+      for (let index = 1; index <= 4; index++) {
+        const toolCallId = `call-${index}`
+        await options?.onStreamEvent?.({
+          type: 'tool-call',
+          toolCallId,
+          toolName: 'mcp_demo_slow',
+          args: '{}',
+        } as StreamEvent)
+        const result = await tool?.execute({}, { messages: [], toolCallId })
+        await options?.onStreamEvent?.({ type: 'tool-result', toolCallId, result: String(result) } as StreamEvent)
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('observe through the revoked tool', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [slowTool],
+    })
+
+    // A revoked receipt is not a failure, so even four identical ones never
+    // trip the repetition escalation.
+    expect(execute).toHaveBeenCalledTimes(4)
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'tool/result', outcome: 'revoked', toolName: 'mcp_demo_slow' }))
+  })
+
+  it('records the registration surface beside the evidence author', async () => {
+    const harness = createHarness({
+      getToolEvidenceAuthor: () => 'reviewed_self_authored',
+      getToolSurface: toolName => toolName === 'wrapped_skill' ? 'plugin:adapter-x' : undefined,
+    })
+    const execute = vi.fn(async () => 'ok')
+    const wrappedTool: Tool = {
+      type: 'function',
+      function: { name: 'wrapped_skill', parameters: {} },
+      execute,
+    }
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
+      const tool = tools?.find(candidate => candidate.function.name === 'wrapped_skill')
+      await options?.onStreamEvent?.({
+        type: 'tool-call',
+        toolCallId: 'call-1',
+        toolName: 'wrapped_skill',
+        args: '{}',
+      } as StreamEvent)
+      const result = await tool?.execute({}, { messages: [], toolCallId: 'call-1' })
+      await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'call-1', result: String(result) } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('wrapped call', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      tools: [wrappedTool],
+    })
+
+    // The wrapper is visible in the receipt but never changes the author.
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({
+      type: 'tool/result',
+      provenance: 'reviewed_self_authored',
+      surface: 'plugin:adapter-x',
+    }))
+  })
+
+  it('grades a result-aware evidence author from the tool result', async () => {
+    const harness = createHarness({
+      getToolEvidenceAuthor: (_toolName, result) => {
+        const record = typeof result === 'string' ? JSON.parse(result) as { checked?: boolean } : result as { checked?: boolean }
+        return record?.checked === true ? 'game_checked' : 'game'
+      },
+    })
+    const execute = vi.fn(async () => JSON.stringify({ status: 'ok', checked: true, commandId: 'cmd-1', endReason: 'reached', postCondition: { kind: 'distance', target: 1, actual: 0.5, met: true } }))
+    const gameTool: Tool = {
+      type: 'function',
+      function: { name: 'game_move_to', parameters: {} },
+      execute,
+    }
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, _messages, options) => {
+      const tools = typeof options?.tools === 'function' ? await options.tools() : options?.tools
+      const tool = tools?.find(candidate => candidate.function.name === 'game_move_to')
+      await options?.onStreamEvent?.({ type: 'tool-call', toolCallId: 'call-1', toolName: 'game_move_to', args: '{}' } as StreamEvent)
+      const result = await tool?.execute({}, { messages: [], toolCallId: 'call-1' })
+      await options?.onStreamEvent?.({ type: 'tool-result', toolCallId: 'call-1', result: String(result) } as StreamEvent)
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('walk there', { model: 'gpt-test', chatProvider: provider, tools: [gameTool] })
+
+    // A verified game receipt is graded game_checked; the raw bucket would
+    // never satisfy a verification gate.
+    expect(harness.journalEvents).toContainEqual(expect.objectContaining({ type: 'tool/result', toolName: 'game_move_to', provenance: 'game_checked' }))
   })
 
   // ROOT CAUSE:

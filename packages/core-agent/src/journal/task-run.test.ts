@@ -47,6 +47,17 @@ describe('deriveTaskRuns', () => {
     expect(task.legacy).toBeUndefined()
   })
 
+  it('keeps a revoked receipt visible without recording it as a task failure', () => {
+    const tasks = deriveTaskRuns([
+      header,
+      { type: 'flow/start', seq: 1, flowId: 'f1', taskId: 't1', trigger: 'tool', triggerDetail: 'mcp_call', timestamp: 5 },
+      { type: 'tool/result', seq: 2, toolName: 'mcp_demo_slow', ok: false, outcome: 'revoked', summary: 'registration revoked', taskId: 't1' },
+      { type: 'flow/end', seq: 3, flowId: 'f1', taskId: 't1', reason: 'done', iterations: 1, timestamp: 8 },
+    ])
+    expect(tasks[0]!.lastFailure).toBeUndefined()
+    expect(tasks[0]!.activity).toContainEqual(expect.objectContaining({ kind: 'tool-result', outcome: 'revoked' }))
+  })
+
   it('titles the task from the nearest user message, not the trigger detail', () => {
     const tasks = deriveTaskRuns(stampedFlowEvents())
     expect(tasks[0]!.title).toBe('Fix the flaky login test')

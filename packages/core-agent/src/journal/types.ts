@@ -57,7 +57,7 @@ export type FlowTrigger = 'tool' | 'declared' | 'command'
 
 export type FlowEndReason = 'done' | 'blocked' | 'interrupted' | 'budget' | 'no-progress'
 
-export type ToolResultOutcome = 'ok' | 'failed' | 'denied' | 'timeout'
+export type ToolResultOutcome = 'ok' | 'failed' | 'denied' | 'timeout' | 'revoked'
 
 export type ToolResultTier = 'read-only' | 'medium' | 'high'
 
@@ -139,13 +139,19 @@ export interface ToolResultEvent {
   seq: number
   toolName: string
   ok: boolean
-  /** Whether the tool result completed, failed, was denied, or timed out. */
+  /** Whether the tool result completed, failed, was denied, timed out, or arrived after its registration was revoked. */
   outcome?: ToolResultOutcome
   /** Bash risk tier, when the tool reports one. */
   tier?: ToolResultTier
   summary: string
   /** Serialized evidence provenance (author bucketing), set by the caller. */
   provenance?: string
+  /**
+   * Registration surface that executed the tool, for example
+   * `plugin:adapter-x`; kept beside the evidence author so a wrapper stays
+   * visible in the receipt without raising its trust.
+   */
+  surface?: string
   /** Plan step this result belongs to; drives the verification gate. */
   stepId?: string
   /** Plan that owns the step when more than one plan is active. */

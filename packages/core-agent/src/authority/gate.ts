@@ -12,8 +12,8 @@ export interface GateRef extends PlanEvidenceRef {
   provenance: PlanningAuthorityRule
   /** Producer tool for `tool_result` refs; absent for approvals and traces. */
   toolName?: string
-  outcome?: 'ok' | 'failed' | 'denied' | 'timeout'
-  tier?: 'read-only' | 'medium' | 'high'
+  outcome?: import('../journal/types').ToolResultOutcome
+  tier?: import('../journal/types').ToolResultTier
 }
 
 export interface VerificationGateInput {
@@ -206,7 +206,10 @@ export function evaluateVerificationGate(input: VerificationGateInput): Verifica
       ? stepRefs.find(ref => ref.source === expected.source && refCarriesVerification(ref))
       : undefined
     const match = verification ?? stepRefs.find(ref => ref.source === expected.source && refProvesMutation(ref))
-      ?? stepRefs.find(ref => ref.source === expected.source)
+      // An unverified game report is guidance, never evidence: only the
+      // checked game bucket can satisfy a step's declared tool_result
+      // (mc-0c C1-D6). Other provenance buckets keep their existing behavior.
+      ?? stepRefs.find(ref => ref.source === expected.source && ref.provenance.source !== 'game_adapter_report')
 
     if (!match) {
       const wrongSource = stepRefs[0]

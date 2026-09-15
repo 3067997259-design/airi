@@ -37,6 +37,38 @@ describe('planning authority contract', () => {
     expect(unreviewed.maySatisfyMutationProof).toBe(false)
   })
 
+  it('inserts the EP-0 game and plugin sources at 41 / 44 / 46', () => {
+    const checked = getPlanningAuthorityRule('game_adapter_checked_result')
+    const gameReport = getPlanningAuthorityRule('game_adapter_report')
+    const pluginReport = getPlanningAuthorityRule('untrusted_plugin_report')
+
+    // A checked local game result may satisfy the verification gate but can
+    // never prove a workspace mutation.
+    expect(checked.precedence).toBe(41)
+    expect(checked.maySatisfyVerificationGate).toBe(true)
+    expect(checked.maySatisfyMutationProof).toBe(false)
+    expect(gameReport.precedence).toBe(44)
+    expect(gameReport.maySatisfyVerificationGate).toBe(false)
+    expect(gameReport.maySatisfyMutationProof).toBe(false)
+    expect(pluginReport.precedence).toBe(46)
+    expect(pluginReport.maySatisfyVerificationGate).toBe(false)
+    expect(pluginReport.maySatisfyMutationProof).toBe(false)
+  })
+
+  it('keeps the EP-0 adjacency: host > checked game > reviewed skill > game > remote > untrusted plugin > unreviewed', () => {
+    const order = [
+      'trusted_current_run_tool_evidence',
+      'game_adapter_checked_result',
+      'reviewed_self_authored_tool_result',
+      'game_adapter_report',
+      'remote_agent_report',
+      'untrusted_plugin_report',
+      'unreviewed_self_authored_tool_result',
+    ] as const
+    for (let i = 1; i < order.length; i++)
+      expect(hasHigherPlanningAuthority(order[i - 1], order[i])).toBe(true)
+  })
+
   // ROOT CAUSE:
   // If 47 sorted before 45, an unreviewed self-authored tool (same provenance
   // as the user) would outrank an independent remote agent, contradicting

@@ -75,6 +75,39 @@ describe('evidence gate runtime', () => {
     expect(state.reason).toContain('not_mutation_proof')
   })
 
+  it('never completes a step on a revoked receipt', () => {
+    const events: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', provenance: 'builtin', ok: false, outcome: 'revoked', summary: 'registration revoked before the result arrived' }),
+    ]
+    const snapshot = projectStepGateStates(events, [step()])
+    expect(snapshot.steps['step-1']!.status).toBe('blocked')
+    expect(collectStepGateRefs(events, 'step-1')).toEqual([])
+  })
+
+  it('completes a game step only from a checked game receipt', () => {
+    const gameStep = step({
+      riskLevel: 'low',
+      allowedTools: ['game_move_to'],
+      expectedEvidence: [{ source: 'tool_result', description: 'game_move_to receipt' }],
+    })
+    const checked: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', toolName: 'game_move_to', provenance: 'game_checked', summary: 'reached (distance 0.5)' }),
+    ]
+    expect(projectStepGateStates(checked, [gameStep]).steps['step-1']).toMatchObject({ status: 'completed' })
+
+    const raw: JournalEvent[] = [
+      { type: 'session/header', seq: 0, sessionId: 's1', createdAt: 1, delegationDepth: 0 },
+      { type: 'plan/update', seq: 1, stepId: 'step-1', status: 'in_progress' },
+      toolResult({ seq: 2, stepId: 'step-1', toolName: 'game_move_to', provenance: 'game', summary: 'reached (model claim)' }),
+    ]
+    // A raw game report is guidance; it can never complete the step.
+    expect(projectStepGateStates(raw, [gameStep]).steps['step-1']!.status).toBe('blocked')
+  })
+
   // ROOT CAUSE:
   //
   // 2026-09-01 dsh-web exam: a plan whose steps all declared riskLevel 'low'

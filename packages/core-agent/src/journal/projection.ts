@@ -8,7 +8,7 @@
  *
  * All state derives from the journal: nothing here ever mutates an event.
  */
-import type { JournalEvent } from './types'
+import type { JournalEvent, ToolResultOutcome, ToolResultTier } from './types'
 
 export interface ProjectionUnit<State> {
   key: string
@@ -31,8 +31,8 @@ export interface ToolEvidenceEntry {
   seq: number
   toolName: string
   ok: boolean
-  outcome?: 'ok' | 'failed' | 'denied' | 'timeout'
-  tier?: 'read-only' | 'medium' | 'high'
+  outcome?: ToolResultOutcome
+  tier?: ToolResultTier
   summary: string
   provenance?: string
 }

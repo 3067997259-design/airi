@@ -11,7 +11,14 @@ import type { PlanEvidenceRef, PlanningAuthorityRule } from './contract'
  */
 import { getPlanningAuthorityRule } from './contract'
 
-export type ToolEvidenceAuthor = 'builtin' | 'reviewed_self_authored' | 'unreviewed_self_authored' | 'remote_agent'
+export type ToolEvidenceAuthor
+  = | 'builtin'
+    | 'reviewed_self_authored'
+    | 'unreviewed_self_authored'
+    | 'remote_agent'
+    | 'untrusted_plugin'
+    | 'game'
+    | 'game_checked'
 
 export interface EvidenceRefLike {
   source: PlanEvidenceRef['source']
@@ -29,8 +36,11 @@ export interface EvidenceRefLike {
  * | ref source | author | authority |
  * |---|---|---|
  * | `tool_result` | builtin | `trusted_current_run_tool_evidence` (40) |
+ * | `tool_result` | game_checked | `game_adapter_checked_result` (41) |
  * | `tool_result` | reviewed_self_authored | `reviewed_self_authored_tool_result` (42) |
+ * | `tool_result` | game | `game_adapter_report` (44) |
  * | `tool_result` | remote_agent | `remote_agent_report` (45) |
+ * | `tool_result` | untrusted_plugin | `untrusted_plugin_report` (46) |
  * | `tool_result` | unreviewed_self_authored | `unreviewed_self_authored_tool_result` (47) |
  * | `verification_gate` | — | `verification_gate_decision` (30) |
  * | `human_approval` | — | `approval_safety_policy` (20) |
@@ -47,10 +57,16 @@ export function resolveEvidenceAuthority(ref: EvidenceRefLike, author?: ToolEvid
       switch (author) {
         case 'builtin':
           return getPlanningAuthorityRule('trusted_current_run_tool_evidence')
+        case 'game_checked':
+          return getPlanningAuthorityRule('game_adapter_checked_result')
         case 'reviewed_self_authored':
           return getPlanningAuthorityRule('reviewed_self_authored_tool_result')
+        case 'game':
+          return getPlanningAuthorityRule('game_adapter_report')
         case 'remote_agent':
           return getPlanningAuthorityRule('remote_agent_report')
+        case 'untrusted_plugin':
+          return getPlanningAuthorityRule('untrusted_plugin_report')
         case 'unreviewed_self_authored':
           return getPlanningAuthorityRule('unreviewed_self_authored_tool_result')
       }

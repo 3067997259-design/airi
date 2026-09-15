@@ -10,6 +10,18 @@ describe('evidence provenance', () => {
     expect(resolveEvidenceAuthority({ source: 'tool_result' }, 'unreviewed_self_authored').precedence).toBe(47)
   })
 
+  it('maps the game and plugin buckets added by EP-0', () => {
+    expect(resolveEvidenceAuthority({ source: 'tool_result' }, 'game_checked').precedence).toBe(41)
+    expect(resolveEvidenceAuthority({ source: 'tool_result' }, 'game').precedence).toBe(44)
+    expect(resolveEvidenceAuthority({ source: 'tool_result' }, 'untrusted_plugin').precedence).toBe(46)
+  })
+
+  it('resolves every declared author instead of falling through to undefined', () => {
+    const authors = ['builtin', 'reviewed_self_authored', 'unreviewed_self_authored', 'remote_agent', 'untrusted_plugin', 'game', 'game_checked'] as const
+    for (const author of authors)
+      expect(resolveEvidenceAuthority({ source: 'tool_result' }, author).source).toBeTruthy()
+  })
+
   it('requires a producer for tool_result evidence', () => {
     expect(() => resolveEvidenceAuthority({ source: 'tool_result' })).toThrow(/requires a producer/)
   })

@@ -10,6 +10,11 @@
  * - `PlanningAuthoritySource`: + `reviewed_self_authored_tool_result` (42),
  *   `remote_agent_report` (45), `unreviewed_self_authored_tool_result` (47)
  *   (SELF-AUTHORED-TOOLS-DESIGN §1.3 — evidence provenance dimension).
+ * - `PlanningAuthoritySource`: + `game_adapter_checked_result` (41),
+ *   `game_adapter_report` (44), `untrusted_plugin_report` (46) (EP-0 spec,
+ *   "证据来源与判定"): a checked local game adapter result sits just below
+ *   host self-evidence, while raw game reports and unapproved plugin reports
+ *   stay guidance-only.
  *
  * Invariants the rest of the fork relies on:
  * - Only `trusted_current_run_tool_evidence` (40) and
@@ -354,8 +359,11 @@ export type PlanningAuthoritySource
     | 'approval_safety_policy'
     | 'verification_gate_decision'
     | 'trusted_current_run_tool_evidence'
+    | 'game_adapter_checked_result'
     | 'reviewed_self_authored_tool_result'
+    | 'game_adapter_report'
     | 'remote_agent_report'
+    | 'untrusted_plugin_report'
     | 'unreviewed_self_authored_tool_result'
     | 'plan_state_reconciler_decision'
     | 'current_run_task_memory'
@@ -447,6 +455,13 @@ export const PLANNING_AUTHORITY_ORDER: readonly PlanningAuthorityRule[] = Object
     maySatisfyMutationProof: true,
   },
   {
+    source: 'game_adapter_checked_result',
+    precedence: 41,
+    label: 'Checked game adapter result',
+    maySatisfyVerificationGate: true,
+    maySatisfyMutationProof: false,
+  },
+  {
     source: 'reviewed_self_authored_tool_result',
     precedence: 42,
     label: 'Reviewed self-authored tool result',
@@ -454,9 +469,23 @@ export const PLANNING_AUTHORITY_ORDER: readonly PlanningAuthorityRule[] = Object
     maySatisfyMutationProof: true,
   },
   {
+    source: 'game_adapter_report',
+    precedence: 44,
+    label: 'Game adapter report',
+    maySatisfyVerificationGate: false,
+    maySatisfyMutationProof: false,
+  },
+  {
     source: 'remote_agent_report',
     precedence: 45,
     label: 'Remote agent report',
+    maySatisfyVerificationGate: false,
+    maySatisfyMutationProof: false,
+  },
+  {
+    source: 'untrusted_plugin_report',
+    precedence: 46,
+    label: 'Untrusted plugin report',
     maySatisfyVerificationGate: false,
     maySatisfyMutationProof: false,
   },

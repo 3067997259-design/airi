@@ -272,7 +272,9 @@ export function deriveTaskRuns(events: JournalEvent[]): TaskRun[] {
           break
         if (event.planId && !draft.planIds.includes(event.planId))
           draft.planIds.push(event.planId)
-        if (event.type === 'tool/result' && (!event.ok || event.outcome === 'failed' || event.outcome === 'timeout'))
+        // A revoked receipt is an invalid receipt, not a task failure; it
+        // still appears as an activity row so the withdrawal stays visible.
+        if (event.type === 'tool/result' && event.outcome !== 'revoked' && (!event.ok || event.outcome === 'failed' || event.outcome === 'timeout'))
           draft.lastFailure = `${event.toolName}: ${String(event.summary).slice(0, 200)}`
         appendActivity(draft, {
           kind: 'tool-result',
