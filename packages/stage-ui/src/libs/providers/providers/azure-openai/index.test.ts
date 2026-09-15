@@ -1,9 +1,37 @@
 import type { JsonSchema } from 'xsschema'
 
+import { rawTool } from '@xsai/tool'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { toJsonSchema } from 'xsschema'
+import { z } from 'zod/v4'
 
-import { createSparkCommandTool } from '../../../../tools/character/orchestrator/spark-command'
 import { providerAzureOpenAI } from './index'
+
+// Fixture that preserves the nested nullable schema shape of the retired
+// spark-command tool: `contexts[]` -> `metadata[]` -> nullable `value`. The
+// Azure request adapter converts the union into a flat `type` list and leaves
+// the canonical schema untouched.
+async function createNestedNullableToolFixture() {
+  const metadataValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()])
+  const metadataItemSchema = z.object({ key: z.string(), value: metadataValueSchema }).strict()
+  const contextItemSchema = z.object({
+    lane: z.union([z.string(), z.null()]),
+    metadata: z.union([z.array(metadataItemSchema), z.null()]),
+  }).strict()
+
+  const parameters = await toJsonSchema(z.object({
+    contexts: z.union([z.array(contextItemSchema), z.null()]),
+  }).strict())
+
+  return [
+    rawTool({
+      name: 'builtIn_emitSparkCommand',
+      description: 'Fixture: nested nullable schema for provider conversion.',
+      parameters,
+      execute: async () => 'fixture ok',
+    }),
+  ]
+}
 
 interface ChatRequestBody {
   tools: Array<{
@@ -35,9 +63,7 @@ describe('providerAzureOpenAI tool schemas', () => {
 
   // https://github.com/moeru-ai/airi/pull/2330#discussion_r3819919459
   it('converts every nullable scalar anyOf before it sends a chat request (PR #2330 review)', async () => {
-    const tools = await createSparkCommandTool({
-      sendSparkCommand: () => undefined,
-    })
+    const tools = await createNestedNullableToolFixture()
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
     vi.stubGlobal('fetch', fetchMock)
 
