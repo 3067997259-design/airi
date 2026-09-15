@@ -1,0 +1,101 @@
+/**
+ * Host port the terrain executor drives (MC-3 Phase 1, increment 2)。
+ *
+ * The main game host implements this over its private MCP session; tests
+ * implement it with a scripted fake. Everything here is per-call IO, so the
+ * executor stays free of MCP shapes.
+ */
+import type { SnapshotEntry } from './snapshot'
+import type { Vec3 } from './types'
+
+export interface MovementState {
+  position: Vec3
+  yaw: number
+  inWater: boolean
+  onGround: boolean
+  /** Velocity in blocks per tick; the elytra mover uses the horizontal speed. */
+  motion?: Vec3
+  /** True while gliding with an elytra (bridge field `fallFlying`). */
+  fallFlying?: boolean
+  /** Health from the bridge; the elytra safety net uses it. */
+  health?: number
+}
+
+export type BlockFace = 'up' | 'down' | 'north' | 'south' | 'east' | 'west'
+
+/** One block read for aim and verification. */
+export interface BlockView {
+  id: string
+  air: boolean
+  properties?: Record<string, string>
+  hardness?: number
+}
+
+/** One inventory slot the executor can select or inspect. */
+export interface InventorySlot {
+  slot: number
+  id: string
+  count: number
+  hotbar: boolean
+  /** Durability when the bridge reports it (elytra backups). */
+  damage?: number
+  maxDamage?: number
+}
+
+/** The rideable the player currently sits on, if any. */
+export interface RidingInfo {
+  kind: string
+  uuid?: string
+}
+
+/** One equipped item the port can inspect (armor slots for the elytra mover). */
+export interface EquipmentView {
+  id: string
+  damage?: number
+  maxDamage?: number
+}
+
+export interface MovementInput {
+  forward?: boolean
+  back?: boolean
+  left?: boolean
+  right?: boolean
+  jump?: boolean
+  sneak?: boolean
+  sprint?: boolean
+}
+
+export interface MovementControlPort {
+  getState: () => Promise<MovementState>
+  getBlocksRegion: (from: Vec3, to: Vec3) => Promise<SnapshotEntry[]>
+  getBlock: (pos: Vec3) => Promise<BlockView | undefined>
+  getInventory: () => Promise<InventorySlot[]>
+  look: (yaw: number, pitch: number) => Promise<void>
+  setInput: (input: MovementInput) => Promise<void>
+  stopMovement: () => Promise<void>
+  jumpOnce: () => Promise<void>
+  /** Starts a survival mining action; the caller polls `getBlock` to confirm. */
+  breakBlock: (pos: Vec3) => Promise<void>
+  /** Places the held block against the support position's face. */
+  placeBlock: (support: Vec3, face: BlockFace) => Promise<void>
+  /** Right-clicks the block under the crosshair (doors, gates, buttons). */
+  useBlock: (pos: Vec3) => Promise<void>
+  /** Air right-click: boats, buckets, fireworks, food (mc-3b D2). */
+  useItem: () => Promise<void>
+  selectHotbar: (slot: number) => Promise<void>
+  /** Moves an item into a hotbar slot (container click swap). */
+  swapSlots: (slotA: number, slotB: number) => Promise<void>
+  /** Sneak pulse that leaves boats/horses/minecarts, then release. */
+  dismount: () => Promise<void>
+  /** Nearest rideable the player sits on, from the bridge's vehicle read. */
+  getRiding: () => Promise<RidingInfo | undefined>
+  /** Mounts the nearest rideable within radius, optionally of one type id. */
+  boardNearestVehicle: (radius?: number, type?: string) => Promise<{ boarded: boolean, info?: RidingInfo }>
+  /** Right-clicks one entity by uuid (saddle, tame, villager). */
+  useEntity: (uuid: string) => Promise<void>
+  /**
+   * Reads the equipped chest slot. Optional so older scripted ports keep
+   * working; movers that need it fail with `unavailable` when it is missing.
+   */
+  getEquipment?: () => Promise<{ chest?: EquipmentView } | undefined>
+}
