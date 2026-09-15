@@ -515,6 +515,49 @@ export interface PlanPersistenceState {
   error?: string
 }
 
+/** Plan states that count as finished history for the recent-work projection. */
+const TERMINAL_PLAN_STATUSES: ReadonlySet<PlanStepStatus> = new Set(['completed', 'failed', 'cancelled', 'blocked'])
+
+/**
+ * Formats finished plans as historical background for ordinary turns (MQ-2 step 4).
+ *
+ * M07 asks about a past work item from a fresh session. The active-plan
+ * projection resolves nothing there, so the model had no record to answer
+ * from. This projection names each recent terminal plan with its verified
+ * completions, unverified steps, and blockers; it is labeled historical so it
+ * never reads as live work or as new fact evidence.
+ */
+export function formatRecentPlanProjection(views: readonly PlanView[], limit = 3): string {
+  const terminal = views
+    .filter(view => TERMINAL_PLAN_STATUSES.has(view.status))
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, limit)
+  if (terminal.length === 0)
+    return ''
+
+  const lines = ['## Recent work (historical background, not current tasks)']
+  for (const view of terminal) {
+    const stepIds = view.spec.steps.map(step => step.id)
+    const done = view.state.completedSteps
+    const failed = view.state.failedSteps
+    const skipped = view.state.skippedSteps ?? []
+    const unverified = view.state.unverifiedSteps ?? []
+    const unfinished = stepIds.filter(id => !done.includes(id) && !failed.includes(id) && !skipped.includes(id))
+    lines.push([
+      `- [plan:${view.id}] goal: ${view.goal}`,
+      `status: ${view.status}`,
+      `completed: ${done.length > 0 ? done.join(', ') : 'none'}`,
+      failed.length > 0 ? `failed: ${failed.join(', ')}` : '',
+      unverified.length > 0 ? `unverified: ${unverified.join(', ')}` : 'unverified: none',
+      unfinished.length > 0 ? `not finished: ${unfinished.join(', ')}` : '',
+      view.state.blockers.length > 0 ? `blockers: ${view.state.blockers.slice(0, 2).join(' | ')}` : '',
+      view.sessionId ? `session: ${view.sessionId}` : '',
+    ].filter(Boolean).join('; '))
+  }
+  lines.push('Answer questions about this work from these records; never present an unverified or unfinished step as done.')
+  return lines.join('\n')
+}
+
 export const usePlanStore = defineStore('runtime-plans', () => {
   const journal = useJournalStore()
   const plans = ref<RuntimePlanRecord[]>([])
@@ -1103,6 +1146,11 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     }).text
   }
 
+  /** Finished-plan history for ordinary turns when no active plan resolves. */
+  function recentPlansProjection(limit = 3): string {
+    return formatRecentPlanProjection(planViews.value, limit)
+  }
+
   function reset() {
     plans.value = []
     repository.value = undefined
@@ -1139,6 +1187,7 @@ export const usePlanStore = defineStore('runtime-plans', () => {
     reviseLongGoalConstraints,
     softDeletePlan,
     promptProjection,
+    recentPlansProjection,
     reset,
   }
 }, {

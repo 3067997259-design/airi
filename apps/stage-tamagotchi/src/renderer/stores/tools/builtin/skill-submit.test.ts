@@ -190,4 +190,59 @@ describe('executeSkillSubmit', () => {
     expect(entry?.activation).toEqual({ keywords: ['clipboard'], patterns: ['\\bclipboard\\b'] })
     expect(entry?.prompt.content).toBe('Use this when the user asks what they last copied.')
   })
+
+  it('persists the declared game bridge tools into meta and the queue entry', async () => {
+    const d = deps()
+    const source = `export async function run() {
+  const status = await bridge('game_status', [])
+  return status.endReason
+}`
+    const output = await executeSkillSubmit({
+      toolId: 'game-status-reader',
+      name: 'game_status_reader',
+      description: 'Reads the active game command state and reports its reason.',
+      source,
+      tools: ['game_status'],
+      executionTimeoutMs: 200_000,
+    }, d)
+
+    expect(output).toContain('submitted to probation')
+    const meta = d.written.find(item => item.path === 'skills/game-status-reader/meta.json')
+    expect(meta?.content).toContain('"tools"')
+    const parsedMeta = JSON.parse(meta?.content ?? '{}')
+    expect(parsedMeta.tools).toEqual(['game_status'])
+    expect(parsedMeta.execution).toEqual({ timeoutMs: 200_000 })
+    expect(useSkillsReviewStore().queue[0]?.tools).toEqual(['game_status'])
+    expect(useSkillsReviewStore().queue[0]?.execution).toEqual({ timeoutMs: 200_000 })
+  })
+
+  it('rejects an unknown declared tool before any write', async () => {
+    const d = deps()
+    const output = await executeSkillSubmit({
+      toolId: 'bad-tools',
+      name: 'bad_tools',
+      description: 'Declares a tool that is not on the bridge.',
+      source: CLEAN_SOURCE,
+      tools: ['game_dance'],
+    }, d)
+
+    expect(output).toContain('unknown tool declaration')
+    expect(d.written).toHaveLength(0)
+    expect(useSkillsReviewStore().queue).toHaveLength(0)
+  })
+
+  it('rejects a declared tool that never appears in the source', async () => {
+    const d = deps()
+    const output = await executeSkillSubmit({
+      toolId: 'drifted-tools',
+      name: 'drifted_tools',
+      description: 'Declares a tool the source never calls.',
+      source: CLEAN_SOURCE,
+      tools: ['game_collect'],
+    }, d)
+
+    expect(output).toContain('never appear in the source')
+    expect(d.written).toHaveLength(0)
+    expect(useSkillsReviewStore().queue).toHaveLength(0)
+  })
 })

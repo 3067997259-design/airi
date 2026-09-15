@@ -8,9 +8,10 @@ export type { ApproveReviewInput, CompatibilityMismatchInput, ContentChangeInput
 export { analyzeSkillSource, classifyToolRisk, validateDeclaration } from './static-analysis'
 export type { DeclarationCheckResult, StaticFindings, ToolDeclaration } from './static-analysis'
 
-export { MAX_PROBATION_TOOLS } from './types'
+export { GAME_BRIDGE_TOOL_NAMES, MAX_PROBATION_TOOLS } from './types'
 export type {
   CompatibilitySelfCheck,
+  GameBridgeToolName,
   ReviewQueueEntry,
   SelfAuthoredSkill,
   SkillActivation,

@@ -27,6 +27,7 @@ import { useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
 import { useJournalStore } from './journal'
 import { useMemoryStore } from './modules/memory'
+import { DEFAULT_SKILL_ADAPTER_ID, skillAdapterRegistrationFor, skillAdapterToolId, skillAdapterToolRegistration } from './skill-adapter'
 
 export type { ReviewQueueEntry } from '../types/skill-review'
 
@@ -52,18 +53,27 @@ export interface SkillRevisionCandidate {
   failureSummary: string
 }
 
+export interface SkillRuntimeProgramTrace {
+  toolName: string
+  args?: unknown[]
+  ok: boolean
+  resultSummary: string
+}
+
 export type SkillRuntimeProgramResult
-  = | { ok: true, value?: unknown, logs: string[] }
-    | { ok: false, failure: { kind: string, message: string, logs: string[] } }
+  = | { ok: true, value?: unknown, logs: string[], traces?: SkillRuntimeProgramTrace[] }
+    | { ok: false, failure: { kind: string, message: string, logs: string[], traces?: SkillRuntimeProgramTrace[] } }
 
 export interface SkillRuntimePort {
   readSource?: (toolId: string, workspaceRoot?: string) => Promise<string>
   readSelftest?: (toolId: string, workspaceRoot?: string) => Promise<string>
+  /** Reads the persisted declaration so a tools-only edit cannot stay approved. */
+  readMeta?: (toolId: string, workspaceRoot?: string) => Promise<string>
   getWorkspaceRoot?: () => Promise<string>
   getMemoryScope?: () => MemoryScope
   runCommand: (params: { command: string, approvalRequired?: boolean }) => Promise<SkillRuntimeCommandResult>
   /** Shared Code Mode sandbox, used by the generic reviewed-skill executor. */
-  runProgram?: (params: { program: string, timeoutMs?: number, expectedWorkspaceRoot?: string }) => Promise<SkillRuntimeProgramResult>
+  runProgram?: (params: { program: string, timeoutMs?: number, expectedWorkspaceRoot?: string, allowedTools?: string[], signal?: AbortSignal }) => Promise<SkillRuntimeProgramResult>
 }
 
 let skillRuntime: SkillRuntimePort | undefined
@@ -72,6 +82,8 @@ let skillRuntime: SkillRuntimePort | undefined
 export interface SkillReviewArtifacts {
   contentHash: string
   source: string
+  /** Declared game bridge tools shown with the source (mc-1c D2). */
+  tools: string[]
   selftest?: { contentHash: string, source: string, logs: string[], traceCount: number }
 }
 
@@ -179,6 +191,15 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   }
   const catalog = ref<ReviewQueueSubmission[]>([OPENCODE_ADAPTER_SKELETON])
   const revisionBatch = ref<SkillRevisionCandidate[]>([])
+  /**
+   * Exposure mode for adapter-owned skills, keyed by skill toolId.
+   *
+   * `wrapped` exposes the skill through the fixed adapter; `revoked` keeps the
+   * adapter registration removed until the skill is reviewed again. Absent
+   * keys use the direct reviewed-skill registration. The record is plain data
+   * so it can ride synchronized state.
+   */
+  const skillAdapterModes = ref<Record<string, 'wrapped' | 'revoked'>>({})
   const runtimeToolIds = new Set<string>()
   const reviewRequestIds = new Map<string, string>()
 
@@ -205,11 +226,30 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     toolId: entry.toolId,
     name: entry.name,
     description: entry.description,
+    contentHash: entry.contentHash,
   })))
+
+  /**
+   * Set equality for declared tool lists (mc-1c D2): order and duplicates in
+   * the declaration do not matter, membership does.
+   */
+  function sameToolSet(left: string[], right: string[]): boolean {
+    const a = new Set(left)
+    const b = new Set(right)
+    if (a.size !== b.size)
+      return false
+    for (const tool of a) {
+      if (!b.has(tool))
+        return false
+    }
+    return true
+  }
 
   function activeEntries() {
     return queue.value.filter((entry) => {
       if (persistenceError.value || entry.trust !== 'reviewed' || entry.quarantine || entry.artifactError || entry.reviewedHash !== entry.contentHash)
+        return false
+      if (!sameToolSet(entry.reviewedTools ?? [], entry.tools ?? []))
         return false
       return validateToolInputSchema(entry.tool.parameters) === undefined
     })
@@ -249,6 +289,8 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       return 'quarantined after a failed compatibility check'
     if (entry.reviewedHash !== entry.contentHash)
       return 'the reviewed hash does not match the current source'
+    if (!sameToolSet(entry.reviewedTools ?? [], entry.tools ?? []))
+      return 'the declared tools changed and need a new review'
     if (entry.artifactError)
       return entry.artifactError
     return validateToolInputSchema(entry.tool.parameters) ?? 'the review is no longer valid'
@@ -256,33 +298,119 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
 
   async function syncRuntimeTools() {
     toolsetPromptsStore.clearToolsetPrompts('self-authored-skills')
-    const nextIds = new Set(activeEntries().map(entry => `self-authored:${entry.toolId}`))
+    const modes = skillAdapterModes.value
+    const active = activeEntries()
+    // Adapter-wrapped skills keep the same model-facing name under the
+    // adapter registration; revoked ones stay off the tool face entirely.
+    const nextIds = new Set(active
+      .filter(entry => modes[entry.toolId] !== 'revoked')
+      .map(entry => modes[entry.toolId] === 'wrapped'
+        ? skillAdapterToolId(entry.toolId)
+        : `self-authored:${entry.toolId}`))
     for (const id of runtimeToolIds) {
       if (!nextIds.has(id))
         await llmToolsStore.removeToolById(id)
     }
     runtimeToolIds.clear()
 
-    const tools: ExecutableTool[] = activeEntries().map(entry => ({
-      id: `self-authored:${entry.toolId}`,
-      type: 'function',
-      function: {
-        name: entry.tool.name,
-        description: entry.tool.description,
-        parameters: structuredClone(toRaw(entry.tool.parameters)),
-      },
-      // Reviewed skills are default-active so they are callable without
-      // keyword activation; the review gate, not the prompt, is the trust
-      // boundary. prepareForPrompt still injects the skill's guidance when a
-      // keyword/pattern matches.
-      defaultActive: true,
-      execute: input => useSkillsReviewStore(pinia).executeReviewedSkill(entry.toolId, input),
-    }))
-    if (tools.length > 0)
-      await llmToolsStore.addTools(...tools)
+    const direct = active.filter(entry => modes[entry.toolId] !== 'wrapped' && modes[entry.toolId] !== 'revoked')
+    const wrapped = active.filter(entry => modes[entry.toolId] === 'wrapped')
+
+    if (direct.length > 0) {
+      await llmToolsStore.addRegisteredTools(...direct.map(entry => ({
+        tool: {
+          id: `self-authored:${entry.toolId}`,
+          type: 'function',
+          function: {
+            name: entry.tool.name,
+            description: entry.tool.description,
+            parameters: structuredClone(toRaw(entry.tool.parameters)),
+          },
+          // Reviewed skills are default-active so they are callable without
+          // keyword activation; the review gate, not the prompt, is the trust
+          // boundary. prepareForPrompt still injects the skill's guidance when a
+          // keyword/pattern matches.
+          defaultActive: true,
+          execute: (input, options) => useSkillsReviewStore(pinia).executeReviewedSkill(entry.toolId, input, (options?.abortSignal ? { signal: options.abortSignal } : {})),
+        } satisfies ExecutableTool,
+        registration: {
+          toolId: `self-authored:${entry.toolId}`,
+          toolName: entry.tool.name,
+          ownerKind: 'reviewed_skill' as const,
+          ownerId: entry.toolId,
+          execution: { kind: 'coding_sandbox' as const, chain: ['skill', entry.toolId] },
+          // activeEntries guarantees reviewedHash === contentHash, so this is
+          // the hash the user actually approved.
+          approvedContentHash: entry.contentHash,
+        },
+      })))
+    }
+
+    if (wrapped.length > 0) {
+      await llmToolsStore.addRegisteredTools(...wrapped.map((entry) => {
+        const registration = skillAdapterRegistrationFor({
+          toolId: entry.toolId,
+          toolName: entry.tool.name,
+          description: entry.tool.description,
+          parameters: structuredClone(toRaw(entry.tool.parameters)),
+          contentHash: entry.contentHash,
+        })
+        const adapterTool = registration.tools[0]!
+        return {
+          tool: {
+            id: skillAdapterToolId(entry.toolId),
+            type: 'function',
+            function: {
+              name: entry.tool.name,
+              description: entry.tool.description,
+              parameters: structuredClone(toRaw(entry.tool.parameters)),
+            },
+            defaultActive: true,
+            // The adapter delegates to the same reviewed-skill execution; it
+            // adds no trust of its own (EP-1).
+            execute: (input, options) => useSkillsReviewStore(pinia).executeReviewedSkill(entry.toolId, input, (options?.abortSignal ? { signal: options.abortSignal } : {})),
+          } satisfies ExecutableTool,
+          registration: skillAdapterToolRegistration(registration, adapterTool),
+        }
+      }))
+    }
+
     for (const id of nextIds)
       runtimeToolIds.add(id)
     registerUnavailableSkillsPrompt()
+  }
+
+  /**
+   * Moves one reviewed skill under the fixed adapter.
+   *
+   * The direct registration is removed first, so the migration has no window
+   * with two owners for the same name (EP-0 D2). Only reviewed, callable
+   * skills can be wrapped; probation or stale-hash entries throw.
+   */
+  async function wrapReviewedSkill(toolId: string, adapterId = DEFAULT_SKILL_ADAPTER_ID): Promise<void> {
+    if (!activeEntries().some(entry => entry.toolId === toolId))
+      throw new Error(`Skill "${toolId}" is not a reviewed, callable skill.`)
+
+    await llmToolsStore.removeToolsByIds(`self-authored:${toolId}`, skillAdapterToolId(toolId, adapterId))
+    runtimeToolIds.delete(`self-authored:${toolId}`)
+    runtimeToolIds.delete(skillAdapterToolId(toolId, adapterId))
+    skillAdapterModes.value = { ...skillAdapterModes.value, [toolId]: 'wrapped' }
+    await syncRuntimeTools()
+  }
+
+  /**
+   * Revokes the adapter exposure of one skill.
+   *
+   * The adapter registration leaves the tool face and its in-flight calls are
+   * aborted; the skill stays adapter-owned as `revoked`, so a later sync does
+   * not silently restore it. A fresh review approval restores exposure.
+   */
+  async function unwrapReviewedSkill(toolId: string): Promise<void> {
+    if (skillAdapterModes.value[toolId] !== 'wrapped')
+      return
+    skillAdapterModes.value = { ...skillAdapterModes.value, [toolId]: 'revoked' }
+    await llmToolsStore.removeToolById(skillAdapterToolId(toolId))
+    runtimeToolIds.delete(skillAdapterToolId(toolId))
   }
 
   /**
@@ -320,6 +448,31 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     await syncRuntimeTools()
   }
 
+  /**
+   * Reads the persisted declaration. `undefined` means no reader is wired;
+   * a missing or unreadable meta file yields `[]` so a reviewed list of any
+   * non-empty size blocks execution until it is re-approved.
+   */
+  async function readDeclaredToolsFromDisk(entry: ReviewQueueEntry): Promise<string[] | undefined> {
+    if (!skillRuntime?.readMeta)
+      return undefined
+    try {
+      const raw = await skillRuntime.readMeta(entry.toolId, entry.workspaceRoot)
+      const parsed = JSON.parse(raw) as { tools?: unknown }
+      return Array.isArray(parsed.tools) ? parsed.tools.filter((value): value is string => typeof value === 'string') : []
+    }
+    catch {
+      return []
+    }
+  }
+
+  async function declarationMatchesOnDisk(entry: ReviewQueueEntry): Promise<boolean> {
+    const declared = await readDeclaredToolsFromDisk(entry)
+    if (declared === undefined)
+      return (entry.reviewedTools ?? []).length === 0
+    return sameToolSet(declared, entry.reviewedTools ?? [])
+  }
+
   async function verifySource(entry: ReviewQueueEntry): Promise<string | undefined> {
     if (entry.trust === 'reviewed' && entry.reviewedHash !== entry.contentHash) {
       entry.artifactError = 'The review does not identify this source. Review the skill again.'
@@ -341,6 +494,8 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       const source = await skillRuntime.readSource(entry.toolId, entry.workspaceRoot)
       if (contentHashOf(source) !== entry.contentHash)
         throw new Error('Skill source changed. Submit the new source for review.')
+      if (entry.trust === 'reviewed' && !await declarationMatchesOnDisk(entry))
+        throw new Error('The declared tools changed. Review the skill again.')
       entry.artifactError = undefined
       return source
     }
@@ -381,7 +536,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     return entries.map(entry => entry.tool.name)
   }
 
-  async function executeSkill(entry: ReviewQueueEntry, input: unknown): Promise<unknown> {
+  async function executeSkill(entry: ReviewQueueEntry, input: unknown, options?: { signal?: AbortSignal }): Promise<unknown> {
     if (!skillRuntime)
       return `Skill "${entry.toolId}" is unavailable because the coding host is not installed.`
 
@@ -425,7 +580,34 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
         toolName: entry.tool.name,
         args: input,
       })
-      const run = await skillRuntime.runProgram({ program, expectedWorkspaceRoot: entry.workspaceRoot })
+      const run = await skillRuntime.runProgram({
+        program,
+        expectedWorkspaceRoot: entry.workspaceRoot,
+        allowedTools: [...(entry.reviewedTools ?? [])],
+        // D2 execution bound: a declared timeout wins; otherwise the reviewed
+        // skill default of 30s (the sandbox default of 10s is too short for
+        // composed game actions).
+        timeoutMs: entry.execution?.timeoutMs ?? 30_000,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      })
+      // MC-1c D4: inner game receipts are journaled with the game adapter's
+      // grading, so the completion gate can consume them independently of the
+      // skill wrapper. `checked` only ever comes from the main-process receipt
+      // check; the skill's own return value never mints evidence.
+      for (const trace of run.ok ? run.traces ?? [] : run.failure.traces ?? []) {
+        if (!trace.toolName.startsWith('game_'))
+          continue
+        const checked = /"checked":\s*true/.test(trace.resultSummary)
+        journalStore.appendActive({ type: 'tool/call', toolName: trace.toolName, args: trace.args ?? [] })
+        journalStore.appendActive({
+          type: 'tool/result',
+          toolName: trace.toolName,
+          ok: trace.ok,
+          outcome: trace.ok ? 'ok' : 'failed',
+          summary: trace.resultSummary,
+          provenance: checked ? 'game_checked' : 'game',
+        })
+      }
       const ok = run.ok
       const summary = ok
         ? `sandbox ok: ${JSON.stringify(run.value ?? null).slice(0, 200)}`
@@ -476,7 +658,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   }
 
   /** Executes through the leader so verification and revocation have one owner. */
-  async function executeReviewedSkill(toolId: string, input: unknown): Promise<unknown> {
+  async function executeReviewedSkill(toolId: string, input: unknown, options?: { signal?: AbortSignal }): Promise<unknown> {
     const entry = queue.value.find(item => item.toolId === toolId)
     if (!entry)
       return `Skill "${toolId}" has no active review.`
@@ -485,7 +667,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       return `Skill "${toolId}" is blocked: invalid input schema: ${schemaError}`
     if (!activeEntries().includes(entry))
       return `Skill "${toolId}" has no active review.`
-    return executeSkill(entry, input)
+    return executeSkill(entry, input, options)
   }
 
   async function runSkillCommand(entry: ReviewQueueEntry, command: string, args: unknown[]) {
@@ -538,7 +720,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
   }
 
   /** Applies a content change and invalidates any review bound to the old hash. */
-  async function applyContentChange(toolId: string, source: string): Promise<void> {
+  async function applyContentChange(toolId: string, source: string, tools?: string[]): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry)
@@ -549,6 +731,9 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       newContentHash: contentHash,
     }) as ReviewQueueEntry
     queue.value[index]!.reviewedHash = undefined
+    queue.value[index]!.reviewedTools = undefined
+    if (tools !== undefined)
+      queue.value[index]!.tools = [...tools]
     queue.value[index]!.artifactError = undefined
     const reviewRequestId = `review:${toolId}:${Date.now()}`
     reviewRequestIds.set(toolId, reviewRequestId)
@@ -578,7 +763,10 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     if (!skillRuntime?.readSource)
       throw new Error('Skill artifact reader is unavailable.')
     const source = await skillRuntime.readSource(toolId, entry.workspaceRoot)
-    await applyContentChange(toolId, source)
+    // The declaration travels with the source in the re-review so a meta-only
+    // change (tools added or removed) is visible before the next approval.
+    const tools = await readDeclaredToolsFromDisk(entry)
+    await applyContentChange(toolId, source, tools)
   }
 
   /** Reads the recorded workspace revision without running its code. */
@@ -600,17 +788,17 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     }
     if (!queue.value.includes(entry))
       throw new Error('The review entry changed. Open the source again.')
-    return { source, contentHash: entry.contentHash, ...(selftest ? { selftest } : {}) }
+    return { source, contentHash: entry.contentHash, tools: [...(entry.tools ?? [])], ...(selftest ? { selftest } : {}) }
   }
 
   /** Approves only the artifact hashes supplied by the displayed review. */
-  async function approve(toolId: string, viewed: Pick<SkillReviewArtifacts, 'contentHash' | 'selftest'>, reviewer = 'you', rationale = 'reviewed the source'): Promise<void> {
+  async function approve(toolId: string, viewed: Pick<SkillReviewArtifacts, 'contentHash' | 'selftest' | 'tools'>, reviewer = 'you', rationale = 'reviewed the source'): Promise<void> {
     const index = queue.value.findIndex(item => item.toolId === toolId)
     const entry = queue.value[index]
     if (!entry || entry.trust !== 'probation')
       return
 
-    if (!viewed || viewed.contentHash !== entry.contentHash || viewed.selftest?.contentHash !== entry.selftest?.contentHash)
+    if (!viewed || viewed.contentHash !== entry.contentHash || viewed.selftest?.contentHash !== entry.selftest?.contentHash || !sameToolSet(viewed.tools ?? [], entry.tools ?? []))
       throw new Error('The review entry changed. Open the source again.')
     await readForReview(toolId)
     // Another decision can arrive while the artifact is read. Never approve
@@ -622,6 +810,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       review: { reviewer, rationale, reviewedAt: Date.now() },
     }) as ReviewQueueEntry
     queue.value[index]!.reviewedHash = entry.contentHash
+    queue.value[index]!.reviewedTools = [...(entry.tools ?? [])]
     journalStore.appendActive({
       type: 'review/decided',
       reviewRequestId: reviewRequestIds.get(toolId) ?? `review:${toolId}`,
@@ -631,6 +820,13 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
       rationale,
     })
     persist()
+    // A fresh approval restores exposure for a skill whose adapter entry was
+    // revoked; wrapped skills stay wrapped and re-bind to the new hash.
+    if (skillAdapterModes.value[toolId] === 'revoked') {
+      const nextModes = { ...skillAdapterModes.value }
+      delete nextModes[toolId]
+      skillAdapterModes.value = nextModes
+    }
     await syncRuntimeTools()
     const scope = skillRuntime?.getMemoryScope?.()
     if (!scope)
@@ -773,6 +969,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     probationCount,
     canSubmitMore,
     reviewedSkills,
+    skillAdapterModes,
     submit,
     applyContentChange,
     approve,
@@ -784,6 +981,8 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     dreamRevisionBatch,
     prepareForPrompt,
     syncRuntimeTools,
+    wrapReviewedSkill,
+    unwrapReviewedSkill,
     restore,
     restoreQueue,
     executeReviewedSkill,
@@ -795,7 +994,7 @@ export const useSkillsReviewStore = defineStore('skills-review', () => {
     // the skills settings page render in any window. All entries are plain
     // data (structuredClone-safe). User decisions route to the leader.
     state: true,
-    actions: ['submit', 'applyContentChange', 'approve', 'readForReview', 'requeueChangedSourceForReview', 'reject', 'quarantine', 'clearQuarantine', 'dreamRevisionBatch', 'restore', 'restoreQueue', 'executeReviewedSkill'],
+    actions: ['submit', 'applyContentChange', 'approve', 'readForReview', 'requeueChangedSourceForReview', 'reject', 'quarantine', 'clearQuarantine', 'dreamRevisionBatch', 'restore', 'restoreQueue', 'executeReviewedSkill', 'wrapReviewedSkill', 'unwrapReviewedSkill'],
   },
 })
 

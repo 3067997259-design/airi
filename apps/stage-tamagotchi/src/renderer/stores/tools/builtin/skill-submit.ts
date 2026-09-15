@@ -3,7 +3,7 @@ import type { ReviewQueueSubmission } from '@proj-airi/stage-ui/stores/skills'
 import type { Tool } from '@xsai/shared-chat'
 
 import { errorMessageFrom } from '@moeru/std'
-import { analyzeSkillSource, classifyToolRisk, contentHashOf, validateDeclaration, validateToolInputSchema } from '@proj-airi/skill-forge'
+import { analyzeSkillSource, classifyToolRisk, contentHashOf, GAME_BRIDGE_TOOL_NAMES, validateDeclaration, validateToolInputSchema } from '@proj-airi/skill-forge'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { tool } from '@xsai/tool'
 import { z } from 'zod'
@@ -42,6 +42,8 @@ const params = z.object({
   parameters: z.record(z.string(), z.unknown()).optional().describe('JSON Schema properties for the tool input; keys and required go in "properties" / "required". Omit for an empty input object.'),
   selftest: z.string().max(MAX_SELFTEST_CHARS).optional().describe('A sandbox program that proves the tool works: it should read the persisted source with bridge("read", ["skills/<toolId>/source.mjs"]) and exercise it with sample input. The submission is rejected when this program fails.'),
   externalSources: z.array(z.string().url()).max(5).optional().describe('URLs the tool depends on or documents.'),
+  tools: z.array(z.string().min(1).max(64)).max(GAME_BRIDGE_TOOL_NAMES.length).optional().describe(`Game bridge tools this skill calls, chosen from: ${GAME_BRIDGE_TOOL_NAMES.join(', ')}. The reviewed list is the only set of game actions the sandbox may call; omit it for skills that call no game action.`),
+  executionTimeoutMs: z.number().int().min(5_000).max(300_000).optional().describe('Sandbox wall-clock bound in milliseconds when the skill calls long game actions (default 30000). The reviewed skill default is 30000; the game leases (say 10s, collect 180s, follow 300s) set the practical ceiling.'),
 })
 
 type SkillSubmitInput = z.infer<typeof params>
@@ -61,7 +63,7 @@ export interface SkillSubmitDeps {
 
 const SELF_TEST_TIMEOUT_MS = 30_000
 
-function serializeMeta(entry: { toolId: string, name: string, description: string, sourcePath: string, contentHash: string, riskLevel: ToolRiskLevel, staticAnalysis: StaticFindings, declared: ToolDeclaration, externalSources: string[], selftestPath?: string, selftestEvidence?: unknown }): string {
+function serializeMeta(entry: { toolId: string, name: string, description: string, sourcePath: string, contentHash: string, riskLevel: ToolRiskLevel, staticAnalysis: StaticFindings, declared: ToolDeclaration, externalSources: string[], tools: string[], execution?: { timeoutMs: number }, selftestPath?: string, selftestEvidence?: unknown }): string {
   return JSON.stringify({ ...entry, submittedAt: Date.now() }, null, 2)
 }
 
@@ -99,6 +101,19 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
   const schemaError = validateToolInputSchema(parameters)
   if (schemaError)
     return `skill_submit rejected: invalid input schema: ${schemaError}`
+
+  // MC-1c D2: the declaration is the reviewed allowlist for the game bridge.
+  // Unknown names are rejected outright; a declared name that never appears in
+  // the source is almost always a stale or copy-pasted declaration.
+  const declaredTools = input.tools ?? []
+  const unknownTools = declaredTools.filter(tool => !(GAME_BRIDGE_TOOL_NAMES as readonly string[]).includes(tool))
+  if (unknownTools.length > 0)
+    return `skill_submit rejected: unknown tool declaration(s): ${unknownTools.join(', ')}. Allowed: ${GAME_BRIDGE_TOOL_NAMES.join(', ')}.`
+  const unmentionedTools = declaredTools.filter(tool => !input.source.includes(tool))
+  if (unmentionedTools.length > 0)
+    return `skill_submit rejected: declared tool(s) ${unmentionedTools.join(', ')} never appear in the source. Call each declared tool by its bridge name, or remove it from "tools".`
+
+  const execution = input.executionTimeoutMs !== undefined ? { timeoutMs: input.executionTimeoutMs } : undefined
 
   try {
     await deps.writeFile({ path: `${artifactDir}/source.mjs`, content: input.source })
@@ -149,6 +164,8 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
       staticAnalysis,
       declared,
       externalSources: input.externalSources ?? [],
+      tools: declaredTools,
+      ...(execution ? { execution } : {}),
       ...(input.selftest?.trim() ? { selftestPath: `${artifactDir}/selftest.mjs` } : {}),
       ...(selftestEvidence ? { selftestEvidence } : {}),
     }),
@@ -180,6 +197,8 @@ export async function executeSkillSubmit(input: SkillSubmitInput, deps: SkillSub
     riskLevel,
     staticAnalysis,
     externalSources: input.externalSources ?? [],
+    tools: declaredTools,
+    ...(execution ? { execution } : {}),
     reason: 'self_tested',
     ...(selftestEvidence && input.selftest ? { selftest: { contentHash: contentHashOf(input.selftest), logs: selftestEvidence.logs, traceCount: selftestEvidence.traceCount } } : {}),
   }

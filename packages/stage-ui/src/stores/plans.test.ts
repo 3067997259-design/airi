@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { beginRestoreGate, completeRestoreGate } from '../services/restore-gate'
 import { useJournalStore } from './journal'
-import { findLongPlanOwningRun, hasOpenPlanSteps, installLongGoalRevisionHandler, planSurfaceLane, planSurfaceLanes, resolveFlowEvidencePlan, selectFlowCompletionPlans, usePlanStore } from './plans'
+import { findLongPlanOwningRun, formatRecentPlanProjection, hasOpenPlanSteps, installLongGoalRevisionHandler, planSurfaceLane, planSurfaceLanes, resolveFlowEvidencePlan, selectFlowCompletionPlans, usePlanStore } from './plans'
 
 const persistence = vi.hoisted(() => ({
   loadPlans: vi.fn(),
@@ -898,5 +898,46 @@ describe('plan store', () => {
 
     expect(await store.reviseLongGoalConstraints('session-1')).toBe(false)
     expect(store.planViews.find(plan => plan.id === 'goal-dead')?.state.longGoal).toMatchObject({ constraintVersion: 1 })
+  })
+})
+
+describe('formatRecentPlanProjection', () => {
+  function view(id: string, status: PlanView['status'], updatedAt: number): PlanView {
+    return {
+      id,
+      goal: `Goal of ${id}`,
+      spec: SPEC,
+      state: {
+        completedSteps: [],
+        failedSteps: [],
+        skippedSteps: [],
+        evidenceRefs: [],
+        blockers: [],
+        unverifiedSteps: status === 'completed' ? [] : ['verify'],
+      },
+      status,
+      updatedAt,
+    }
+  }
+
+  it('summarizes finished plans and ignores live ones (mq-2 m07)', () => {
+    const text = formatRecentPlanProjection([
+      view('plan-live', 'in_progress', 30),
+      view('plan-done', 'completed', 20),
+      view('plan-failed', 'failed', 10),
+    ])
+
+    expect(text).toContain('Recent work')
+    expect(text).toContain('[plan:plan-done]')
+    expect(text).toContain('unverified: none')
+    expect(text).toContain('[plan:plan-failed]')
+    expect(text).toContain('unverified: verify')
+    expect(text).not.toContain('plan-live')
+    expect(text).toContain('never present an unverified or unfinished step as done')
+  })
+
+  it('returns nothing without finished history', () => {
+    expect(formatRecentPlanProjection([view('plan-live', 'in_progress', 30)])).toBe('')
+    expect(formatRecentPlanProjection([])).toBe('')
   })
 })

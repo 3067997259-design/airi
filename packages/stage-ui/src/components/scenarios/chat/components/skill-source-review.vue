@@ -13,8 +13,20 @@ const store = useSkillsReviewStore()
 const artifacts = shallowRef<SkillReviewArtifacts>()
 const busy = shallowRef(false)
 const error = shallowRef<string>()
+function sameToolSet(left: string[], right: string[]): boolean {
+  const a = new Set(left)
+  const b = new Set(right)
+  if (a.size !== b.size)
+    return false
+  for (const tool of a) {
+    if (!b.has(tool))
+      return false
+  }
+  return true
+}
 const current = computed(() => artifacts.value?.contentHash === props.entry.contentHash
-  && artifacts.value?.selftest?.contentHash === props.entry.selftest?.contentHash)
+  && artifacts.value?.selftest?.contentHash === props.entry.selftest?.contentHash
+  && sameToolSet(artifacts.value?.tools ?? [], props.entry.tools ?? []))
 
 async function review(approve = false) {
   busy.value = true
@@ -64,6 +76,9 @@ async function requeueChangedSource() {
     <template v-if="artifacts && current">
       <p :class="['break-all text-xs font-mono']">
         {{ artifacts.contentHash }}
+      </p>
+      <p v-if="artifacts.tools.length > 0" :class="['text-xs font-mono']">
+        {{ t('settings.pages.modules.skills.sections.queue.tools') }}: {{ artifacts.tools.join(', ') }}
       </p>
       <pre :class="['max-h-80 overflow-auto rounded p-3 text-xs', 'bg-neutral-100 dark:bg-neutral-900']">{{ artifacts.source }}</pre>
       <template v-if="artifacts.selftest">

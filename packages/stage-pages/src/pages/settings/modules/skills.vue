@@ -2,6 +2,7 @@
 import type { ReviewQueueSubmission } from '@proj-airi/stage-ui/stores/skills'
 
 import { SkillSourceReview } from '@proj-airi/stage-ui/components/scenarios/chat'
+import { PackageReviewSection } from '@proj-airi/stage-ui/components/scenarios/settings'
 import { useSkillsReviewStore } from '@proj-airi/stage-ui/stores/skills'
 import { Button } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
@@ -118,6 +119,10 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
               {{ t('settings.pages.modules.skills.sections.queue.sources') }}:
               <span v-for="source in entry.externalSources" :key="source" class="font-mono">{{ source }}</span>
             </div>
+            <div v-if="(entry.tools ?? []).length > 0">
+              {{ t('settings.pages.modules.skills.sections.queue.tools') }}:
+              <span v-for="tool in entry.tools" :key="tool" class="font-mono">{{ tool }}</span>
+            </div>
             <div v-if="entry.compatibility" class="mt-1">
               {{ t('settings.pages.modules.skills.sections.queue.compatibility') }}:
               <span class="font-mono">{{ entry.compatibility.probe.command }}</span>
@@ -166,6 +171,8 @@ const ANALYSIS_LABELS: Array<{ key: string, label: string }> = [
         </p>
       </div>
     </section>
+
+    <PackageReviewSection />
   </div>
 </template>
 

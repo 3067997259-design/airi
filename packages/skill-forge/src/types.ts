@@ -34,6 +34,26 @@ export interface SkillPromptManifest {
 
 export type SkillTrustState = 'draft' | 'probation' | 'reviewed'
 
+/**
+ * Game bridge tools a reviewed skill may call (mc-1c D2).
+ *
+ * This is the canonical declaration vocabulary. The bridge table in
+ * `apps/stage-tamagotchi/src/main/services/airi/coding-host/game-bridge-tools.ts`
+ * serves exactly these names; a skill that declares none cannot call any game
+ * action, while the coding tools stay available.
+ */
+export const GAME_BRIDGE_TOOL_NAMES = [
+  'game_observe',
+  'game_status',
+  'game_move_to',
+  'game_say',
+  'game_collect',
+  'game_follow',
+  'game_cancel',
+] as const
+
+export type GameBridgeToolName = typeof GAME_BRIDGE_TOOL_NAMES[number]
+
 export interface SkillReview {
   reviewer: string
   rationale: string
@@ -67,6 +87,19 @@ export interface SelfAuthoredSkill {
   trust: SkillTrustState
   /** Review binding: any diff to any reviewed part invalidates the review. */
   contentHash: string
+  /**
+   * Game bridge tools the skill calls, declared at submission (mc-1c D2).
+   *
+   * Approval binds this list; a change after approval blocks execution until
+   * a new review. Absent means no declared tools.
+   */
+  tools?: string[]
+  /**
+   * Execution bound for the sandbox program (mc-1c D2). Declared at
+   * submission; the reviewed skill default is 30s, and composed game actions
+   * may need more (bounded by the bridge lease table).
+   */
+  execution?: { timeoutMs: number }
   review?: SkillReview
   /** External sources the tool reads; filled by static analysis at draft time. */
   externalSources: string[]

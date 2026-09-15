@@ -4,6 +4,7 @@ import type { ChatToolCallRendererRegistry } from './tool-call-renderer'
 
 import { isStageCapacitor, isStageWeb } from '@proj-airi/stage-shared'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ChatResponsePart from './response-part.vue'
 import ChatToolCallBlock from './tool-call-block.vue'
@@ -39,6 +40,8 @@ const emit = defineEmits<{
   (e: 'delete'): void
   (e: 'toolCallRerun', payload: { toolCallId: string, toolName: string, args: string }): void
 }>()
+
+const { t } = useI18n()
 
 const resolvedSlices = computed<ChatSlices[]>(() => {
   let slices: ChatSlices[]
@@ -88,6 +91,16 @@ function getToolCallRenderer(slice: ChatSlices) {
 }
 
 const showLoader = computed(() => props.showPlaceholder && resolvedSlices.value.length === 0)
+// MQ-2 D6: a finished turn can end on tool calls with no text (step budget
+// exhausted or the provider stopped after tools). Show an explicit notice
+// instead of leaving an empty assistant bubble.
+const showEmptyTextNotice = computed(() => {
+  if (props.showPlaceholder || resolvedSlices.value.length === 0)
+    return false
+  if (resolvedSlices.value.some(slice => slice.type === 'text' && slice.text.trim().length > 0))
+    return false
+  return resolvedSlices.value.some(slice => slice.type === 'tool-call')
+})
 const containerClass = computed(() => props.variant === 'mobile' ? 'mr-0' : 'mr-12')
 const boxClasses = computed(() => [
   props.variant === 'mobile'
@@ -144,6 +157,12 @@ const copyText = computed(() => getChatHistoryItemCopyText(props.message as Chat
             </template>
           </div>
           <div v-else-if="showLoader" i-eos-icons:three-dots-loading />
+          <div
+            v-if="showEmptyTextNotice"
+            :class="['text-sm', 'italic', 'text-black/45', 'dark:text-white/45']"
+          >
+            {{ t('stage.chat.message.no-text-output') }}
+          </div>
         </div>
       </template>
     </ChatActionMenu>

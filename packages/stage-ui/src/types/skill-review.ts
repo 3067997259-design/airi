@@ -12,6 +12,11 @@ export interface ReviewQueueEntry extends SelfAuthoredSkill {
   reason: 'self_tested' | 'compatibility_mismatch'
   /** Exact artifact hash approved by the user. */
   reviewedHash?: string
+  /**
+   * Declared `tools` list approved with the source (mc-1c D2). Execution
+   * requires it to equal the on-disk declaration; a change needs a new review.
+   */
+  reviewedTools?: string[]
   /** Failed verification prevents registration and execution. */
   artifactError?: string
   workspaceRoot?: string
@@ -30,7 +35,10 @@ export const skillReviewSchema = v.object({
   prompt: v.object({ id: v.string(), title: v.optional(v.string()), content: v.string() }),
   trust: v.picklist(['draft', 'probation', 'reviewed']),
   contentHash: v.string(),
+  tools: v.optional(v.array(v.string())),
+  execution: v.optional(v.object({ timeoutMs: v.number() })),
   reviewedHash: v.optional(v.string()),
+  reviewedTools: v.optional(v.array(v.string())),
   artifactError: v.optional(v.string()),
   workspaceRoot: v.optional(v.string()),
   muscleMemoryId: v.optional(v.string()),
