@@ -20,6 +20,7 @@ import { defineStore, storeToRefs } from 'pinia'
 import { watch } from 'vue'
 
 import { createCodingHostClient } from '../../bridges/coding-host'
+import { isSyncedLeaderWindow } from '../../window-context'
 import { codingTools } from './builtin/coding'
 import { delegationTools } from './builtin/delegate'
 import { flowTools } from './builtin/flow'
@@ -144,7 +145,15 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
   // Consideration-turn tools appear when life mode is anything but `off`
   // (LIFE-PLAN §二.2); re-registering on a mode switch keeps the toolset in
   // sync with the user's choice without a restart.
+  //
+  // Followers must not run local discovery. The watcher calls `refresh`
+  // through its closure, which bypasses synchronized action routing, so a
+  // follower would write builtin definitions into its own store and publish
+  // that incomplete state back over the leader's discovered tool face.
   watch(() => lifeModeStore.config.mode, () => {
+    if (!isSyncedLeaderWindow())
+      return
+
     void refresh()
   })
 
@@ -269,15 +278,36 @@ export const useTamagotchiBuiltinToolsStore = defineStore('tamagotchi-builtin-to
     ])).flat()
 
     await llmToolsStore.removeToolsByIds(...registeredToolIds())
-    await llmToolsStore.addTools(...tools.map(tool => ({
-      ...tool,
-      defaultActive: false,
-      id: `${toolIdPrefix}${tool.function.name}`,
-    } satisfies ExecutableTool)), ...coding.map(tool => ({
-      ...tool,
-      defaultActive: true,
-      id: `${toolIdPrefix}${tool.function.name}`,
-    } satisfies ExecutableTool)))
+    await llmToolsStore.addRegisteredTools(
+      ...tools.map(tool => ({
+        tool: {
+          ...tool,
+          defaultActive: false,
+          id: `${toolIdPrefix}${tool.function.name}`,
+        } satisfies ExecutableTool,
+        registration: {
+          toolId: `${toolIdPrefix}${tool.function.name}`,
+          toolName: tool.function.name,
+          ownerKind: 'builtin' as const,
+          ownerId: 'host',
+          execution: { kind: 'host' as const, chain: ['builtin'] },
+        },
+      })),
+      ...coding.map(tool => ({
+        tool: {
+          ...tool,
+          defaultActive: true,
+          id: `${toolIdPrefix}${tool.function.name}`,
+        } satisfies ExecutableTool,
+        registration: {
+          toolId: `${toolIdPrefix}${tool.function.name}`,
+          toolName: tool.function.name,
+          ownerKind: 'builtin' as const,
+          ownerId: 'coding-host',
+          execution: { kind: 'host' as const, chain: ['builtin', 'coding-host'] },
+        },
+      })),
+    )
   }
 
   /**

@@ -13,17 +13,10 @@ const {
   streamTextMock,
   mcpMock,
   debugMock,
-  createSparkCommandToolMock,
 } = vi.hoisted(() => ({
   streamTextMock: vi.fn(),
   mcpMock: vi.fn(async (): Promise<Tool[]> => []),
   debugMock: vi.fn(async (): Promise<Tool[]> => []),
-  createSparkCommandToolMock: vi.fn(async (): Promise<unknown> => [{
-    name: 'spark',
-    description: '',
-    parameters: {},
-    execute: vi.fn(),
-  }]),
 }))
 
 vi.mock('@xsai/model', () => ({
@@ -49,7 +42,6 @@ vi.mock('vue-sonner', () => ({
 vi.mock('../../../tools', () => ({
   mcp: mcpMock,
   debug: debugMock,
-  createSparkCommandTool: createSparkCommandToolMock,
   // NOTICE: the resolver imports `createWebSearchTools` and `createFetchTools`
   // from the tools barrel, so the mock must expose them or module loading
   // fails with a missing-export error.
@@ -91,7 +83,6 @@ describe('isToolRelatedError', () => {
     streamTextMock.mockReset()
     mcpMock.mockClear()
     debugMock.mockClear()
-    createSparkCommandToolMock.mockClear()
     setActivePinia(createPinia())
   })
 

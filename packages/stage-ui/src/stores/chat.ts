@@ -40,7 +40,7 @@ import { verifyFlowResumeEnvironment } from '../services/flow-resume'
 import { areRestoreEffectsHeld } from '../services/restore-gate'
 import { useLLM } from './ai/chat-llm/llm'
 import { resolveLlmTools } from './ai/chat-llm/tool-resolver'
-import { useLlmToolsStore } from './ai/chat-llm/tools'
+import { resolveEvidenceAuthor, useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
 import { useAttentionStore } from './attention'
 import { useBtwStore } from './btw'
@@ -61,6 +61,7 @@ import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
 import { useConsciousnessSettingsStore } from './modules/consciousness-settings'
 import { useFetchModuleStore } from './modules/fetch'
+import { labelGameFact, useGameWorldStore } from './modules/game-world'
 import { installMemoryDreamAgent, useMemoryStore } from './modules/memory'
 import { useWebSearchStore } from './modules/web-search'
 import { findLongPlanOwningRun, hasOpenPlanSteps, installLongGoalRevisionHandler, resolveFlowEvidencePlan, selectFlowCompletionPlans, usePlanStore } from './plans'
@@ -254,12 +255,26 @@ function isCancelIntent(text: string): boolean {
 }
 
 function createMemorySourceContext(sessionId: string, userMessageId: string, messages: ChatHistoryItem[]): MemorySourceContext {
+  // MC-1b D2: a fact learned while a game world is known stays scoped to that
+  // world, so another world never reads it as current.
+  const observation = useGameWorldStore().latest
+  const gameWorld = observation
+    ? {
+        worldId: observation.worldId,
+        connectionId: observation.connectionId,
+        connectionGeneration: observation.connectionGeneration,
+        dimension: observation.dimension,
+        observedAt: observation.observedAt,
+      }
+    : undefined
+
   const sourceIndex = messages.findIndex(message => message.id === userMessageId)
   if (sourceIndex < 0) {
     return {
       sessionId,
       messageId: userMessageId,
       sourceType: 'chat',
+      ...(gameWorld ? { gameWorld } : {}),
       neighbors: [],
     }
   }
@@ -283,6 +298,7 @@ function createMemorySourceContext(sessionId: string, userMessageId: string, mes
     sessionId,
     messageId: userMessageId,
     sourceType: 'chat',
+    ...(gameWorld ? { gameWorld } : {}),
     neighbors,
   }
 }
@@ -815,15 +831,29 @@ export const useChatStore = defineStore('chat', () => {
       snapshot: () => chatContext.getContextsSnapshot(),
     },
     memory: {
-      retrieve: async ({ query, sessionId }) => (await memoryStore.retrieve(query, sessionId, { scope: currentMemoryScope() })).map(fragment => ({
-        id: fragment.id,
-        content: fragment.content,
-        score: fragment.score,
-        originalSimilarity: fragment.originalSimilarity,
-        normalizedSimilarity: fragment.normalizedSimilarity,
-        retrievalQuery: fragment.retrievalQuery,
-        context: fragment.sourceContext?.neighbors,
-      })),
+      retrieve: async ({ query, sessionId }) => {
+        const observation = useGameWorldStore().latest
+        const current = observation
+          ? {
+              worldId: observation.worldId,
+              connectionId: observation.connectionId,
+              connectionGeneration: observation.connectionGeneration,
+              dimension: observation.dimension,
+            }
+          : undefined
+        const fragments = await memoryStore.retrieve(query, sessionId, { scope: currentMemoryScope() })
+        return fragments.map(fragment => ({
+          id: fragment.id,
+          // MC-1b D2: world-scope injected text so another world's or an old
+          // connection's coordinates never read as current facts.
+          content: labelGameFact(fragment.content, fragment.sourceContext?.gameWorld, current, Date.now()),
+          score: fragment.score,
+          originalSimilarity: fragment.originalSimilarity,
+          normalizedSimilarity: fragment.normalizedSimilarity,
+          retrievalQuery: fragment.retrievalQuery,
+          context: fragment.sourceContext?.neighbors,
+        }))
+      },
     },
     compaction: {
       enabled: () => memoryStore.compactionEnabled,
@@ -924,15 +954,26 @@ export const useChatStore = defineStore('chat', () => {
         streamingMessage.value = { role: 'assistant', content: '', slices: [], tool_results: [] }
       },
     },
-    getToolEvidenceAuthor: (toolName) => {
-      // MCP servers are external agents: their reports are guidance, never
-      // mutation proof. Reviewed skills are the self-authored trusted bucket;
-      // everything else registered here is a builtin host tool.
-      if (toolName.startsWith('mcp_'))
-        return 'remote_agent'
-      if (skillsStore.reviewedSkills.some(skill => skill.toolId === toolName))
-        return 'reviewed_self_authored'
-      return 'builtin'
+    getToolEvidenceAuthor: (toolName, result) => {
+      // Evidence follows the registration record, never the wrapper: an
+      // unregistered name is untrusted, MCP stays a remote agent, and a
+      // reviewed skill reaches the trusted bucket only while its approved
+      // hash still matches the reviewed source (EP-0 D1/D5). The result is
+      // passed through so a game receipt can be graded `game_checked` only
+      // when the game host verified it (MC-0c).
+      return resolveEvidenceAuthor(
+        llmToolsStore.registrations.findLast(item => item.toolName === toolName),
+        skillsStore.reviewedSkills,
+        result,
+      )
+    },
+    getToolSurface: (toolName) => {
+      // Only wrapped surfaces are worth a receipt field; host and remote
+      // tools are already identified by name and evidence bucket.
+      const registration = llmToolsStore.registrations.findLast(item => item.toolName === toolName)
+      return registration?.ownerKind === 'plugin'
+        ? `plugin:${registration.ownerId}`
+        : undefined
     },
     readJournalEvents: sessionId => journalStore.readSession(sessionId),
     journalIntegrity: () => ({ complete: journalStore.persistenceStatus.complete }),
@@ -1108,8 +1149,17 @@ export const useChatStore = defineStore('chat', () => {
       if (!isWorkTurn) {
         const evidencePlan = resolveFlowEvidencePlan(planStore.planViews, { sessionId: activeSessionId.value, boundPlanId: options.planId })
         const planProjection = planStore.promptProjection(evidencePlan?.id)
-        if (planProjection)
+        if (planProjection) {
           sections.push(planProjection)
+        }
+        else {
+          // MQ-2 step 4: a fresh session has no active plan, but questions can
+          // still be about a finished work item (M07). Surface the recent
+          // terminal plans as explicitly historical background.
+          const recentWork = planStore.recentPlansProjection()
+          if (recentWork)
+            sections.push(recentWork)
+        }
       }
       if (options.command) {
         sections.push(buildCommandSection(options.command as ChatCommand))

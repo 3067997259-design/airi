@@ -1,4 +1,4 @@
-import type { Tool } from '@xsai/shared-chat'
+import type { Tool, ToolExecuteOptions } from '@xsai/shared-chat'
 
 import { errorMessageFromValue } from '@proj-airi/stage-shared'
 import { rawTool, tool } from '@xsai/tool'
@@ -38,6 +38,11 @@ export interface McpToolDescriptor {
  * - The MCP tool call input envelope
  */
 export interface McpCallToolPayload {
+  /**
+   * Correlation id for one call. The transport uses it to cancel exactly
+   * this in-flight call; Eventa cannot carry an `AbortSignal` object.
+   */
+  requestId?: string
   name: string
   arguments?: Record<string, unknown>
 }
@@ -75,7 +80,12 @@ export interface McpCallToolResult {
  */
 export interface McpToolRuntime {
   listTools: () => Promise<McpToolDescriptor[]>
-  callTool: (payload: McpCallToolPayload) => Promise<McpCallToolResult>
+  /**
+   * Calls one MCP tool. `options.abortSignal` aborts the local await; the
+   * runtime implementation must also forward a cancellation to the MCP
+   * process so the work itself stops.
+   */
+  callTool: (payload: McpCallToolPayload, options?: { abortSignal?: AbortSignal }) => Promise<McpCallToolResult>
 }
 
 /**
@@ -109,10 +119,10 @@ export function createMcpTools(runtime: McpToolRuntime): Array<Promise<Tool>> {
     tool({
       name: 'builtIn_mcpCallTool',
       description: 'Call an MCP tool by name. Use builtIn_mcpListTools first to get available tool names.',
-      execute: async ({ name, arguments: argsJson }) => {
+      execute: async ({ name, arguments: argsJson }, { abortSignal }: ToolExecuteOptions) => {
         try {
           const args = argsJson ? JSON.parse(argsJson) : {}
-          return await runtime.callTool({ name, arguments: args })
+          return await runtime.callTool({ name, arguments: args }, { abortSignal })
         }
         catch (error) {
           return {
@@ -236,11 +246,11 @@ export function createMcpNativeTools(descriptors: McpToolDescriptor[], runtime: 
       name,
       description: description.length > 1024 ? description.slice(0, 1024) : description,
       parameters: normalizeMcpInputSchema(descriptor.inputSchema),
-      execute: async (rawInput) => {
+      execute: async (rawInput, { abortSignal }: ToolExecuteOptions) => {
         const args = rawInput !== null && typeof rawInput === 'object' && !Array.isArray(rawInput)
           ? rawInput as Record<string, unknown>
           : {}
-        return await runtime.callTool({ name: descriptor.name, arguments: args })
+        return await runtime.callTool({ name: descriptor.name, arguments: args }, { abortSignal })
       },
     })
   })

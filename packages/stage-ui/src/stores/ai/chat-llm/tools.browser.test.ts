@@ -76,4 +76,54 @@ describe('llm tool synchronization', () => {
     await expect(registeredTool.execute({}, {} as Parameters<Tool['execute']>[1])).resolves.toBe('ok')
     expect(execute).toHaveBeenCalledTimes(1)
   })
+
+  it('replicates registrations through the leader and revokes them idempotently', async () => {
+    const errors: unknown[] = []
+    const namespace = `llm-tools-registrations:${crypto.randomUUID()}`
+    const leaderContext = createSyncedContext(namespace, 'leader-only', error => errors.push(error))
+    await vi.waitFor(() => expect(leaderContext.runtime.isLeader()).toBe(true))
+
+    setActivePinia(leaderContext.pinia)
+    const leaderStore = useLlmToolsStore()
+
+    const followerContext = createSyncedContext(namespace, 'follower-only', error => errors.push(error))
+    setActivePinia(followerContext.pinia)
+    const followerStore = useLlmToolsStore()
+    await vi.waitFor(() => expect(followerContext.runtime.getLeaderId()).toBe(leaderContext.runtime.participantId))
+
+    const tool: ExecutableTool = {
+      id: 'plugin:slow:work',
+      type: 'function',
+      function: {
+        name: 'slow_work',
+        description: 'Work slowly.',
+        parameters: { type: 'object', properties: {} },
+      },
+      execute: vi.fn(async () => 'ok'),
+    }
+
+    setActivePinia(followerContext.pinia)
+    await followerStore.addRegisteredTools({
+      tool,
+      registration: {
+        toolId: tool.id,
+        toolName: tool.function.name,
+        ownerKind: 'plugin',
+        ownerId: 'plugin-a',
+        execution: { kind: 'extension_host', chain: ['plugin', 'plugin-a'] },
+      },
+    })
+
+    await vi.waitFor(() => expect(leaderStore.registrations.map(item => item.toolId)).toContain(tool.id))
+    await vi.waitFor(() => expect(followerStore.registrations.map(item => item.toolId)).toContain(tool.id))
+
+    // Leader-owned revocation: both windows converge and a repeat is a no-op.
+    setActivePinia(leaderContext.pinia)
+    await leaderStore.removeToolsByIds(tool.id)
+    await vi.waitFor(() => expect(leaderStore.registrations).toEqual([]))
+    await vi.waitFor(() => expect(followerStore.registrations).toEqual([]))
+    await leaderStore.removeToolsByIds(tool.id)
+    expect(leaderStore.registrations).toEqual([])
+    expect(errors).toEqual([])
+  })
 })

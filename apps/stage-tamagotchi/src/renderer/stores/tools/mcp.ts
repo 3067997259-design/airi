@@ -1,6 +1,5 @@
-import type { ExecutableTool } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
+import type { ExecutableTool, ToolRegistrationInput } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
 import type { McpToolRuntime } from '@proj-airi/stage-ui/tools/mcp'
-import type { Tool } from '@xsai/shared-chat'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useLlmToolsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
@@ -8,13 +7,14 @@ import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-ll
 import { createMcpNativeTools, createMcpTools } from '@proj-airi/stage-ui/tools/mcp'
 import { defineStore } from 'pinia'
 
-import { electronMcpCallTool, electronMcpGetRuntimeStatus, electronMcpListTools } from '../../../shared/eventa'
+import { electronMcpCallTool, electronMcpCancelTool, electronMcpGetRuntimeStatus, electronMcpListTools } from '../../../shared/eventa'
 
 export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', () => {
   const llmToolsStore = useLlmToolsStore()
   const llmToolsetPromptsStore = useLlmToolsetPromptsStore()
   const listMcpTools = useElectronEventaInvoke(electronMcpListTools)
   const callMcpTool = useElectronEventaInvoke(electronMcpCallTool)
+  const cancelMcpTool = useElectronEventaInvoke(electronMcpCancelTool)
   const getMcpRuntimeStatus = useElectronEventaInvoke(electronMcpGetRuntimeStatus)
   const toolIdPrefix = 'mcp:'
 
@@ -47,7 +47,27 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
   async function refresh() {
     const runtime: McpToolRuntime = {
       listTools: () => listMcpTools(),
-      callTool: payload => callMcpTool(payload),
+      callTool: async (payload, options) => {
+        // One correlation id per call: the main process aborts exactly this
+        // call when the registration is revoked, and the local await stops
+        // when the same signal aborts.
+        const requestId = crypto.randomUUID()
+        const signal = options?.abortSignal
+        const cancel = () => {
+          void cancelMcpTool({ requestId }).catch(() => {})
+        }
+        if (signal?.aborted)
+          cancel()
+        else
+          signal?.addEventListener('abort', cancel, { once: true })
+
+        try {
+          return await callMcpTool({ ...payload, requestId }, signal ? { signal } : undefined)
+        }
+        finally {
+          signal?.removeEventListener('abort', cancel)
+        }
+      },
     }
 
     let runtimeStatus: Awaited<ReturnType<typeof getMcpRuntimeStatus>> | undefined
@@ -72,18 +92,45 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
     // nothing, and models treated them as a generic "find a tool" entry and
     // used them to hunt for self-authored skills (ACC-20260910 R05).
     const hasConfiguredServers = (runtimeStatus?.servers.length ?? 0) > 0
-    let tools: Tool[]
+    let entries: Array<{ tool: ExecutableTool, registration: ToolRegistrationInput }>
     if (descriptors.length > 0) {
-      tools = createMcpNativeTools(descriptors, runtime)
+      // Descriptors and native tools are index-aligned; the server name is
+      // taken from the descriptor instead of parsed back out of the tool name.
+      entries = createMcpNativeTools(descriptors, runtime).map((tool, index) => {
+        const descriptor = descriptors[index]!
+        const id = `${toolIdPrefix}${tool.function.name}`
+        return {
+          tool: { ...tool, id } satisfies ExecutableTool,
+          registration: {
+            toolId: id,
+            toolName: tool.function.name,
+            ownerKind: 'mcp' as const,
+            ownerId: descriptor.serverName,
+            execution: { kind: 'remote' as const, chain: ['mcp', descriptor.serverName] },
+          },
+        }
+      })
     }
     else if (hasConfiguredServers) {
-      tools = await Promise.all(createMcpTools(runtime))
+      entries = (await Promise.all(createMcpTools(runtime))).map((tool) => {
+        const id = `${toolIdPrefix}${tool.function.name}`
+        return {
+          tool: { ...tool, id } satisfies ExecutableTool,
+          registration: {
+            toolId: id,
+            toolName: tool.function.name,
+            ownerKind: 'mcp' as const,
+            ownerId: 'mcp',
+            execution: { kind: 'remote' as const, chain: ['mcp'] },
+          },
+        }
+      })
     }
     else {
-      tools = []
+      entries = []
     }
 
-    if (tools.length === 0) {
+    if (entries.length === 0) {
       llmToolsetPromptsStore.clearToolsetPrompts('mcp-tools')
     }
     else {
@@ -94,10 +141,7 @@ export const useTamagotchiMcpToolsStore = defineStore('tamagotchi-mcp-tools', ()
     }
 
     await llmToolsStore.removeToolsByIds(...registeredToolIds())
-    await llmToolsStore.addTools(...tools.map(tool => ({
-      ...tool,
-      id: `${toolIdPrefix}${tool.function.name}`,
-    } satisfies ExecutableTool)))
+    await llmToolsStore.addRegisteredTools(...entries)
     scheduleDiscoveryRetry(descriptors.length)
   }
 

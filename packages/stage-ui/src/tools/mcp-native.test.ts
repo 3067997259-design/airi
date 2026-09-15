@@ -76,10 +76,10 @@ describe('createMcpNativeTools', () => {
 
     const result = await tools[0].execute?.({ query: 'hello' }, toolOptions)
     expect(result).toEqual({ content: [{ type: 'text', text: 'ok' }] })
-    expect(runtime.callTool).toHaveBeenCalledWith({
+    expect(runtime.callTool).toHaveBeenCalledWith(expect.objectContaining({
       name: 'filesystem::search',
       arguments: { query: 'hello' },
-    })
+    }), expect.anything())
   })
 
   it('disambiguates sanitized name collisions with a counter suffix', async () => {

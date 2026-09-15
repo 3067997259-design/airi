@@ -6,7 +6,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invokeMocks = vi.hoisted(() => ({
-  callMcpTool: vi.fn(async () => ({
+  callMcpTool: vi.fn(async (_payload: { requestId?: string, name: string, arguments?: Record<string, unknown> }) => ({
     content: [{ type: 'text', text: 'ok' }],
     isError: false,
   })),
@@ -34,6 +34,7 @@ const invokeMocks = vi.hoisted(() => ({
       },
     ],
   })),
+  cancelMcpTool: vi.fn(async (_payload: { requestId: string }) => ({ cancelled: true })),
 }))
 
 vi.mock('@proj-airi/electron-vueuse', () => ({
@@ -44,6 +45,8 @@ vi.mock('@proj-airi/electron-vueuse', () => ({
       return invokeMocks.callMcpTool
     if (event?.receiveEvent?.id === 'eventa:invoke:electron:mcp:get-runtime-status-receive')
       return invokeMocks.getRuntimeStatus
+    if (event?.receiveEvent?.id === 'eventa:invoke:electron:mcp:cancel-tool-receive')
+      return invokeMocks.cancelMcpTool
 
     throw new Error(`Unexpected eventa invoke: ${JSON.stringify(event)}`)
   },
@@ -81,6 +84,7 @@ describe('useTamagotchiMcpToolsStore', async () => {
       ],
     })
     invokeMocks.callMcpTool.mockClear()
+    invokeMocks.cancelMcpTool.mockClear()
   })
 
   it('registers one native tool per MCP descriptor and forwards qualified names with object arguments', async () => {
@@ -103,10 +107,10 @@ describe('useTamagotchiMcpToolsStore', async () => {
     const result = await nativeTool?.execute({ query: 'hello' }, toolOptions)
 
     expect(invokeMocks.listMcpTools).toHaveBeenCalledTimes(1)
-    expect(invokeMocks.callMcpTool).toHaveBeenCalledWith({
+    expect(invokeMocks.callMcpTool.mock.calls[0]?.[0]).toEqual(expect.objectContaining({
       name: 'filesystem::search',
       arguments: { query: 'hello' },
-    })
+    }))
     expect(result).toEqual({
       content: [{ type: 'text', text: 'ok' }],
       isError: false,
@@ -124,6 +128,28 @@ describe('useTamagotchiMcpToolsStore', async () => {
 
     expect(llmToolsStore.tools.filter(tool => tool.id.startsWith('mcp:'))).toEqual([])
     expect(toolsetPromptsStore.activeToolsetPrompt).toBe('')
+  })
+
+  it('sends a cancel invoke with the same request id when the call is aborted', async () => {
+    const llmToolsStore = useLlmToolsStore()
+    const store = useTamagotchiMcpToolsStore()
+    const controller = new AbortController()
+    let capturedRequestId: string | undefined
+    invokeMocks.callMcpTool.mockImplementation(async (payload) => {
+      capturedRequestId = payload.requestId
+      return await new Promise((_resolve, reject) => {
+        controller.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      })
+    })
+
+    await store.refresh()
+    const nativeTool = llmToolsStore.activeTools.find(tool => tool.function.name === 'mcp_filesystem_search')
+    const pending = nativeTool!.execute({ query: 'slow' }, { abortSignal: controller.signal } as Parameters<Tool['execute']>[1])
+    controller.abort()
+
+    await expect(pending).rejects.toThrow('aborted')
+    expect(capturedRequestId).toBeTypeOf('string')
+    expect(invokeMocks.cancelMcpTool).toHaveBeenCalledWith({ requestId: capturedRequestId })
   })
 
   it('falls back to the proxy meta-tools when no MCP tools are discovered', async () => {

@@ -192,11 +192,16 @@ vi.mock('./ai/chat-llm/llm', () => ({
   }),
 }))
 
-vi.mock('./ai/chat-llm/tools', () => ({
-  useLlmToolsStore: () => ({
-    getToolsByNames: (...names: string[]) => getToolsByNamesMock(names),
-  }),
-}))
+vi.mock('./ai/chat-llm/tools', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ai/chat-llm/tools')>()
+  return {
+    ...actual,
+    useLlmToolsStore: () => ({
+      getToolsByNames: (...names: string[]) => getToolsByNamesMock(names),
+      registrations: [],
+    }),
+  }
+})
 
 vi.mock('./ai/chat-llm/toolset-prompts', () => ({
   useLlmToolsetPromptsStore: () => ({

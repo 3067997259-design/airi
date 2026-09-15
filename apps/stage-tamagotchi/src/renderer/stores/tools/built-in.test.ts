@@ -3,8 +3,12 @@ import type { Tool } from '@xsai/shared-chat'
 import { useExpressionStore } from '@proj-airi/stage-ui-live2d/stores/expression-store'
 import { useLlmToolsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from '@proj-airi/stage-ui/stores/ai/chat-llm/toolset-prompts'
+import { useLifeModeStore } from '@proj-airi/stage-ui/stores/modules/life-mode'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
+
+import { imageJournalTools } from './builtin/image-journal'
 
 const { listCodingTools } = vi.hoisted(() => ({
   listCodingTools: vi.fn(),
@@ -131,5 +135,55 @@ describe('useTamagotchiBuiltinToolsStore', async () => {
     expect(toolsStore.getToolsByNames('bash')[0]?.function.description).toContain('Windows PowerShell')
     expect(promptsStore.activeToolsetPrompt).toContain('bash runs through Windows PowerShell')
     expect(toolsStore.getToolsByNames('list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode').map(tool => tool.function.name)).toEqual(['list', 'grep', 'read', 'write', 'edit', 'bash', 'job_output', 'job_kill', 'setWorkspaceRoot', 'code_mode'])
+  })
+
+  // 2026-09-12 multi-window reproduction: the settings (follower) window boots
+  // the full Stage runtime; the life-mode watcher called `refresh` through its
+  // closure, registered builtin definitions locally, and the synchronized
+  // llm-tools store published that incomplete state over the leader's
+  // discovered tool face (MCP and game tools disappeared within ~1 second).
+  it('does not run local discovery when life mode changes in a follower window', async () => {
+    vi.stubGlobal('location', new URL('http://localhost/?synced-leader=false'))
+    try {
+      vi.mocked(imageJournalTools).mockClear()
+      const toolsStore = useLlmToolsStore()
+      useTamagotchiBuiltinToolsStore()
+      const lifeModeStore = useLifeModeStore()
+      lifeModeStore.applySnapshot({
+        ...lifeModeStore.snapshot,
+        config: { ...lifeModeStore.snapshot.config, mode: 'autonomous' },
+      })
+
+      await nextTick()
+      // Long enough for a full discovery pass with every factory mocked; the
+      // leader control below completes well inside the same window.
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      expect(vi.mocked(imageJournalTools)).not.toHaveBeenCalled()
+      expect(toolsStore.tools).toHaveLength(0)
+      expect(toolsStore.registrations).toHaveLength(0)
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('re-registers builtin tools when life mode changes in the leader window', async () => {
+    vi.stubGlobal('location', new URL('http://localhost/?synced-leader=true'))
+    try {
+      const toolsStore = useLlmToolsStore()
+      useTamagotchiBuiltinToolsStore()
+      const lifeModeStore = useLifeModeStore()
+      lifeModeStore.applySnapshot({
+        ...lifeModeStore.snapshot,
+        config: { ...lifeModeStore.snapshot.config, mode: 'autonomous' },
+      })
+
+      await vi.waitFor(() => expect(toolsStore.tools.length).toBeGreaterThan(0))
+      expect(toolsStore.registrations.length).toBe(toolsStore.tools.length)
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

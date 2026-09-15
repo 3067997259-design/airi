@@ -52,7 +52,6 @@ describe('resolveLlmTools', () => {
     const tools = await resolveLlmTools({
       builtInTools: [builtInTool],
       debugTools: [],
-      sparkCommandTools: [],
       webSearchTools: [],
       fetchTools: [],
       activeTools: [runtimeTool],
@@ -70,7 +69,6 @@ describe('resolveLlmTools', () => {
     const tools = await resolveLlmTools({
       builtInTools: [builtInTool],
       debugTools: [],
-      sparkCommandTools: [],
       webSearchTools: [],
       fetchTools: [],
       customTools: [customTool],
@@ -87,7 +85,6 @@ describe('resolveLlmTools', () => {
     const tools = await resolveLlmTools({
       builtInTools: [builtInTool],
       debugTools: [],
-      sparkCommandTools: [],
       webSearchTools: [webSearchTool],
       fetchTools: [],
       activeTools: [],
@@ -111,7 +108,6 @@ describe('resolveLlmTools', () => {
       const tools = await resolveLlmTools({
         builtInTools: [builtInTool],
         debugTools: [],
-        sparkCommandTools: [],
         fetchTools: [],
         activeTools: [],
       })
@@ -131,7 +127,6 @@ describe('resolveLlmTools', () => {
       const tools = await resolveLlmTools({
         builtInTools: [builtInTool],
         debugTools: [],
-        sparkCommandTools: [],
         fetchTools: [],
         activeTools: [],
       })
@@ -146,7 +141,6 @@ describe('resolveLlmTools', () => {
       const tools = await resolveLlmTools({
         builtInTools: [builtInTool],
         debugTools: [],
-        sparkCommandTools: [],
         webSearchTools: [],
         activeTools: [],
       })
@@ -168,7 +162,6 @@ describe('resolveLlmTools', () => {
 
       const tools = await resolveLlmTools({
         debugTools: [],
-        sparkCommandTools: [],
         webSearchTools: [],
         activeTools: [runtimeTool],
       })
@@ -184,7 +177,6 @@ describe('resolveLlmTools', () => {
 
       const tools = await resolveLlmTools({
         debugTools: [],
-        sparkCommandTools: [],
         webSearchTools: [],
         activeTools: [proxyTool],
       })
@@ -199,7 +191,6 @@ describe('resolveLlmTools', () => {
       const tools = await resolveLlmTools({
         builtInTools: [explicitBuiltin],
         debugTools: [],
-        sparkCommandTools: [],
         webSearchTools: [],
         activeTools: [nativeTool],
       })
