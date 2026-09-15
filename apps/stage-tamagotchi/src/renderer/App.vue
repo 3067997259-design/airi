@@ -49,6 +49,11 @@ import {
   i18nSetLocale,
 } from '../shared/eventa'
 import {
+  extensionPermissionsApprove,
+  extensionPermissionsList,
+  extensionPermissionsRevoke,
+} from '../shared/eventa/permissions'
+import {
   electronPluginUpdateCapability,
   pluginProtocolListProviders,
   pluginProtocolListProvidersEventName,
@@ -58,6 +63,7 @@ import {
   electronPluginList,
   electronPluginLoad,
   electronPluginLoadEnabled,
+  electronPluginLoadInWorker,
   electronPluginSetAutoReload,
   electronPluginSetEnabled,
   electronPluginUnload,
@@ -67,9 +73,11 @@ import { initializeElectronAuthCallbackBridge } from './bridges/electron-auth-ca
 import { initializeStageThreeRuntimeTraceBridge } from './bridges/stage-three-runtime-trace'
 import { useLanguage } from './composables/use-language'
 import { useServerChannelSettingsStore } from './stores/settings/server-channel'
+import { useSkillAdapterCapabilityStore } from './stores/skill-adapter-capability'
 import { useStageWindowLifecycleStore } from './stores/stage-window-lifecycle'
 import {
   useTamagotchiBuiltinToolsStore,
+  useTamagotchiGameHostToolsStore,
   useTamagotchiMcpToolsStore,
   useTamagotchiPluginToolsStore,
 } from './stores/tools'
@@ -91,6 +99,9 @@ useChatStore()
 const builtinToolsStore = useTamagotchiBuiltinToolsStore()
 const mcpToolsStore = useTamagotchiMcpToolsStore()
 const pluginToolsStore = useTamagotchiPluginToolsStore()
+const gameHostToolsStore = useTamagotchiGameHostToolsStore()
+// CP-1 consumer 2: publishes the skill-adapter capability from wrapped state.
+useSkillAdapterCapabilityStore()
 const syncedPinia = usePiniaSynced()
 chatSessionStore.setCloudSyncOwnership(syncedPinia.isLeader())
 const isSpotlightWindow = initialRoutePath === '/spotlight'
@@ -117,6 +128,9 @@ const stopLeadershipListener = syncedPinia.onLeadershipChange((isLeader) => {
   })
   void mcpToolsStore.refresh().catch((error) => {
     console.warn('[App] Failed to refresh MCP runtime tools:', error)
+  })
+  void gameHostToolsStore.refresh().catch((error) => {
+    console.warn('[App] Failed to refresh game-host runtime tools:', error)
   })
   void refreshPluginRuntimeTools()
 })
@@ -171,8 +185,12 @@ function createFullStageRuntime() {
   const setPluginAutoReload = useElectronEventaInvoke(electronPluginSetAutoReload)
   const loadEnabledPlugins = useElectronEventaInvoke(electronPluginLoadEnabled)
   const loadPlugin = useElectronEventaInvoke(electronPluginLoad)
+  const loadPluginInWorker = useElectronEventaInvoke(electronPluginLoadInWorker)
   const unloadPlugin = useElectronEventaInvoke(electronPluginUnload)
   const inspectPluginHost = useElectronEventaInvoke(electronPluginInspect)
+  const listExtensionPermissions = useElectronEventaInvoke(extensionPermissionsList)
+  const approveExtensionPermissions = useElectronEventaInvoke(extensionPermissionsApprove)
+  const revokeExtensionPermissions = useElectronEventaInvoke(extensionPermissionsRevoke)
   const startTrackingCursorPoint = useElectronEventaInvoke(electronStartTrackMousePosition)
   const reportPluginCapability = useElectronEventaInvoke(electronPluginUpdateCapability)
   const getGodotStageStatus = useElectronEventaInvoke(electronGodotStageGetStatus)
@@ -219,12 +237,33 @@ function createFullStageRuntime() {
       await refreshPluginRuntimeTools()
       return result
     },
+    loadInWorker: async (payload) => {
+      const result = await loadPluginInWorker(payload)
+      await refreshPluginRuntimeTools()
+      return result
+    },
     unload: async (payload) => {
       const result = await unloadPlugin(payload)
       await refreshPluginRuntimeTools()
       return result
     },
     inspect: () => inspectPluginHost(),
+    listPermissions: () => listExtensionPermissions(),
+    approvePermission: async (payload) => {
+      // Structural boundary: the shared store mirrors the declaration shape
+      // with `string[]` actions; the SDK contract narrows them per area.
+      const result = await approveExtensionPermissions({
+        extensionId: payload.extensionId,
+        ...(payload.grant ? { grant: payload.grant as unknown as Parameters<typeof approveExtensionPermissions>[0]['grant'] } : {}),
+      })
+      await refreshPluginRuntimeTools()
+      return result
+    },
+    revokePermission: async (payload) => {
+      const result = await revokeExtensionPermissions(payload)
+      await refreshPluginRuntimeTools()
+      return result
+    },
   })
 
   let lastSyncedArtistryConfig: ArtistrySyncPayload | undefined

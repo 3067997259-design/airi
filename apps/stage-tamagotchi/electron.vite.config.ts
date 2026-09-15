@@ -20,6 +20,7 @@ import { defineConfig } from 'electron-vite'
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
 const codingHarnessWorkerPath = resolve(join(import.meta.dirname, '..', '..', 'packages', 'coding-harness', 'src', 'ptc', 'worker.ts'))
+const packageTrialWorkerPath = resolve(join(import.meta.dirname, 'src', 'main', 'services', 'airi', 'plugins', 'packages', 'trial-worker', 'package-trial-worker.ts'))
 
 const emitCodingHarnessWorker = {
   name: 'proj-airi:emit-coding-harness-worker',
@@ -28,6 +29,17 @@ const emitCodingHarnessWorker = {
       type: 'asset',
       fileName: 'worker.ts',
       source: readFileSync(codingHarnessWorkerPath, 'utf8'),
+    })
+  },
+}
+
+const emitPackageTrialWorker = {
+  name: 'proj-airi:emit-package-trial-worker',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'package-trial-worker.ts',
+      source: readFileSync(packageTrialWorkerPath, 'utf8'),
     })
   },
 }
@@ -68,6 +80,7 @@ export default defineConfig({
     },
     plugins: [
       emitCodingHarnessWorker,
+      emitPackageTrialWorker,
       {
         // To replace `build.rolldownOptions`, as electron-vite still uses the deprecated
         // `rollupOptions`, using `rollupOptions` and `rolldownOptions` at the same

@@ -33,14 +33,17 @@ import { setupAppleSpeechTranscriptionService } from './services/airi/apple-spee
 import { setupServerChannel } from './services/airi/channel-server'
 import { setupCodingHost } from './services/airi/coding-host'
 import { setupDataBackupHost } from './services/airi/data-backup'
+import { setupGameHost } from './services/airi/game-host'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupBuiltInServer } from './services/airi/http-server'
 import { setupJournalHost } from './services/airi/journal-host'
 import { setupLifeMode } from './services/airi/life-mode'
 import { setupLongGoalScheduler } from './services/airi/long-goal'
+import { setupMc2Host } from './services/airi/mc2'
 import { setupMcpStdioManager } from './services/airi/mcp-servers'
 import { setupMemoryHost } from './services/airi/memory-host'
 import { setupExtensionHost } from './services/airi/plugins'
+import { setupPackageHost } from './services/airi/plugins/packages/host'
 import { setupWebFetch } from './services/airi/web-fetch'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
 import { resolveAutoUpdaterEnabled, setupAutoUpdater } from './services/electron/auto-updater'
@@ -269,7 +272,7 @@ app.whenReady().then(async () => {
   const codingHost = injeca.provide('modules:coding-host', {
     build: async () => {
       const { context } = createContext(ipcMain)
-      await setupCodingHost(context, { broadcast: eventaBroadcast }, app.getPath('userData'))
+      return await setupCodingHost(context, { broadcast: eventaBroadcast }, app.getPath('userData'))
     },
   })
 
@@ -294,6 +297,13 @@ app.whenReady().then(async () => {
     },
   })
 
+  const mc2Host = injeca.provide('modules:mc2-host', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupMc2Host(context, {})
+    },
+  })
+
   const lifeMode = injeca.provide('modules:life-mode', {
     build: async () => {
       const { context } = createContext(ipcMain)
@@ -308,6 +318,36 @@ app.whenReady().then(async () => {
     },
   })
 
+  const packagesHost = injeca.provide('modules:packages-host', {
+    build: async () => {
+      const { context } = createContext(ipcMain)
+      await setupPackageHost(context, app.getPath('userData'), { broadcast: eventaBroadcast })
+    },
+  })
+
+  const gameHost = injeca.provide('modules:game-host', {
+    dependsOn: { pluginHost, codingHost },
+    build: async ({ dependsOn }) => {
+      const { context } = createContext(ipcMain)
+      const host = dependsOn.pluginHost.host
+      const gamePort = await setupGameHost(context, {
+        broadcast: eventaBroadcast,
+        capabilities: {
+        // CP-1 observer tracking reads `providerModuleId`; `source` is only
+        // descriptive metadata. Without the id the registry records the host
+        // default and the observer boundary never ends.
+          announce: () => host.announceCapability('game.minecraft.control', { source: 'game-host', providerModuleId: 'game-host' }),
+          ready: () => host.markCapabilityReady('game.minecraft.control', { source: 'game-host', providerModuleId: 'game-host' }),
+          withdraw: () => host.withdrawCapability('game.minecraft.control', { source: 'game-host', providerModuleId: 'game-host' }),
+        },
+      }, app.getPath('userData'))
+      // MC-1c D1: the bridge is wired after both hosts exist; the coding host
+      // swaps its Code Mode tool table so later programs can call `game_*`.
+      dependsOn.codingHost.attachGameCommands(gamePort)
+      return gamePort
+    },
+  })
+
   const longGoalScheduler = injeca.provide('modules:long-goal-scheduler', {
     build: async () => {
       const { context } = createContext(ipcMain)
@@ -316,7 +356,7 @@ app.whenReady().then(async () => {
   })
 
   const mainWindow = injeca.provide('windows:main', {
-    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, dataBackupHost, journalHost, memoryHost, webFetch, lifeMode, longGoalScheduler },
+    dependsOn: { editorWindow, settingsWindow, chatWindow, widgetsManager, noticeWindow, beatSync, autoUpdater, serverChannel, godotStageManager, mcpStdioManager, i18n, onboardingWindowManager, appleSpeechTranscription, codingHost, dataBackupHost, packagesHost, journalHost, memoryHost, webFetch, mc2Host, lifeMode, longGoalScheduler, gameHost },
     build: async ({ dependsOn }) => setupMainWindow({
       ...dependsOn,
       onWindowCreated: (window) => {

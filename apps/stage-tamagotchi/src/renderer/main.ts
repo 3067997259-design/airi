@@ -22,6 +22,8 @@ import App from './App.vue'
 
 import { installCodingHostBridge } from './bridges/coding-host-install'
 import { createDataBackupBootstrapClient } from './bridges/data-backup'
+import { installGameHostBridge } from './bridges/game-host-install'
+import { installPackagesBridge } from './bridges/packages-install'
 import { i18n } from './modules/i18n'
 import { resolveRendererWindowContext } from './window-context'
 
@@ -131,6 +133,17 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
       console.warn('[Boot] Skill review queue restore failed.', error)
     }
     try {
+      // Package tools delegate to reviewed skills, so registration arms after
+      // the review queue is hydrated.
+      const { usePackagesStore } = await import('@proj-airi/stage-ui/stores/modules/packages')
+      await usePackagesStore(pinia).refresh()
+      const { usePackageToolsRegistrationStore } = await import('./stores/packages-registration')
+      usePackageToolsRegistrationStore(pinia)
+    }
+    catch (error) {
+      console.warn('[Boot] Package host initialization failed.', error)
+    }
+    try {
       await useMemoryStore().initialize()
     }
     catch (error) {
@@ -148,6 +161,14 @@ if (resolveRendererWindowContext().leadership === 'leader-only') {
 // Every renderer process installs the coding host bridge (main process
 // Eventa contracts); the stage-ui store consumes it from any window.
 installCodingHostBridge()
+
+// Same pattern for the MCPFabric game-host bridge: the settings page and the
+// module list read it through the stage-ui store from any window.
+installGameHostBridge()
+
+// EP-2a package host: every window refreshes its ledger from main broadcasts;
+// only the leader leader registers the enabled packages' tools.
+installPackagesBridge(pinia)
 
 // A restore profile remains inert until its leader acknowledges the imported
 // bytes. The owner stores decide how to consume the validated archive.

@@ -42,6 +42,23 @@ export function resolveInitialRendererRoutePath(routePath: string, hash = global
 }
 
 /**
+ * Reports whether the launch query marks this renderer as the synchronized
+ * leader.
+ *
+ * Runtime discovery (built-in, MCP, plugin, game tools) must run in the leader
+ * window only: a follower registers locally through closure calls that bypass
+ * synchronized action routing, publishes its incomplete tool set as a
+ * full-state proposal, and replaces the leader's discovered face.
+ *
+ * @example
+ * isSyncedLeaderWindow('?synced-leader=true')  // => true
+ * isSyncedLeaderWindow('?synced-leader=false') // => false
+ */
+export function isSyncedLeaderWindow(search = globalThis.location?.search ?? ''): boolean {
+  return new URLSearchParams(search).get('synced-leader') === 'true'
+}
+
+/**
  * Resolves renderer ownership from the query that the main process supplies.
  *
  * @example
@@ -60,7 +77,7 @@ export function resolveRendererWindowContext(search = globalThis.location?.searc
   if (stageRuntime !== null && stageRuntime !== 'minimal')
     throw new TypeError(`Invalid stage-runtime query: ${stageRuntime}`)
 
-  const leadership: LeadershipMode = syncedLeader === 'true' ? 'leader-only' : 'follower-only'
+  const leadership: LeadershipMode = isSyncedLeaderWindow(search) ? 'leader-only' : 'follower-only'
   const runtime: RendererWindowContext['stageRuntime'] = stageRuntime === 'minimal' ? 'minimal' : 'full'
   // Only the main window is leader and full-runtime, so it is the one window
   // that mounts the avatar surface and the model tools bind to.

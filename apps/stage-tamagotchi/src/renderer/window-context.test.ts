@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveInitialRendererRoutePath, resolveRendererWindowContext } from './window-context'
+import { isSyncedLeaderWindow, resolveInitialRendererRoutePath, resolveRendererWindowContext } from './window-context'
 
 describe('resolveInitialRendererRoutePath', () => {
   // ROOT CAUSE:
@@ -48,5 +48,13 @@ describe('resolveRendererWindowContext', () => {
     expect(() => resolveRendererWindowContext('')).toThrow('Missing synced-leader query')
     expect(() => resolveRendererWindowContext('?synced-leader=unknown')).toThrow('Invalid synced-leader query: unknown')
     expect(() => resolveRendererWindowContext('?synced-leader=false&stage-runtime=unknown')).toThrow('Invalid stage-runtime query: unknown')
+  })
+})
+
+describe('isSyncedLeaderWindow', () => {
+  it('detects the leader window without validating the full launch query', () => {
+    expect(isSyncedLeaderWindow('?synced-leader=true')).toBe(true)
+    expect(isSyncedLeaderWindow('?synced-leader=false')).toBe(false)
+    expect(isSyncedLeaderWindow('')).toBe(false)
   })
 })

@@ -89,7 +89,9 @@ const matchedCandidate = computed(() => {
 // ---------------------------------------------------------------------------
 
 const controller = createOverlayPollController({
-  callTool: name => callMcpTool({ name }),
+  // Every call gets a correlation id so the host can cancel it; the overlay
+  // controller itself has no cancellation channel.
+  callTool: name => callMcpTool({ requestId: crypto.randomUUID(), name }),
   getReadiness: async () => getReadiness(),
   onState: (newState) => {
     state.value = newState
@@ -215,7 +217,7 @@ onMounted(async () => {
   if (pollHeartbeatEnabled) {
     window.__AIRI_DESKTOP_OVERLAY_SMOKE__ = {
       applyAndRestartMcp,
-      callMcpTool,
+      callMcpTool: payload => callMcpTool({ requestId: crypto.randomUUID(), ...payload }),
       getMcpRuntimeStatus,
       getOverlayState: () => state.value,
       getReadiness,
