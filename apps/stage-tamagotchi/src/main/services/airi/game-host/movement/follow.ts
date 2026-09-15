@@ -389,11 +389,9 @@ async function followJumpTask(options: {
   shouldStop: () => boolean
 }): Promise<'landed' | 'failed' | 'cancelled'> {
   const { port, plan, sleep, now, shouldStop } = options
-  const target: Vec3 = {
-    x: plan.takeoff.x + plan.direction.x * plan.flight,
-    y: plan.rise + plan.takeoff.y,
-    z: plan.takeoff.z + plan.direction.z * plan.flight,
-  }
+  // The plan's own landing, never a reconstruction: the clamped takeoff line
+  // makes `takeoff + direction * flight` a different point.
+  const target = plan.target
   const deadlineMs = now() + JUMP_TASK_TIMEOUT_MS
   try {
     await port.startJump!({

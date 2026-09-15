@@ -41,6 +41,15 @@ export interface JumpPlan {
   ok: true
   rise: number
   gap: number
+  /**
+   * Landing stand point, exactly as planned.
+   *
+   * Kept here instead of being recomputed as `takeoff + direction * flight`:
+   * the takeoff line is clamped into the available ground, so that expression
+   * no longer equals the destination and a physical predictor must not move
+   * the task's target.
+   */
+  target: Vec3
   /** Ground line: the jump fires when the bot's position passes it moving to the destination. */
   takeoff: Vec3
   /** Unit horizontal direction of the flight. */
@@ -236,5 +245,5 @@ export function planStepUp(options: {
     && (beyond.physical
       ? Math.abs(beyond.y + 1 - to.y) <= 0.6
       : beyond.safe && Math.abs(beyond.height - to.y) <= 0.6)
-  return { ok: true, rise, gap, takeoff, direction: length, flight, sprint: needsSprint, brake: !faceAtLandingLevel }
+  return { ok: true, rise, gap, target: { ...to }, takeoff, direction: length, flight, sprint: needsSprint, brake: !faceAtLandingLevel }
 }

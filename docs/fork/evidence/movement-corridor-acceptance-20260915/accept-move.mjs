@@ -74,7 +74,10 @@ for (let attempt = 0; attempt < 10; attempt++) {
   await new Promise(resolve => setTimeout(resolve, 1000))
 }
 
-const payload = JSON.stringify({ x: end.x, y: goalY, z: end.z, tolerance, allowPlace: false })
+// The goal is a standing point (the block centre), not the block cell: the
+// executor aims at cell centres, so a corner target of a 1-block pad leaves a
+// 0.707 distance no tolerance below 0.71 can accept (live lone-step review).
+const payload = JSON.stringify({ x: end.x + 0.5, y: goalY, z: end.z + 0.5, tolerance, allowPlace: false })
 await evalJs(`window.__moveResult = 'pending'
 window.__AIRI_GAME_HOST_SMOKE__.executeGameTool('game_move_to', ${payload})
   .then(result => { window.__moveResult = result })

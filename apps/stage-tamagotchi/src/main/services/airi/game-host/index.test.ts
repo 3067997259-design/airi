@@ -1831,11 +1831,13 @@ describe('setupGameHost', () => {
     // the 8-block margin gives z = 5.
     const regionCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'get_blocks_region')
     expect(regionCalls.length).toBeGreaterThan(0)
-    // The floored goal shows on the min side of the region: floor(-2.7) - 8 =
-    // -11, while an unfloored goal would leave a fractional -10.6.
+    // The floored goal shows on the min side of the region: floor(-2.7) - 16
+    // = -19, while an unfloored goal would leave a fractional -18.6. The
+    // margin is the executor's base local window (16 since the window
+    // expansion batch); the invariant this guards is the integer floor.
     const regionFroms = regionCalls.map(([args]) => (args as unknown as { arguments: { from: { x: number, y: number, z: number } } }).arguments.from)
     for (const from of regionFroms) {
-      expect(from.z).toBe(-11)
+      expect(from.z).toBe(-19)
       expect(Number.isInteger(from.z)).toBe(true)
     }
   }, 20_000)
