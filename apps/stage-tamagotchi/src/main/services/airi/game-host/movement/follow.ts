@@ -267,6 +267,7 @@ export async function runWalkRun(options: {
       // reads the real landing back, because its 150 ms polls cannot time a
       // takeoff or correct a landing.
       if (plan && port.startJump) {
+        const finalEdge = pendingIndex === cells.length - 1
         const outcome = await followJumpTask({ port, plan, sleep, now, shouldStop })
         if (outcome === 'cancelled')
           return { status: 'cancelled', cursor, position }
@@ -276,6 +277,17 @@ export async function runWalkRun(options: {
         }
         climbLatch = undefined
         lastAdvanceAt = now()
+        // The task's verdict is authoritative for the edge it ran: `landed`
+        // means grounded on the destination within its landing radius, and for
+        // the final edge that ends the run. Re-checking with the run's tighter
+        // walk radius made the follower fight the settle for the last
+        // centimetres and end `stuck` on a pad it already stood on (live lone
+        // step: landed 0.28 from the centre, run required 0.45).
+        if (finalEdge) {
+          const landed = await port.getState()
+          position = landed.position
+          return { status: 'arrived', cursor: pendingIndex, position }
+        }
         continue
       }
     }
