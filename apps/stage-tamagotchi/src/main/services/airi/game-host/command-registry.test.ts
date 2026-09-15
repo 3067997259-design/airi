@@ -550,6 +550,33 @@ describe('execution ownership (CD-0 D8)', () => {
     expect(tokens[1]!.controlSessionGeneration).toBeGreaterThan(tokens[0]!.controlSessionGeneration)
   })
 
+  // ROOT CAUSE (live chain run after an app restart):
+  //
+  // Two host processes minted the same session id for their first command
+  // (`control-<generation>-1`) because both counters restart. The bridge
+  // remembered that id as revoked and rejected the new host's first control
+  // write with `stale_control_session` until the MC connection reset. The run
+  // token in the minted id makes each process a new session.
+  it('mints a different session id for the same envelope in a fresh host run', async () => {
+    const first = createTestRegistry()
+    const second = createTestRegistry()
+    const tokens: GameExecutionToken[] = []
+    first.executor.setBehavior(async ({ token }) => {
+      tokens.push(token)
+      return { endReason: 'reached', finalSnapshot: snapshot, finalPosition: { x: 0, y: 64, z: 0 } }
+    })
+    second.executor.setBehavior(async ({ token }) => {
+      tokens.push(token)
+      return { endReason: 'reached', finalSnapshot: snapshot, finalPosition: { x: 0, y: 64, z: 0 } }
+    })
+    const params = { moveTo: { x: 0, y: 64, z: 0, tolerance: 1 } }
+    await first.registry.submit({ envelope: makeEnvelope('move_to', params, { commandId: 'restart-a' }), params })
+    await second.registry.submit({ envelope: makeEnvelope('move_to', params, { commandId: 'restart-b' }), params })
+
+    expect(tokens).toHaveLength(2)
+    expect(tokens[0]!.controlSessionId).not.toBe(tokens[1]!.controlSessionId)
+  })
+
   it('does not let an expired command settle or revive after a newer command runs', async () => {
     const { registry, executor } = createTestRegistry()
     // The first command never returns and never confirms a stop: it expires.

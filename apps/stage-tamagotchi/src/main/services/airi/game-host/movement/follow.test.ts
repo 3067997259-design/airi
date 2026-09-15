@@ -61,7 +61,8 @@ describe('walk motion classification', () => {
   })
 
   it('jumps at the edge of a one-block rise instead of stopping', async () => {
-    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: 0, inWater: false, onGround: true }
+    // Facing +x (yaw -90) at the destination: the alignment gate lets the hop.
+    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true }
     const { port, setInput } = controlPort(state)
     await runWalkRun({
       port,
@@ -70,6 +71,64 @@ describe('walk motion classification', () => {
       shouldStop: () => setInput.mock.calls.length > 0,
     })
     expect(setInput.mock.calls[0]?.[0]).toMatchObject({ forward: true, jump: true })
+  })
+
+  // ROOT CAUSE (live diagonal-chain runs, two opposing failures):
+  //
+  // Holding the key across the whole hop made the auto-jump fire on the
+  // landing tick, before the rotation for the next cell reached the game: the
+  // bot re-hopped in the previous direction and landed in the gap beside the
+  // chain. Releasing it for a whole poll on an airborne sample made the bot
+  // land and walk into the step's face until it slid off. The key is therefore
+  // pressed on a grounded sample and released in the air.
+  it('presses the jump on touchdown and releases it while airborne', async () => {
+    // Yaw -90 faces +x, the direction of the ascent cell, so the alignment
+    // gate lets the climb hop.
+    const states: MovementState[] = [
+      { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true },
+      { position: { x: 0.8, y: 1.4, z: 0.5 }, yaw: -90, inWater: false, onGround: false },
+      { position: { x: 1.0, y: 1.8, z: 0.5 }, yaw: -90, inWater: false, onGround: false },
+    ]
+    let poll = 0
+    const { port, setInput } = controlPort(states[0]!)
+    port.getState.mockImplementation(async () => states[Math.min(poll++, states.length - 1)]!)
+    await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => setInput.mock.calls.length >= states.length,
+    })
+    expect(setInput.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(setInput.mock.calls[0]?.[0]).toMatchObject({ jump: true })
+    expect(setInput.mock.calls[1]?.[0]).toMatchObject({ jump: false })
+    expect(setInput.mock.calls[2]?.[0]).toMatchObject({ jump: false })
+  })
+
+  // ROOT CAUSE (live chain, stale-aim takeoff):
+  //
+  // The mod holds keys between host polls, so a jump key held across a bend
+  // took off in the previous direction before the new rotation reached the
+  // game tick. On a one-block-wide chain that walked her off the edge. A climb
+  // must withhold the jump until the view points at the destination.
+  it('withholds the jump until the view faces the ascent cell', async () => {
+    const states: MovementState[] = [
+      { position: { x: 0.5, y: 1, z: 0.5 }, yaw: 0, inWater: false, onGround: true },
+      { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true },
+    ]
+    let poll = 0
+    const { port, look, setInput } = controlPort(states[0]!)
+    port.getState.mockImplementation(async () => states[Math.min(poll++, states.length - 1)]!)
+    await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 1.5, y: 2, z: 0.5 }],
+      ...OPTIONS,
+      shouldStop: () => setInput.mock.calls.length >= states.length,
+    })
+    // The view snaps to the bearing and the walk brakes for that poll: pressing
+    // forward still pointed away is what walked her off the block.
+    expect(look.mock.calls[0]?.[0]).toBeCloseTo(-90)
+    expect(setInput.mock.calls[0]?.[0]).toMatchObject({ forward: false, jump: false })
+    expect(setInput.mock.calls[1]?.[0]).toMatchObject({ forward: true, jump: true })
   })
 
   // ROOT CAUSE (real-hill v4/v5):

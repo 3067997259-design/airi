@@ -106,8 +106,8 @@ const COMPLETION_HEIGHT_TOLERANCE = 0.35
 const LANDING_RADIUS = 0.7
 /** Dropping this far below a jump destination ends the attempt. */
 const FALLBACK_DROP = 1.2
-/** Ground distance at which a latched climb starts jumping. */
-const JUMP_TRIGGER_RANGE = 1.5
+/** View error above which a latched climb withholds the jump key. */
+const CLIMB_ALIGN_DEG = 20
 
 export interface WalkRunResult {
   status: 'arrived' | 'stuck' | 'cancelled'
@@ -135,8 +135,11 @@ export async function runWalkRun(options: {
   now: () => number
   tickMs: number
   stepTimeoutMs: number
+  /** Optional poll trace for live diagnosis (never used by tests). */
+  debug?: (message: string) => void
 }): Promise<WalkRunResult> {
   const { port, cells, config, shouldStop, sleep, now, tickMs, stepTimeoutMs } = options
+  const debug = options.debug
   const last = cells[cells.length - 1]!
   let cursor = 0
   let position: Vec3 = cells[0]!
@@ -197,27 +200,23 @@ export async function runWalkRun(options: {
       : Math.min(cursor + 1, cells.length - 1)
     const pendingCell = cells[pendingIndex]!
 
-    // Start a jump attempt for a one-block ascent; landing or falling back
-    // ends it in the block below.
-    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE)
-      climbLatch = { cell: pendingCell }
-
+    // End the previous attempt first: landing confirms the edge (the progress
+    // loop above passes it because the bot stands at the destination level), a
+    // fall back clears the latch so the bot re-approaches from where it landed.
     if (climbLatch) {
       const landed = state.onGround
         && horizontalDistance(position, climbLatch.cell) <= LANDING_RADIUS
         && Math.abs(position.y - climbLatch.cell.y) <= COMPLETION_HEIGHT_TOLERANCE
       const fellBack = position.y < climbLatch.cell.y - FALLBACK_DROP
-      if (landed) {
-        // The edge is complete: the progress loop above now passes it because
-        // the bot stands at the destination level.
+      if (landed || fellBack)
         climbLatch = undefined
-      }
-      else if (fellBack) {
-        // Recover at the actual position: the cursor stays on the unfinished
-        // edge and the bot re-approaches from where it landed.
-        climbLatch = undefined
-      }
     }
+    // Start the next attempt on the same poll. A landing poll that walks
+    // un-latched steers at the far lookahead node and can step off a
+    // one-block-wide chain before the next ascend latch exists (live chain
+    // trace: 0.22 from the far edge with a 0.2-per-poll residual slide).
+    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE)
+      climbLatch = { cell: pendingCell }
 
     const climbing = climbLatch !== undefined
     const target = climbing ? climbLatch!.cell : cells[targetIndex]!
@@ -230,23 +229,45 @@ export async function runWalkRun(options: {
 
     const yaw = yawTo(position, target)
     const yawDelta = angleDelta(state.yaw, yaw)
+    const aligned = Math.abs(yawDelta) <= CLIMB_ALIGN_DEG
+
     if (Math.abs(yawDelta) > AIM_TOLERANCE_DEG) {
       // A large error is a fresh bearing and is applied directly; small
       // corrections move at a bounded rate so the view does not snap around
-      // while the player keeps moving.
-      const applied = Math.abs(yawDelta) > LARGE_TURN_DEG
+      // while the player keeps moving. A latched climb always snaps: its hop
+      // must start with the view already on the destination, otherwise the
+      // walk input carries the bot off a one-block chain while the view
+      // creeps 20 degrees per poll (live chain trace: off the start block
+      // after two polls at 30-45 degrees of error).
+      const applied = climbing || Math.abs(yawDelta) > LARGE_TURN_DEG
         ? yawDelta
         : clamp(yawDelta, -MAX_YAW_RATE_DEG, MAX_YAW_RATE_DEG)
       await port.look(state.yaw + applied, 0)
     }
 
-    const needJump = climbing && state.onGround && distanceToTarget <= JUMP_TRIGGER_RANGE
+    // A latched climb presses the jump key only on a grounded, aligned sample.
+    // Two live failures define this rule:
+    // - Holding the key across a bend made the auto-jump fire on the landing
+    //   tick, before the rotation for the next cell reached the game; the hop
+    //   went in the previous direction and landed in the gap beside the chain.
+    // - Releasing it for a whole poll on an airborne sample let her land and
+    //   walk into the step's face until she slid off the chain.
+    // A grounded press jumps within a poll of touchdown; an airborne release
+    // never re-hops before the new aim is applied. A misaligned climb brakes,
+    // because pressing forward while the view points away is what walked her
+    // off a one-block block.
+    const jumpHeld = state.inWater || (climbing && aligned && state.onGround)
+    const walkHeld = !climbing || aligned
+
+    if (debug) {
+      debug(`run poll: cursor=${cursor} pos=${position.x.toFixed(2)},${position.y.toFixed(2)},${position.z.toFixed(2)} target=${target.x.toFixed(2)},${target.y.toFixed(2)},${target.z.toFixed(2)} dist=${distanceToTarget.toFixed(2)} yawErr=${yawDelta.toFixed(0)} ground=${state.onGround} latched=${climbing} walk=${walkHeld} jump=${jumpHeld} sprint=${config.allowSprinting && !climbing && !turnAhead && targetIndex < cells.length - 1}`)
+    }
 
     await port.setInput({
-      forward: true,
+      forward: walkHeld,
       // A latched jump keeps the walk speed; ordinary bends still release it.
       sprint: config.allowSprinting && !climbing && !turnAhead && targetIndex < cells.length - 1,
-      jump: state.inWater || needJump,
+      jump: jumpHeld,
     })
 
     recent.push({ ...position })

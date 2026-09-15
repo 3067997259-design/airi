@@ -41,6 +41,39 @@ const PARTIAL_SUFFIXES = ['_slab', '_stairs']
  * treats every bed as a full obstacle and detours around open ground.
  */
 const WALKABLE_PARTIAL_SUFFIXES = ['_bed']
+/**
+ * Non-colliding plants, for reads without shape data.
+ *
+ * Vanilla plants have no collision box, so the player walks through them. The
+ * live region read sends exact shapes and the shape branch above handles them;
+ * this list keeps a shape-less bridge from turning a grass tuft into a wall.
+ */
+const PLANT_SUFFIXES = ['_grass', '_fern', '_sapling', '_tulip', '_bush', '_flower']
+const PLANT_IDS = new Set([
+  'allium',
+  'azure_bluet',
+  'beetroots',
+  'blue_orchid',
+  'carrots',
+  'cornflower',
+  'dandelion',
+  'dead_bush',
+  'lily_of_the_valley',
+  'lilac',
+  'melon_stem',
+  'oxeye_daisy',
+  'peony',
+  'pitcher_plant',
+  'poppy',
+  'potatoes',
+  'pumpkin_stem',
+  'rose_bush',
+  'sugar_cane',
+  'sunflower',
+  'sweet_berry_bush',
+  'torchflower',
+  'wheat',
+])
 const GRAVITY = new Set(['sand', 'red_sand', 'gravel', 'suspicious_sand', 'suspicious_gravel'])
 
 export function normalizeBlockId(id: string): string {
@@ -109,6 +142,19 @@ export function classifyBlock(input: ClassifyInput): BlockInfo {
     return { ...base, physical: false, safe: true, height: input.y + 0.5625 }
   if (hasSuffix(id, PARTIAL_SUFFIXES))
     return { ...base, physical: false, safe: true, height: input.y + 0.5 }
+  if (PLANT_IDS.has(id) || hasSuffix(id, PLANT_SUFFIXES))
+    return { ...base, physical: false, safe: true, replaceable: true, height: input.y }
+
+  // An empty shape list from the source is trusted over the id tables: the
+  // block does not collide, so the cell is walkable space and the surface stays
+  // at the cell floor. Without this the id fallback made every unlisted plant a
+  // full obstacle, which raised the walk surface by a block and made the
+  // planner order an impossible 2-block jump over plain walkable ground (live
+  // hill run: hopping under a grass tuft at (53,98,-66)). Any non-empty shape
+  // keeps the conservative rules above or the obstacle default: an unknown
+  // partial block must not open a route.
+  if (input.collision && input.collision.length === 0)
+    return { ...base, physical: false, safe: true, replaceable: true, height: input.y }
 
   return base
 }

@@ -45,6 +45,35 @@ describe('classifyBlock', () => {
     expect(bed.height).toBeCloseTo(64.5625, 4)
   })
 
+  // ROOT CAUSE (live hill run at (53,98,-66)):
+  //
+  // Unknown ids defaulted to full obstacles, so a short_grass tuft raised the
+  // walk surface by one block. The planner then built a step whose source cell
+  // was a phantom, ordered a 2-block jump from the real feet level, and the bot
+  // hopped under the tuft until the run gave up. The region read sends the real
+  // collision shapes; an empty list means the block does not collide.
+  it('trusts an empty collision list over the id fallback', () => {
+    const grass = classifyBlock({ id: 'minecraft:short_grass', x: 53, y: 98, z: -66, collision: [] })
+    expect(grass).toMatchObject({ physical: false, safe: true, replaceable: true, height: 98 })
+    // Without shapes the plant list still keeps the same cell passable.
+    expect(classifyBlock({ id: 'minecraft:short_grass', x: 53, y: 98, z: -66 }))
+      .toMatchObject({ physical: false, safe: true, height: 98 })
+    // An unknown id with no shapes stays the conservative obstacle.
+    expect(classifyBlock({ id: 'minecraft:mystery_panel', x: 0, y: 64, z: 0 }))
+      .toMatchObject({ physical: true, safe: false })
+  })
+
+  it('keeps a non-empty shape list on the conservative path', () => {
+    const topSlab = classifyBlock({
+      id: 'minecraft:mystery_panel',
+      x: 0,
+      y: 64,
+      z: 0,
+      collision: [{ minX: 0, minY: 0.5, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }],
+    })
+    expect(topSlab).toMatchObject({ physical: true, safe: false })
+  })
+
   it('marks gravity blocks and keeps bedrock unbreakable', () => {
     expect(classifyBlock({ id: 'minecraft:sand', x: 1, y: 64, z: 1 })).toMatchObject({ canFall: true, physical: true })
     expect(classifyBlock({ id: 'minecraft:bedrock', x: 1, y: 64, z: 1 }).hardness).toBe(-1)

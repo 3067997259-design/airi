@@ -499,6 +499,12 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
   const records = new Map<string, CommandRecord>()
   /** Monotonic control-session generation; only ever increases (CD-0 §3.1). */
   let controlSessionCounter = 0
+  // The bridge remembers the last control session id it saw and keeps rejecting
+  // it after a revoke. A host restart reused `control-<generation>-<counter>`
+  // because both counters restart, so the bridge rejected the first write of
+  // the new host as a revoked session (`stale_control_session`, live chain run
+  // after an app restart). The run token makes each host process a new session.
+  const controlSessionRun = Math.random().toString(36).slice(2, 8)
   /** Highest sequence/goal revision each control session has accepted. */
   const sessionHighWater = new Map<string, { sequence: number, goalRevision: number }>()
 
@@ -518,7 +524,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
     return {
       commandId: envelope.commandId,
       connectionGeneration: envelope.connectionGeneration,
-      controlSessionId: envelope.controlSessionId ?? `control-${envelope.connectionGeneration}-${controlSessionCounter}`,
+      controlSessionId: envelope.controlSessionId ?? `control-${envelope.connectionGeneration}-${controlSessionRun}-${controlSessionCounter}`,
       controlSessionGeneration: envelope.controlSessionGeneration ?? controlSessionCounter,
       sequence: envelope.sequence ?? 0,
       goalRevision: envelope.goalRevision ?? 0,

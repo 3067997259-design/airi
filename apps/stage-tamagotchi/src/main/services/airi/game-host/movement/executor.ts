@@ -642,6 +642,7 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
             now,
             tickMs,
             stepTimeoutMs: stepTimeoutMs * Math.max(1, runLength - 1),
+            ...(debug ? { debug } : {}),
           })
           if (runResult.status === 'cancelled')
             return finish('cancelled')
