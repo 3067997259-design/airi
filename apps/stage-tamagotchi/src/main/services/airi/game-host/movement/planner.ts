@@ -35,6 +35,14 @@ export interface PlanOptions {
   /** Maximum live labels across all cells; exceeding it fails honestly. */
   maxLabels?: number
   maxCost?: number
+  /**
+   * Multiplies the default budgets.
+   *
+   * The executor grows the read window for a walled-off detour; a bigger
+   * window exposes more nodes, so the search budget scales with it instead of
+   * failing `search_budget` on terrain a normal window would never see.
+   */
+  searchScale?: number
   timeoutMs?: number
   /** Missing blocks fail with `no_chunk` unless the caller stubs them. */
   onMissingBlock?: 'fail' | 'stub'
@@ -183,9 +191,9 @@ export function planPath(options: PlanOptions): PlanSuccess | PlanFailure {
     disabled,
     config,
     remainingPlaceables = 0,
-    maxNodes = DEFAULT_MAX_NODES,
-    maxLabels = DEFAULT_MAX_LABELS,
-    maxCost = DEFAULT_MAX_COST,
+    maxNodes = DEFAULT_MAX_NODES * (options.searchScale ?? 1),
+    maxLabels = DEFAULT_MAX_LABELS * (options.searchScale ?? 1),
+    maxCost = DEFAULT_MAX_COST * (options.searchScale ?? 1),
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onMissingBlock = 'fail',
   } = options

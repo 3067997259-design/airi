@@ -543,7 +543,9 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
           const validated = await validatedFailedEdges(port, failedEdges, { now: now(), materials: remainingPlaceables })
           disabled = validated.length > 0 ? disabledCellsOf(validated) : undefined
         }
-        const candidate = planPath({ source: candidateSnapshot, start, goal, goalCells: goals, disabled, config, remainingPlaceables, onMissingBlock: 'stub' })
+        // The base budget is doubled: a climb with many jump-up edges needs
+        // more labels than a flat walk even inside the base window.
+        const candidate = planPath({ source: candidateSnapshot, start, goal, goalCells: goals, disabled, config, remainingPlaceables, onMissingBlock: 'stub', searchScale: (margin / LOCAL_WINDOW_MARGINS[0]) * 2 })
         if (candidate.ok) {
           plan = candidate
           snapshot = candidateSnapshot

@@ -1,0 +1,229 @@
+{
+  "summary": {
+    "label": "hill-real",
+    "start": {
+      "x": 53.5,
+      "z": -44.5
+    },
+    "end": {
+      "x": 41.5,
+      "z": -70.5
+    },
+    "straightDistance": 28.64,
+    "endReason": "search_budget",
+    "checked": true,
+    "finalSnapshot": {
+      "position": {
+        "x": 53.5,
+        "y": 90,
+        "z": -44.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "samples": 13,
+    "durationMs": 2458,
+    "pathLength": 0,
+    "pathRatio": 0,
+    "maxLateral": 0,
+    "stalls": 8,
+    "perpendicularReversals": 0,
+    "yawTravelDeg": 0
+  },
+  "receipt": {
+    "status": "failed",
+    "checked": true,
+    "commandId": "f1e3bb52-ef8b-4b2c-a015-cd09a460f839",
+    "endReason": "search_budget",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 53.5,
+        "y": 90,
+        "z": -44.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "postCondition": {
+      "kind": "distance",
+      "target": 1,
+      "actual": 39.843444,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "ee2731b4-f7fe-4e8c-8d8a-3f9def698366"
+    }
+  },
+  "samples": [
+    {
+      "t": 10,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 172,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 375,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 547,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 717,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 973,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1142,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1313,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1486,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1672,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1842,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2010,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2458,
+      "x": 53.5,
+      "y": 90,
+      "z": -44.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    }
+  ]
+}

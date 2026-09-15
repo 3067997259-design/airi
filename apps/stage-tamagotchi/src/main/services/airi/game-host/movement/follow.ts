@@ -165,12 +165,25 @@ export async function runWalkRun(options: {
     const speed = state.motion ? Math.hypot(state.motion.x, state.motion.z) * 20 : 0
     const lookahead = clamp(0.8 + 0.4 * speed, LOOKAHEAD_MIN, LOOKAHEAD_MAX)
     const targetIndex = lookaheadTargetIndex(cells, cursor, position, lookahead)
-    const target = cells[targetIndex]!
+
+    // A one-block ascent ahead: aim at the nearest un-reached cell and jump at
+    // the edge instead of stopping for a discrete step. `cells` holds the
+    // destination of each edge, so the pending cell is `cells[cursor]` until
+    // the bot reaches it. Aiming at the far lookahead points into the slope on
+    // a diagonal staircase, so both the bearing and the jump use the pending
+    // cell; the rise is measured against the player's own feet, so the first
+    // edge of a run is covered too. The pulse repeats while grounded.
+    const pendingIndex = horizontalDistance(position, cells[cursor]!) > 0.45
+      ? cursor
+      : Math.min(cursor + 1, cells.length - 1)
+    const pendingCell = cells[pendingIndex]!
+    const climbing = pendingCell.y - position.y > 0.6
+    const target = climbing ? pendingCell : cells[targetIndex]!
 
     // A bend anywhere in the lookahead window releases the sprint early. The
     // directions are normalized, so a 45-degree corner is detected regardless
     // of the segment lengths (CD-G1 D3).
-    const turnAhead = turnAheadWithin(cells, cursor, targetIndex, position)
+    const turnAhead = !climbing && turnAheadWithin(cells, cursor, targetIndex, position)
 
     const yaw = yawTo(position, target)
     const yawDelta = angleDelta(state.yaw, yaw)
@@ -184,17 +197,12 @@ export async function runWalkRun(options: {
       await port.look(state.yaw + applied, 0)
     }
 
-    // A one-block ascent ahead: jump at the edge instead of stopping for a
-    // discrete step. The rise is measured against the player's own feet, so
-    // the first edge of a run is covered too. The pulse repeats while grounded
-    // until the rise is done.
-    const targetCell = cells[targetIndex]!
-    const riseAhead = targetCell.y - position.y
-    const needJump = riseAhead > 0.6 && state.onGround && horizontalDistance(position, targetCell) <= 1.2
+    const needJump = climbing && state.onGround && horizontalDistance(position, target) <= 1.5
 
     await port.setInput({
       forward: true,
-      sprint: config.allowSprinting && !turnAhead && targetIndex < cells.length - 1,
+      // Climbing runs walk the edge instead of sprinting into it.
+      sprint: config.allowSprinting && !climbing && !turnAhead && targetIndex < cells.length - 1,
       jump: state.inWater || needJump,
     })
 
