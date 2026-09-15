@@ -446,6 +446,7 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
               dirX: task.direction.x,
               dirZ: task.direction.z,
               sprint: task.sprint,
+              brake: task.brake,
               deadlineMs: task.deadlineMs,
             }),
           ),

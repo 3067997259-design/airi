@@ -91,6 +91,8 @@ export interface JumpTask {
   /** Horizontal flight direction (unit or raw; the task normalizes). */
   direction: { x: number, z: number }
   sprint: boolean
+  /** Nothing past the landing absorbs the flight overshoot: brake in the air. */
+  brake: boolean
   /** Absolute deadline in epoch milliseconds. */
   deadlineMs: number
 }

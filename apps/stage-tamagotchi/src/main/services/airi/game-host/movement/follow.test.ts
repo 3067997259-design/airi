@@ -1,4 +1,4 @@
-import type { MovementControlPort, MovementInput, MovementState } from './port'
+import type { JumpTask, MovementControlPort, MovementInput, MovementState } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { PathStep, Vec3 } from './types'
 
@@ -204,9 +204,10 @@ describe('walk motion classification', () => {
       { position: { x: 1.5, y: 2, z: 0.5 }, yaw: -90, inWater: false, onGround: true },
     ]
     let poll = 0
-    const { port, setInput } = controlPort(states[0]!)
-    port.getState.mockImplementation(async () => states[Math.min(poll++, states.length - 1)]!)
-    const startJump = vi.fn(async () => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
+    const { port: base, setInput } = controlPort(states[0]!)
+    base.getState.mockImplementation(async () => states[Math.min(poll++, states.length - 1)]!)
+    const port: MovementControlPort = base
+    const startJump = vi.fn(async (_task: JumpTask) => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
     const jumpStatus = vi.fn(async () => ({ state: 'done' as const, endReason: 'landed', ticks: 10, position: { x: 1.5, y: 2, z: 0.5 }, onGround: true, distance: 0 }))
     port.startJump = startJump
     port.jumpStatus = jumpStatus
@@ -229,8 +230,9 @@ describe('walk motion classification', () => {
   it('fails the edge when the per-tick jump task fails', async () => {
     const world = jumpWorld()
     const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true }
-    const { port, setInput } = controlPort(state)
-    port.startJump = vi.fn(async () => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
+    const { port: base, setInput } = controlPort(state)
+    const port: MovementControlPort = base
+    port.startJump = vi.fn(async (_task: JumpTask) => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
     port.jumpStatus = vi.fn(async () => ({ state: 'failed' as const, endReason: 'fell', ticks: 12 }))
     const result = await runWalkRun({
       port,

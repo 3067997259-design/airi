@@ -48,6 +48,14 @@ export interface JumpPlan {
   /** Simulated horizontal distance covered between takeoff and landing. */
   flight: number
   sprint: boolean
+  /**
+   * The flight overshoots the gap and nothing beyond the landing blocks it.
+   *
+   * A staircase's next step face absorbs the extra travel; a lone pad has no
+   * face, so the flight carries the bot past it (live lone-step run: the hop
+   * landed 0.9 past the block). The per-tick task brakes in the air for these.
+   */
+  brake: boolean
 }
 
 export interface JumpRejection {
@@ -219,5 +227,14 @@ export function planStepUp(options: {
     y: from.y,
     z: from.z + length.z * backoff,
   }
-  return { ok: true, rise, gap, takeoff, direction: length, flight, sprint: needsSprint }
+  // A face past the landing absorbs the overshoot; without one the task must
+  // brake in the air (the host cannot time that from a 150 ms poll).
+  const beyondX = Math.floor(to.x + length.x)
+  const beyondZ = Math.floor(to.z + length.z)
+  const beyond = world.getBlock(beyondX, Math.floor(to.y) - 1, beyondZ)
+  const faceAtLandingLevel = beyond !== undefined
+    && (beyond.physical
+      ? Math.abs(beyond.y + 1 - to.y) <= 0.6
+      : beyond.safe && Math.abs(beyond.height - to.y) <= 0.6)
+  return { ok: true, rise, gap, takeoff, direction: length, flight, sprint: needsSprint, brake: !faceAtLandingLevel }
 }

@@ -389,6 +389,7 @@ async function followJumpTask(options: {
       takeoff: plan.takeoff,
       direction: plan.direction,
       sprint: plan.sprint,
+      brake: plan.brake,
       deadlineMs,
     })
   }
