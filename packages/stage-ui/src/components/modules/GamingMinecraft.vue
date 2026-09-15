@@ -1,66 +1,80 @@
 <script setup lang="ts">
-import { Callout } from '@proj-airi/ui'
+import { Button, Callout, FieldCheckbox, FieldInput, FieldSelect, FieldTextArea } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import GamingModuleSettings from './GamingModuleSettings.vue'
+import { useGameHostStore } from '../../stores/modules/game-host'
 
-import { useMinecraftStore } from '../../stores/modules/gaming-minecraft'
-
-const minecraftStore = useMinecraftStore()
+/**
+ * Minecraft settings backed by the MCPFabric game-host bridge (MC-0a/MC-0c).
+ *
+ * The old standalone-bot surface (server address/port/bot username pushed over
+ * the mods channel) is gone: this page edits the loopback bridge endpoint that
+ * the Electron main process dials, and shows the connection identity the model
+ * tools operate against.
+ */
 const { t } = useI18n()
+const gameHostStore = useGameHostStore()
 
 const {
-  deliveryState,
-  serviceConnected,
-  latestRuntimeContextText,
-  lastRuntimeContextAt,
-  runtimeContextAgeMs,
-  trafficEntries,
-} = storeToRefs(minecraftStore)
+  url,
+  token,
+  serverUrl,
+  planner,
+  chatEnabled,
+  chatAdminsText,
+  chatBlockedText,
+  chatSampleRate,
+  chatContextLines,
+  allowedToolsText,
+  status,
+  config,
+  busy,
+  saveState,
+  saveError,
+  bridgeAvailable,
+} = storeToRefs(gameHostStore)
 
-const statusTheme = computed(() => serviceConnected.value ? 'lime' : 'orange')
+const plannerOptions = computed(() => [
+  { value: 'terrain' as const, label: t('settings.pages.modules.gaming-minecraft.movement-planner-terrain') },
+  { value: 'legacy' as const, label: t('settings.pages.modules.gaming-minecraft.movement-planner-legacy') },
+])
 
-const statusLabel = computed(() => {
-  return serviceConnected.value
-    ? t('settings.pages.modules.gaming-minecraft.status.service-online')
-    : t('settings.pages.modules.gaming-minecraft.status.service-offline')
+const statusTheme = computed(() => {
+  switch (status.value.phase) {
+    case 'connected':
+      return 'lime'
+    case 'error':
+      return 'red'
+    case 'connecting':
+      return 'orange'
+    default:
+      return 'primary'
+  }
 })
 
-const deliveryLabel = computed(() => {
-  if (deliveryState.value === 'sent')
-    return t('settings.pages.modules.gaming-minecraft.delivery.sent')
-  if (deliveryState.value === 'pending')
-    return t('settings.pages.modules.gaming-minecraft.delivery.pending')
-  return ''
+const statusLabel = computed(() => t(`settings.pages.modules.gaming-minecraft.status.${status.value.phase}`))
+
+const tokenPlaceholder = computed(() => config.value.hasToken
+  ? t('settings.pages.modules.gaming-minecraft.token-stored-placeholder')
+  : t('settings.pages.modules.gaming-minecraft.token-placeholder'))
+
+const identityRows = computed(() => {
+  const identity = status.value.identity
+  if (!identity)
+    return []
+
+  return [
+    { key: 'version', value: identity.minecraftVersion },
+    { key: 'world', value: identity.worldId },
+    { key: 'dimension', value: identity.dimension },
+    { key: 'player', value: identity.playerUuid },
+  ]
 })
-
-const lastRuntimeUpdate = computed(() => {
-  if (!lastRuntimeContextAt.value)
-    return t('settings.pages.modules.gaming-minecraft.status.no-runtime-context')
-
-  const seconds = Math.floor(runtimeContextAgeMs.value / 1000)
-  if (seconds > 60)
-    return t('settings.pages.modules.gaming-minecraft.status.last-context-stale')
-
-  return t('settings.pages.modules.gaming-minecraft.status.last-context-seconds', { seconds })
-})
-
-function formatTrafficTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(timestamp)
-}
-
-function formatTrafficPayload(payload: unknown) {
-  return JSON.stringify(payload, null, 2)
-}
 
 onMounted(() => {
-  minecraftStore.initialize()
+  void gameHostStore.refresh()
 })
 </script>
 
@@ -72,78 +86,150 @@ onMounted(() => {
       'rounded-xl bg-neutral-100 p-4 dark:bg-[rgba(0,0,0,0.3)]',
     ]"
   >
-    <GamingModuleSettings
-      :store="minecraftStore"
-      i18n-key-prefix="settings.pages.modules.gaming-minecraft"
-    />
-
-    <div v-if="deliveryLabel" :class="['text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
-      {{ deliveryLabel }}
-    </div>
-
-    <div :class="['h-px', 'bg-neutral-200', 'dark:bg-neutral-800']" />
-
-    <Callout :theme="statusTheme" :label="statusLabel">
-      <div :class="['flex flex-col gap-2 text-sm']">
-        <div>
-          {{ lastRuntimeUpdate }}
-        </div>
+    <Callout
+      v-if="!bridgeAvailable"
+      theme="primary"
+      :label="t('settings.pages.modules.gaming-minecraft.desktop-only.title')"
+    >
+      <div :class="['text-sm']">
+        {{ t('settings.pages.modules.gaming-minecraft.desktop-only.description') }}
       </div>
     </Callout>
 
-    <div :class="['flex flex-col gap-3']">
-      <div :class="['text-sm font-medium text-neutral-900 dark:text-neutral-100']">
-        {{ t('settings.pages.modules.gaming-minecraft.runtime.title') }}
-      </div>
-      <div :class="['grid gap-3 text-sm text-neutral-600 dark:text-neutral-300']">
-        <div>
-          <div :class="['text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400']">
-            {{ t('settings.pages.modules.gaming-minecraft.runtime.connection') }}
-          </div>
-          <div>{{ statusLabel }}</div>
-        </div>
-        <div>
-          <div :class="['text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400']">
-            {{ t('settings.pages.modules.gaming-minecraft.runtime.latest-context') }}
-          </div>
-          <pre
-            :class="[
-              'mt-2 whitespace-pre-wrap rounded-lg bg-neutral-950/90 p-3 text-xs text-neutral-100',
-            ]"
-          >{{ latestRuntimeContextText || t('settings.pages.modules.gaming-minecraft.runtime.waiting') }}</pre>
-        </div>
-      </div>
-    </div>
+    <template v-else>
+      <FieldInput
+        v-model="url"
+        :label="t('settings.pages.modules.gaming-minecraft.bridge-url')"
+        :description="t('settings.pages.modules.gaming-minecraft.bridge-url-description')"
+        :placeholder="t('settings.pages.modules.gaming-minecraft.bridge-url-placeholder')"
+      />
 
-    <div :class="['flex flex-col gap-3']">
-      <div :class="['text-sm font-medium text-neutral-900 dark:text-neutral-100']">
-        {{ t('settings.pages.modules.gaming-minecraft.debug.title') }}
+      <FieldInput
+        v-model="serverUrl"
+        :label="t('settings.pages.modules.gaming-minecraft.bridge-server-url')"
+        :description="t('settings.pages.modules.gaming-minecraft.bridge-server-url-description')"
+        :placeholder="t('settings.pages.modules.gaming-minecraft.bridge-server-url-placeholder')"
+      />
+
+      <FieldInput
+        v-model="token"
+        type="password"
+        autocomplete="off"
+        :label="t('settings.pages.modules.gaming-minecraft.bridge-token')"
+        :description="t('settings.pages.modules.gaming-minecraft.bridge-token-description')"
+        :placeholder="tokenPlaceholder"
+      />
+
+      <FieldSelect
+        v-model="planner"
+        :label="t('settings.pages.modules.gaming-minecraft.movement-planner')"
+        :description="t('settings.pages.modules.gaming-minecraft.movement-planner-description')"
+        :options="plannerOptions"
+      />
+
+      <div :class="['h-px', 'bg-neutral-200', 'dark:bg-neutral-800']" />
+
+      <FieldCheckbox
+        v-model="chatEnabled"
+        :label="t('settings.pages.modules.gaming-minecraft.chat-enabled')"
+        :description="t('settings.pages.modules.gaming-minecraft.chat-enabled-description')"
+      />
+
+      <FieldTextArea
+        v-model="chatAdminsText"
+        :rows="3"
+        :required="false"
+        :label="t('settings.pages.modules.gaming-minecraft.chat-admins')"
+        :description="t('settings.pages.modules.gaming-minecraft.chat-admins-description')"
+      />
+
+      <FieldTextArea
+        v-model="chatBlockedText"
+        :rows="3"
+        :required="false"
+        :label="t('settings.pages.modules.gaming-minecraft.chat-blocked')"
+        :description="t('settings.pages.modules.gaming-minecraft.chat-blocked-description')"
+      />
+
+      <div :class="['grid', 'gap-4', 'sm:grid-cols-2']">
+        <FieldInput
+          v-model.number="chatSampleRate"
+          type="number"
+          min="0"
+          max="1"
+          step="0.05"
+          :label="t('settings.pages.modules.gaming-minecraft.chat-sample-rate')"
+          :description="t('settings.pages.modules.gaming-minecraft.chat-sample-rate-description')"
+        />
+        <FieldInput
+          v-model.number="chatContextLines"
+          type="number"
+          min="0"
+          max="20"
+          step="1"
+          :label="t('settings.pages.modules.gaming-minecraft.chat-context-lines')"
+          :description="t('settings.pages.modules.gaming-minecraft.chat-context-lines-description')"
+        />
       </div>
-      <div
-        v-if="trafficEntries.length === 0"
-        :class="['text-sm text-neutral-500 dark:text-neutral-400']"
-      >
-        {{ t('settings.pages.modules.gaming-minecraft.debug.empty') }}
+
+      <FieldTextArea
+        v-model="allowedToolsText"
+        :rows="5"
+        :required="false"
+        :label="t('settings.pages.modules.gaming-minecraft.allowed-tools')"
+        :description="t('settings.pages.modules.gaming-minecraft.allowed-tools-description')"
+      />
+
+      <div :class="['flex items-center gap-3']">
+        <Button
+          :label="t('settings.common.save')"
+          :disabled="busy"
+          @click="gameHostStore.saveSettings()"
+        />
+        <Button
+          variant="secondary"
+          :label="t('settings.pages.modules.gaming-minecraft.recheck')"
+          :disabled="busy"
+          @click="gameHostStore.refresh()"
+        />
       </div>
-      <div v-else :class="['flex flex-col gap-3']">
-        <div
-          v-for="entry in [...trafficEntries].reverse()"
-          :key="entry.id"
-          :class="['rounded-xl border border-neutral-200 bg-white/80 p-3 dark:border-neutral-800 dark:bg-black/20']"
-        >
-          <div :class="['flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400']">
-            <span>{{ entry.type }}</span>
-            <span>{{ formatTrafficTime(entry.receivedAt) }}</span>
+
+      <div v-if="saveState === 'saved'" :class="['text-sm', 'text-green-600', 'dark:text-green-400']">
+        {{ t('settings.pages.modules.gaming-minecraft.save-saved') }}
+      </div>
+      <div v-else-if="saveState === 'error'" :class="['text-sm', 'text-red-500']">
+        {{ t('settings.pages.modules.gaming-minecraft.save-failed', { reason: saveError }) }}
+      </div>
+
+      <div :class="['h-px', 'bg-neutral-200', 'dark:bg-neutral-800']" />
+
+      <Callout :theme="statusTheme" :label="statusLabel">
+        <div :class="['flex flex-col gap-2 text-sm']">
+          <div v-if="status.phase === 'error'">
+            {{ status.error }}
           </div>
-          <div :class="['mt-2 text-sm font-medium text-neutral-900 dark:text-neutral-100']">
-            {{ entry.summary }}
+          <div v-else-if="status.phase === 'connected' && identityRows.length === 0">
+            {{ t('settings.pages.modules.gaming-minecraft.status.identity-pending') }}
           </div>
-          <div :class="['mt-1 text-xs text-neutral-500 dark:text-neutral-400']">
-            {{ t('settings.pages.modules.gaming-minecraft.debug.source', { source: entry.source }) }}
+          <div v-else-if="status.phase === 'unconfigured'">
+            {{ t('settings.pages.modules.gaming-minecraft.status.unconfigured-hint') }}
           </div>
-          <pre :class="['mt-3 overflow-x-auto rounded-lg bg-neutral-950/90 p-3 text-xs text-neutral-100']">{{ formatTrafficPayload(entry.payload) }}</pre>
+          <div v-else-if="status.phase === 'connecting'">
+            {{ t('settings.pages.modules.gaming-minecraft.status.connecting-hint') }}
+          </div>
+        </div>
+      </Callout>
+
+      <div v-if="identityRows.length > 0" :class="['grid gap-3 text-sm text-neutral-600 dark:text-neutral-300', 'sm:grid-cols-2']">
+        <div v-for="row in identityRows" :key="row.key">
+          <div :class="['text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400']">
+            {{ t(`settings.pages.modules.gaming-minecraft.identity.${row.key}`) }}
+          </div>
+          <div :class="['break-all']">
+            {{ row.value }}
+          </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
