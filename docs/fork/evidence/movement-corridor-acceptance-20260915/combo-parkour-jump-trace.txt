@@ -1,0 +1,10 @@
+2026-09-16T03:54:28.744Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=settle pos=83.99,83.00,-14.47 vel=-0.003,0.000 input=none done=1 next=
+2026-09-16T03:54:28.923Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=settle pos=84.23,83.00,-14.47 vel=0.083,-0.000 input=none done=1 next=
+2026-09-16T03:54:29.085Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=settle pos=84.39,83.00,-14.47 vel=0.013,0.000 input=none done=1 next=
+2026-09-16T03:54:52.267Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=takeoff pos=89.50,77.00,-25.35 vel=0.004,0.025 input=forward done=0 next=edge-1
+2026-09-16T03:54:52.454Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=airborne pos=89.79,78.17,-25.06 vel=0.070,0.067 input=forward done=0 next=edge-1
+2026-09-16T03:55:01.402Z [33m[warn][39m [35m[main/game-host][39m terrain: step -> 84,83,-15 break=0 place=0 parkour=true
+2026-09-16T03:55:01.798Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=airborne pos=86.41,84.00,-14.44 vel=-0.154,-0.001 input=forward done=0 next=
+2026-09-16T03:55:01.981Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=airborne pos=85.64,84.18,-14.45 vel=-0.186,-0.001 input=forward done=0 next=
+2026-09-16T03:55:02.158Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=airborne pos=84.99,83.50,-14.45 vel=-0.204,-0.002 input=forward done=0 next=
+2026-09-16T03:55:02.343Z [33m[warn][39m [35m[main/game-host][39m terrain: jump task edge-0 phase=settle pos=84.45,83.00,-14.46 vel=0.019,-0.000 input=none done=1 next=

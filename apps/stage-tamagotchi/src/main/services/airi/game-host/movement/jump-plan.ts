@@ -28,8 +28,12 @@ export const SPRINT_SPEED = 0.281
 export const MAX_JUMP_RISE = 1.26
 /** Below this the follower walks up instead of latching a jump. */
 const MIN_JUMP_RISE = 0.35
-/** Flight samples along the trajectory. */
-const TRAJECTORY_SAMPLES = 12
+/** A level edge beyond this distance is a gap, not a step, so it needs a jump. */
+const GAP_JUMP_DISTANCE = 1.5
+/** Flat jumps keep the audited physics: no rise, so the arc runs the full cycle. */
+const AIR_RETENTION = 0.91
+/** A sprinting player adds this much horizontal speed on the jump tick. */
+const SPRINT_JUMP_BOOST = 0.2
 /** Landing must be within this distance of the destination stand point. */
 export const LANDING_TOLERANCE = 0.55
 /** Extra reach granted before a sprint is required (measurement noise). */
@@ -72,6 +76,31 @@ export interface JumpRejection {
   reason: JumpRejectionReason
   /** Detail for the ledger and the debug trace. */
   detail?: string
+}
+
+/**
+ * Horizontal reach of a flat jump, from the audited per-tick physics.
+ *
+ * The jump tick moves with the whole ground speed plus the sprint boost, then
+ * every air tick keeps 0.91 of the last speed. `simulateFlight`'s flat estimate
+ * (`speed * ticks`) is too generous for a gap with nothing to land on short of
+ * the far side, and it ignores the sprint boost that makes the far side
+ * reachable. This model is used for level gap edges only.
+ *
+ * @example
+ * flatReach(WALK_SPEED, false)
+ * // => 1.71
+ */
+function flatReach(speed: number, sprint: boolean): number {
+  const ticks = simulateFlight(0, speed).ticks
+  const jumpTickSpeed = speed + (sprint ? SPRINT_JUMP_BOOST : 0)
+  let reach = 0
+  let decay = 1
+  for (let tick = 0; tick < ticks; tick++) {
+    reach += jumpTickSpeed * decay
+    decay *= AIR_RETENTION
+  }
+  return reach
 }
 
 /**
@@ -132,53 +161,17 @@ function landingSupported(to: Vec3, world: BlockSource): boolean {
 }
 
 /**
- * Blocks the flight may pass through: everything except the destination's own
- * support and anything at or below the landing level. A block that rises above
- * both the current feet and the destination top is a wall in the way.
+ * NOTICE: the mid-flight wall sweep was deleted here.
+ *
+ * It modelled the flight as a straight line from stand to stand, so a hop that
+ * slides along a wall face was rejected as a fly-through (live combo fixture:
+ * the column at 92,81,-26 beside the landing, which every live run climbed).
+ * The mod's per-tick predictor simulates the real collision, including that
+ * slide, and refuses an impossible flight with `no_safe_takeoff`. The follower
+ * reports that as `blocked` and the executor replans at once. The predictor is
+ * the flight authority. The certain checks stay: landing support, takeoff
+ * headroom and landing headroom.
  */
-function flightBlocked(from: Vec3, to: Vec3, world: BlockSource): boolean {
-  const samples = Math.max(2, TRAJECTORY_SAMPLES)
-  for (let index = 1; index <= samples; index++) {
-    const t = index / samples
-    const foot: Vec3 = {
-      x: from.x + (to.x - from.x) * t,
-      y: from.y + (to.y - from.y) * Math.min(1, t * 1.15),
-      z: from.z + (to.z - from.z) * t,
-    }
-    const box = playerBox(foot)
-    const minX = Math.floor(box.min.x)
-    const maxX = Math.floor(box.max.x - 1e-9)
-    const minZ = Math.floor(box.min.z)
-    const maxZ = Math.floor(box.max.z - 1e-9)
-    const minY = Math.floor(box.min.y)
-    const maxY = Math.floor(box.max.y - 1e-9)
-    for (let x = minX; x <= maxX; x++) {
-      for (let z = minZ; z <= maxZ; z++) {
-        for (let y = minY; y <= maxY; y++) {
-          const block = world.getBlock(x, y, z)
-          if (!block)
-            continue
-          // The destination's own column is where the bot lands, not a wall.
-          if (x === Math.floor(to.x) && z === Math.floor(to.z))
-            continue
-          for (const collision of collisionBoxesOf(block)) {
-            if (!overlaps3(box, collision))
-              continue
-            // Only a wall well above the landing blocks the hop. A staircase's
-            // next step sits exactly one block above the destination and is the
-            // surface the *next* edge climbs: treating it as a wall rejected
-            // mid-chain edges, and the run then fell back to a host retry (the
-            // implicit host execution this planner is meant to remove). A real
-            // pillar rises further than one step.
-            if (collision.max.y > to.y + 1.5 + 1e-6)
-              return true
-          }
-        }
-      }
-    }
-  }
-  return false
-}
 
 /**
  * Plans one jump-up edge.
@@ -202,17 +195,22 @@ export function planStepUp(options: {
 }): JumpPlan | JumpRejection {
   const { from, to, world, config } = options
   const rise = to.y - from.y
+  const gap = Math.hypot(to.x - from.x, to.z - from.z)
+  // A level edge that is farther than one step is a gap: the bot must jump it
+  // even though nothing rises. Anything nearer stays a walk, so the follower
+  // does not latch a jump for a cell it can simply step across. An edge with a
+  // real rise keeps the climb rules below.
+  const gapEdge = rise >= -0.05 && rise < MIN_JUMP_RISE && gap > GAP_JUMP_DISTANCE
   if (rise > MAX_JUMP_RISE)
     return { ok: false, reason: 'too-high', detail: `rise ${rise.toFixed(2)}` }
-  if (rise < MIN_JUMP_RISE)
-    return { ok: false, reason: 'not-a-jump', detail: `rise ${rise.toFixed(2)}` }
+  if (rise < MIN_JUMP_RISE && !gapEdge)
+    return { ok: false, reason: 'not-a-jump', detail: `rise ${rise.toFixed(2)}, gap ${gap.toFixed(2)}` }
 
-  const gap = Math.hypot(to.x - from.x, to.z - from.z)
-  const walk = simulateFlight(rise, WALK_SPEED)
-  const sprint = simulateFlight(rise, SPRINT_SPEED)
-  if (gap > sprint.distance + SPRINT_MARGIN)
-    return { ok: false, reason: 'too-far', detail: `gap ${gap.toFixed(2)} > sprint reach ${sprint.distance.toFixed(2)}` }
-  const needsSprint = gap > walk.distance + SPRINT_MARGIN
+  const walkDistance = gapEdge ? flatReach(WALK_SPEED, false) : simulateFlight(rise, WALK_SPEED).distance
+  const sprintDistance = gapEdge ? flatReach(SPRINT_SPEED, true) : simulateFlight(rise, SPRINT_SPEED).distance
+  if (gap > sprintDistance + SPRINT_MARGIN)
+    return { ok: false, reason: 'too-far', detail: `gap ${gap.toFixed(2)} > sprint reach ${sprintDistance.toFixed(2)}` }
+  const needsSprint = gap > walkDistance + SPRINT_MARGIN
   if (needsSprint && !config.allowSprinting)
     return { ok: false, reason: 'too-far', detail: `gap ${gap.toFixed(2)} needs a sprint, sprinting is disabled` }
 
@@ -226,12 +224,10 @@ export function planStepUp(options: {
     return { ok: false, reason: 'no-headroom', detail: `above ${to.x.toFixed(2)},${to.y.toFixed(2)},${to.z.toFixed(2)}` }
   if (headroomBlocked(from, world, from.y))
     return { ok: false, reason: 'no-headroom', detail: `above ${from.x.toFixed(2)},${from.y.toFixed(2)},${from.z.toFixed(2)}` }
-  if (flightBlocked(from, to, world))
-    return { ok: false, reason: 'blocked', detail: `flight ${from.x.toFixed(2)},${from.z.toFixed(2)} -> ${to.x.toFixed(2)},${to.z.toFixed(2)}` }
 
   const length = gap < 1e-9 ? { x: 0, z: 0 } : { x: (to.x - from.x) / gap, z: (to.z - from.z) / gap }
   const speed = needsSprint ? SPRINT_SPEED : WALK_SPEED
-  const flight = simulateFlight(rise, speed).distance
+  const flight = gapEdge ? flatReach(speed, needsSprint) : simulateFlight(rise, speed).distance
   // Takeoff line: the ideal is `to - direction * flight`; when that sits far
   // behind the source stand there is no room for the run-up, so the line is the
   // source stand itself and the hop starts as early as possible.

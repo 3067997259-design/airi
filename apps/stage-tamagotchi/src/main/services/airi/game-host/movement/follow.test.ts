@@ -181,7 +181,7 @@ describe('walk motion classification', () => {
     })
     // The cursor names the rejected edge, not the cell before it: the executor
     // retried an already completed edge when it read the old value.
-    expect(result).toMatchObject({ status: 'stuck', cursor: 1 })
+    expect(result).toMatchObject({ status: 'blocked', cursor: 1 })
     expect(setInput).not.toHaveBeenCalled()
   })
 
@@ -245,7 +245,49 @@ describe('walk motion classification', () => {
       shouldStop: () => false,
     })
     // Same as the rejection above: the failed edge carries the failure.
-    expect(result).toMatchObject({ status: 'stuck', cursor: 1 })
+    expect(result).toMatchObject({ status: 'blocked', cursor: 1 })
+    expect(setInput).not.toHaveBeenCalled()
+  })
+
+  // ROOT CAUSE (combo fixture, the final two-cell gap):
+  //
+  // The follower latched a jump only for ascents, so a level gap the planner's
+  // parkour move had accepted never reached the jump task. The bot walked to
+  // the bridge end, stalled, and the run ended `unreachable` with the far pad
+  // three cells away.
+  it('reaches the jump task for a level gap the planner accepted', async () => {
+    const entries: SnapshotEntry[] = []
+    const box = { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }
+    // Two floor segments with a two-cell void between them: the source bridge
+    // ends at cell 0 and the landing pad starts at cell 3.
+    for (let x = -1; x <= 0; x++) {
+      for (let z = -1; z <= 1; z++)
+        entries.push({ x, y: 0, z, id: 'minecraft:stone', collision: [box] })
+    }
+    for (let x = 3; x <= 4; x++) {
+      for (let z = -1; z <= 1; z++)
+        entries.push({ x, y: 0, z, id: 'minecraft:stone', collision: [box] })
+    }
+    const world = createSnapshot(entries, { exactShapes: true })
+    const state: MovementState = { position: { x: 0.5, y: 1, z: 0.5 }, yaw: -90, inWater: false, onGround: true }
+    const { port: base, setInput } = controlPort(state)
+    const port: MovementControlPort = base
+    port.startJump = vi.fn(async (_task: JumpTask) => ({ state: 'running' as const, endReason: 'running', ticks: 0 }))
+    port.jumpStatus = vi.fn(async () => ({ state: 'failed' as const, endReason: 'fell', ticks: 12 }))
+    const result = await runWalkRun({
+      port,
+      cells: [{ x: 0.5, y: 1, z: 0.5 }, { x: 3.5, y: 1, z: 0.5 }],
+      ...OPTIONS,
+      world,
+      shouldStop: () => false,
+    })
+    expect(port.startJump).toHaveBeenCalledTimes(1)
+    const task = (port.startJump as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as JumpTask
+    expect(task.edges[0]?.target).toMatchObject({ x: 3.5, y: 1, z: 0.5 })
+    expect(task.edges[0]?.sprint).toBe(true)
+    // The predictor refused this edge, so the run reports blocked for a replan
+    // instead of walking into the gap or retrying the same hop.
+    expect(result).toMatchObject({ status: 'blocked' })
     expect(setInput).not.toHaveBeenCalled()
   })
 

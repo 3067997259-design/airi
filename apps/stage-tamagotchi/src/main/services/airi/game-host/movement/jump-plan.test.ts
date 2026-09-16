@@ -91,6 +91,50 @@ describe('planStepUp', () => {
     expect(plan).toMatchObject({ ok: false, reason: 'too-far' })
   })
 
+  // ROOT CAUSE (combo fixture, the final two-cell gap):
+  //
+  // planStepUp rejected every level edge with `not-a-jump`, so a gap the
+  // planner's own parkour move generated had no jump plan at all. The follower
+  // walked to the edge, stalled, and the run ended `unreachable` even though
+  // the far pad was three cells away and reachable with a sprint.
+  it('accepts a level two-cell gap and names the sprint it needs', () => {
+    const world = flatGround([{ x: 2, y: 1, z: 0 }])
+    const plan = planStepUp({ from: { x: 0.5, y: 2, z: 0.5 }, to: { x: 2.5, y: 2, z: 0.5 }, world, config })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok)
+      return
+    expect(plan.rise).toBe(0)
+    expect(plan.gap).toBeCloseTo(2, 6)
+    expect(plan.sprint).toBe(true)
+    expect(plan.target).toMatchObject({ x: 2.5, y: 2, z: 0.5 })
+  })
+
+  it('accepts a level three-cell gap with the sprint boost', () => {
+    const world = flatGround([{ x: 3, y: 1, z: 0 }])
+    const plan = planStepUp({ from: { x: 0.5, y: 2, z: 0.5 }, to: { x: 3.5, y: 2, z: 0.5 }, world, config })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok)
+      return
+    expect(plan.gap).toBeCloseTo(3, 6)
+    // The boost makes 3.0 feasible: without it the sprint reach stops at 2.22.
+    expect(plan.sprint).toBe(true)
+    expect(plan.flight).toBeGreaterThan(3)
+  })
+
+  it('rejects a level gap beyond the sprint reach', () => {
+    const world = flatGround([{ x: 6, y: 1, z: 0 }])
+    const plan = planStepUp({ from: { x: 0.5, y: 2, z: 0.5 }, to: { x: 6.5, y: 2, z: 0.5 }, world, config })
+    expect(plan).toMatchObject({ ok: false, reason: 'too-far' })
+  })
+
+  it('rejects a level gap whose far side has no support', () => {
+    // The destination cell holds a plant (no collision, floor level): the
+    // flight would drop into the gap instead of landing on the foot level.
+    const world = flatGround([{ x: 3, y: 1, z: 0, collision: [] }])
+    const plan = planStepUp({ from: { x: 0.5, y: 2, z: 0.5 }, to: { x: 3.5, y: 2, z: 0.5 }, world, config })
+    expect(plan).toMatchObject({ ok: false, reason: 'no-landing' })
+  })
+
   it('rejects a destination without a support at its foot level', () => {
     // The cell below the destination holds a plant (no collision, floor level):
     // the stand point has no support at its foot level.
@@ -102,13 +146,28 @@ describe('planStepUp', () => {
     expect(plan).toMatchObject({ ok: false, reason: 'no-landing' })
   })
 
-  it('rejects a wall inside the flight', () => {
-    // The pillar stands beside the straight line, one block up from the source
-    // and two above the destination's landing level: the bot cannot pass it.
-    const world = flatGround([{ x: 1, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { x: 1, y: 3, z: 0 }])
-    const plan = planStepUp({ from: { x: 0.5, y: 1, z: 0.5 }, to: { x: 2.5, y: 2, z: 0.5 }, world, config })
-    expect(plan).toMatchObject({ ok: false, reason: 'blocked' })
+  // ROOT CAUSE (combo fixture staircase, edge (91,79,-26) -> (92,80,-27)):
+  //
+  // The flight sweep rejected this hop while every live run climbed it. The
+  // rejection stayed hidden because the executor still had the discrete retry
+  // as a fallback. That retry is gone now, so a false positive here ends the
+  // run. The column beside the landing rises two above the foot level, and the
+  // hop passes south of it.
+  it('accepts a staircase hop beside a column that rises above the landing', () => {
+    const world = flatGround([
+      { x: 91, y: 78, z: -26 },
+      { x: 92, y: 79, z: -27 },
+      { x: 92, y: 79, z: -26 },
+      { x: 92, y: 80, z: -26 },
+      { x: 92, y: 81, z: -26 },
+      { x: 92, y: 81, z: -25 },
+      { x: 93, y: 80, z: -26 },
+    ])
+    const plan = planStepUp({ from: { x: 91.5, y: 79, z: -25.5 }, to: { x: 92.5, y: 80, z: -26.5 }, world, config })
+    expect(plan.ok, plan.ok ? '' : `${plan.reason}: ${plan.detail}`).toBe(true)
   })
+
+  // The mid-flight sweep is gone: it rejected a hop that slides along a wall\n  // face. A wall that fills the landing space is still rejected here, and the\n  // mod's predictor owns every flight that only grazes a wall.\n  it('rejects a wall that fills the landing space', () => {\n    const world = flatGround([{ x: 1, y: 1, z: 0 }, { x: 1, y: 2, z: 0 }, { x: 2, y: 2, z: 0 }, { x: 2, y: 3, z: 0 }])\n    const plan = planStepUp({ from: { x: 0.5, y: 1, z: 0.5 }, to: { x: 1.5, y: 2, z: 0.5 }, world, config })\n    expect(plan).toMatchObject({ ok: false, reason: 'no-headroom' })\n  })
 
   it('rejects a ceiling above the destination', () => {
     const world = flatGround([{ x: 1, y: 1, z: 0 }, { x: 1, y: 3, z: 0 }, { x: 1, y: 4, z: 0 }])

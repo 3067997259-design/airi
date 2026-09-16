@@ -40,6 +40,13 @@ for (const library of json.libraries) {
 libraries.push(`${versionDir}\\AIRI.jar`)
 
 const natives = 'C:\\Users\\86130\\AppData\\Roaming\\.minecraft\\bin\\natives'
+// The bot keeps its own game directory: both the human client and the bot share
+// one version profile, and the bridge port comes from `config/mcpfabric.config.json`
+// inside the game directory, so a shared directory lets whichever client starts
+// first own the port (a live session had AIRI driving the human's account).
+// Usage: node launch-client.mjs [gameDir] [username]
+const gameDir = process.argv[2] ?? versionDir
+const username = process.argv[3] ?? 'airitest'
 const args = [
   '-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump',
   `-Djava.library.path=${natives}`,
@@ -60,9 +67,9 @@ const args = [
   '-XX:MaxGCPauseMillis=50', '-XX:+PerfDisableSharedMem', '-XX:MinHeapFreeRatio=25', '-XX:MaxHeapFreeRatio=40',
   '-Dlog4j2.formatMsgNoLookups=true', '-Dstdout.encoding=utf-8', '-Dstderr.encoding=utf-8',
   'net.fabricmc.loader.impl.launch.knot.KnotClient',
-  '--username', 'airitest',
+  '--username', username,
   '--version', 'AIRI',
-  '--gameDir', versionDir,
+  '--gameDir', gameDir,
   '--assetsDir', `${root}\\assets`,
   '--assetIndex', '17',
   '--uuid', '0000000000003008999A5611E1BEF0B0',

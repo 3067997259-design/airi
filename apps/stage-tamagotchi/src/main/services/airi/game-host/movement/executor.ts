@@ -421,7 +421,14 @@ async function walkStep(step: PathStep, options: {
   const stepTarget: Vec3 = standPointOf({ x: step.x, y: step.y, z: step.z })
   const from: Vec3 = step.from
   const dir = { x: Math.sign(stepTarget.x - from.x), z: Math.sign(stepTarget.z - from.z) }
-  const takeoffEdge = { x: from.x + dir.x, y: from.y, z: from.z + dir.z }
+  const sourceStand = standPointOf({ x: from.x, y: from.y, z: from.z })
+  // A parkour takeoff happens at the edge of the source support, so its trigger
+  // point sits just inside that edge. `from + dir` is one whole cell past the
+  // edge, which lies over the gap: a multi-cell gap never reached it and the
+  // jump never fired (live combo run: stalled at the bridge end).
+  const takeoffEdge = step.parkour
+    ? { x: sourceStand.x + dir.x * 0.45, y: from.y, z: sourceStand.z + dir.z * 0.45 }
+    : { x: from.x + dir.x, y: from.y, z: from.z + dir.z }
   const deadline = now() + stepTimeoutMs
   const recent: Vec3[] = []
   let jumped = false
@@ -444,7 +451,7 @@ async function walkStep(step: PathStep, options: {
 
     const nearGoal = horizontalDistance(state.position, goal) <= tolerance
     const jumpingUp = stepTarget.y > Math.floor(state.position.y) && horizontalDistance(state.position, stepTarget) < 1.4
-    const parkourJump = step.parkour && !jumped && horizontalDistance(state.position, takeoffEdge) < 0.8
+    const parkourJump = step.parkour && !jumped && horizontalDistance(state.position, takeoffEdge) < 0.75
     const input: MovementInput = {
       forward: true,
       // Sprint only on straight segments: a turn ahead (or the goal) needs the
@@ -661,6 +668,17 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
           })
           if (runResult.status === 'cancelled')
             return finish('cancelled')
+          if (runResult.status === 'blocked') {
+            // The follower refused the edge itself (no landing, a wall in the
+            // flight, or the predictor's refusal). Disable that destination and
+            // replan immediately: a discrete retry of the same hop only spent
+            // the stuck window, and the live combo run jumped at a stone three
+            // times before it re-planned around it.
+            debug?.(`walk run blocked at ${runResult.position.x.toFixed(1)},${runResult.position.y.toFixed(1)},${runResult.position.z.toFixed(1)}; replanning`)
+            noteFailedEdge(failedRunStep(plan.steps, index, runResult.cursor), snapshot)
+            stuck = true
+            break
+          }
           if (runResult.status === 'stuck') {
             // The run reports how far it got; the failed edge is the one out of
             // the last passed cell, not the run's start (CD-G1 D7). A diagonal
@@ -702,6 +720,43 @@ export async function runTerrainMove(options: TerrainMoveOptions): Promise<Terra
         }
 
         const nextStep = plan.steps[index + 1]
+        // A parkour step is a jump over a gap. The follower's jump-task
+        // delegation is the proven executor for it, so the step runs through
+        // `runWalkRun` instead of the discrete stepper. The discrete stepper
+        // fires `jumpOnce` only when the bot stands past the gap's first cell,
+        // which a multi-cell gap never reaches: the live combo run stalled at
+        // the bridge end and ended `unreachable` with the far pad three cells
+        // away.
+        if (step.parkour && snapshot && port.startJump) {
+          const gapRun = await runWalkRun({
+            port,
+            cells: [
+              standPointOf({ x: step.from.x, y: step.from.y, z: step.from.z }, step.fromSupportHeight),
+              standPointOf({ x: step.x, y: step.y, z: step.z }, step.supportHeight),
+            ],
+            config,
+            shouldStop,
+            sleep,
+            now,
+            tickMs,
+            stepTimeoutMs,
+            world: snapshot,
+            ...(debug ? { debug } : {}),
+          })
+          if (gapRun.status === 'cancelled')
+            return finish('cancelled')
+          if (gapRun.status === 'blocked' || gapRun.status === 'stuck') {
+            debug?.(`parkour step blocked at ${gapRun.position.x.toFixed(1)},${gapRun.position.y.toFixed(1)},${gapRun.position.z.toFixed(1)}; replanning`)
+            noteFailedEdge(step, snapshot)
+            stuck = true
+            break
+          }
+          position = (await port.getState()).position
+          if (reachedAny(position))
+            return finish('reached')
+          index += 1
+          continue
+        }
         const stepDirection = { x: Math.sign(step.x - step.from.x), z: Math.sign(step.z - step.from.z) }
         const nextDirection = nextStep
           ? { x: Math.sign(nextStep.x - nextStep.from.x), z: Math.sign(nextStep.z - nextStep.from.z) }

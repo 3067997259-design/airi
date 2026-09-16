@@ -112,6 +112,13 @@ const FALLBACK_DROP = 1.2
 const CLIMB_ALIGN_DEG = 20
 /** Highest rise a vanilla jump can clear; above it the edge is impossible. */
 const MAX_STEP_JUMP_RISE = 1.26
+/**
+ * A level edge farther than this is a gap, not a step.
+ *
+ * It matches the planner's own gap threshold, so the follower latches a jump
+ * for every edge the planner accepted as a parkour jump.
+ */
+const GAP_JUMP_DISTANCE = 1.5
 /** Deadline handed to one per-tick jump task, and the host's transport grace. */
 const JUMP_TASK_TIMEOUT_MS = 8_000
 const JUMP_TASK_GRACE_MS = 2_500
@@ -119,7 +126,8 @@ const JUMP_TASK_GRACE_MS = 2_500
 const JUMP_POLL_MS = 150
 
 export interface WalkRunResult {
-  status: 'arrived' | 'stuck' | 'cancelled'
+  /** `blocked` means the edge itself was rejected, so the executor must replan and not retry it. */
+  status: 'arrived' | 'stuck' | 'blocked' | 'cancelled'
   cursor: number
   position: Vec3
 }
@@ -233,32 +241,50 @@ export async function runWalkRun(options: {
     // un-latched steers at the far lookahead node and can step off a
     // one-block-wide chain before the next ascend latch exists (live chain
     // trace: 0.22 from the far edge with a 0.2-per-poll residual slide).
-    if (!climbLatch && pendingCell.y - position.y > COMPLETION_HEIGHT_TOLERANCE) {
+    //
+    // A level edge farther than a step is a gap, and it needs a jump like an
+    // ascent does. Without this test the follower walked into the gap and
+    // reported stuck at the edge, so a parkour edge the planner generated with
+    // `parkour: true` never reached the jump task (combo fixture: the bridge
+    // ended at 87,83,-15 and the isolated pad at 84,83,-15 stayed unreachable).
+    const pendingRise = pendingCell.y - position.y
+    const pendingGap = horizontalDistance(position, pendingCell)
+    const gapEdge = pendingRise <= COMPLETION_HEIGHT_TOLERANCE && pendingGap > GAP_JUMP_DISTANCE
+    if (!climbLatch && (pendingRise > COMPLETION_HEIGHT_TOLERANCE || gapEdge)) {
       // A rise no jump can clear is a planning error, not a movement failure.
       // Fail the edge now: the executor disables its destination and replans
       // around it, instead of hopping in place until the stuck window and the
       // discrete retry timeout expire (live hill run: seconds lost per
       // impossible edge, and the "dead end" the user saw was a phantom one).
-      if (pendingCell.y - position.y > MAX_STEP_JUMP_RISE) {
+      if (pendingRise > MAX_STEP_JUMP_RISE) {
         debug?.(`run rejected: rise ${(pendingCell.y - position.y).toFixed(2)} at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
         // The failed edge is the rejected one, not the one before it: the
         // executor derives its retry target from this cursor and retried an
         // already completed edge, then charged the rejected edge again from a
         // different entry (live chain review).
-        return { status: 'stuck', cursor: pendingIndex, position }
+        return { status: 'blocked', cursor: pendingIndex, position }
       }
       // Step 2: with collision shapes, prove the hop first. A missing landing
       // support, a ceiling, or a wall inside the flight rejects the edge here so
       // the planner can route around it; the takeoff line it returns is where
       // the hop must start.
       let plan: JumpPlan | undefined
-      if (world && pendingCell.y - position.y > 0.6 + COMPLETION_HEIGHT_TOLERANCE) {
+      if (gapEdge && !world) {
+        // Without shapes a gap cannot be proven, and the run controller's own
+        // step logic only jumps ascents. Walking on would carry the bot off the
+        // edge, so the edge fails here instead.
+        debug?.(`run rejected: no shapes for the gap edge at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
+        return { status: 'blocked', cursor: pendingIndex, position }
+      }
+      if (world && (pendingRise > 0.6 + COMPLETION_HEIGHT_TOLERANCE || gapEdge)) {
         const source = cells[pendingIndex > cursor ? cursor : Math.max(0, pendingIndex - 1)] ?? cells[cursor]!
         const planned = planStepUp({ from: source, to: pendingCell, world, config })
         if (!planned.ok) {
           if (planned.reason !== 'not-a-jump') {
             debug?.(`run rejected: ${planned.reason} (${planned.detail ?? ''}) at ${pendingCell.x},${pendingCell.y},${pendingCell.z}`)
-            return { status: 'stuck', cursor: pendingIndex, position }
+            // The edge is rejected, not the bot: report it as blocked so the executor
+            // disables the destination and replans instead of retrying the same hop.
+            return { status: 'blocked', cursor: pendingIndex, position }
           }
         }
         else {
@@ -292,7 +318,11 @@ export async function runWalkRun(options: {
           return { status: 'cancelled', cursor, position }
         if (outcome.outcome === 'failed') {
           debug?.(`run jump task failed at ${plan.takeoff.x.toFixed(2)},${plan.takeoff.z.toFixed(2)} -> ${plan.target.x.toFixed(2)},${plan.target.z.toFixed(2)}`)
-          return { status: 'stuck', cursor: pendingIndex, position }
+          // The predictor refused the edge in this state. Report blocked so the
+          // executor disables the destination and replans at once. Returning
+          // stuck made it retry the refused hop discretely, and the live combo
+          // run spent its jumps on an edge a stone had just blocked.
+          return { status: 'blocked', cursor: pendingIndex, position }
         }
         climbLatch = undefined
         // A success result must carry a valid landing: the task's vote when
