@@ -76,6 +76,14 @@ const PLANT_IDS = new Set([
 ])
 const GRAVITY = new Set(['sand', 'red_sand', 'gravel', 'suspicious_sand', 'suspicious_gravel'])
 
+/**
+ * Tallest shape top a planned walk steps over without a jump, in block heights.
+ *
+ * This is the vanilla step height. A shape above it needs a jump, so it keeps
+ * the conservative obstacle class instead of becoming a walkable partial.
+ */
+const MAX_WALKABLE_TOP = 0.6
+
 export function normalizeBlockId(id: string): string {
   const colon = id.indexOf(':')
   return (colon >= 0 ? id.slice(colon + 1) : id).toLowerCase()
@@ -144,6 +152,19 @@ export function classifyBlock(input: ClassifyInput): BlockInfo {
     return { ...base, physical: false, safe: true, height: input.y + 0.5 }
   if (PLANT_IDS.has(id) || hasSuffix(id, PLANT_SUFFIXES))
     return { ...base, physical: false, safe: true, replaceable: true, height: input.y }
+
+  // A thin top from the source's own shapes is walkable: pressure plates
+  // (1/16), exact snow-layer heights, and any modded thin block. The player
+  // steps over anything at or below the 0.6 vanilla step height, so the route
+  // graph must use the real top instead of the full-block default. Placed after
+  // the id classes so tuned approximations stay: a stair's shape union tops out
+  // at 1.0, which is exactly why `_stairs` is 0.5 above. A source that sends no
+  // shapes keeps the conservative default below.
+  if (input.collision && input.collision.length > 0) {
+    const top = Math.max(...input.collision.map(box => box.maxY))
+    if (top > 1e-6 && top <= MAX_WALKABLE_TOP)
+      return { ...base, physical: false, safe: true, height: input.y + top }
+  }
 
   // An empty shape list from the source is trusted over the id tables: the
   // block does not collide, so the cell is walkable space and the surface stays

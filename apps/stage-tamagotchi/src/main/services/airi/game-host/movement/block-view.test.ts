@@ -74,6 +74,49 @@ describe('classifyBlock', () => {
     expect(topSlab).toMatchObject({ physical: true, safe: false })
   })
 
+  // ROOT CAUSE (pressure-plate corridor fixture):
+  //
+  // A pressure plate collides with a 1/16 lip and its collision list is not
+  // empty, so the "empty shapes mean passable" rule did not apply and no id
+  // class matched: the plate became a full one-block obstacle. The route graph
+  // then either detoured around it or ordered a phantom one-block jump, which
+  // the takeoff prediction refused because it sees the real 1/16 lip
+  // (|restY - targetY| = 0.94 > 0.35), and the run stalled at the plate.
+  it('treats a pressure plate as a walkable thin top', () => {
+    const plate = classifyBlock({
+      id: 'minecraft:oak_pressure_plate',
+      x: 4,
+      y: 64,
+      z: 4,
+      collision: [{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.0625, maxZ: 1 }],
+    })
+    expect(plate).toMatchObject({ physical: false, safe: true })
+    expect(plate.height).toBeCloseTo(64.0625, 4)
+  })
+
+  it('uses the shape height for an unlisted thin step over the id fallback', () => {
+    const step = classifyBlock({
+      id: 'minecraft:mystery_panel',
+      x: 4,
+      y: 64,
+      z: 4,
+      collision: [{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.5625, maxZ: 1 }],
+    })
+    expect(step).toMatchObject({ physical: false, safe: true })
+    expect(step.height).toBeCloseTo(64.5625, 4)
+  })
+
+  it('keeps a shape taller than the step height on the conservative path', () => {
+    const panel = classifyBlock({
+      id: 'minecraft:mystery_panel',
+      x: 4,
+      y: 64,
+      z: 4,
+      collision: [{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 0.75, maxZ: 1 }],
+    })
+    expect(panel).toMatchObject({ physical: true, safe: false })
+  })
+
   it('marks gravity blocks and keeps bedrock unbreakable', () => {
     expect(classifyBlock({ id: 'minecraft:sand', x: 1, y: 64, z: 1 })).toMatchObject({ canFall: true, physical: true })
     expect(classifyBlock({ id: 'minecraft:bedrock', x: 1, y: 64, z: 1 }).hardness).toBe(-1)
