@@ -267,25 +267,24 @@ export async function runWalkRun(options: {
       }
       climbLatch = { cell: pendingCell, ...(plan ? { plan } : {}) }
       // Step 3 delegation is an execution strategy, separate from the landing
-      // strategy inside the plan. The per-tick task covers the run's last one or
-      // two hops: two hops go in one submission so no host round trip sits
-      // between them (that gap slid the bot even with every key released), and
-      // control is never handed over mid-hop. `plan.brake` describes the
-      // landing, not the strategy, so it must not select the executor.
-      // The chain protocol is in place, but the whole-chain submission waits on
-      // the short-range predictor (batch 4): a zigzag staircase's diagonal hop
-      // is clipped by the two-high pillar beside it, and the constant
-      // "jump from the centre toward the target" cannot clear it (live chain
-      // run: z speed blocked at -12.30, drift east into the gap). Until the
-      // predictor can choose the takeoff inside the source block, the mod
-      // executes only the run's last two edges, which is the configuration the
-      // acceptance suite verified.
-      if (plan && port.startJump && pendingIndex >= cells.length - 2) {
+      // strategy inside the plan. The whole remaining chain goes in one
+      // submission: batch 4's short-range predictor chooses the takeoff
+      // position and re-aims per tick, so the zigzag staircase's
+      // pillar-clipped diagonal hop is executable by the mod itself (its
+      // prediction and the real trail agree to 0.000 per tick), and no host
+      // round trip sits between hops — that gap slid the bot even with every
+      // key released. Edges past the first unplanned one stay with the host
+      // path. `plan.brake` describes the landing, not the strategy, so it must
+      // not select the executor.
+      if (plan && port.startJump) {
         const chain: JumpPlan[] = [plan]
         if (world && pendingIndex < cells.length - 1) {
-          const plannedNext = planStepUp({ from: cells[pendingIndex]!, to: cells[cells.length - 1]!, world, config })
-          if (plannedNext.ok)
-            chain.push(plannedNext)
+          for (let index = pendingIndex; index < cells.length - 1; index++) {
+            const step = planStepUp({ from: cells[index]!, to: cells[index + 1]!, world, config })
+            if (!step.ok)
+              break
+            chain.push(step)
+          }
         }
         const finalEdge = pendingIndex + chain.length - 1 === cells.length - 1
         const outcome = await followJumpTask({ port, plan, chain, sleep, now, shouldStop, ...(debug ? { debug } : {}) })

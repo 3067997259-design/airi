@@ -54,13 +54,16 @@ else {
   console.log('no real touchdown in the recorded trail')
 }
 
-// Per-tick airborne deltas: the prediction's tick k vs the real tick k after
-// the takeoff (the real entry is the pre-input state, so the first simulated
-// tick aligns with the entry right after the takeoff).
+// Per-tick airborne deltas: the prediction's first airborne sample vs the real
+// trail's first airborne sample (takeoffIndex), then step by step. Ticks the
+// prediction spends on the ground before that are its pre-takeoff phase.
 console.log('airborne per-tick deltas (prediction tick vs real tick):')
+let predictedAir = 0
+while (predictedAir < predictedTrail.length && predictedTrail[predictedAir].onGround !== false)
+  predictedAir++
 for (let step = 1; step <= 8; step++) {
-  const predicted = predictedTrail[step - 1]
-  const real = takeoffIndex >= 0 ? trail[takeoffIndex + step] : undefined
+  const predicted = predictedTrail[predictedAir + step - 1]
+  const real = takeoffIndex >= 0 ? trail[takeoffIndex + step - 1] : undefined
   if (!predicted || !real)
     break
   console.log(`  +${step}: pred=(${predicted.x.toFixed(3)},${predicted.y.toFixed(3)},${predicted.z.toFixed(3)}) real=(${real.x.toFixed(3)},${real.y.toFixed(3)},${real.z.toFixed(3)}) dx=${(real.x - predicted.x).toFixed(3)} dy=${(real.y - predicted.y).toFixed(3)} dz=${(real.z - predicted.z).toFixed(3)}`)
