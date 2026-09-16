@@ -23,8 +23,14 @@ function solidWorld(solids: Array<{ x: number, y: number, z: number, collision?:
 
 describe('jump flight simulation', () => {
   it('matches the vanilla one-block hop: nine ticks of airtime', () => {
-    expect(simulateFlight(1, WALK_SPEED)).toEqual({ ticks: 9, distance: WALK_SPEED * 9 })
-    expect(simulateFlight(1, SPRINT_SPEED).distance).toBeGreaterThan(simulateFlight(1, WALK_SPEED).distance)
+    // The distance follows the audited per-tick decay (0.91 per air tick), not
+    // `speed * ticks`: the older estimate overstated every hop by about 40
+    // percent and hid the sprint boost that decides a wide gap.
+    const hop = simulateFlight(1, WALK_SPEED)
+    expect(hop.ticks).toBe(9)
+    expect(hop.distance).toBeCloseTo(1.373, 2)
+    expect(simulateFlight(1, SPRINT_SPEED).distance).toBeGreaterThan(hop.distance)
+    expect(simulateFlight(1, SPRINT_SPEED, true).distance).toBeCloseTo(3.057, 2)
   })
 
   it('covers less ground for a higher landing', () => {
@@ -51,7 +57,7 @@ describe('planStepUp', () => {
     if (!plan.ok)
       return
     expect(plan.sprint).toBe(false)
-    expect(plan.flight).toBeCloseTo(WALK_SPEED * 9, 6)
+    expect(plan.flight).toBeCloseTo(1.373, 2)
     // The flight is longer than the gap, so the line sits behind the source.
     expect(plan.takeoff.x).toBeLessThan(0.5)
     expect(plan.takeoff.y).toBe(1)
@@ -82,13 +88,37 @@ describe('planStepUp', () => {
     expect(plan).toMatchObject({ ok: false, reason: 'too-far' })
   })
 
-  // A sprint is only required beyond cell-center gaps at this rise: a walk hop
-  // already covers 2.0 with the landing tolerance, and the next cell-center gap
-  // (2.83) exceeds the sprint reach. The branch stays for finer geometry.
-  it('rejects a two-cell diagonal as beyond the sprint reach', () => {
+  // The sprint boost changes this answer: a rise of one over 2.83 diagonal
+  // needs the 0.2 takeoff boost the old model ignored, and with it the hop is
+  // reachable in vanilla. The rejection case now needs a wider gap.
+  it('accepts a two-cell diagonal with the sprint boost', () => {
     const world = flatGround([{ x: 2, y: 1, z: 2 }])
     const plan = planStepUp({ from: { x: 0.5, y: 1, z: 0.5 }, to: { x: 2.5, y: 2, z: 2.5 }, world, config })
+    expect(plan.ok).toBe(true)
+    if (!plan.ok)
+      return
+    expect(plan.sprint).toBe(true)
+  })
+
+  it('rejects a three-cell diagonal with a rise as beyond the sprint reach', () => {
+    // A rise of one cuts the airtime to nine ticks: with the boost the sprint
+    // reach is 3.057, so 4.24 exceeds it.
+    const world = flatGround([{ x: 3, y: 1, z: 3 }])
+    const plan = planStepUp({ from: { x: 0.5, y: 1, z: 0.5 }, to: { x: 3.5, y: 2, z: 3.5 }, world, config })
     expect(plan).toMatchObject({ ok: false, reason: 'too-far' })
+  })
+
+  // The raised closing leap of the combo fixture: the goal pad moves one up, so
+  // the closing edge becomes a rise of one over a three-cell gap.
+  it('accepts a rise of one over a three-cell gap with the sprint boost', () => {
+    const world = flatGround([{ x: 3, y: 1, z: 0 }])
+    const plan = planStepUp({ from: { x: 0.5, y: 2, z: 0.5 }, to: { x: 3.5, y: 3, z: 0.5 }, world, config })
+    expect(plan.ok, plan.ok ? '' : `${plan.reason}: ${plan.detail}`).toBe(true)
+    if (!plan.ok)
+      return
+    expect(plan.rise).toBe(1)
+    expect(plan.sprint).toBe(true)
+    expect(plan.flight).toBeCloseTo(3.057, 2)
   })
 
   // ROOT CAUSE (combo fixture, the final two-cell gap):

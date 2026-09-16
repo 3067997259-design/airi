@@ -136,6 +136,30 @@ export class Movements {
     return cost
   }
 
+  /**
+   * True when the block blocks the current level and its top is a floor at a
+   * step height or more.
+   *
+   * A fence, a wall, an iron bar and a full cube all qualify, so a move into
+   * their cell becomes a jump onto their top. A slab, a bed, a carpet and a
+   * plate do not: those are walked over at the current level.
+   */
+  private raisedFloor(block: BlockInfo): boolean {
+    return block.physical || (block.safe && block.height - block.y > 0.6)
+  }
+
+  /**
+   * True when the block can carry a player standing on its top.
+   *
+   * Solid cubes qualify, and so do partial tops the shape read classified as
+   * safe: a fence tops out 0.5 above a full block, so the step from a fence
+   * onto the next cell needs this floor to count (live combo fixture: the turn
+   * pads are fence and iron-bar tops). Water is excluded: it carries nobody.
+   */
+  private standable(block: BlockInfo): boolean {
+    return block.physical || (block.safe && !block.liquid && !block.replaceable)
+  }
+
   private getMoveForward(node: MovementNode, dir: { x: number, z: number }, neighbors: MovementNode[]): void {
     const blockB = this.getBlock(node, dir.x, 1, dir.z)
     const blockC = this.getBlock(node, dir.x, 0, dir.z)
@@ -145,7 +169,7 @@ export class Movements {
     const toBreak: Vec3[] = []
     const toPlace: MoveAction[] = []
 
-    if (!blockD.physical && !blockC.liquid) {
+    if (!this.standable(blockD) && !blockC.liquid) {
       if (node.remainingPlaceables === 0)
         return
       if (!blockD.replaceable) {
@@ -208,11 +232,11 @@ export class Movements {
     if (blockB.physical && !blockH.physical && !blockC.physical)
       return
 
-    if (!blockC.physical) {
+    if (!this.raisedFloor(blockC)) {
       if (node.remainingPlaceables === 0)
         return
       const blockD = this.getBlock(node, dir.x, -1, dir.z)
-      if (!blockD.physical) {
+      if (!this.standable(blockD)) {
         if (node.remainingPlaceables === 1)
           return
         if (!blockD.replaceable) {
@@ -235,7 +259,7 @@ export class Movements {
 
     // The placed block's top is a local assumption; the shared snapshot object
     // must stay unchanged (review R2), so it is never written back.
-    const blockCHeight = blockC.physical ? blockC.height : blockC.height + 1
+    const blockCHeight = this.raisedFloor(blockC) ? blockC.height : blockC.height + 1
 
     const block0 = this.getBlock(node, 0, -1, 0)
     if (blockCHeight - block0.height > 1.2)
@@ -268,7 +292,7 @@ export class Movements {
     const toBreak: Vec3[] = []
 
     const blockC = this.getBlock(node, dir.x, 0, dir.z)
-    const y = blockC.physical ? 1 : 0
+    const y = this.raisedFloor(blockC) ? 1 : 0
 
     const block0 = this.getBlock(node, 0, -1, 0)
 
@@ -535,7 +559,7 @@ export class Movements {
       if (blockC.safe)
         cost += this.getNumEntitiesAt() * this.config.entityCost
 
-      if (ceilingClear && blockB.safe && blockC.safe && blockD.physical) {
+      if (ceilingClear && blockB.safe && blockC.safe && this.standable(blockD)) {
         neighbors.push({
           x: blockC.x,
           y: blockC.y,

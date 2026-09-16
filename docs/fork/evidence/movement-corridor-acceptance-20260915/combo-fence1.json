@@ -1,0 +1,230 @@
+{
+  "summary": {
+    "label": "combo-fence1",
+    "start": {
+      "x": 90.5,
+      "z": -26.5
+    },
+    "end": {
+      "x": 84.5,
+      "z": -14.5
+    },
+    "straightDistance": 13.42,
+    "endReason": "unreachable",
+    "checked": true,
+    "finalSnapshot": {
+      "position": {
+        "x": 90.5,
+        "y": 76,
+        "z": -26.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "samples": 13,
+    "durationMs": 2363,
+    "pathLength": 0,
+    "pathRatio": 0,
+    "maxLateral": 0,
+    "stalls": 8,
+    "stallEpisodes": 1,
+    "perpendicularReversals": 0,
+    "yawTravelDeg": 0
+  },
+  "receipt": {
+    "status": "failed",
+    "checked": true,
+    "commandId": "10dfcd5d-9a9f-40c1-8208-84c9b80f6a04",
+    "endReason": "unreachable",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 90.5,
+        "y": 76,
+        "z": -26.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "postCondition": {
+      "kind": "distance",
+      "target": 0.6,
+      "actual": 15.620499,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "8142b356-84be-4152-9a22-8f0a96ff818b"
+    }
+  },
+  "samples": [
+    {
+      "t": 6,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 169,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 346,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 515,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 682,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 851,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1135,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1304,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1496,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1665,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1838,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2010,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2363,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    }
+  ]
+}

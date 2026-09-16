@@ -1,0 +1,266 @@
+{
+  "summary": {
+    "label": "combo-bars1",
+    "start": {
+      "x": 90.5,
+      "z": -26.5
+    },
+    "end": {
+      "x": 84.5,
+      "z": -14.5
+    },
+    "straightDistance": 13.42,
+    "endReason": "unreachable",
+    "checked": true,
+    "finalSnapshot": {
+      "position": {
+        "x": 90.5,
+        "y": 76,
+        "z": -26.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "samples": 16,
+    "durationMs": 3071,
+    "pathLength": 0,
+    "pathRatio": 0,
+    "maxLateral": 0,
+    "stalls": 11,
+    "stallEpisodes": 1,
+    "perpendicularReversals": 0,
+    "yawTravelDeg": 0
+  },
+  "receipt": {
+    "status": "failed",
+    "checked": true,
+    "commandId": "0122e14c-3cf0-48b2-a440-dc4de29714c6",
+    "endReason": "unreachable",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 90.5,
+        "y": 76,
+        "z": -26.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:stone"
+    },
+    "postCondition": {
+      "kind": "distance",
+      "target": 0.6,
+      "actual": 15.620499,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "da66eaf1-570b-4ad6-9c0d-a45552d31ec9"
+    }
+  },
+  "samples": [
+    {
+      "t": 16,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 195,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 391,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 568,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 738,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 906,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1074,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1413,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1584,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1763,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 1933,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2102,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2273,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2450,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 2619,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    },
+    {
+      "t": 3071,
+      "x": 90.5,
+      "y": 76,
+      "z": -26.5,
+      "yaw": 0,
+      "motion": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      }
+    }
+  ]
+}

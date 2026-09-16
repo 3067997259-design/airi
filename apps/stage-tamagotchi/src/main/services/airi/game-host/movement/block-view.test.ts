@@ -117,6 +117,74 @@ describe('classifyBlock', () => {
     expect(panel).toMatchObject({ physical: true, safe: false })
   })
 
+  // The turn pads of the combo fixture are fence and iron-bar tops. Their tops
+  // are real surfaces, so the height must come from the shape: the full-block
+  // default reported a fence at y + 1, half a block short of its top.
+  it('reads a fence top from its partial shape', () => {
+    const fence = classifyBlock({
+      id: 'minecraft:oak_fence',
+      x: 91,
+      y: 78,
+      z: -26,
+      collision: [{ minX: 0.375, minY: 0, minZ: 0.375, maxX: 0.625, maxY: 1.5, maxZ: 0.625 }],
+    })
+    expect(fence).toMatchObject({ physical: true, safe: true })
+    expect(fence.height).toBeCloseTo(79.5, 4)
+  })
+
+  it('reads an iron-bar top from its partial shape', () => {
+    const bars = classifyBlock({
+      id: 'minecraft:iron_bars',
+      x: 93,
+      y: 80,
+      z: -26,
+      collision: [{ minX: 0.4375, minY: 0, minZ: 0.4375, maxX: 0.5625, maxY: 1, maxZ: 0.5625 }],
+    })
+    expect(bars).toMatchObject({ physical: true, safe: true })
+    expect(bars.height).toBeCloseTo(81, 4)
+  })
+
+  it('keeps a full cube an obstacle even when the read sends its shape', () => {
+    const stone = classifyBlock({
+      id: 'minecraft:stone',
+      x: 0,
+      y: 64,
+      z: 0,
+      collision: [{ minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1 }],
+    })
+    expect(stone).toMatchObject({ physical: true })
+  })
+
+  // ROOT CAUSE (live combo run, turn pads after the fence swap):
+  //
+  // The dedicated-server region read sends connected shapes in a mirrored
+  // absolute frame: an iron bar at y = 78 arrived with maxY = -77, and full
+  // cubes arrived with an empty list. Trusting those numbers classified the bar
+  // at height y - 77, the route graph rejected the step, and the run ended
+  // `no_path` at the pad below. Cell-local numbers are trusted, anything else
+  // falls back to the id tables.
+  it('ignores mirrored boxes and reads the post height from the id', () => {
+    const bars = classifyBlock({
+      id: 'minecraft:iron_bars',
+      x: 91,
+      y: 78,
+      z: -26,
+      collision: [{ minX: -90.5625, minY: -78, minZ: 26.4375, maxX: -90, maxY: -77, maxZ: 26.5625 }],
+    })
+    expect(bars).toMatchObject({ physical: true, safe: true })
+    expect(bars.height).toBeCloseTo(79, 4)
+
+    const fence = classifyBlock({
+      id: 'minecraft:oak_fence',
+      x: 91,
+      y: 78,
+      z: -26,
+      collision: [{ minX: -90.625, minY: -78, minZ: 26.375, maxX: -90, maxY: -76.5, maxZ: 26.625 }],
+    })
+    expect(fence).toMatchObject({ physical: true, safe: true })
+    expect(fence.height).toBeCloseTo(79.5, 4)
+  })
+
   it('marks gravity blocks and keeps bedrock unbreakable', () => {
     expect(classifyBlock({ id: 'minecraft:sand', x: 1, y: 64, z: 1 })).toMatchObject({ canFall: true, physical: true })
     expect(classifyBlock({ id: 'minecraft:bedrock', x: 1, y: 64, z: 1 }).hardness).toBe(-1)

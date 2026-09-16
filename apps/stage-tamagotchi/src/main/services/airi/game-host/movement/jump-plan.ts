@@ -79,20 +79,42 @@ export interface JumpRejection {
 }
 
 /**
- * Horizontal reach of a flat jump, from the audited per-tick physics.
+ * Simulates the vanilla jump arc for a rise and a horizontal speed.
  *
- * The jump tick moves with the whole ground speed plus the sprint boost, then
- * every air tick keeps 0.91 of the last speed. `simulateFlight`'s flat estimate
- * (`speed * ticks`) is too generous for a gap with nothing to land on short of
- * the far side, and it ignores the sprint boost that makes the far side
- * reachable. This model is used for level gap edges only.
+ * The tick count comes from the arc. The distance follows the audited per-tick
+ * physics: the jump tick moves with the whole ground speed plus the sprint
+ * boost, then every air tick keeps 0.91 of the last speed. A flat estimate
+ * (`speed * ticks`) overstates a walk reach and hides how much the sprint boost
+ * adds, which decides a gap with nothing to land on before the far side (the
+ * combo fixture's closing leap: a raise of one over a three-cell gap).
  *
  * @example
- * flatReach(WALK_SPEED, false)
- * // => 1.71
+ * simulateFlight(1, WALK_SPEED)
+ * // => { ticks: 9, distance: 1.373 }
+ * simulateFlight(1, SPRINT_SPEED, true)
+ * // => { ticks: 9, distance: 3.057 }
  */
-function flatReach(speed: number, sprint: boolean): number {
-  const ticks = simulateFlight(0, speed).ticks
+export function simulateFlight(rise: number, speed: number, sprint = false): { ticks: number, distance: number } {
+  let velocity = JUMP_VELOCITY
+  let height = 0
+  for (let tick = 1; tick <= 24; tick++) {
+    height += velocity
+    const descending = velocity < 0
+    velocity = (velocity - GRAVITY) * DRAG
+    if (descending && height <= rise)
+      return { ticks: tick, distance: flightDistance(tick, speed, sprint) }
+  }
+  return { ticks: 24, distance: flightDistance(24, speed, sprint) }
+}
+
+/**
+ * Horizontal reach of a jump over `ticks` ticks, from the audited physics.
+ *
+ * The jump tick carries the whole ground speed, plus the sprint boost when the
+ * run-up was a sprint. The boost persists through the air because every later
+ * tick keeps 0.91 of the velocity of the tick before it.
+ */
+function flightDistance(ticks: number, speed: number, sprint: boolean): number {
   const jumpTickSpeed = speed + (sprint ? SPRINT_JUMP_BOOST : 0)
   let reach = 0
   let decay = 1
@@ -101,26 +123,6 @@ function flatReach(speed: number, sprint: boolean): number {
     decay *= AIR_RETENTION
   }
   return reach
-}
-
-/**
- * Simulates the vanilla jump arc for a rise and a horizontal speed.
- *
- * @example
- * simulateFlight(1, WALK_SPEED)
- * // => { ticks: 9, distance: 1.944 }
- */
-export function simulateFlight(rise: number, speed: number): { ticks: number, distance: number } {
-  let velocity = JUMP_VELOCITY
-  let height = 0
-  for (let tick = 1; tick <= 24; tick++) {
-    height += velocity
-    const descending = velocity < 0
-    velocity = (velocity - GRAVITY) * DRAG
-    if (descending && height <= rise)
-      return { ticks: tick, distance: speed * tick }
-  }
-  return { ticks: 24, distance: speed * 24 }
 }
 
 /** True when the player box at `foot` touches a block taller than `clearTop`. */
@@ -206,8 +208,8 @@ export function planStepUp(options: {
   if (rise < MIN_JUMP_RISE && !gapEdge)
     return { ok: false, reason: 'not-a-jump', detail: `rise ${rise.toFixed(2)}, gap ${gap.toFixed(2)}` }
 
-  const walkDistance = gapEdge ? flatReach(WALK_SPEED, false) : simulateFlight(rise, WALK_SPEED).distance
-  const sprintDistance = gapEdge ? flatReach(SPRINT_SPEED, true) : simulateFlight(rise, SPRINT_SPEED).distance
+  const walkDistance = simulateFlight(rise, WALK_SPEED).distance
+  const sprintDistance = simulateFlight(rise, SPRINT_SPEED, true).distance
   if (gap > sprintDistance + SPRINT_MARGIN)
     return { ok: false, reason: 'too-far', detail: `gap ${gap.toFixed(2)} > sprint reach ${sprintDistance.toFixed(2)}` }
   const needsSprint = gap > walkDistance + SPRINT_MARGIN
@@ -227,7 +229,7 @@ export function planStepUp(options: {
 
   const length = gap < 1e-9 ? { x: 0, z: 0 } : { x: (to.x - from.x) / gap, z: (to.z - from.z) / gap }
   const speed = needsSprint ? SPRINT_SPEED : WALK_SPEED
-  const flight = gapEdge ? flatReach(speed, needsSprint) : simulateFlight(rise, speed).distance
+  const flight = simulateFlight(rise, speed, needsSprint).distance
   // Takeoff line: the ideal is `to - direction * flight`; when that sits far
   // behind the source stand there is no room for the run-up, so the line is the
   // source stand itself and the hop starts as early as possible.

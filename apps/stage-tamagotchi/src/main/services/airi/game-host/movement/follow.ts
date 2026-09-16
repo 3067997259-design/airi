@@ -122,6 +122,21 @@ const GAP_JUMP_DISTANCE = 1.5
 /** Deadline handed to one per-tick jump task, and the host's transport grace. */
 const JUMP_TASK_TIMEOUT_MS = 8_000
 const JUMP_TASK_GRACE_MS = 2_500
+/** Ceiling on the scaled budget: a wedged bridge must not hang the run. */
+const JUMP_TASK_MAX_BUDGET_MS = 40_000
+
+/**
+ * Deadline for a chain of `edges` hops.
+ *
+ * The per-edge timeout alone cannot cover a whole-chain submission: the combo
+ * fixture submits 28 cells, and the fixed 8 s expired mid-chain while the bot
+ * was still settling on a thin iron-bar top (`failed / deadline`, two edges
+ * done). The six-edge chain that passed before sat at 5.5 to 7.2 s, so the
+ * margin was already gone.
+ */
+function jumpTaskBudgetMs(edges: number): number {
+  return Math.min(JUMP_TASK_MAX_BUDGET_MS, JUMP_TASK_TIMEOUT_MS * Math.max(1, edges))
+}
 /** How often the host reads a running jump task's status. */
 const JUMP_POLL_MS = 150
 
@@ -457,7 +472,7 @@ async function followJumpTask(options: {
     sprint: jump.sprint,
     brake: jump.brake,
   })
-  const deadlineMs = now() + JUMP_TASK_TIMEOUT_MS
+  const deadlineMs = now() + jumpTaskBudgetMs(edges.length)
   try {
     await port.startJump!({
       edges: edges.map((edge, index) => edgeOf(edge, index)),

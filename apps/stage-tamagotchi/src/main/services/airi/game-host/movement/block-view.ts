@@ -32,6 +32,18 @@ const SKIPPED = new Set(['fire', 'soul_fire', 'cobweb', 'web'])
 const CLIMBABLE = new Set(['ladder'])
 const CARPET_SUFFIXES = ['_carpet', 'moss_carpet', 'snow', 'lily_pad']
 const OPENABLE_SUFFIXES = ['_door', '_fence_gate', '_trapdoor']
+/**
+ * Thin posts the player can stand on, with the vanilla top heights.
+ *
+ * The id decides, not the shape numbers: the dedicated-server region read sends
+ * mirrored absolute boxes for connected shapes (a bar at y = 78 arrived with
+ * maxY = -77), and full cubes arrive with no shape list at all. A fence tops
+ * out at 1.5, a wall and a closed gate at 1.5, a pane and bars at 1.0.
+ */
+const POST_SUFFIXES: Array<{ suffixes: string[], top: number }> = [
+  { suffixes: ['_fence', '_wall'], top: 1.5 },
+  { suffixes: ['_pane', '_bars'], top: 1 },
+]
 const PARTIAL_SUFFIXES = ['_slab', '_stairs']
 /**
  * Walkable partial blocks the player steps onto without an action.
@@ -83,6 +95,15 @@ const GRAVITY = new Set(['sand', 'red_sand', 'gravel', 'suspicious_sand', 'suspi
  * the conservative obstacle class instead of becoming a walkable partial.
  */
 const MAX_WALKABLE_TOP = 0.6
+
+/**
+ * Tallest partial shape a planned walk still stands on, in block heights.
+ *
+ * A fence tops out at 1.5 and a wall at 1.5, so the limit covers them. A
+ * partial shape above this is treated as an obstacle: nothing vanilla is both
+ * thin and taller than a fence.
+ */
+const MAX_PARTIAL_TOP = 1.6
 
 export function normalizeBlockId(id: string): string {
   const colon = id.indexOf(':')
@@ -161,9 +182,36 @@ export function classifyBlock(input: ClassifyInput): BlockInfo {
   // at 1.0, which is exactly why `_stairs` is 0.5 above. A source that sends no
   // shapes keeps the conservative default below.
   if (input.collision && input.collision.length > 0) {
-    const top = Math.max(...input.collision.map(box => box.maxY))
-    if (top > 1e-6 && top <= MAX_WALKABLE_TOP)
-      return { ...base, physical: false, safe: true, height: input.y + top }
+    const usable = input.collision.every(box =>
+      box.minX >= -1e-6 && box.minY >= -1e-6 && box.minZ >= -1e-6
+      && box.maxX <= 1 + 1e-6 && box.maxY <= 1.6 + 1e-6 && box.maxZ <= 1 + 1e-6)
+    if (usable) {
+      const top = Math.max(...input.collision.map(box => box.maxY))
+      // A thin lip (a pressure plate, 1/16) is walkable at its exact top.
+      if (top > 1e-6 && top <= MAX_WALKABLE_TOP)
+        return { ...base, physical: false, safe: true, height: input.y + top }
+      // A partial shape taller than the step height but no taller than a fence
+      // is standable: its top is the surface, and its footprint is thin, so the
+      // exact predictor decides the landing. Full cubes keep the obstacle
+      // default, so a wall of blocks still routes around instead of becoming a
+      // walkable strip.
+      const fullFootprint = input.collision.some(box =>
+        box.minX <= 1e-6 && box.minZ <= 1e-6 && box.maxX >= 1 - 1e-6 && box.maxZ >= 1 - 1e-6)
+      if (!fullFootprint && top <= MAX_PARTIAL_TOP)
+        return { ...base, physical: true, safe: true, height: input.y + top }
+    }
+    // A box outside the cell is a frame this reader cannot trust. Ignore the
+    // numbers and fall back to the id tables, which carry the vanilla tops.
+    else if (input.collision.length > 0) {
+      for (const post of POST_SUFFIXES) {
+        if (hasSuffix(id, post.suffixes))
+          return { ...base, physical: true, safe: true, height: input.y + post.top }
+      }
+    }
+  }
+  if (hasSuffix(id, POST_SUFFIXES[0]!.suffixes) || hasSuffix(id, POST_SUFFIXES[1]!.suffixes)) {
+    const post = POST_SUFFIXES.find(entry => hasSuffix(id, entry.suffixes))!
+    return { ...base, physical: true, safe: true, height: input.y + post.top }
   }
 
   // An empty shape list from the source is trusted over the id tables: the
