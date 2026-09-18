@@ -46,6 +46,7 @@ import type { AirFollowEndReason } from './movement/air-follow'
 import type { AirTrackStatus } from './movement/air-track'
 import type { FailedEdge } from './movement/executor'
 import type { MovementPortControl } from './movement/host-port'
+import type { SnapshotEntry } from './movement/snapshot'
 import type { TargetObservation, TargetObservationSource } from './movement/target-observation'
 import type { MovementConfig } from './movement/types'
 
@@ -95,7 +96,8 @@ import { cellOf } from './movement/coordinates'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
 import { actionResultPhases, DimensionMismatchError } from './movement/observation'
-import { buildTargetObservation, entityListOf, positionOf, selectTargetFromList, TARGET_QUERY_MAX_RESULTS, TARGET_QUERY_RADIUS } from './movement/target-observation'
+import { createSnapshot } from './movement/snapshot'
+import { buildTargetObservation, entityListOf, positionOf, selectTargetFromList, speedBlocksPerSecond, TARGET_QUERY_MAX_RESULTS, TARGET_QUERY_RADIUS, velocityOf } from './movement/target-observation'
 import { createCoarseLocateGate, createTargetTracker } from './movement/target-tracking'
 import { DEFAULT_MOVEMENT_CONFIG } from './movement/types'
 import { runVehicleMove } from './movement/vehicle'
@@ -204,6 +206,16 @@ const STUCK_DROP_DIG_POLL_MS = 3_000
 
 /** §9-7: upper bound on the fresh-state read attached to a terminal result. */
 const FRESH_STATE_TIMEOUT_MS = 2_000
+
+/**
+ * F-01: arrival tolerance for a follow stand point on the keep ring, in blocks.
+ *
+ * The follow leg aims at a point `keepDistance` away from the target instead of
+ * the target cell, so the mover parks at the ring instead of walking onto the
+ * followed entity (live F-01: final distance 0.00–0.92 blocks). The tolerance
+ * keeps a reached ring from triggering another leg while the target stays put.
+ */
+const FOLLOW_RING_TOLERANCE = 0.75
 
 /**
  * CD-B2: shooter eye height above the feet, used to place a ballistic launch.
@@ -1339,7 +1351,7 @@ export async function setupGameHost(
     'list_dimensions',
     'list_players',
     'message_player',
-    'mine_break_evidence',
+    'get_break_evidence',
     'poll_server_events',
     'query_entities',
     'raycast',
@@ -1364,12 +1376,25 @@ export async function setupGameHost(
     return await active.callTool({ name, arguments: args }) as GameHostToolResult
   }
 
-  function snapshotFrom(state: Record<string, unknown>, inventory?: Record<string, unknown>): GameFinalSnapshot {
+  /**
+   * Builds a final snapshot, or undefined when the read has no real position.
+   *
+   * A missing or unparseable coordinate must not become the origin: the old
+   * `Number(x) || 0` coercion presented (0,0,0) as a real position and let
+   * fallbacks treat a failed read as a place (L-08). A literal zero is still a
+   * valid coordinate; only non-finite values refuse the snapshot.
+   */
+  function snapshotFrom(state: Record<string, unknown>, inventory?: Record<string, unknown>): GameFinalSnapshot | undefined {
+    const x = Number(state.x)
+    const y = Number(state.y)
+    const z = Number(state.z)
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z))
+      return undefined
     const selectedSlot = Number(inventory?.selectedSlot ?? state.selectedSlot ?? 0)
     const hotbar = Array.isArray(inventory?.hotbar) ? inventory.hotbar as Array<Record<string, unknown>> : []
     const held = hotbar.find(item => Number(item.slot) === selectedSlot)
     return {
-      position: { x: Number(state.x) || 0, y: Number(state.y) || 0, z: Number(state.z) || 0 },
+      position: { x, y, z },
       health: Number(state.health) || 0,
       food: Number(state.food) || 0,
       heldItem: typeof held?.id === 'string' ? held.id : null,
@@ -1871,7 +1896,7 @@ export async function setupGameHost(
     const port: MiningPort = {
       evaluate: async (pos) => {
         try {
-          const record = statusRecordOf(await callGameTool('mine_evaluate_harvest', {
+          const record = statusRecordOf(await callGameTool('evaluate_harvest', {
             x: pos.x,
             y: pos.y,
             z: pos.z,
@@ -1949,7 +1974,7 @@ export async function setupGameHost(
           // The server-game-tick and the client Date clocks are different
           // domains (CD-0 §3.2): match by player, position and dimension only,
           // and take the most recent record the server still holds.
-          const record = statusRecordOf(await callGameTool('mine_break_evidence', {
+          const record = statusRecordOf(await callGameTool('get_break_evidence', {
             x: fact.x,
             y: fact.y,
             z: fact.z,
@@ -2132,13 +2157,15 @@ export async function setupGameHost(
         source: 'server-entity',
       }
     }
-    // A truncated entity list may hide the target: fall back to the server
-    // player list by name or uuid so truncation is not read as a lost target.
-    if (truncated) {
-      const player = await locatePlayerFromList(target)
-      if (player)
-        return { ...player, status: 'resolved', truncated: true, source: 'server-player-locate' }
-    }
+    // The entity query only covers TARGET_QUERY_RADIUS around the player, so a
+    // distant target misses it even when the list is complete. Fall back to
+    // the server player list by name or uuid on any miss (design §2: the first
+    // name resolve may reuse the query and the player list). A truncated list
+    // still sets `truncated`, so a failed resolve is not read as "the target
+    // is gone" (CD-L1).
+    const player = await locatePlayerFromList(target)
+    if (player)
+      return { ...player, status: 'resolved', truncated, source: 'server-player-locate' }
     return { status: 'not-found', truncated }
   }
 
@@ -2161,6 +2188,37 @@ export async function setupGameHost(
       entityType: 'minecraft:player',
       isPlayer: true,
       dimension: typeof match.dimension === 'string' ? match.dimension : '',
+    }
+  }
+
+  /**
+   * Substitutes a riding target's own motion with its root vehicle's.
+   *
+   * A passenger's delta movement stays near zero because the vehicle moves, so
+   * a prediction built from the rider alone aims where the target was (F-24:
+   * the B-02 oscillating-cart rider took twelve shots with zero damage). The
+   * read already names the vehicle, so its motion is read once and used as the
+   * rider's motion. Best-effort: a missing or failed vehicle read keeps the
+   * original record, so a stationary rider stays reported as stationary.
+   */
+  async function withRidingVelocity(entity: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (entity.riding !== true)
+      return entity
+    const vehicle = entity.vehicle && typeof entity.vehicle === 'object' && !Array.isArray(entity.vehicle)
+      ? entity.vehicle as Record<string, unknown>
+      : undefined
+    const vehicleUuid = typeof vehicle?.uuid === 'string' ? vehicle.uuid : undefined
+    if (!vehicleUuid)
+      return entity
+    try {
+      const vehicleDetail = statusRecordOf(await callGameTool('get_entity', { uuid: vehicleUuid }))
+      const motion = vehicleDetail ? velocityOf(vehicleDetail) : undefined
+      if (!motion)
+        return entity
+      return { ...entity, motion, velocity: motion }
+    }
+    catch {
+      return entity
     }
   }
 
@@ -2202,7 +2260,7 @@ export async function setupGameHost(
             uuid,
             ...(receivedDimension ? { dimension: receivedDimension } : {}),
             ...(Number.isFinite(sourceTick) ? { sourceTick } : {}),
-            entity: detail,
+            entity: await withRidingVelocity(detail),
             receivedAt,
             endedAt: receivedAt,
           })
@@ -2231,10 +2289,11 @@ export async function setupGameHost(
     const receivedDimension = typeof record?.dimension === 'string' ? record.dimension : undefined
     const truncated = total !== undefined ? total > returned : returned >= TARGET_QUERY_MAX_RESULTS
     const match = list.find(entry => entry.uuid === uuid)
+    const entity = match ? await withRidingVelocity(match) : undefined
     return buildTargetObservation(
       { ...request, receiveTime: receivedAt },
-      match
-        ? { uuid, ...(receivedDimension ? { dimension: receivedDimension } : {}), entity: match, listTruncated: truncated, receivedAt, endedAt: receivedAt }
+      entity
+        ? { uuid, ...(receivedDimension ? { dimension: receivedDimension } : {}), entity, listTruncated: truncated, receivedAt, endedAt: receivedAt }
         : { uuid, ...(receivedDimension ? { dimension: receivedDimension } : {}), absence: 'out-of-range', listTruncated: truncated, receivedAt, endedAt: receivedAt },
     )
   }
@@ -2453,7 +2512,7 @@ export async function setupGameHost(
    * Best pickaxe tier reachable in the inventory, read once per route.
    *
    * This is a plan-time estimate only: the final break re-verifies through
-   * `mine_evaluate_harvest` (CD-M1 §5).
+   * `evaluate_harvest` (CD-M1 §5).
    */
   async function bestPickaxeTier(): Promise<number> {
     const slots = await readInventorySlots()
@@ -2568,6 +2627,73 @@ export async function setupGameHost(
     return selectLaunchPoint({ from, heading, surfaceAt, clearAt, searchRadius: 8 }).ok
   }
 
+  /**
+   * Reads the corridor blocks with their exact collision shapes when the
+   * bridge supports them.
+   *
+   * A shape-less read classifies every unknown block as a full cube, so a thin
+   * block such as a rail claimed the cell a ridden cart's centre sits in and
+   * every shot at the cart was refused with no_ballistic_solution (live B-02,
+   * 2026-09-17). The detailed read carries the collision boxes the movement
+   * classifier needs; a bridge without it keeps the conservative read.
+   */
+  async function readShotCorridorEntries(from: { x: number, y: number, z: number }, to: { x: number, y: number, z: number }): Promise<SnapshotEntry[]> {
+    const port = createTerrainPort()
+    if (port.getBlocksRegionDetailed)
+      return (await port.getBlocksRegionDetailed(from, to)).entries
+    return await port.getBlocksRegion(from, to)
+  }
+
+  /**
+   * Blocking predicate for one shot corridor (CD-B3 terrain wiring).
+   *
+   * The read covers the axis-aligned box around the eye-to-target segment with
+   * a margin, so the low-arc family stays inside it. A cell missing from the
+   * read is air (`includeAir: false`); a cell outside the read bounds is
+   * `'unknown'` and counts as blocking, so a curve that leaves the corridor is
+   * never called clear (CD-0 D10). A cell blocks when its collision height is
+   * above the block base, which keeps water and plants passable.
+   *
+   * @example
+   * await readShotCorridorObstacles({ x: 0, y: 65, z: 0 }, { x: 0, y: 64, z: 10 })
+   * // => a predicate over the corridor cells, or undefined when the target is unread
+   */
+  async function readShotCorridorObstacles(
+    launch: { x: number, y: number, z: number },
+    target: { x: number, y: number, z: number } | undefined,
+  ): Promise<((cell: { x: number, y: number, z: number }) => boolean | 'unknown') | undefined> {
+    if (!target)
+      return undefined
+    const pad = 3
+    const from = {
+      x: Math.floor(Math.min(launch.x, target.x)) - pad,
+      y: Math.floor(Math.min(launch.y, target.y)) - pad,
+      z: Math.floor(Math.min(launch.z, target.z)) - pad,
+    }
+    const to = {
+      x: Math.floor(Math.max(launch.x, target.x)) + pad,
+      y: Math.floor(Math.max(launch.y, target.y)) + pad,
+      z: Math.floor(Math.max(launch.z, target.z)) + pad,
+    }
+    const entries = await readShotCorridorEntries(from, to)
+    const snapshot = createSnapshot(entries)
+    // The target's own cell is exempt: it can hold the block the target stands
+    // on, and the region read cannot tell a thin block (a rail, an exact empty
+    // collision omitted by the source) from a full cube, so shots at a cart on
+    // rails were refused with no_ballistic_solution (live B-02, 2026-09-17).
+    const aim = { x: Math.floor(target.x), y: Math.floor(target.y), z: Math.floor(target.z) }
+    return (cell) => {
+      if (Math.abs(cell.x - aim.x) <= 1 && Math.abs(cell.y - aim.y) <= 1 && Math.abs(cell.z - aim.z) <= 1)
+        return false
+      if (cell.x < from.x || cell.x > to.x || cell.y < from.y || cell.y > to.y || cell.z < from.z || cell.z > to.z)
+        return 'unknown'
+      const info = snapshot.getBlock(cell.x, cell.y, cell.z)
+      if (!info)
+        return false
+      return info.height > cell.y + 1e-6
+    }
+  }
+
   /** CD-F1: resource and launch-edge assessment before an air follow starts. */
   async function assessHostAirLaunch(input: {
     self: { x: number, y: number, z: number }
@@ -2576,7 +2702,13 @@ export async function setupGameHost(
   }): Promise<{ ok: true } | { ok: false, reason: AirFollowEndReason }> {
     const slots = await readInventorySlots()
     const all = slots ? [...slots.hotbar, ...slots.main] : []
-    const hasElytra = all.some(slot => slot.id.includes('elytra'))
+    // A worn chest elytra flies too: `equipElytra` (elytra.ts) accepts the
+    // chest piece without a carried spare, so the assessment must read the
+    // equipment slot as well as the inventory (live F-03: a worn elytra was
+    // refused as `cannot_air_follow`).
+    const equipment = await readEquipment()
+    const wornElytra = equipmentItemIdOf(equipment ?? {}, 'chest')?.includes('elytra') === true
+    const hasElytra = all.some(slot => slot.id.includes('elytra')) || wornElytra
     const fireworks = all
       .filter(slot => slot.id.includes('firework_rocket'))
       .reduce((total, slot) => total + slot.count, 0)
@@ -2640,20 +2772,20 @@ export async function setupGameHost(
           && vehicleResult.receipt?.dismounted !== false
         if (!mayWalk) {
           const fresh = await readFreshSnapshot() ?? fallback
-          return { endReason: vehicleResult.failure ?? 'vehicle_unavailable', finalSnapshot: fresh }
+          return { endReason: vehicleResult.failure ?? 'vehicle_unavailable', finalSnapshot: fresh, ...(vehicleResult.receipt ? { vehicle: vehicleResult.receipt } : {}) }
         }
       }
       else {
         const fresh = await readFreshSnapshot() ?? fallback
         if (vehicleResult.status === 'reached')
-          return { endReason: 'reached', finalSnapshot: fresh, finalPosition: fresh.position }
+          return { endReason: 'reached', finalSnapshot: fresh, finalPosition: fresh.position, ...(vehicleResult.receipt ? { vehicle: vehicleResult.receipt } : {}) }
         // A typed vehicle failure is reported verbatim; a generic status is
         // mapped onto the legacy end reason so the receipt stays specific.
         const endReason = vehicleResult.failure
           ?? (vehicleResult.status === 'unavailable'
             ? 'vehicle_unavailable'
             : vehicleResult.status === 'low_supply' ? 'elytra_low_supply' : vehicleResult.status)
-        return { endReason, finalSnapshot: fresh }
+        return { endReason, finalSnapshot: fresh, ...(vehicleResult.receipt ? { vehicle: vehicleResult.receipt } : {}) }
       }
     }
 
@@ -3318,6 +3450,14 @@ export async function setupGameHost(
         }
 
         const outcome = tracker.outcome(now)
+        // CD-L2: a terminal tracking reason ends the command at once. The
+        // fine read forces `target_dimension_changed`; a coarse locate forces
+        // `target_offline`. Waiting for a later coarse read to repeat the
+        // reason would let a transient failure downgrade it.
+        if (outcome === 'target_offline' || outcome === 'target_dimension_changed') {
+          endReason = outcome
+          break
+        }
         if (outcome === 'fine') {
           let observation: TargetObservation | undefined
           try {
@@ -3379,7 +3519,8 @@ export async function setupGameHost(
               }
               // `unloaded` and `unavailable` keep the last observation age and
               // let the waiting budget decide; they do not claim the target is
-              // offline or gone.
+              // offline or gone. The reason is recorded for the receipt, but
+              // the tracker keeps the waiting window in charge (CD-L2).
               tracker.forceOutcome(coarse.kind === 'unloaded' ? 'entity_unloaded' : 'locator_unavailable')
             }
           }
@@ -3422,6 +3563,8 @@ export async function setupGameHost(
               deadline,
             })
             if (!assessment.ok) {
+              if (env.AIRI_TERRAIN_DEBUG)
+                log.warn(`air-follow: launch assessment refused: ${assessment.reason}`)
               airController.noteLaunchRefused(assessment.reason)
             }
             else {
@@ -3442,10 +3585,19 @@ export async function setupGameHost(
                 airController.noteLaunchRefused('cannot_air_follow')
               }
               else if (airResult.status === 'landed' && airController.phase() === 'ground-follow') {
-                // A clean air-to-ground handover: force the next ground leg to
-                // replan from the new position.
+                // A clean air-to-ground handover starts a new ground phase.
+                // The air driver consumed the fine reads while it flew, so the
+                // shared `target` still holds the pre-flight position (live F-04:
+                // the first post-landing leg aimed 143 blocks back at the launch
+                // position and hit the search budget, ending the command
+                // `target_unreachable` while the target stood 5 blocks away).
+                // Drop it, reset the pre-flight leg failures, and re-read the
+                // target before planning a leg.
                 anchor = undefined
                 previousReached = true
+                consecutiveFailures = 0
+                target = undefined
+                continue
               }
               else {
                 endReason = airTrackEndReason(airResult.status)
@@ -3460,6 +3612,18 @@ export async function setupGameHost(
           // `track`/`intercept`/`reacquire`/`safety-landing`/`launch`/`approach`
           // are owned by the driver above; a ground phase falls through to the
           // terrain leg below.
+        }
+
+        // A gliding target is not reachable on foot. Planning a ground leg here
+        // makes the mover tower or bridge toward a position in the air, and a
+        // long-running leg also starves the air controller of the samples it
+        // needs to assess a launch. Live F-05: an auto follow towered off the
+        // launch pad, walked into the air after the target cell, and fell to its
+        // death before the assess could run. Wait for the air decision instead;
+        // the ground follow resumes when the target lands.
+        if (airController && lastObservation?.fallFlying === true) {
+          await sleep(200)
+          continue
         }
 
         // Coarse tracking walks to a rendezvous, not into the target: a wide
@@ -3479,9 +3643,21 @@ export async function setupGameHost(
           continue
         }
 
-        const leg = await runTerrainLeg(target, activeKeepDistance, shouldStop, undefined, failedEdges, controlIdentity)
+        // Aim at a stand point on the keep ring, not at the target cell: a leg
+        // to the target walks onto or through the followed entity (live F-01:
+        // final distance 0.00–0.92 blocks). The stand point sits on the line
+        // self -> target at `activeKeepDistance` from the target, so arriving
+        // there parks the follow at the ring. She never walks closer and never
+        // backs off when the target closes in.
+        const ringScale = (distance - activeKeepDistance) / distance
+        const standPoint = {
+          x: self.x + (target.x - self.x) * ringScale,
+          y: target.y,
+          z: self.z + (target.z - self.z) * ringScale,
+        }
+        const leg = await runTerrainLeg(standPoint, FOLLOW_RING_TOLERANCE, shouldStop, undefined, failedEdges, controlIdentity)
         if (env.AIRI_TERRAIN_DEBUG)
-          log.warn(`follow: leg to ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)} -> ${leg.status}${leg.detail ? ` (${leg.detail})` : ''}`)
+          log.warn(`follow: leg to stand ${standPoint.x.toFixed(1)},${standPoint.z.toFixed(1)} (target ${target.x.toFixed(1)},${target.z.toFixed(1)}) -> ${leg.status}${leg.detail ? ` (${leg.detail})` : ''}`)
         if (leg.status === 'cancelled') {
           endReason = 'cancelled'
           break
@@ -3945,7 +4121,26 @@ export async function setupGameHost(
       // and release timing; the main process owns the target, the ammo budget
       // and this summary. An unknown projectile or a curve with no valid
       // solution keeps the ammo instead of firing on a guessed speed.
-      const profileResolution = resolveWeaponProfile(weapon)
+      // B-08: the loaded ammo picks the ammo-specific profile (a firework
+      // crossbow fires at 1.6, a spectral or tipped arrow has its own result
+      // set). The client reports what each carried weapon would use next; a
+      // failed status read keeps the default arrow profile.
+      let ammoItemId: string | undefined
+      if (weapon === 'bow' || weapon === 'crossbow') {
+        try {
+          const status = statusRecordOf(await callGameTool('combat_status', {}))
+          const projectiles = status?.projectiles && typeof status.projectiles === 'object' && !Array.isArray(status.projectiles)
+            ? status.projectiles as Record<string, unknown>
+            : undefined
+          const reported = projectiles?.[weapon]
+          if (typeof reported === 'string' && reported)
+            ammoItemId = reported
+        }
+        catch {
+          // The profile default (an ordinary arrow) is the documented fallback.
+        }
+      }
+      const profileResolution = resolveWeaponProfile(weapon, ammoItemId)
       if (!profileResolution.ok) {
         return {
           endReason: profileResolution.reason,
@@ -3956,17 +4151,44 @@ export async function setupGameHost(
       const projectileProfile = profileResolution.profile
       const planChargeTicks = shoot.chargeTicks ?? fullChargeTicks(projectileProfile)
       let ballisticPlan: ReturnType<typeof planShotFromObservation> | undefined
+      let plannedObservation: TargetObservation | undefined
       try {
         const planSelf = await readFreshSnapshot()
         if (planSelf) {
           const observation = await readTargetObservationByUuid(targetUuid, 'server-entity')
+          plannedObservation = observation
+          const launch = { x: planSelf.position.x, y: planSelf.position.y + PLAYER_EYE_HEIGHT, z: planSelf.position.z }
+          // CD-B3: the solution must see the terrain the arrow sees. A failed
+          // corridor read leaves the plan terrain-free (the receipt records no
+          // obstacle evidence), which is the pre-wiring behaviour, not a refusal.
+          let isObstacle: ((cell: { x: number, y: number, z: number }) => boolean | 'unknown') | undefined
+          try {
+            const predicate = await readShotCorridorObstacles(launch, observation.position)
+            // Debug: name the cells the corridor marks blocking, so a refusal on
+            // a curve that reached the target can be traced to a cell.
+            isObstacle = predicate && env.AIRI_TERRAIN_DEBUG
+              ? (cell) => {
+                  const verdict = predicate(cell)
+                  if (verdict !== false)
+                    log.warn(`shot obstacle: ${cell.x},${cell.y},${cell.z} verdict=${verdict}`)
+                  return verdict
+                }
+              : predicate
+          }
+          catch {
+            isObstacle = undefined
+          }
           ballisticPlan = planShotFromObservation({
             observation,
             profile: projectileProfile,
             chargeTicks: planChargeTicks,
-            selfEye: { x: planSelf.position.x, y: planSelf.position.y + PLAYER_EYE_HEIGHT, z: planSelf.position.z },
+            selfEye: launch,
             nowMs: Date.now(),
+            ...(isObstacle ? { isObstacle } : {}),
           })
+          if (env.AIRI_TERRAIN_DEBUG) {
+            log.warn(`shot plan ${ballisticPlan.ok ? 'ok' : ballisticPlan.reason} ${ballisticPlan.ok ? `pitch=${ballisticPlan.solution.pitch.toFixed(2)} ticks=${ballisticPlan.solution.predictedFlightTicks}` : ballisticPlan.detail ?? ''} launch=${JSON.stringify(launch)} target=${JSON.stringify(observation.position)} bounds=${JSON.stringify(observation.bounds ?? null)} onGround=${observation.onGround} uncertainty=${observation.positionUncertainty} obstacle=${isObstacle ? 'yes' : 'no'}`)
+          }
         }
       }
       catch {
@@ -3984,7 +4206,7 @@ export async function setupGameHost(
         return {
           endReason: ballisticPlan.reason,
           finalSnapshot: await readFreshSnapshot() ?? ZERO_SNAPSHOT,
-          shot: { weapon, targetUuid, shots: [], profileId: projectileProfile.id, refusalReason: ballisticPlan.reason, endReason: ballisticPlan.reason },
+          shot: { weapon, targetUuid, shots: [], profileId: projectileProfile.id, refusalReason: ballisticPlan.reason, refusalDetail: ballisticPlan.detail, endReason: ballisticPlan.reason },
         }
       }
 
@@ -4270,6 +4492,7 @@ export async function setupGameHost(
               fireReason: 'ballistic_solution',
             }
           : {}),
+        ...(plannedObservation?.velocity ? { observedSpeed: Math.round(speedBlocksPerSecond(plannedObservation.velocity) * 100) / 100 } : {}),
         endReason,
       }
       return {
@@ -5356,9 +5579,14 @@ export async function setupGameHost(
       catch {
         // Region read is optional for MC-0c.
       }
+      // A read without a real position is a missing self read, not the origin
+      // (L-08): the observe receipt says so instead of presenting (0,0,0).
+      const selfSnapshot = snapshotFrom(self, inventory)
+      if (!selfSnapshot)
+        missing.push('self')
       return {
         endReason: 'observed',
-        finalSnapshot: snapshotFrom(self, inventory),
+        finalSnapshot: selfSnapshot ?? ZERO_SNAPSHOT,
         observedRadius: params.observe?.radius ?? 16,
         observed: {
           ...(inventory ? { inventory } : {}),
@@ -6137,6 +6365,7 @@ export async function setupGameHost(
       ...(receipt.dropPosition ? { dropPosition: receipt.dropPosition } : {}),
       ...(receipt.prerequisites ? { prerequisites: receipt.prerequisites } : {}),
       ...(receipt.follow ? { follow: receipt.follow } : {}),
+      ...(receipt.vehicle ? { vehicle: receipt.vehicle } : {}),
       ...receiptWorldFields(receipt),
     }
   }

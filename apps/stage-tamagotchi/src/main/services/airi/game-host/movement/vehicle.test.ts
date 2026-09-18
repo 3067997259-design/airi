@@ -60,7 +60,8 @@ class BoatFakePort implements MovementControlPort {
   }
 
   async getBlock(): Promise<BlockView | undefined> {
-    return undefined
+    // The fixture fakes a deck under the cart: the dock requires a support.
+    return { id: 'minecraft:stone', air: false }
   }
 
   async getInventory(): Promise<InventorySlot[]> {

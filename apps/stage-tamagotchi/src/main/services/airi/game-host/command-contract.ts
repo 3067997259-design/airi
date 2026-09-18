@@ -88,6 +88,12 @@ export interface GameShotReceipt {
   solutionRevision?: number
   /** CD-B2: age of the target observation the prediction used, in ms. */
   observationAgeMs?: number
+  /**
+   * CD-B2/F-24: speed of the target observation the prediction used, in blocks
+   * per second. A riding target reports its vehicle's speed, because a
+   * passenger's own velocity stays zero while the vehicle moves.
+   */
+  observedSpeed?: number
   /** CD-B2: flight ticks the simulation predicted for the chosen curve. */
   predictedFlightTicks?: number
   /** CD-B2: smallest predicted distance from the curve to the target box. */
@@ -102,6 +108,8 @@ export interface GameShotReceipt {
   fireReason?: string
   /** CD-B2: why no shot was released, when one of the pre-flight checks refused. */
   refusalReason?: string
+  /** CD-B2: the solver's closest approach / blocking note behind a refusal. */
+  refusalDetail?: string
   endReason: string
 }
 

@@ -14,8 +14,10 @@ import type { GameCapabilities, GameCapabilityName, GameCapabilityStatus } from 
 /**
  * Tools that can back each capability, any one of which is enough.
  *
- * `ballistic-profiles` and `break-evidence` list the tools a later batch will
- * add; until the bridge exposes one, the capability is honestly unavailable.
+ * `ballistic-profiles` lists the tools a later batch will add; until the
+ * bridge exposes one, the capability is honestly unavailable. `break-evidence`
+ * prefers the server-side `get_break_evidence` read and keeps the block reads
+ * as a degraded source.
  */
 const CAPABILITY_TOOLS: Record<GameCapabilityName, string[]> = {
   // `get_entity` is the CD-L3 loaded-entity read with pose fields; a bridge
@@ -24,7 +26,7 @@ const CAPABILITY_TOOLS: Record<GameCapabilityName, string[]> = {
   'collision-snapshot': ['get_blocks_region'],
   'control-session': ['set_movement', 'stop_movement'],
   'ballistic-profiles': ['get_ballistics', 'ballistic_profile', 'get_projectile_profile'],
-  'break-evidence': ['get_block', 'get_blocks_region'],
+  'break-evidence': ['get_break_evidence', 'get_block', 'get_blocks_region'],
   // The concrete vehicle state read (tamed/saddled/powered/rail shape) plus the
   // candidate query. A bridge with only `get_vehicle` cannot prove these facts,
   // so the capability stays honestly unavailable.

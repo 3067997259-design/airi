@@ -533,6 +533,25 @@ export interface GameDomainResult {
       receivedAt: number
     }
   }
+  /**
+   * CD-V1: vehicle trip evidence for a move_to command that rode a vehicle.
+   *
+   * The design (§7) rejects a single reached flag, so the result carries the
+   * acquisition method, the vehicle identity, the travelled distance, the dock
+   * and whether the player actually left the vehicle, plus the phases entered.
+   */
+  vehicle?: {
+    kind: string
+    acquireMethod: string
+    vehicleUuid?: string
+    distanceTravelled: number
+    dockPosition?: { x: number, y: number, z: number }
+    dismounted: boolean
+    arrivedMounted?: boolean
+    failure?: string
+    endReason: string
+    phases: string[]
+  }
 }
 
 export interface GameHostDomainToolDescriptor {

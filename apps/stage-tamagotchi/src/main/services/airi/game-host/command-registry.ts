@@ -1,4 +1,5 @@
 import type { GameAttackedReceipt, GameBrokenReceipt, GameCommandAction, GameCommandParams, GameCraftReceipt, GameEquipReceipt, GameFedReceipt, GameFinalSnapshot, GameFollowReceipt, GameItemContentReceipt, GameMenuActionReceipt, GameMenuReceipt, GameMenuSnapshotReceipt, GameMovedReceipt, GameObservedReceipt, GamePlacedReceipt, GamePostCondition, GamePostConditionInput, GamePrerequisiteReport, GameRespawnedReceipt, GameRiptideReceipt, GameShotReceipt, GameSignContentReceipt, GameSleptReceipt, GameSmeltReceipt, GameUseReceipt } from './command-contract'
+import type { VehicleReceipt } from './movement/vehicle-types'
 
 /**
  * MC-0b command registry (TS side).
@@ -200,6 +201,8 @@ export interface GameCommandReceipt {
   prerequisites?: GamePrerequisiteReport
   /** CD-F: present only for follow commands that ran the air state machine. */
   follow?: GameFollowReceipt
+  /** CD-V1: present only for move_to commands that rode a vehicle. */
+  vehicle?: VehicleReceipt
 }
 
 /** Raised when a command id is reused with different params. */
@@ -323,6 +326,8 @@ export interface GameExecutorOutcome extends GamePostConditionInput {
   prerequisites?: GamePrerequisiteReport
   /** CD-F: air follow evidence, mode switches and the final target observation. */
   follow?: GameFollowReceipt
+  /** CD-V1: vehicle trip evidence: acquisition, dock, dismount and phases. */
+  vehicle?: VehicleReceipt
 }
 
 export interface GameCommandExecutor {
@@ -616,6 +621,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
     dropPosition?: { x: number, y: number, z: number }
     prerequisites?: GamePrerequisiteReport
     follow?: GameFollowReceipt
+    vehicle?: VehicleReceipt
   }): GameCommandReceipt {
     if (record.timer) {
       clearTimeout(record.timer)
@@ -661,6 +667,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
       ...(input.dropPosition ? { dropPosition: input.dropPosition } : {}),
       ...(input.prerequisites ? { prerequisites: input.prerequisites } : {}),
       ...(input.follow ? { follow: input.follow } : {}),
+      ...(input.vehicle ? { vehicle: input.vehicle } : {}),
     }
     record.receipt = receipt
     record.resolveSettled(receipt)
@@ -694,6 +701,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
       ...(outcome.dropPosition ? { dropPosition: outcome.dropPosition } : {}),
       ...(outcome.prerequisites ? { prerequisites: outcome.prerequisites } : {}),
       ...(outcome.follow ? { follow: outcome.follow } : {}),
+      ...(outcome.vehicle ? { vehicle: outcome.vehicle } : {}),
     }
   }
 

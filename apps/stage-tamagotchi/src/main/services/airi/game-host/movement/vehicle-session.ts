@@ -24,9 +24,15 @@ import { errorMessageFrom } from '@moeru/std'
 
 import { angleDelta, defaultSleep, horizontalDistance, yawTo } from './geometry'
 import { acquireVehicle } from './vehicle-acquire'
-import { boatAngularVelocity, minecartDismountSafe, observeMinecartLaunch, planBoatApproach } from './vehicle-drive'
+import { boatAngularVelocity, MINECART_MOVING_SPEED, minecartDismountSafe, observeMinecartLaunch, planBoatApproach, planRouteFollow } from './vehicle-drive'
 import { isHorseFamily } from './vehicle-observation'
 
+/** Water-route read margin around the boat-to-goal box, in cells. */
+const WATER_ROUTE_MARGIN = 12
+/** Read volume the route planner accepts; a bigger box degrades to the straight line. */
+const WATER_ROUTE_MAX_CELLS = 30_000
+/** Cells of look-ahead along the planned water route. */
+const WATER_ROUTE_LOOKAHEAD = 4
 /** Steering poll interval, in ms. */
 const STEER_POLL_MS = 250
 /** Stuck detection window, in polls. */
@@ -39,6 +45,14 @@ const MAX_STUCK_ATTEMPTS = 2
 const DEFAULT_TRAVEL_BUDGET_MS = 120_000
 /** Legacy minecart wait when the bridge cannot verify the launch, in ms. */
 const LEGACY_MINECART_DEADLINE_MS = 30_000
+/** Radius the minecart launch looks for a prepared lever. */
+const MECHANISM_RADIUS = 4
+/** Eye height used only to aim at the mechanism; a small offset still hits. */
+const MECHANISM_AIM_EYE_HEIGHT = 1.6
+/** Settle between aiming at the mechanism and interacting with it. */
+const MECHANISM_AIM_SETTLE_MS = 250
+/** Settle after the mechanism interaction before the rail is re-read. */
+const MECHANISM_SETTLE_MS = 600
 /** Time given a launched cart to show a real speed before failing, in ms. */
 const LAUNCH_VERIFY_MS = 1_500
 /** How often the riding identity is re-read, in polls. */
@@ -64,6 +78,8 @@ interface SessionState {
   playerUuid?: string
   /** Rail launch state verified after boarding. */
   launchVerified?: boolean
+  /** True once a prepared start mechanism was operated for this trip. */
+  launchMechanismUsed?: boolean
 }
 
 interface TravelOutcome {
@@ -159,9 +175,23 @@ async function safeDismount(ctx: VehicleContext, session: SessionState, outcome:
       return { dismounted: false, failure: outcome.status === 'cancelled' ? 'unsafe_dismount' : undefined }
   }
   if (kind === 'minecart') {
-    const safe = minecartDismountSafe({ speed: outcome.speed ?? 0, onRail: 'unobserved', atStation: outcome.status === 'reached' })
-    if (!safe)
-      return { dismounted: false, failure: outcome.status === 'cancelled' ? 'unsafe_dismount' : undefined }
+    // A stance needs ground: a `reached` cart over the fixture's break
+    // dismounted the player into open air and a fall (live V-08, 2026-09-17).
+    // An unreadable support read is not a stance (CD-0 §3.3).
+    const state = await ctx.port.getState()
+    const support = await ctx.port.getBlock({
+      x: Math.floor(state.position.x),
+      y: Math.floor(state.position.y) - 1,
+      z: Math.floor(state.position.z),
+    })
+    const safe = support !== undefined && support.air !== true
+      && minecartDismountSafe({ speed: outcome.speed ?? 0, onRail: 'unobserved', atStation: outcome.status === 'reached' })
+    if (!safe) {
+      return {
+        dismounted: false,
+        failure: outcome.status === 'cancelled' || outcome.status === 'reached' ? 'unsafe_dismount' : undefined,
+      }
+    }
   }
   if (isHorseFamily(kind)) {
     if (outcome.status === 'cancelled' && outcome.onGround !== true)
@@ -169,6 +199,162 @@ async function safeDismount(ctx: VehicleContext, session: SessionState, outcome:
   }
   await ctx.port.dismount()
   return { dismounted: true }
+}
+
+/** One read water cell of a planned boat route. */
+interface WaterWaypoint {
+  x: number
+  z: number
+  /** Water surface block Y at this cell. */
+  y: number
+}
+
+/**
+ * Plans a boat route through read water cells (CD-V2 minimal).
+ *
+ * The boat drives toward its waypoint, so steering straight at a goal across a
+ * bend pushes the hull into the bank (live V-01/V-02, 2026-09-17: the trip
+ * stalled at the diagonal bend and reported route_unavailable). The route is a
+ * 4-neighbour BFS over the water cells one region read returns. An unread or
+ * waterless region returns undefined and the caller keeps the straight-line
+ * behaviour, so a bridge without the read degrades instead of guessing.
+ */
+async function planWaterRoute(ctx: VehicleContext, from: { x: number, y: number, z: number }, goal: { x: number, y: number, z: number }): Promise<{ path: WaterWaypoint[], water: Set<string> } | undefined> {
+  const port = ctx.port
+  if (!port.getBlocksRegion) {
+    ctx.debug?.('boat route unavailable: bridge has no region read')
+    return undefined
+  }
+  const bounds = {
+    min: {
+      x: Math.floor(Math.min(from.x, goal.x)) - WATER_ROUTE_MARGIN,
+      y: Math.floor(from.y) - 2,
+      z: Math.floor(Math.min(from.z, goal.z)) - WATER_ROUTE_MARGIN,
+    },
+    max: {
+      x: Math.floor(Math.max(from.x, goal.x)) + WATER_ROUTE_MARGIN,
+      y: Math.floor(from.y) + 1,
+      z: Math.floor(Math.max(from.z, goal.z)) + WATER_ROUTE_MARGIN,
+    },
+  }
+  const volume = (bounds.max.x - bounds.min.x + 1) * (bounds.max.y - bounds.min.y + 1) * (bounds.max.z - bounds.min.z + 1)
+  if (volume > WATER_ROUTE_MAX_CELLS) {
+    ctx.debug?.(`boat route unavailable: corridor read would be ${volume} cells`)
+    return undefined
+  }
+  let entries
+  try {
+    entries = await port.getBlocksRegion(bounds.min, bounds.max)
+  }
+  catch (error) {
+    ctx.debug?.(`boat route unavailable: read failed: ${errorMessageFrom(error)}`)
+    return undefined
+  }
+  const water = new Map<string, number>()
+  for (const entry of entries) {
+    if (!entry.id.endsWith('water'))
+      continue
+    const key = `${entry.x},${entry.z}`
+    const surface = water.get(key)
+    if (surface === undefined || entry.y > surface)
+      water.set(key, entry.y)
+  }
+  if (water.size === 0) {
+    ctx.debug?.(`boat route unavailable: no water in ${entries.length} read blocks`)
+    return undefined
+  }
+  const startKey = nearestWaterKey(water, from)
+  const goalKey = nearestWaterKey(water, goal)
+  if (!startKey || !goalKey) {
+    ctx.debug?.('boat route unavailable: no water cell near the boat or the goal')
+    return undefined
+  }
+  const previous = new Map<string, string | undefined>([[startKey, undefined]])
+  const queue: string[] = [startKey]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (current === goalKey)
+      break
+    const [x, z] = current.split(',').map(Number) as [number, number]
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const neighbour = `${x + dx},${z + dz}`
+      if (!water.has(neighbour) || previous.has(neighbour))
+        continue
+      previous.set(neighbour, current)
+      queue.push(neighbour)
+    }
+  }
+  if (!previous.has(goalKey)) {
+    ctx.debug?.(`boat route unavailable: the goal is not connected to the boat (start ${startKey}, goal ${goalKey})`)
+    return undefined
+  }
+  const path: WaterWaypoint[] = []
+  let cursor: string | undefined = goalKey
+  while (cursor !== undefined) {
+    path.unshift({ x: Number(cursor.split(',')[0]), z: Number(cursor.split(',')[1]), y: water.get(cursor)! })
+    cursor = previous.get(cursor)
+  }
+  return { path, water: new Set(water.keys()) }
+}
+
+/** Key of the read water cell nearest to a world position. */
+function nearestWaterKey(water: Map<string, number>, position: { x: number, z: number }): string | undefined {
+  let best: string | undefined
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const key of water.keys()) {
+    const [x, z] = key.split(',').map(Number) as [number, number]
+    const distance = Math.hypot(x + 0.5 - position.x, z + 0.5 - position.z)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = key
+    }
+  }
+  return best
+}
+
+/**
+ * The route cell to aim at: the farthest cell ahead whose straight line stays on
+ * read water.
+ *
+ * A fixed look-ahead cut the corner on short legs and steered the hull into the
+ * bank (live V-02 follow-up). Walking forward while the line stays on water
+ * keeps the aim inside the channel and still smooths the path.
+ */
+function boatWaypoint(route: { path: WaterWaypoint[], water: Set<string> }, position: { x: number, z: number }): WaterWaypoint | undefined {
+  const path = route.path
+  if (path.length === 0)
+    return undefined
+  let nearest = 0
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index < path.length; index++) {
+    const cell = path[index]!
+    const distance = Math.hypot(cell.x + 0.5 - position.x, cell.z + 0.5 - position.z)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      nearest = index
+    }
+  }
+  const limit = Math.min(path.length - 1, nearest + WATER_ROUTE_LOOKAHEAD)
+  let target = path[nearest]!
+  for (let index = nearest + 1; index <= limit; index++) {
+    if (!waterLineClear(route.water, position, path[index]!))
+      break
+    target = path[index]!
+  }
+  return target
+}
+
+/** True when the straight line from a position to a route cell stays over read water. */
+function waterLineClear(water: Set<string>, from: { x: number, z: number }, to: WaterWaypoint): boolean {
+  const steps = Math.ceil(Math.hypot(to.x + 0.5 - from.x, to.z + 0.5 - from.z) * 2)
+  for (let step = 1; step <= steps; step++) {
+    const t = step / steps
+    const x = Math.floor(from.x + (to.x + 0.5 - from.x) * t)
+    const z = Math.floor(from.z + (to.z + 0.5 - from.z) * t)
+    if (!water.has(`${x},${z}`))
+      return false
+  }
+  return true
 }
 
 async function runBoatTravel(ctx: VehicleContext, session: SessionState, goal: { x: number, y: number, z: number }, tolerance: number): Promise<TravelOutcome> {
@@ -179,6 +365,8 @@ async function runBoatTravel(ctx: VehicleContext, session: SessionState, goal: {
   let previousYaw: number | undefined
   let previousYawAt = 0
   let paddleTurn: TriState = 'unobserved'
+  let route: { path: WaterWaypoint[], water: Set<string> } | undefined
+  let routePlanned = false
 
   for (;;) {
     if (ctx.shouldStop())
@@ -212,14 +400,30 @@ async function runBoatTravel(ctx: VehicleContext, session: SessionState, goal: {
     }
 
     const observation = await observeRidden(ctx, session.uuid)
+    if (!routePlanned) {
+      routePlanned = true
+      route = await planWaterRoute(ctx, state.position, goal)
+      if (route)
+        ctx.debug?.(`boat route planned: ${route.path.length} water cells`)
+    }
+    const routeWaypoint = route ? boatWaypoint(route, state.position) : undefined
+    const waypoint = routeWaypoint ?? goal
     const plan = observation
-      ? planBoatApproach({
-          position: state.position,
-          yaw: observation.yaw ?? state.yaw,
-          waypoint: goal,
-          goal,
-          speed: observationSpeed(observation) ?? Math.hypot(state.motion?.x ?? 0, state.motion?.z ?? 0),
-        })
+      ? (routeWaypoint
+          ? planRouteFollow({
+              position: state.position,
+              yaw: observation.yaw ?? state.yaw,
+              waypoint: { x: routeWaypoint.x + 0.5, y: routeWaypoint.y + 0.5, z: routeWaypoint.z + 0.5 },
+              goal,
+              speed: observationSpeed(observation) ?? Math.hypot(state.motion?.x ?? 0, state.motion?.z ?? 0),
+            })
+          : planBoatApproach({
+              position: state.position,
+              yaw: observation.yaw ?? state.yaw,
+              waypoint: { x: waypoint.x + 0.5, y: waypoint.y + 0.5, z: waypoint.z + 0.5 },
+              goal,
+              speed: observationSpeed(observation) ?? Math.hypot(state.motion?.x ?? 0, state.motion?.z ?? 0),
+            }))
       : undefined
     if (plan) {
       if (Math.abs(angleDelta(state.yaw, plan.yawCommand)) > 10)
@@ -250,6 +454,7 @@ async function runBoatTravel(ctx: VehicleContext, session: SessionState, goal: {
         await ctx.sleep(450)
         await clearInput(port)
         recent.length = 0
+        routePlanned = false
       }
     }
   }
@@ -339,6 +544,62 @@ async function runHorseTravel(ctx: VehicleContext, session: SessionState, goal: 
   }
 }
 
+/**
+ * Operates one prepared launch mechanism beside the cart.
+ *
+ * The fixture contract (design §6) allows a prepared start, for example a lever
+ * beside a powered rail. The host performs that exact mechanism interaction and
+ * reports whether one was operated; the caller re-reads the rail afterwards and
+ * keeps `rail_not_powered` when the rail is still unpowered. A stationary cart
+ * never launches itself on flat track (live probe, 2026-09-17), so the
+ * mechanism only powers the track: the caller still waits for real motion.
+ */
+async function operateLaunchMechanism(ctx: VehicleContext, cartPosition: { x: number, y: number, z: number }): Promise<boolean> {
+  const port = ctx.port
+  if (!port.getBlocksRegion)
+    return false
+  const from = {
+    x: Math.floor(cartPosition.x) - MECHANISM_RADIUS,
+    y: Math.floor(cartPosition.y) - 1,
+    z: Math.floor(cartPosition.z) - MECHANISM_RADIUS,
+  }
+  const to = {
+    x: Math.floor(cartPosition.x) + MECHANISM_RADIUS,
+    y: Math.floor(cartPosition.y) + 1,
+    z: Math.floor(cartPosition.z) + MECHANISM_RADIUS,
+  }
+  let entries
+  try {
+    entries = await port.getBlocksRegion(from, to)
+  }
+  catch {
+    return false
+  }
+  let best: { x: number, y: number, z: number, distance: number } | undefined
+  for (const entry of entries) {
+    if (!entry.id.endsWith('lever'))
+      continue
+    const distance = Math.hypot(entry.x + 0.5 - cartPosition.x, entry.z + 0.5 - cartPosition.z)
+    if (distance < 1 || distance > MECHANISM_RADIUS)
+      continue
+    if (best && distance >= best.distance)
+      continue
+    best = { x: entry.x, y: entry.y, z: entry.z, distance }
+  }
+  if (!best)
+    return false
+  const state = await port.getState()
+  const dx = best.x + 0.5 - state.position.x
+  const dz = best.z + 0.5 - state.position.z
+  const horizontal = Math.hypot(dx, dz)
+  const yaw = Math.atan2(-dx, dz) * 180 / Math.PI
+  const pitch = Math.atan2(state.position.y + MECHANISM_AIM_EYE_HEIGHT - (best.y + 0.5), horizontal) * 180 / Math.PI
+  await port.look(yaw, pitch)
+  await ctx.sleep(MECHANISM_AIM_SETTLE_MS)
+  await ctx.port.useBlock({ x: best.x, y: best.y, z: best.z })
+  return true
+}
+
 async function runMinecartTravel(ctx: VehicleContext, session: SessionState, goal: { x: number, y: number, z: number }, tolerance: number): Promise<TravelOutcome> {
   const port = ctx.port
   const firstObservation = await observeRidden(ctx, session.uuid)
@@ -358,6 +619,14 @@ async function runMinecartTravel(ctx: VehicleContext, session: SessionState, goa
       return { status: 'stuck', failure: 'launch_unavailable', detail: 'the cart never moved' }
     const state = await port.getState()
     trackDistance(session, state.position)
+    // A destroyed cart stops producing observations; the riding read is the
+    // fact that names it ehicle_lost instead of a generic speed failure
+    // (live V-09a: a killed cart reported launch_unavailable).
+    if (polls % RIDING_CHECK_EVERY === 0) {
+      const riding = await port.getRiding()
+      if (session.uuid && (!riding || (riding.uuid && riding.uuid !== session.uuid)))
+        return { status: 'stuck', failure: 'vehicle_lost', detail: 'the cart is no longer under the player' }
+    }
     const observation = await observeRidden(ctx, session.uuid)
     if (session.dimension && observation?.dimension !== undefined && observation.dimension !== session.dimension)
       return { status: 'stuck', failure: 'dimension_changed', detail: 'the world binding changed mid-trip' }
@@ -368,10 +637,29 @@ async function runMinecartTravel(ctx: VehicleContext, session: SessionState, goa
       return { status: 'reached', onGround: state.onGround, inWater: state.inWater, speed }
 
     const powered = observation?.state.kind === 'minecart' ? observation.state.powered : 'unobserved'
-    // An explicitly unpowered rail is a typed failure immediately, not a 30 s
-    // "stuck" wait (design §6).
-    if (!launchChecked && powered === false)
-      return { status: 'stuck', failure: 'rail_not_powered', detail: 'the rail under the cart is not powered' }
+    // An explicitly unpowered rail is a typed failure, but a prepared start
+    // mechanism beside the rail is first operated once (design §6): the host
+    // may perform that exact mechanism interaction, then the next poll decides
+    // from the re-read rail state.
+    if (!launchChecked && powered === false) {
+      // A coasting cart counts as launched: after a slope or the dispatch
+      // settle the cart can already sit on a plain rail, and reading only the
+      // rail mislabeled a rolling cart as rail_not_powered (live V-06).
+      if (speed > MINECART_MOVING_SPEED) {
+        launchChecked = true
+      }
+      else if (!session.launchMechanismUsed) {
+        session.launchMechanismUsed = true
+        const operated = await operateLaunchMechanism(ctx, state.position)
+        if (operated) {
+          await ctx.sleep(MECHANISM_SETTLE_MS)
+          continue
+        }
+      }
+      else {
+        return { status: 'stuck', failure: 'rail_not_powered', detail: 'the rail under the cart is not powered' }
+      }
+    }
 
     if (!launchChecked && ctx.now() >= verifyDeadline) {
       const launch = observeMinecartLaunch({ speedBefore, speedAfter: speed, powered })
@@ -565,8 +853,18 @@ async function dockVehicle(ctx: VehicleContext, session: SessionState, travel: T
     // No bank at the goal: keep the boat and report the fact honestly.
     return { dismounted: false, arrivedMounted: true }
   }
-  if (session.kind === 'minecart' && !minecartDismountSafe({ speed: travel.speed ?? 0, onRail: 'unobserved', atStation: true })) {
-    return { dismounted: false, arrivedMounted: true, failure: 'unsafe_dismount' }
+  if (session.kind === 'minecart') {
+    // A stance needs ground: a `reached` cart over the fixture's break
+    // dismounted the player into open air and a fall (live V-08, 2026-09-17).
+    // An unreadable support read is not a stance (CD-0 §3.3).
+    const support = await ctx.port.getBlock({
+      x: Math.floor(state.position.x),
+      y: Math.floor(state.position.y) - 1,
+      z: Math.floor(state.position.z),
+    })
+    const stance = support !== undefined && support.air !== true
+    if (!stance || !minecartDismountSafe({ speed: travel.speed ?? 0, onRail: 'unobserved', atStation: true }))
+      return { dismounted: false, arrivedMounted: true, failure: 'unsafe_dismount' }
   }
   const riding = await ctx.port.getRiding()
   if (session.uuid && riding?.uuid && riding.uuid !== session.uuid)

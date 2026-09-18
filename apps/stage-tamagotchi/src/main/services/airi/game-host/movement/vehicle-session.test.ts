@@ -20,6 +20,8 @@ interface FakeOptions {
   /** Fresh player/vehicle footing facts. */
   inWater?: boolean
   onGround?: boolean
+  /** Report air under the cart at the dock: no stance (V-08 fixture). */
+  supportAir?: boolean
   /** useItem spawns this vehicle and seats the player. */
   placeOnUse?: { uuid: string, type: string }
   /** boardNearestVehicle mounts this type (legacy path). */
@@ -70,6 +72,7 @@ function makeObservation(input: {
 class VehicleFakePort {
   position: Vec3 = { x: 0, y: 64, z: 0 }
   yaw = 0
+  pitch = 0
   dimension = 'minecraft:overworld'
   inputs: MovementInput = {}
   riding: RidingInfo | undefined
@@ -145,20 +148,21 @@ class VehicleFakePort {
     }
   }
 
-  async getBlocksRegion(): Promise<never[]> {
+  async getBlocksRegion(): Promise<Array<{ x: number, y: number, z: number, id: string }>> {
     return []
   }
 
   async getBlock(): Promise<BlockView | undefined> {
-    return undefined
+    return this.options.supportAir === true ? { id: 'minecraft:air', air: true } : { id: 'minecraft:stone', air: false }
   }
 
   async getInventory(): Promise<InventorySlot[]> {
     return this.inventory
   }
 
-  async look(yaw: number): Promise<void> {
+  async look(yaw: number, pitch?: number): Promise<void> {
     this.yaw = yaw
+    this.pitch = pitch ?? 0
     this.syncObservation()
   }
 
@@ -332,12 +336,92 @@ describe('vehicle travel session: boat', () => {
       placeOnUse: { uuid: 'boat-new', type: 'minecraft:oak_boat' },
       vehicles: [boatUuid('boat-occupied', { free: false })],
     })
+    // ROOT CAUSE:
+    //
+    // Placing a boat is a normal item use that reads the crosshair. The
+    // prepare_owned path aimed level at the far goal, which hits nothing inside
+    // the interaction reach, so the item was never consumed and no boat spawned
+    // (live F-14, 2026-07-17 probe).
+    //
+    // <before-patch behavior/code>
+    // await port.look(yawToGoal, 0)
+    //
+    // We fixed this by looking down at the water beside the player.
+    const looks: Array<{ yaw: number, pitch: number }> = []
+    const originalLook = port.look.bind(port)
+    port.look = async (yaw: number, pitch?: number) => {
+      looks.push({ yaw, pitch: pitch ?? 0 })
+      await originalLook(yaw)
+    }
     const result = await runVehicleTravel('boat', optionsFor(port, { strategy: 'prepare_owned' }))
     expect(result.status).toBe('reached')
+    expect(looks.some(look => look.pitch > 30)).toBe(true)
     expect(port.useItemCalls).toBe(1)
     expect(result.receipt?.acquireMethod).toBe('prepare_owned')
     expect(result.receipt?.vehicleUuid).toBe('boat-new')
     expect(result.receipt?.asset).toMatchObject({ itemId: 'minecraft:oak_boat', consumed: 1, location: 'vehicle' })
+  })
+
+  it('retries the board until the client sees the vehicle', async () => {
+    // ROOT CAUSE:
+    //
+    // The client receives entities a moment after the player arrives, so one
+    // immediate interaction missed a boat that was already in the world (live
+    // deck run 2026-09-17: boarded=false right after the teleport, then true
+    // ~1 s later).
+    //
+    // <before-patch behavior/code>
+    // const boarded = await board(ctx, uuid, type)
+    //
+    // We fixed this by retrying the board inside a bounded window.
+    const port = new VehicleFakePort({ vehicles: [boatUuid('boat-late')] })
+    let boards = 0
+    const original = port.boardVehicle.bind(port)
+    port.boardVehicle = async (uuid: string) => {
+      boards++
+      return boards <= 2 ? { boarded: false } : await original(uuid)
+    }
+    const result = await runVehicleTravel('boat', optionsFor(port))
+    expect(result.status).toBe('reached')
+    expect(boards).toBeGreaterThan(2)
+  })
+  it('steers along the read water route instead of straight at the goal', async () => {
+    // ROOT CAUSE:
+    //
+    // The boat drove straight at the goal, so a bend pushed the hull into the
+    // bank and the trip stalled with route_unavailable (live V-01/V-02,
+    // 2026-09-17: the diagonal bend stopped the cart at 21-25 blocks).
+    //
+    // <before-patch behavior/code>
+    // const plan = observation ? planBoatApproach({ ..., waypoint: goal, goal, ... }) : undefined
+    //
+    // We fixed this by planning a route over the read water cells and steering
+    // at the next route cell.
+    const port = new VehicleFakePort({ vehicles: [boatUuid('boat-1')] })
+    port.position = { x: 0.5, y: 64, z: 1.5 }
+    // A 3-wide L: east along z 0..2, then south along x 4..6. The wide corner
+    // absorbs the fake's instant one-block steps, the same way the fixture's
+    // banks absorb a real hull's turn radius.
+    const water: Array<{ x: number, y: number, z: number, id: string }> = []
+    for (let x = 0; x <= 5; x++) {
+      for (let z = 0; z <= 2; z++) water.push({ x, y: 64, z, id: 'minecraft:water' })
+    }
+    for (let x = 4; x <= 6; x++) {
+      for (let z = 2; z <= 6; z++) water.push({ x, y: 64, z, id: 'minecraft:water' })
+    }
+    port.getBlocksRegion = async () => water
+    const looks: number[] = []
+    const originalLook = port.look.bind(port)
+    port.look = async (yaw: number, pitch?: number) => {
+      looks.push(yaw)
+      await originalLook(yaw, pitch)
+    }
+    const result = await runVehicleTravel('boat', optionsFor(port, { goal: { x: 5, y: 64, z: 4 }, tolerance: 1.5 }))
+    expect(result.status).toBe('reached')
+    // A straight-line follower keeps one yaw; steering along the route turns the
+    // hull through the bend, so the commanded yaw spread is the observable fact.
+    const spread = Math.max(...looks) - Math.min(...looks)
+    expect(spread).toBeGreaterThanOrEqual(45)
   })
 
   it('reports an occupied explicit boat instead of claiming it', async () => {
@@ -481,9 +565,58 @@ describe('vehicle travel session: horse', () => {
     const result = await runVehicleTravel('horse', optionsFor(port))
     expect(result.failure).toBe('not_controllable')
   })
+
+  it('waits for the mount to register before calling a board uncontrollable', async () => {
+    // ROOT CAUSE:
+    //
+    // The board interaction lands on the next client tick. A live probe showed
+    // `get_vehicle` reporting not riding for about 150 ms after `board_vehicle`
+    // returned boarded=true, so one immediate confirm read failed every real
+    // mount with `not_controllable`.
+    //
+    // <before-patch behavior/code>
+    // const riding = await ctx.port.getRiding()
+    //
+    // We fixed this by retrying the read inside a bounded attempt window.
+    const port = new VehicleFakePort({ vehicles: [horseUuid('horse-slow', { tamed: true, saddled: true })] })
+    let reads = 0
+    port.getRiding = async () => {
+      reads++
+      return reads <= 2 ? undefined : { kind: 'minecraft:horse', uuid: 'horse-slow' }
+    }
+    const result = await runVehicleTravel('horse', optionsFor(port))
+    expect(result.status).toBe('reached')
+    expect(reads).toBeGreaterThan(2)
+  })
 })
 
 describe('vehicle travel session: minecart', () => {
+  it('powers the track through a prepared lever before failing', async () => {
+    // ROOT CAUSE:
+    //
+    // The fixture contract (design §6) allows a prepared start: a lever beside
+    // an unpowered powered rail. The travel failed with rail_not_powered on the
+    // first poll and never touched the mechanism.
+    //
+    // <before-patch behavior/code>
+    // if (!launchChecked && powered === false)
+    //   return { status: 'stuck', failure: 'rail_not_powered', ... }
+    //
+    // We fixed this by operating one lever within reach, then letting the next
+    // poll decide from the re-read rail.
+    const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', false)], rolling: true })
+    const cart = port.vehicles.get('cart-1')!
+    let uses = 0
+    port.getBlocksRegion = async () => [{ x: 1, y: 64, z: 0, id: 'minecraft:lever' }]
+    port.useBlock = async () => {
+      uses++
+      cart.state = { kind: 'minecart', powered: true, onRail: true }
+    }
+    const result = await runVehicleTravel('minecart', optionsFor(port, { goal: { x: 6, y: 64, z: 0 } }))
+    expect(uses).toBe(1)
+    expect(result.status).toBe('reached')
+  })
+
   it('reports rail_not_powered immediately instead of waiting thirty seconds', async () => {
     let clock = 0
     const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', false)] })
@@ -502,6 +635,59 @@ describe('vehicle travel session: minecart', () => {
     expect(port.dismounts).toBe(1)
   })
 
+  it('treats a coasting cart on a plain rail as launched', async () => {
+    // ROOT CAUSE:
+    //
+    // After the slope launch the cart can already sit on a plain rail while it
+    // is still rolling; reading only the rail mislabeled it rail_not_powered
+    // (live V-06, 2026-09-17: the cart moved 2.37 blocks and the trip failed).
+    //
+    // <before-patch behavior/code>
+    // if (!launchChecked && powered === false) {
+    //   if (!session.launchMechanismUsed) { ...dispatch... }
+    //   return { status: 'stuck', failure: 'rail_not_powered', ... }
+    // }
+    //
+    // We fixed this by accepting observed motion as the launch fact.
+    const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', false)], rolling: true })
+    const result = await runVehicleTravel('minecart', optionsFor(port, { goal: { x: 6, y: 64, z: 0 } }))
+    expect(result.status).toBe('reached')
+  })
+
+  it('keeps the rider mounted when the dock has no ground under it', async () => {
+    // ROOT CAUSE:
+    //
+    // A reached cart over the fixture's break dismounted the player into open
+    // air; the trip then reported reached and the player fell (live V-08).
+    //
+    // <before-patch behavior/code>
+    // if (session.kind === 'minecart' && !minecartDismountSafe({ ..., atStation: true }))
+    //   return { dismounted: false, ... }
+    //
+    // We fixed this by requiring a readable, solid support below the cart.
+    const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', true)], rolling: true, supportAir: true })
+    const result = await runVehicleTravel('minecart', optionsFor(port, { goal: { x: 6, y: 64, z: 0 } }))
+    expect(result.receipt?.dismounted).toBe(false)
+    expect(result.receipt?.arrivedMounted).toBe(true)
+    expect(port.dismounts).toBe(0)
+  })
+  it('names a destroyed cart vehicle_lost instead of a speed failure', async () => {
+    // ROOT CAUSE:
+    //
+    // The minecart loop had no riding check, so a cart killed mid-ride only
+    // showed as a speed drop and the trip reported launch_unavailable (live
+    // V-09a, 2026-09-17).
+    //
+    // <before-patch behavior/code>
+    // if (ctx.now() > launchDeadline && speed <= 0.02)
+    //   return { status: 'stuck', failure: 'launch_unavailable', ... }
+    //
+    // We fixed this by reading the riding state on the same cadence as the
+    // other movers and naming vehicle_lost.
+    const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', true)], rolling: true, clearRidingAfter: 2 })
+    const result = await runVehicleTravel('minecart', optionsFor(port, { goal: { x: 40, y: 64, z: 0 } }))
+    expect(result.failure).toBe('vehicle_lost')
+  })
   it('reports launch_unavailable when the cart never moves', async () => {
     let clock = 0
     const port = new VehicleFakePort({ vehicles: [cartUuid('cart-1', 'unobserved')] })

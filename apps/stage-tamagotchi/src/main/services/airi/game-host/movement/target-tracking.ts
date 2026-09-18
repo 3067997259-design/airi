@@ -44,6 +44,16 @@ export const TRAJECTORY_TELEPORT_WINDOW_MS = 1000
 /** Default number of samples the trajectory history keeps. */
 export const TRAJECTORY_MAX_SAMPLES = 40
 
+/**
+ * Forced reasons that end the wait at once (design §4).
+ *
+ * A terminal reason says the target cannot be tracked further (`offline`, a
+ * dimension change). The other coarse failures (`entity_unloaded`,
+ * `locator_unavailable`) must still run the bounded waiting window and can
+ * recover, so they only stay in the snapshot for diagnosis.
+ */
+const TERMINAL_TRACKING_OUTCOMES: ReadonlySet<TargetTrackingOutcome> = new Set(['target_offline', 'target_dimension_changed'])
+
 /** Typed result of one tracking step (design §4). */
 export type TargetTrackingOutcome
   = | 'fine'
@@ -190,12 +200,24 @@ export function createTargetTracker(options: TargetTrackerOptions = {}): TargetT
       return true
     },
 
+    /**
+     * Forces a typed outcome.
+     *
+     * A terminal reason ends the wait at once and a later non-terminal read
+     * must not downgrade it. A non-terminal reason is kept for diagnosis and
+     * leaves the bounded waiting window in charge.
+     */
     forceOutcome: (outcome) => {
+      if (forced !== undefined && TERMINAL_TRACKING_OUTCOMES.has(forced))
+        return
       forced = outcome
     },
 
     outcome: (now) => {
-      if (forced)
+      // Only a terminal reason short-circuits. A non-terminal forced reason
+      // (an unloaded non-player or a failed locate) must not bypass the
+      // waiting window: it is sticky for diagnosis, not a verdict (CD-L2).
+      if (forced !== undefined && TERMINAL_TRACKING_OUTCOMES.has(forced))
         return forced
       if (mode === 'fine')
         return 'fine'

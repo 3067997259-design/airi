@@ -61,6 +61,7 @@ const clientMocks = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
   callTool: vi.fn(async (_args: { name: string }) => ({ content: [] as Array<Record<string, unknown>> })),
   close: vi.fn(async () => undefined),
+  listTools: vi.fn(async () => undefined as { tools?: Array<{ name: string }> } | undefined),
 }))
 
 vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
@@ -68,6 +69,7 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
     connect = clientMocks.connect
     callTool = clientMocks.callTool
     close = clientMocks.close
+    listTools = clientMocks.listTools
 
     constructor() {
       clientInstances.items.push(this)
@@ -223,7 +225,7 @@ describe('game host config persistence', () => {
 
 describe('setupGameHost', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     appMock.getVersion.mockReturnValue('0.10.0')
     clientInstances.items.length = 0
     transportInstances.items.length = 0
@@ -512,6 +514,43 @@ describe('setupGameHost', () => {
     })
   })
 
+  it('never turns a missing coordinate into the origin', async () => {
+    // ROOT CAUSE:
+    //
+    // snapshotFrom coerced a missing coordinate with `Number(x) || 0`, so a
+    // partial self read presented (0,0,0) as a real position and a fallback
+    // could treat a failed read as a place (L-08).
+    //
+    // <before-patch behavior/code>
+    // position: { x: Number(state.x) || 0, y: Number(state.y) || 0, z: Number(state.z) || 0 }
+    //
+    // We fixed this by refusing the snapshot and naming the self read missing.
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1', dimension: 'minecraft:overworld' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { y: 64, health: 20, food: 20, selectedSlot: 0, dimension: 'minecraft:overworld' } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { count: 0, blocks: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-zero-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({ requestId: 'req-zero', action: 'observe', params: {} })
+
+    // The self read has no position, so the post-command verification cannot
+    // treat the fabricated origin as a place: the host reports the failed
+    // fresh read instead of a checked observation.
+    expect(result.endReason).toBe('check_failed: fresh_state')
+    expect(result.postCondition).toMatchObject({ kind: 'observed', met: true })
+  })
+
   it('dedups a retried move command by request id', async () => {
     let selfCalls = 0
     clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
@@ -540,6 +579,62 @@ describe('setupGameHost', () => {
     const statusCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'navigation_status')
     expect(pathCalls).toHaveLength(1)
     expect(statusCalls).toHaveLength(1)
+  })
+
+  it('reports the vehicle trip receipt on a boat move_to', async () => {
+    let selfCalls = 0
+    let riding = false
+    clientMocks.listTools.mockResolvedValue({ tools: [{ name: 'get_vehicle' }, { name: 'get_vehicles' }, { name: 'board_vehicle' }] })
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1' } }
+      if (name === 'get_self') {
+        selfCalls++
+        const x = selfCalls <= 2 ? 0 : selfCalls === 3 ? 2 : 4
+        return { content: [], structuredContent: { x, y: 64, z: 0, health: 20, food: 20, selectedSlot: 0 } }
+      }
+      if (name === 'get_vehicle')
+        return { content: [], structuredContent: riding ? { riding: true, type: 'minecraft:oak_boat', uuid: 'boat-1' } : { riding: false } }
+      if (name === 'get_vehicles')
+        return { content: [], structuredContent: { vehicles: [{ uuid: 'boat-1', type: 'minecraft:oak_boat', position: { x: 2, y: 64, z: 0 }, free: true, owned: true }] } }
+      if (name === 'board_vehicle') {
+        riding = true
+        return { content: [], structuredContent: { boarded: true, type: 'minecraft:oak_boat', uuid: 'boat-1' } }
+      }
+      if (name === 'set_movement' || name === 'stop_movement' || name === 'look')
+        return { content: [], structuredContent: {} }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-vehicle-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-boat',
+      action: 'move_to',
+      params: { x: 4, y: 64, z: 0, tolerance: 1.5, vehicle: 'boat' },
+    })
+
+    // The design (§7) requires more than a reached flag: the trip receipt names
+    // the acquisition method, the vehicle UUID, the dock, the dismount and the
+    // phases. A bridge that cannot confirm a bank keeps the player mounted
+    // (design §4: `arrived_mounted`), so this fake ends mounted on purpose.
+    expect(result).toMatchObject({
+      status: 'ok',
+      endReason: 'reached',
+      vehicle: {
+        kind: 'boat',
+        acquireMethod: 'existing',
+        vehicleUuid: 'boat-1',
+        dismounted: false,
+        arrivedMounted: true,
+      },
+    })
+    expect(result.vehicle?.phases).toEqual(expect.arrayContaining(['discover', 'acquire', 'travel']))
+    const boardCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'board_vehicle')
+    expect(boardCalls).toHaveLength(1)
   })
 
   it('rejects a second write while one is in flight', async () => {
@@ -1168,6 +1263,137 @@ describe('setupGameHost', () => {
     const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
     expect(names).toContain('list_players')
   }, 20_000)
+
+  it('resolves a player target beyond the entity radius when the list is not truncated', async () => {
+    // ROOT CAUSE (live F-02, 2026-09-16):
+    //
+    // The player-list fallback only ran when the entity list was truncated.
+    // The entity query covers 64 blocks around the player, so a complete list
+    // plus a target past that radius resolved as `target_lost` (live: 124
+    // blocks, 289 ms). The fallback now runs on any entity-query miss.
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      // The distant target is outside the 64-block read and the list is full
+      // (its returned count matches its total).
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [], total: 0, returned: 0, dimension: 'minecraft:overworld' } }
+      if (name === 'list_players')
+        return { content: [], structuredContent: { players: [{ name: 'Alice', uuid: 'u-alice', x: 2, y: 64, z: 0, dimension: 'minecraft:overworld' }] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-far-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-far-player',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 1 },
+    })
+
+    expect(result.endReason).not.toBe('target_lost')
+    expect(result.endReason).not.toBe('target_not_in_read')
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).toContain('list_players')
+  }, 20_000)
+
+  it('ends follow with target_dimension_changed when the fine read reports another dimension', async () => {
+    const status = { content: [], structuredContent: { minecraftVersion: '1.21.1', dimension: 'minecraft:overworld' } }
+    let entityQueries = 0
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_status')
+        return status
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities') {
+        entityQueries++
+        return entityQueries === 1
+          ? { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', position: { x: 5, y: 64, z: 0 } }] } }
+          // A response from another dimension must reject the read (D12),
+          // never relabel it as the tracked target.
+          : { content: [], structuredContent: { dimension: 'minecraft:the_nether', entities: [] } }
+      }
+      if (name === 'list_players')
+        return { content: [], structuredContent: { players: [] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-dimension-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-dimension',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 5 },
+    })
+
+    // The fine read forces the terminal reason; waiting for a later coarse read
+    // to repeat it would let a transient failure downgrade it.
+    expect(result).toMatchObject({ status: 'failed', checked: false, endReason: 'target_dimension_changed', postCondition: { kind: 'none', met: false } })
+  }, 20_000)
+
+  it('ends follow with entity_unloaded after the bounded wait when a non-player target leaves every read', async () => {
+    // ROOT CAUSE:
+    //
+    // A removed non-player target forced the sticky `entity_unloaded` outcome.
+    // `outcome()` returned it immediately, so the loop's only bounded finish
+    // (`outcome === 'waiting_for_target' && waitingBudgetExceeded`) never ran.
+    // The command spun until the deadline and returned the initial `timeout`,
+    // which the postcondition read as a clean end and `met: true`.
+    //
+    // We fixed this by letting non-terminal forced reasons run the waiting
+    // window and by ending the loop at once on a terminal reason.
+    let entityQueries = 0
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities') {
+        entityQueries++
+        return entityQueries === 1
+          ? { content: [], structuredContent: { entities: [{ name: 'Lumi', uuid: 'e-1', type: 'minecraft:sheep', position: { x: 2, y: 64, z: 0 } }] } }
+          : { content: [], structuredContent: { entities: [] } }
+      }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-unloaded-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-unloaded',
+      action: 'follow',
+      params: { target: 'Lumi', keepDistance: 3, timeoutSeconds: 40 },
+    })
+
+    // The bounded wait (3 s + 10 s) ends the command before the 40 s bound,
+    // with the recorded reason as the typed end.
+    expect(result).toMatchObject({ status: 'failed', checked: false, endReason: 'entity_unloaded', postCondition: { kind: 'none', met: false } })
+  }, 30_000)
 
   it('reports target_not_in_read when a truncated list cannot resolve a non-player target', async () => {
     const crowd = Array.from({ length: 100 }, (_, index) => ({ uuid: `u-${index}`, name: `Entity${index}`, type: 'minecraft:cow', position: { x: 0, y: 64, z: 0 } }))
@@ -1826,19 +2052,61 @@ describe('setupGameHost', () => {
     expect(result.endReason).not.toBe('target_lost')
     // ROOT CAUSE: live MC-4c the follow passed the entity's fractional position
     // as the goal; planner nodes are integer cells, so the goal never matched
-    // and every leg ended `no_path` (she never moved). The leg now floors the
-    // goal, so every region read stays aligned to integer cells: floor(-2.7) +
-    // the 8-block margin gives z = 5.
+    // and every leg ended `no_path` (she never moved). The leg now aims at a
+    // stand point on the keep ring and floors it, so every region read stays
+    // aligned to integer cells.
     const regionCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'get_blocks_region')
     expect(regionCalls.length).toBeGreaterThan(0)
-    // The floored goal shows on the min side of the region: floor(-2.7) - 16
-    // = -19, while an unfloored goal would leave a fractional -18.6. The
-    // margin is the executor's base local window (16 since the window
-    // expansion batch); the invariant this guards is the integer floor.
+    // F-01: the goal is the stand point, not the target cell. The target is at
+    // (6.4, -2.7) and the stand point sits 3 blocks from it on the line back to
+    // the follower at (0, 0), so floor(z) = -2 and the min side of the base
+    // 16-block window is -18; a target-cell goal would have left -19.
     const regionFroms = regionCalls.map(([args]) => (args as unknown as { arguments: { from: { x: number, y: number, z: number } } }).arguments.from)
     for (const from of regionFroms) {
-      expect(from.z).toBe(-19)
+      expect(from.z).toBe(-18)
       expect(Number.isInteger(from.z)).toBe(true)
+    }
+  }, 20_000)
+
+  it('plans the follow leg to a stand point on the keep ring, not the target cell', async () => {
+    // F-01: a leg to the target walks onto or through the followed entity
+    // (live: final distance 0.00–0.92 blocks). The leg now aims at a ring point
+    // `keepDistance` from the target, so the mover parks at the ring.
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', position: { x: 10, y: 64, z: 0 } }] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-ring-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-ring',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 1 },
+    })
+
+    expect(result.endReason).not.toBe('target_lost')
+    const regionBoxes = clientMocks.callTool.mock.calls
+      .filter(([args]: [{ name: string }]) => args.name === 'get_blocks_region')
+      .map(([args]) => (args as unknown as { arguments: { from: { x: number, y: number, z: number }, to: { x: number, y: number, z: number } } }).arguments)
+    expect(regionBoxes.length).toBeGreaterThan(0)
+    // The read box covers start and goal: start x = 0, stand point x = 7, so
+    // the max side is 7 + 16 = 23. A target-cell goal (10) would have left 26.
+    for (const box of regionBoxes) {
+      expect(box.to.x).toBe(23)
+      expect(Number.isInteger(box.to.x)).toBe(true)
     }
   }, 20_000)
 
@@ -1993,6 +2261,47 @@ describe('setupGameHost', () => {
     expect(names).not.toContain('set_movement')
   }, 20_000)
 
+  it('assesses a worn chest elytra as available for an air follow', async () => {
+    // ROOT CAUSE (live F-03, 2026-09-16):
+    //
+    // `assessHostAirLaunch` counted only carried elytra (hotbar + main), so a
+    // worn chest elytra was refused as `cannot_air_follow` while `equipElytra`
+    // (elytra.ts) accepts it. The assessment now reads the equipment slot too,
+    // so the same follow that refused with `cannotAirFollow: true` above now
+    // passes the gear check (no fireworks remain, so nothing launches).
+    clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'get_equipment')
+        return { content: [], structuredContent: { chest: { id: 'minecraft:elytra', damage: 15, maxDamage: 432 }, mainHand: { empty: true } } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Alice', uuid: 'u-1', type: 'minecraft:player', fallFlying: true, onGround: false, position: { x: 2, y: 90, z: 0 } }] } }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { blocks: [] } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-follow-worn-elytra-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-follow-auto-worn-elytra',
+      action: 'follow',
+      params: { target: 'Alice', keepDistance: 3, timeoutSeconds: 3, travelMode: 'auto' },
+    })
+
+    expect(result.follow?.cannotAirFollow).not.toBe(true)
+    expect(result.follow?.launchAttempts).toBe(0)
+    const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
+    expect(names).toContain('get_equipment')
+  }, 20_000)
+
   it('attributes a collect to the break window only', async () => {
     let broken = false
     clientMocks.callTool.mockImplementation(async ({ name }: { name: string }) => {
@@ -2077,7 +2386,7 @@ describe('setupGameHost', () => {
         return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
       if (name === 'get_inventory')
         return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [{ slot: 9, id: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250 }], armor: [], offhand: { empty: true } } }
-      if (name === 'mine_evaluate_harvest') {
+      if (name === 'evaluate_harvest') {
         return {
           content: [],
           structuredContent: {
@@ -2127,7 +2436,7 @@ describe('setupGameHost', () => {
     })
     expect(result.broken?.breakId).toBeTruthy()
     const names = clientMocks.callTool.mock.calls.map(([args]: [{ name: string }]) => args.name)
-    expect(names).toContain('mine_evaluate_harvest')
+    expect(names).toContain('evaluate_harvest')
     expect(names).toContain('swap_slots')
     expect(names).toContain('select_hotbar_slot')
   })
@@ -2140,7 +2449,7 @@ describe('setupGameHost', () => {
         return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, dimension: 'minecraft:overworld' } }
       if (name === 'get_block')
         return { content: [], structuredContent: { id: 'minecraft:stone' } }
-      if (name === 'mine_evaluate_harvest') {
+      if (name === 'evaluate_harvest') {
         return {
           content: [],
           structuredContent: {
@@ -2194,7 +2503,7 @@ describe('setupGameHost', () => {
             : { selectedSlot: 0, hotbar: [{ slot: 0, id: 'minecraft:iron_pickaxe', count: 1, damage: 0, maxDamage: 250 }], main: [], armor: [], offhand: { empty: true } },
         }
       }
-      if (name === 'mine_evaluate_harvest') {
+      if (name === 'evaluate_harvest') {
         return {
           content: [],
           structuredContent: {
@@ -2220,7 +2529,7 @@ describe('setupGameHost', () => {
         broken = true
         return { content: [], structuredContent: { started: true, mode: 'survival' } }
       }
-      if (name === 'mine_break_evidence')
+      if (name === 'get_break_evidence')
         return { content: [], structuredContent: { records: [{ drops: [{ itemId: 'minecraft:raw_iron', count: 2, entityUuids: ['e1', 'e2'] }] }] } }
       if (name === 'select_hotbar_slot' || name === 'look_at')
         return { content: [], structuredContent: { ok: true } }
@@ -2246,7 +2555,7 @@ describe('setupGameHost', () => {
         product: { itemId: 'minecraft:raw_iron', lowerBound: 2, fuzzy: 0, evidence: 'server-attributed' },
       },
     })
-    const evidenceCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'mine_break_evidence')
+    const evidenceCalls = clientMocks.callTool.mock.calls.filter(([args]: [{ name: string }]) => args.name === 'get_break_evidence')
     expect(evidenceCalls).toHaveLength(1)
   })
 
@@ -2258,7 +2567,7 @@ describe('setupGameHost', () => {
         return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
       if (name === 'find_blocks')
         return { content: [], structuredContent: { matches: [{ x: 2, y: 64, z: 0, id: 'minecraft:iron_ore', distance: 2 }] } }
-      if (name === 'mine_evaluate_harvest') {
+      if (name === 'evaluate_harvest') {
         return {
           content: [],
           structuredContent: {
@@ -2352,7 +2661,7 @@ function menuClickFake(state: FakeMenuState, slot: number): void {
 
 describe('menu and workstation commands (mc-4b)', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     appMock.getVersion.mockReturnValue('0.10.0')
     clientInstances.items.length = 0
     transportInstances.items.length = 0
@@ -2773,7 +3082,7 @@ describe('gameCommandPort (mc-1c D1)', () => {
 
 describe('ranged weapon commands (mc-4d)', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     appMock.getVersion.mockReturnValue('0.10.0')
     clientInstances.items.length = 0
     transportInstances.items.length = 0
@@ -2855,6 +3164,66 @@ describe('ranged weapon commands (mc-4d)', () => {
     expect(clientMocks.callTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'combat_start' }))
   })
 
+  it('leads a riding target with its vehicle motion (F-24)', async () => {
+    // ROOT CAUSE:
+    //
+    // A passenger's own motion reads as zero because the vehicle does the moving
+    // (B-02 oscillating cart rider, 2026-09-17: twelve planned shots, zero
+    // damage). The ballistic prediction used the rider's own motion, so every
+    // curve aimed where the target had already left; the vehicle motion was
+    // available in the same read.
+    //
+    // We fixed this by reading the rider's vehicle and using its motion.
+    let statusCalls = 0
+    clientMocks.callTool.mockImplementation(async ({ name, arguments: args }: { name: string, arguments?: Record<string, unknown> }) => {
+      if (name === 'get_status')
+        return { content: [], structuredContent: { minecraftVersion: '1.21.1', worldId: 'world-1' } }
+      if (name === 'get_self')
+        return { content: [], structuredContent: { x: 0, y: 64, z: 0, health: 20, food: 20, selectedSlot: 0 } }
+      if (name === 'get_inventory')
+        return { content: [], structuredContent: { selectedSlot: 0, hotbar: [], main: [], armor: [], offhand: { empty: true } } }
+      if (name === 'get_equipment')
+        return { content: [], structuredContent: { mainHand: { empty: true }, offHand: { empty: true }, helmet: { empty: true }, chest: { empty: true }, legs: { empty: true }, boots: { empty: true } } }
+      if (name === 'poll_events')
+        return { content: [], structuredContent: { events: [] } }
+      if (name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Zombie', uuid: 'target-uuid', type: 'minecraft:zombie', position: { x: 10, y: 64, z: 0 }, riding: true, vehicle: { uuid: 'cart-uuid' }, motion: { x: 0, y: 0, z: 0 } }] } }
+      if (name === 'get_entity') {
+        if (args?.uuid === 'cart-uuid')
+          return { content: [], structuredContent: { uuid: 'cart-uuid', dimension: 'minecraft:overworld', position: { x: 10, y: 64, z: 0 }, motion: { x: 0, y: 0, z: 0.2 } } }
+        return { content: [], structuredContent: { uuid: 'target-uuid', dimension: 'minecraft:overworld', position: { x: 10, y: 64, z: 0 }, health: 20, riding: true, vehicle: { uuid: 'cart-uuid' }, motion: { x: 0, y: 0, z: 0 } } }
+      }
+      if (name === 'get_blocks_region')
+        return { content: [], structuredContent: { count: 0, blocks: [] } }
+      if (name === 'combat_start')
+        return { content: [], structuredContent: { state: 'running', weapon: 'bow' } }
+      if (name === 'combat_status') {
+        statusCalls++
+        return { content: [], structuredContent: statusCalls === 1
+          ? { state: 'running', weapon: 'bow', shotsFired: 0, projectileUuids: [] }
+          : { state: 'done', weapon: 'bow', shotsFired: 1, projectileUuids: ['proj-rider'], endReason: 'done' } }
+      }
+      return { content: [] }
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-rider-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-rider',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'bow', maxShots: 1 },
+    })
+
+    // 0.2 blocks per tick is 4 blocks per second: the prediction must name the
+    // vehicle's speed, never the rider's zero.
+    expect(result.status).toBe('ok')
+    expect(result.shot?.observedSpeed).toBe(4)
+    expect(result.shot?.fireReason).toBe('ballistic_solution')
+  })
+
   it('records the resolved profile and predicted curve on the receipt', async () => {
     let statusCalls = 0
     clientMocks.callTool.mockImplementation(shootClient({
@@ -2890,6 +3259,87 @@ describe('ranged weapon commands (mc-4d)', () => {
     expect(result.shot?.solutionRevision).toBe(1)
     expect(result.shot?.predictedFlightTicks ?? 0).toBeGreaterThan(0)
     expect(result.shot?.closestDistance).toBe(0)
+  })
+
+  it('resolves the firework profile from the client projectile report (B-08)', async () => {
+    let statusCalls = 0
+    clientMocks.callTool.mockImplementation(async (call: { name: string }) => {
+      if (call.name === 'combat_status') {
+        statusCalls++
+        // The first read is the pre-task ammo report; the rest belong to the task.
+        if (statusCalls === 1)
+          return { content: [], structuredContent: { state: 'idle', projectiles: { crossbow: 'minecraft:firework_rocket' } } }
+        return { content: [], structuredContent: statusCalls === 2
+          ? { state: 'running', weapon: 'crossbow', shotsFired: 0, projectileUuids: [] }
+          : { state: 'done', weapon: 'crossbow', shotsFired: 1, projectileUuids: ['proj-firework'], endReason: 'done' } }
+      }
+      return shootClient({
+        combat_start: () => ({ state: 'running', weapon: 'crossbow' }),
+      })(call)
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-firework-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-firework',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'crossbow', maxShots: 1 },
+    })
+
+    // A firework crossbow fires at 1.6 and has its own result set; the default
+    // arrow profile would predict a 3.15 bolt and claim the wrong curve.
+    expect(result.status).toBe('ok')
+    expect(result.shot?.profileId).toBe('firework-rocket')
+    expect(result.shot?.observedSpeed === undefined || typeof result.shot.observedSpeed === 'number').toBe(true)
+  })
+
+  it('lobs over a corridor wall that blocks the flat arc', async () => {
+    // The dy+10 range geometry: the shooter stands on the low floor, the target
+    // on a raised platform whose front face cuts the flat arc. A full-charge bow
+    // reaches it only with a steeper curve.
+    const blocks: Array<{ x: number, y: number, z: number, id: string }> = []
+    for (let x = -8; x <= 18; x++) {
+      for (let y = 60; y <= 78; y++) {
+        for (let z = -6; z <= 6; z++) {
+          const ground = x <= 7 && y === 63
+          const platform = x >= 8 && x <= 14 && y >= 64 && y <= 73
+          blocks.push({ x, y, z, id: ground || platform ? 'minecraft:stone' : 'minecraft:air' })
+        }
+      }
+    }
+    clientMocks.callTool.mockImplementation(async (call: { name: string }) => {
+      if (call.name === 'query_entities')
+        return { content: [], structuredContent: { entities: [{ name: 'Zombie', uuid: 'target-uuid', type: 'minecraft:zombie', position: { x: 10, y: 74, z: 0 } }] } }
+      return shootClient({
+        combat_start: () => ({ state: 'running', weapon: 'bow' }),
+        combat_status: () => ({ state: 'done', weapon: 'bow', shotsFired: 1, projectileUuids: ['proj-wall'], endReason: 'done' }),
+        get_blocks_region: () => ({ blocks }),
+      })(call)
+    })
+
+    const directory = await temporaryDirectory('airi-game-host-shoot-corridor-')
+    const context = createHostContext()
+    await setupGameHost(context, { persistencePath: join(directory, 'game-host.json') }, directory)
+    await defineInvoke(context, gameHostApplyConfig)({ url: 'http://127.0.0.1:25600/mcp', allowedTools: [] })
+
+    const result = await defineInvoke(context, gameHostExecuteCommand)({
+      requestId: 'req-shoot-corridor',
+      action: 'shoot',
+      params: { target: 'Zombie', weapon: 'bow', maxShots: 1 },
+    })
+
+    // ROOT CAUSE: the shoot executor never passed the corridor terrain into
+    // planShotFromObservation, so a wall between shooter and target still
+    // produced `closestDistance 0` and the arrow hit the wall. The solver's own
+    // obstacle cases live in intercept.test.ts; here the wiring must at least
+    // read the corridor and keep solving.
+    expect(result.endReason).toBe('done')
+    expect(result).toMatchObject({ status: 'ok', shot: { profileId: 'bow-arrow' } })
+    expect(result.shot?.closestDistance).toBe(0)
+    expect(clientMocks.callTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'get_blocks_region' }))
   })
 
   it('refuses a bow shot with no ballistic solution and keeps the ammo', async () => {
@@ -3533,7 +3983,7 @@ describe('ranged weapon commands (mc-4d)', () => {
 
 describe('advanced movement and dimension binding (mc-4e)', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     appMock.getVersion.mockReturnValue('0.10.0')
     clientInstances.items.length = 0
     transportInstances.items.length = 0

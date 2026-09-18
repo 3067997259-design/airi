@@ -32,6 +32,37 @@ const VEHICLE_HOTBAR_FALLBACK_SLOT = 4
 const DEFAULT_ACQUIRE_BUDGET_MS = 15_000
 /** Horse mounting/taming attempt interval, in ms. */
 const HORSE_ATTEMPT_INTERVAL_MS = 700
+/**
+ * Board confirmation retry window.
+ *
+ * A live probe (2026-09-17) showed `board_vehicle` returning boarded=true while
+ * `get_vehicle` still reported not riding for about 150 ms: the mount registers
+ * on the next client tick. One immediate read called a fine mount
+ * uncontrollable, so the confirm retries inside this bounded attempt count.
+ */
+const CONTROL_CONFIRM_ATTEMPTS = 8
+const CONTROL_CONFIRM_POLL_MS = 100
+/** Downward pitch for the boat placement use when no water read is available. */
+const BOAT_PLACEMENT_PITCH_DEG = 40
+/** Settle after the placement look, so the client crosshair hit refreshes. */
+const BOAT_PLACEMENT_SETTLE_MS = 200
+/** Radius the boat placement searches for a read water surface. */
+const BOAT_PLACEMENT_RADIUS = 4
+/** A water cell closer than this would spawn the hull inside the player. */
+const BOAT_PLACEMENT_MIN_DISTANCE = 1.5
+/** Eye height used only to aim at the water; a small offset still hits. */
+const BOAT_PLACEMENT_EYE_HEIGHT = 1.6
+/**
+ * Board retry window.
+ *
+ * A client receives entities a moment after the player arrives or after an item
+ * spawns one, so a single interaction can miss a vehicle that is already there
+ * (live deck run, 2026-09-17: the existing boat at 238.5,200.5,-61 was
+ * invisible to the client right after the teleport and the single board call
+ * returned boarded=false). The retry stays inside the acquire budget.
+ */
+const BOARD_ATTEMPTS = 6
+const BOARD_RETRY_INTERVAL_MS = 500
 
 export interface VehicleAcquireContext {
   kind: VehicleEntityKind
@@ -93,6 +124,71 @@ async function selectVehicleItem(port: MovementControlPort, slot: InventorySlot,
   return target
 }
 
+/**
+ * Picks the aim for the boat placement: the nearest water surface with room.
+ *
+ * The placement is an item use whose success depends on the crosshair hit; the
+ * hull needs a clear 1.375-wide footprint, so aiming at the ground under the
+ * player's feet made the server reject the placement with FAIL and keep the
+ * item (live F-14). The read covers a small box around the player; water cells
+ * with an open surface and open neighbours become candidates, and the nearest
+ * one wins. Undefined means no water was read, and the caller keeps its
+ * fallback aim.
+ */
+async function pickBoatPlacement(ctx: VehicleAcquireContext, position: Vec3): Promise<{ yaw: number, pitch: number } | undefined> {
+  const from = {
+    x: Math.floor(position.x) - BOAT_PLACEMENT_RADIUS,
+    y: Math.floor(position.y) - 1,
+    z: Math.floor(position.z) - BOAT_PLACEMENT_RADIUS,
+  }
+  const to = {
+    x: Math.floor(position.x) + BOAT_PLACEMENT_RADIUS,
+    y: Math.floor(position.y) + 2,
+    z: Math.floor(position.z) + BOAT_PLACEMENT_RADIUS,
+  }
+  let entries
+  try {
+    entries = await ctx.port.getBlocksRegion(from, to)
+  }
+  catch {
+    return undefined
+  }
+  const cells = new Map<string, string>()
+  for (const entry of entries)
+    cells.set(`${entry.x},${entry.y},${entry.z}`, entry.id)
+  const isWater = (id: string | undefined) => id !== undefined && id.endsWith('water')
+  // The hull spans about two cells; a full block next to the water surface
+  // stops the spawn, so the cell above and the four neighbours must be open.
+  const openAround = (x: number, y: number, z: number) => {
+    for (const [dx, dy, dz] of [[0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] as const) {
+      const id = cells.get(`${x + dx},${y + dy},${z + dz}`)
+      if (id === undefined || isWater(id) || id.endsWith('air'))
+        continue
+      return false
+    }
+    return true
+  }
+  let best: { yaw: number, pitch: number, distance: number } | undefined
+  for (const entry of entries) {
+    if (!isWater(entry.id))
+      continue
+    if (!openAround(entry.x, entry.y, entry.z))
+      continue
+    const dx = entry.x + 0.5 - position.x
+    const dz = entry.z + 0.5 - position.z
+    const distance = Math.hypot(dx, dz)
+    if (distance < BOAT_PLACEMENT_MIN_DISTANCE || distance > BOAT_PLACEMENT_RADIUS)
+      continue
+    if (best && distance >= best.distance)
+      continue
+    const eyeY = position.y + BOAT_PLACEMENT_EYE_HEIGHT
+    const yaw = Math.atan2(-dx, dz) * 180 / Math.PI
+    const pitch = Math.atan2(eyeY - (entry.y + 0.9), distance) * 180 / Math.PI
+    best = { yaw, pitch, distance }
+  }
+  return best
+}
+
 /** Reads one vehicle observation, or undefined when the bridge cannot read it. */
 async function observe(ctx: VehicleAcquireContext, uuid: string): Promise<VehicleObservation | undefined> {
   if (!ctx.port.observeVehicle)
@@ -123,6 +219,20 @@ async function query(ctx: VehicleAcquireContext, kind: VehicleEntityKind): Promi
   })
 }
 
+/** Boards with bounded retries; the client sees spawned entities a moment late. */
+async function boardWithRetry(ctx: VehicleAcquireContext, uuid: string | undefined, typeId: string): Promise<boolean> {
+  for (let attempt = 0; attempt < BOARD_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      if (ctx.shouldStop())
+        return false
+      await ctx.sleep(BOARD_RETRY_INTERVAL_MS)
+    }
+    if (await board(ctx, uuid, typeId))
+      return true
+  }
+  return false
+}
+
 /** Boards one exact uuid when the port supports it, else the typed nearest query. */
 async function board(ctx: VehicleAcquireContext, uuid: string | undefined, typeId: string): Promise<boolean> {
   if (uuid && ctx.port.boardVehicle) {
@@ -133,9 +243,17 @@ async function board(ctx: VehicleAcquireContext, uuid: string | undefined, typeI
   return result.boarded
 }
 
-/** Confirms the ridden vehicle via `getRiding`, and its state when observable. */
+/** Confirms the ridden vehicle via `getRiding`, retrying briefly. */
 async function confirmControl(ctx: VehicleAcquireContext, expectedUuid: string | undefined, kind: VehicleEntityKind): Promise<{ ok: boolean, observation?: VehicleObservation, failure?: VehicleFailureReason }> {
-  const riding = await ctx.port.getRiding()
+  let riding = await ctx.port.getRiding()
+  for (let attempt = 1; attempt < CONTROL_CONFIRM_ATTEMPTS; attempt++) {
+    if (riding && vehicleKindOf(riding.kind) === kind)
+      break
+    if (ctx.shouldStop())
+      break
+    await ctx.sleep(CONTROL_CONFIRM_POLL_MS)
+    riding = await ctx.port.getRiding()
+  }
   if (!riding || vehicleKindOf(riding.kind) !== kind)
     return { ok: false, failure: 'not_controllable' }
   // When the board call named a uuid, a different ridden uuid is a wrong mount.
@@ -214,7 +332,7 @@ async function acquireBoat(ctx: VehicleAcquireContext): Promise<VehicleAcquireOu
         const permission = verifyPermission(selection.observation, options)
         if (permission)
           return { ok: false, method: 'existing', failure: permission, controlVerified: 'unobserved' }
-        const boarded = await board(ctx, selection.observation.uuid, selection.observation.type)
+        const boarded = await boardWithRetry(ctx, selection.observation.uuid, selection.observation.type)
         if (boarded) {
           const confirmed = await confirmControl(ctx, selection.observation.uuid, 'boat')
           return {
@@ -251,7 +369,25 @@ async function acquireBoat(ctx: VehicleAcquireContext): Promise<VehicleAcquireOu
 
   const seenBefore = new Set(candidates.map(candidate => candidate.uuid))
   const state = await port.getState()
-  await port.look(Math.atan2(-(ctx.goal.x - state.position.x), ctx.goal.z - state.position.z) * 180 / Math.PI, 0)
+  // Placing a boat is a normal item use, so the crosshair must hit a spot where
+  // the hull (1.375 wide) has clear space. A level look at the far goal hit
+  // nothing, and a downward look at the shore hit the ground beside the player,
+  // where the hull overlapped a block and the server rejected the placement
+  // with FAIL while keeping the item (live F-14). The placement therefore aims
+  // at the nearest read water surface inside the interaction reach.
+  const yawToGoal = Math.atan2(-(ctx.goal.x - state.position.x), ctx.goal.z - state.position.z) * 180 / Math.PI
+  const placement = await pickBoatPlacement(ctx, state.position)
+  if (placement) {
+    await port.look(placement.yaw, placement.pitch)
+    debug?.(`boat placement aim yaw=${placement.yaw.toFixed(1)} pitch=${placement.pitch.toFixed(1)}`)
+  }
+  else {
+    await port.look(yawToGoal, BOAT_PLACEMENT_PITCH_DEG)
+  }
+  // The use path reads the client's crosshair hit, which is computed from the
+  // previous frame's rotation. Without a settle the use still sees the old aim
+  // and places nothing (live F-14 follow-up).
+  await ctx.sleep(BOAT_PLACEMENT_SETTLE_MS)
 
   // Prefer the port's placement primitive; it can report the spawned uuid and
   // the measured inventory delta directly.
@@ -300,7 +436,7 @@ async function acquireBoat(ctx: VehicleAcquireContext): Promise<VehicleAcquireOu
       ...(confirmed.failure ? { failure: confirmed.failure } : {}),
     }
   }
-  const boarded = await board(ctx, targetUuid, item.id)
+  const boarded = await boardWithRetry(ctx, targetUuid, item.id)
   if (!boarded) {
     // Name the spawned entity before any further placement: it may be occupied
     // or gone, but a second boat is never placed (design §4).
@@ -371,7 +507,7 @@ async function acquireHorse(ctx: VehicleAcquireContext): Promise<VehicleAcquireO
     if (permission)
       return { ok: false, method: 'existing', failure: permission, controlVerified: 'unobserved' }
     const saddled = await ensureSaddled(ctx, selection.observation)
-    const boarded = await board(ctx, selection.observation.uuid, selection.observation.type)
+    const boarded = await boardWithRetry(ctx, selection.observation.uuid, selection.observation.type)
     if (!boarded)
       return { ok: false, method: 'existing', failure: 'not_controllable', uuid: selection.observation.uuid, controlVerified: false }
     const confirmed = await confirmControl(ctx, selection.observation.uuid, vehicleKindOf(selection.observation.type))
@@ -533,7 +669,7 @@ async function acquireMinecart(ctx: VehicleAcquireContext): Promise<VehicleAcqui
     maxDistance: VEHICLE_QUERY_RADIUS,
   })
   if (selection.observation) {
-    const boarded = await board(ctx, selection.observation.uuid, selection.observation.type)
+    const boarded = await boardWithRetry(ctx, selection.observation.uuid, selection.observation.type)
     if (boarded) {
       const confirmed = await confirmControl(ctx, selection.observation.uuid, 'minecart')
       return {
@@ -598,7 +734,7 @@ async function acquireMinecart(ctx: VehicleAcquireContext): Promise<VehicleAcqui
     }
   }
 
-  const boarded = await board(ctx, spawnedUuid, item.id)
+  const boarded = await boardWithRetry(ctx, spawnedUuid, item.id)
   if (!boarded)
     return { ok: false, method: 'prepare_owned', failure: 'not_controllable', detail: 'minecart spawned but not boarded', asset, controlVerified: 'unobserved' }
   const confirmed = await confirmControl(ctx, spawnedUuid, 'minecart')

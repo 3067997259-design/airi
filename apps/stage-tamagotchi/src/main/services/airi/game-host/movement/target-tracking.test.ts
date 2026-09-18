@@ -126,6 +126,31 @@ describe('coarse staleness and bounded waiting', () => {
     expect(tracker.outcome(100)).toBe('target_dimension_changed')
     expect(tracker.outcome(999)).toBe('target_dimension_changed')
   })
+
+  it('does not let a non-terminal forced outcome bypass the waiting window', () => {
+    // ROOT CAUSE: a live follow of a removed non-player forced
+    // `entity_unloaded` and the sticky forced value short-circuited
+    // `outcome()`, so the wait budget never ran and the command ended with the
+    // initial `timeout`. A non-terminal reason must keep the wait in charge.
+    const tracker = createTargetTracker()
+    tracker.missFine(0)
+    tracker.missFine(0)
+    tracker.missFine(0)
+    tracker.forceOutcome('entity_unloaded')
+    expect(tracker.outcome(100)).toBe('coarse')
+    expect(tracker.outcome(WAITING_START_MS + 1)).toBe('waiting_for_target')
+    expect(tracker.waitingBudgetExceeded(WAITING_START_MS + 1)).toBe(false)
+    expect(tracker.waitingBudgetExceeded(WAITING_START_MS + 1 + WAITING_BUDGET_MS)).toBe(true)
+    // The reason stays available for the receipt.
+    expect(tracker.snapshot().forced).toBe('entity_unloaded')
+  })
+
+  it('keeps a terminal forced outcome when a later non-terminal reason arrives', () => {
+    const tracker = createTargetTracker()
+    tracker.forceOutcome('target_dimension_changed')
+    tracker.forceOutcome('entity_unloaded')
+    expect(tracker.outcome(100)).toBe('target_dimension_changed')
+  })
 })
 
 describe('coarse locate gate', () => {

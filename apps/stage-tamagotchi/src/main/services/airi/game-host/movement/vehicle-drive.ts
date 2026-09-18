@@ -103,6 +103,37 @@ export function planBoatApproach(input: {
 }
 
 /**
+ * Steering for a boat that follows a planned water route.
+ *
+ * The open-water approach ({@link planBoatApproach}) brakes by the waypoint
+ * distance and at any bend; used for route cells that stalls the boat at every
+ * corner and, with a short look-ahead, never lets it move at all (live V-02:
+ * the route follower sat still and reported route_unavailable). A route
+ * follower keeps paddling through bends and brakes only at the goal.
+ */
+export function planRouteFollow(input: {
+  position: Vec3
+  yaw: number
+  waypoint: Vec3
+  goal: Vec3
+  speed: number
+  /** Distance at which the boat starts braking for the goal, in blocks. */
+  brakeDistance?: number
+}): BoatApproachPlan {
+  const brakeDistance = input.brakeDistance ?? 2.5
+  const yawCommand = Math.atan2(-(input.waypoint.x - input.position.x), input.waypoint.z - input.position.z) * 180 / Math.PI
+  const distanceToGoal = Math.hypot(input.goal.x - input.position.x, input.goal.z - input.position.z)
+  const slow = distanceToGoal <= brakeDistance
+  const turnaround = Math.abs(angleDelta(input.yaw, yawCommand)) > 120
+  return {
+    yawCommand,
+    forward: !slow,
+    back: slow && (turnaround || distanceToGoal <= brakeDistance),
+    slow,
+  }
+}
+
+/**
  * Chooses a bank dismount point near the goal.
  *
  * Returns the best cell on land adjacent to water, or `undefined` when the
