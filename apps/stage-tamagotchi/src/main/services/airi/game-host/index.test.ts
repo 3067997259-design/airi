@@ -221,6 +221,28 @@ describe('game host config persistence', () => {
     })
     expect((await readGameHostConfig(path))?.movement).toBeUndefined()
   })
+
+  it('round-trips the flight planner switch', async () => {
+    const directory = await temporaryDirectory('airi-game-host-flight-')
+    const path = join(directory, 'game-host.json')
+    await writeGameHostConfig(path, {
+      url: 'http://127.0.0.1:25600/mcp',
+      allowedTools: [],
+      movement: { planner: 'terrain', flight: { planner: 'on', calibrated: true } },
+    })
+    expect(await readGameHostConfig(path)).toMatchObject({
+      movement: { planner: 'terrain', flight: { planner: 'on', calibrated: true } },
+    })
+
+    // An unknown flight value drops only the flight section, not the planner.
+    await writeGameHostConfig(path, {
+      url: 'http://127.0.0.1:25600/mcp',
+      allowedTools: [],
+      movement: { planner: 'terrain', flight: { planner: 'warp' as never } },
+    })
+    expect((await readGameHostConfig(path))?.movement).toMatchObject({ planner: 'terrain' })
+    expect((await readGameHostConfig(path))?.movement?.flight).toBeUndefined()
+  })
 })
 
 describe('setupGameHost', () => {

@@ -1,3 +1,5 @@
+import type { LiveFlightControl } from '../flight/live-port'
+import type { FlightPlannerSwitch } from '../flight/profile'
 /**
  * Continuous air follow driver (air-follow design §3–§5, CD-F1–CD-F2).
  *
@@ -16,6 +18,7 @@ import type { MovementControlPort, MovementState } from './port'
 import type { TargetObservation } from './target-observation'
 import type { Vec3 } from './types'
 
+import { planLiveFlightControl } from '../flight/live-port'
 import { classifyTouchdown } from '../flight/touchdown'
 import { createAirFollowController } from './air-follow'
 import { createAirSpacingPolicy, DEFAULT_AIR_SPACING_BAND } from './air-spacing'
@@ -78,6 +81,11 @@ export interface AirTrackOptions {
    * creates one when the caller does not supply it.
    */
   controller?: AirFollowController
+  /**
+   * CD-E B0 rollout-planner switch for the cruise leg; absent keeps the
+   * steer-at-target heuristics byte-identically.
+   */
+  flightPlanner?: FlightPlannerSwitch
   deps?: {
     sleep?: (ms: number) => Promise<void>
     now?: () => number
@@ -128,16 +136,24 @@ export async function runAirTrackMove(options: AirTrackOptions): Promise<AirTrac
   const port = options.port
   const debug = options.debug
   const band = options.band ?? { min: DEFAULT_AIR_SPACING_BAND.min, max: DEFAULT_AIR_SPACING_BAND.max }
+  /** CD-E B0: rollout planner for the cruise leg; absent keeps the heuristics. */
+  const planner = options.flightPlanner?.enabled === true ? options.flightPlanner : undefined
+  let lastRocketAt: number | undefined
 
   const controller = options.controller ?? createAirFollowController({ travelMode: 'auto', spacing: band, ...(options.budget ? { budget: options.budget } : {}) })
+  /**
+   * The strategy stream is main-process polling at 5 Hz; the receipt says so
+   * until a dedicated IPC stream exists (escort design D6).
+   */
+  const pollingReceipt = (): AirFollowReceipt => ({ ...controller.snapshot(), updateStream: 'polling' })
   const spacing = createAirSpacingPolicy({ band, lateralOffset: Math.max(2, band.min / 6) })
 
   const equip = await equipElytra(port, debug)
   if (!equip.ok)
-    return { status: 'cannot_air_follow', detail: equip.detail, receipt: controller.snapshot() }
+    return { status: 'cannot_air_follow', detail: equip.detail, receipt: pollingReceipt() }
   const fireworkSlot = await selectBySuffix(port, 'firework_rocket')
   if (fireworkSlot === undefined)
-    return { status: 'cannot_air_follow', detail: 'no firework rockets in the inventory', receipt: controller.snapshot() }
+    return { status: 'cannot_air_follow', detail: 'no firework rockets in the inventory', receipt: pollingReceipt() }
   let fireworks = await countBySuffix(port, 'firework_rocket')
 
   // Takeoff: run off the edge, then deploy the glider while falling. The whole
@@ -177,7 +193,7 @@ export async function runAirTrackMove(options: AirTrackOptions): Promise<AirTrac
     await stopIfOwner(port, ownsControl)
   }
   if (!deployed) {
-    return { status: 'cannot_air_follow', detail: 'elytra did not deploy', receipt: controller.snapshot() }
+    return { status: 'cannot_air_follow', detail: 'elytra did not deploy', receipt: pollingReceipt() }
   }
 
   controller.noteLaunchBegan()
@@ -260,7 +276,7 @@ export async function runAirTrackMove(options: AirTrackOptions): Promise<AirTrac
         target = aim?.point ?? observation?.position ?? state.position
       }
 
-      const yaw = yawTo(state.position, target)
+      let yaw = yawTo(state.position, target)
       const gap = horizontalDistance(state.position, target)
       const height = state.position.y - target.y
       let pitch: number
@@ -278,15 +294,32 @@ export async function runAirTrackMove(options: AirTrackOptions): Promise<AirTrac
         }
       }
       else {
-        const climbing = target.y - state.position.y > 4
-        pitch = climbing ? CLIMB_PITCH : clamp(-(target.y - state.position.y) * 1.2, -30, 35)
-        wantThrust = climbing || horizontalSpeed(state) < THRUST_SPEED || (distanceToAim !== undefined && distanceToAim > band.max)
+        // CD-E B0: while the rollout planner switch is on, its chosen
+        // primitive replaces the steer-at-target and threshold-ignition
+        // heuristics for this poll; any planner miss keeps the heuristics.
+        let applied: LiveFlightControl | undefined
+        if (planner) {
+          applied = await planLiveFlightControl({ planner, port, state, poll: tick, fireworks, health: state.health ?? 20, goal: target, lastRocketAt, now })
+          if (!applied)
+            debug?.('air-follow rollout fell back to heuristics')
+        }
+        if (applied) {
+          yaw = applied.yaw
+          pitch = applied.pitch
+          wantThrust = applied.useRocket
+        }
+        else {
+          const climbing = target.y - state.position.y > 4
+          pitch = climbing ? CLIMB_PITCH : clamp(-(target.y - state.position.y) * 1.2, -30, 35)
+          wantThrust = climbing || horizontalSpeed(state) < THRUST_SPEED || (distanceToAim !== undefined && distanceToAim > band.max)
+        }
       }
       await port.look(yaw, pitch)
 
       if (fireworks > 0 && wantThrust) {
         await port.selectHotbar(fireworkSlot)
         await port.useItem()
+        lastRocketAt = now()
         fireworks = await countBySuffix(port, 'firework_rocket')
         controller.noteFireworkSpent(1)
       }
@@ -318,13 +351,13 @@ export async function runAirTrackMove(options: AirTrackOptions): Promise<AirTrac
     }
 
     if (terminated)
-      return { ...terminated, receipt: controller.snapshot() }
+      return { ...terminated, receipt: pollingReceipt() }
     if (touchdown === 'water')
-      return { status: 'unknown', detail: 'landing_in_water', receipt: controller.snapshot() }
+      return { status: 'unknown', detail: 'landing_in_water', receipt: pollingReceipt() }
     if (touchdown !== 'landed')
-      return { status: 'unknown', detail: touchdown, receipt: controller.snapshot() }
+      return { status: 'unknown', detail: touchdown, receipt: pollingReceipt() }
     const reason = controller.snapshot().endReason
-    return { status: statusForReason(reason), receipt: controller.snapshot() }
+    return { status: statusForReason(reason), receipt: pollingReceipt() }
   }
   finally {
     await stopIfOwner(port, ownsControl)

@@ -218,3 +218,34 @@ describe('assessAirLaunch', () => {
     expect(assessAirLaunch({ ...base, deadlineReached: true })).toEqual({ ok: false, reason: 'timeout' })
   })
 })
+
+describe('escort insertion point (LR-0)', () => {
+  it('holds the ground follow while the escort gate says hold', () => {
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', gate: () => 'hold' } })
+    let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
+    directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
+    directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
+    expect(directive.action).toBe('escort-hold')
+    expect(directive.phase).toBe('escort')
+  })
+
+  it('proceeds to assess-launch once the gate allows', () => {
+    let holding = true
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', gate: () => (holding ? 'hold' : 'launch') } })
+    let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
+    directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
+    directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
+    expect(directive.action).toBe('escort-hold')
+    holding = false
+    directive = controller.step(obs(), { tick: 4, at: 150, fine: true, self })
+    expect(directive.action).toBe('assess-launch')
+  })
+
+  it('keeps the original flow when escort is off', () => {
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'off', gate: () => 'hold' } })
+    let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
+    directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
+    directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
+    expect(directive.action).toBe('assess-launch')
+  })
+})

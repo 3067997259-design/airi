@@ -24,6 +24,7 @@ import type {
   GameHostChatContextLine,
   GameHostConfig,
   GameHostDomainToolDescriptor,
+  GameHostFlightConfig,
   GameHostObservationResult,
   GameHostStatus,
   GameWorldIdentity,
@@ -40,6 +41,7 @@ import type {
   GamePostCondition,
   StopScope,
 } from './command-registry'
+import type { FlightPlannerSwitch } from './flight/profile'
 import type { MiningPort, MiningSlot } from './mining/session'
 import type { BreakFact, GeneratedDrop } from './mining/types'
 import type { AirFollowEndReason } from './movement/air-follow'
@@ -86,6 +88,7 @@ import {
   stopScopeFor,
 } from './command-registry'
 import { selectLaunchPoint } from './flight/lifecycle'
+import { FLIGHT_PROFILE_VERSION, resolveFlightPlannerSwitch } from './flight/profile'
 import { parseHarvestEvaluation } from './mining/harvest'
 import { MiningSession, nextBreakId } from './mining/session'
 import { planToolUpgrade, requiredPickaxeFor } from './mining/upgrade'
@@ -356,12 +359,20 @@ export async function readGameHostConfig(path: string): Promise<GameHostConfig |
     const record = parsed as Record<string, unknown>
     if (typeof record.url !== 'string' || !record.url.trim())
       return undefined
-    const movementRaw = record.movement && typeof record.movement === 'object' && !Array.isArray(record.movement)
-      ? (record.movement as Record<string, unknown>).planner
+    const movementRecord = record.movement && typeof record.movement === 'object' && !Array.isArray(record.movement)
+      ? record.movement as Record<string, unknown>
       : undefined
-    const movement: GameHostConfig['movement'] = movementRaw === 'terrain' || movementRaw === 'legacy'
-      ? { planner: movementRaw }
+    const plannerRaw = movementRecord?.planner
+    const flightRecord = movementRecord?.flight && typeof movementRecord.flight === 'object' && !Array.isArray(movementRecord.flight)
+      ? movementRecord.flight as Record<string, unknown>
       : undefined
+    const flightPlannerRaw = flightRecord?.planner
+    const flight: GameHostFlightConfig | undefined = flightPlannerRaw === 'on' || flightPlannerRaw === 'off'
+      ? { planner: flightPlannerRaw, ...(flightRecord?.calibrated === true ? { calibrated: true } : {}) }
+      : undefined
+    const movement: GameHostConfig['movement'] = plannerRaw === 'terrain' || plannerRaw === 'legacy'
+      ? { planner: plannerRaw, ...(flight ? { flight } : {}) }
+      : (flight ? { planner: 'terrain', flight } : undefined)
     const chatCommands = parseChatCommandsConfig(record.chatCommands)
     return {
       url: record.url.trim(),
@@ -2480,6 +2491,21 @@ export async function setupGameHost(
     return config?.movement?.planner ?? 'terrain'
   }
 
+  /**
+   * CD-E B0: the explicit rollout-planner switch. `undefined` keeps the
+   * heuristic cruise control; a requested planner without a resolvable
+   * profile also stays off rather than flying on guessed physics.
+   */
+  function flightPlannerOf(): FlightPlannerSwitch | undefined {
+    const flight = config?.movement?.flight
+    if (!flight)
+      return undefined
+    const resolved = resolveFlightPlannerSwitch(flight, worldIdentity?.minecraftVersion ?? FLIGHT_PROFILE_VERSION)
+    if (!resolved && flight.planner === 'on')
+      log.warn(`flight planner requested but no profile for ${worldIdentity?.minecraftVersion ?? 'unknown version'}; heuristic cruise stays`)
+    return resolved
+  }
+
   /** Counts placeable scaffolding blocks in the local player's inventory. */
   async function countScaffolding(): Promise<number> {
     try {
@@ -2744,8 +2770,10 @@ export async function setupGameHost(
     control: MovementPortControl,
   ): Promise<GameExecutorOutcome> {
     if (moveTo.vehicle) {
+      const flightPlanner = flightPlannerOf()
       const vehicleResult = await runVehicleMove(moveTo.vehicle, {
         port: createTerrainPort(control),
+        ...(flightPlanner ? { flightPlanner } : {}),
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
         shouldStop,
@@ -3568,10 +3596,12 @@ export async function setupGameHost(
               airController.noteLaunchRefused(assessment.reason)
             }
             else {
+              const flightPlanner = flightPlannerOf()
               const airResult = await runAirTrackMove({
                 port: createTerrainPort(controlIdentity),
                 readTarget: () => readTargetObservationByUuid(targetUuid!),
                 band: airSpacing,
+                ...(flightPlanner ? { flightPlanner } : {}),
                 deadline,
                 shouldStop,
                 stillOwnsControl,
@@ -6111,7 +6141,7 @@ export async function setupGameHost(
     hasToken: Boolean(config?.token),
     ...(config?.serverUrl ? { serverUrl: config.serverUrl } : {}),
     allowedTools: allowedToolsOf(),
-    movement: { planner: movementPlannerOf() },
+    movement: { planner: movementPlannerOf(), ...(config?.movement?.flight ? { flight: { ...config.movement.flight } } : {}) },
     ...(config?.chatCommands
       ? { chatCommands: { ...config.chatCommands, admins: [...config.chatCommands.admins], blocked: [...config.chatCommands.blocked] } }
       : {}),
@@ -6119,9 +6149,15 @@ export async function setupGameHost(
 
   defineInvokeHandler(context, gameHostApplyConfig, async (next) => {
     const url = next.url.trim()
+    // CD-E B0: the flight switch follows the same keep-when-omitted rule as
+    // the planner so a plain re-apply cannot silently turn the rollout on/off.
+    const nextFlight = next.movement?.flight
+    const flight = nextFlight?.planner === 'on' || nextFlight?.planner === 'off'
+      ? { planner: nextFlight.planner, ...(nextFlight.calibrated === true ? { calibrated: true } : {}) }
+      : config?.movement?.flight
     const requestedMovement = next.movement?.planner === 'terrain' || next.movement?.planner === 'legacy'
-      ? { planner: next.movement.planner }
-      : config?.movement
+      ? { planner: next.movement.planner, ...(flight ? { flight } : {}) }
+      : (flight ? { planner: config?.movement?.planner ?? 'terrain', flight } : config?.movement)
     // MC-3c D4: chat commands are optional config; an omitted field keeps the
     // stored setting so a plain re-apply cannot silently disable ingestion.
     const requestedChatCommands = next.chatCommands ? parseChatCommandsConfig(next.chatCommands) : config?.chatCommands

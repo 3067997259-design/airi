@@ -13,8 +13,21 @@ import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
  * `nav.pathTo` navigation. The default stays `legacy` until increment 3
  * implements the break/place/use executor actions, then flips to `terrain`.
  */
+/**
+ * CD-E B0: rollout flight planner switch. Default `off`; the heuristic cruise
+ * control in the live elytra and air-follow drivers stays byte-identical
+ * until this is flipped (acceptance checklist §3.1).
+ */
+export interface GameHostFlightConfig {
+  planner: 'off' | 'on'
+  /** True only after the E-01 residual calibration is registered PASS. */
+  calibrated?: boolean
+}
+
 export interface GameHostMovementConfig {
   planner: 'terrain' | 'legacy'
+  /** CD-E B0 flight planner switch; absent means off. */
+  flight?: GameHostFlightConfig
 }
 
 /**

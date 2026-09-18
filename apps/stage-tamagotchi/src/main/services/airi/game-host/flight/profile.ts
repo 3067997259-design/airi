@@ -166,3 +166,43 @@ export function resolveFlightProfile(version: string, modIds: string[] = []): Fl
   }
   return { ok: true, profile: { ...FLIGHT_PROFILE_1_21_1, modifiers } }
 }
+
+/**
+ * Live wiring switch for the rollout planner (B0/LR-0, checklist §3.1).
+ *
+ * `enabled` is the explicit switch point: while the switch is absent the live
+ * elytra and air-follow drivers keep the heuristic cruise control unchanged.
+ * `calibrated` records the E-01 residual-calibration verdict; the escort
+ * strategy and the low-altitude shortcuts additionally require it (escort
+ * design D6), so it stays false until that run is registered PASS.
+ */
+export interface FlightPlannerSwitch {
+  enabled: boolean
+  profile: FlightProfile
+  calibrated: boolean
+}
+
+/**
+ * Resolves the live planner switch from the persisted flight config.
+ *
+ * Returns `undefined` unless the planner is explicitly on and the profile
+ * resolves for the reported Minecraft version; an unresolvable profile keeps
+ * the heuristic path instead of flying on guessed physics.
+ *
+ * @example
+ * resolveFlightPlannerSwitch({ planner: 'on' }, '1.21.1')?.enabled
+ * // => true
+ * resolveFlightPlannerSwitch(undefined, '1.21.1')
+ * // => undefined
+ */
+export function resolveFlightPlannerSwitch(
+  flight: { planner?: 'off' | 'on', calibrated?: boolean } | undefined,
+  minecraftVersion: string,
+): FlightPlannerSwitch | undefined {
+  if (flight?.planner !== 'on')
+    return undefined
+  const resolution = resolveFlightProfile(minecraftVersion)
+  if (!resolution.ok)
+    return undefined
+  return { enabled: true, profile: resolution.profile, calibrated: flight.calibrated === true }
+}

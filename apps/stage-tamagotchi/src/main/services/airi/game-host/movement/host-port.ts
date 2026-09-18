@@ -272,6 +272,7 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
       return {
         position: { x, y, z },
         yaw: Number(record.yaw) || 0,
+        ...(Number.isFinite(Number(record.pitch)) ? { pitch: Number(record.pitch) } : {}),
         inWater: record.inWater === true,
         // Unknown ground contact is not a landing: only an explicit true counts.
         onGround: record.onGround === true,

@@ -5,6 +5,7 @@ import type { Vec3 } from './types'
 
 import { describe, expect, it } from 'vitest'
 
+import { FLIGHT_PROFILE_1_21_1 } from '../flight/profile'
 import { runAirTrackMove } from './air-track'
 
 const CHEST_SLOT = 37
@@ -181,6 +182,52 @@ describe('runAirTrackMove', () => {
     expect(port.onGround).toBe(true)
     expect(port.fireworkUses).toBeGreaterThanOrEqual(0)
     expect(result.receipt.activeMs).toBeGreaterThan(0)
+  })
+
+  it('annotates the receipt with the polling strategy stream', async () => {
+    const clock = fakeClock()
+    const port = new AirFakePort({ flightPolls: 24 })
+    let reads = 0
+    const result = await runAirTrackMove({
+      port,
+      readTarget: async () => {
+        reads += 1
+        return reads > 10
+          ? observation({ fallFlying: false, onGround: true, velocity: { x: 0, y: 0, z: 0 }, position: { x: 40, y: 64, z: 0 } })
+          : observation()
+      },
+      deps: clock.deps,
+    })
+    expect(result.status).toBe('landed')
+    expect(result.receipt.updateStream).toBe('polling')
+  })
+
+  it('consults the rollout planner on cruise polls and falls back on unknown cells', async () => {
+    const clock = fakeClock()
+    const port = new AirFakePort({ flightPolls: 24 })
+    // The fake region read returns no cells, so every swept cell is unknown:
+    // the planner declines each poll and the heuristics keep driving.
+    let regionReads = 0
+    const original = port.getBlocksRegion.bind(port)
+    port.getBlocksRegion = async (from, to) => {
+      regionReads += 1
+      return await original(from, to)
+    }
+    let reads = 0
+    const result = await runAirTrackMove({
+      port,
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      readTarget: async () => {
+        reads += 1
+        return reads > 10
+          ? observation({ fallFlying: false, onGround: true, velocity: { x: 0, y: 0, z: 0 }, position: { x: 40, y: 64, z: 0 } })
+          : observation()
+      },
+      deps: clock.deps,
+    })
+    expect(result.status).toBe('landed')
+    expect(regionReads).toBeGreaterThan(0)
+    expect(result.receipt.updateStream).toBe('polling')
   })
 
   it('refuses to follow without an elytra', async () => {

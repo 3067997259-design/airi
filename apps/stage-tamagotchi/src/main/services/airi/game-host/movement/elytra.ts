@@ -24,11 +24,13 @@
  *   never recorded as a safe landing.
  */
 import type { LandingSite } from '../flight/landing-site'
+import type { LiveFlightControl } from '../flight/live-port'
 import type { MovementControlPort, MovementState } from './port'
 import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
 
 import { evaluatePatch } from '../flight/landing-site'
+import { planLiveFlightControl } from '../flight/live-port'
 import { classifyTouchdown } from '../flight/touchdown'
 import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
 
@@ -186,6 +188,10 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let phase: FlightPhase = equip.lowDurability ? 'safety-landing' : 'cruise'
   let cruiseY = Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
   let lastFireworkAt = 0
+  /** CD-E B0: rollout planner for the cruise phase; absent keeps the heuristics. */
+  const planner = options.flightPlanner?.enabled === true ? options.flightPlanner : undefined
+  /** Monotonic poll counter the planner observation falls back to without a source tick. */
+  let pollIndex = 0
   let lastDurabilityAt = now()
   let approachDeadline = 0
   let minApproachGap = Infinity
@@ -353,8 +359,9 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         }
       }
 
+      pollIndex += 1
       const target = phase === 'cruise' ? goal : landingPoint
-      const yaw = yawTo(state.position, target)
+      let yaw = yawTo(state.position, target)
       const gap = horizontalDistance(state.position, target)
       // Landings still scan: flying into a hillside is worse than an early
       // touch-down. Inside the landing zone the scan stops — terrain there is
@@ -369,11 +376,28 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       let pitch: number
       let wantThrust = false
       if (phase === 'cruise') {
-        // Climb over anything close ahead; the scan may only see terrain at
-        // the last safe distance, so the nose-up must be decisive.
-        const climbing = state.position.y < cruiseY - 4 || emergency
-        pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, 35)
-        wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
+        // CD-E B0: while the rollout planner switch is on, its chosen
+        // primitive replaces the cruise heuristics for this poll. Approach,
+        // go-around, flare and safety keep the audited heuristics until
+        // E-02/E-03 wire their lifecycle counterparts.
+        let applied: LiveFlightControl | undefined
+        if (planner) {
+          applied = await planLiveFlightControl({ planner, port, state, poll: pollIndex, fireworks, health: state.health ?? 20, goal: target, lastRocketAt: lastFireworkAt === 0 ? undefined : lastFireworkAt, now })
+          if (!applied)
+            debug?.('elytra rollout fell back to heuristics')
+        }
+        if (applied) {
+          yaw = applied.yaw
+          pitch = applied.pitch
+          wantThrust = applied.useRocket
+        }
+        else {
+          // Climb over anything close ahead; the scan may only see terrain at
+          // the last safe distance, so the nose-up must be decisive.
+          const climbing = state.position.y < cruiseY - 4 || emergency
+          pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, 35)
+          wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
+        }
       }
       else if (phase === 'go-around') {
         // Recover altitude on the way out, then keep a shallow climb so the

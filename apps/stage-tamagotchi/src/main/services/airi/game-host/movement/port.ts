@@ -32,6 +32,8 @@ export class UnreadablePlayerStateError extends Error {
 export interface MovementState {
   position: Vec3
   yaw: number
+  /** Head pitch in degrees; omitted when the read did not report it. */
+  pitch?: number
   inWater: boolean
   onGround: boolean
   /** Velocity in blocks per tick; the elytra mover uses the horizontal speed. */

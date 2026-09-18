@@ -5,6 +5,7 @@
  * this module is the only place that joins the base movement port with the
  * optional vehicle-observation surface.
  */
+import type { FlightPlannerSwitch } from '../flight/profile'
 import type { MovementControlPort } from './port'
 import type { Vec3 } from './types'
 import type { VehicleAcquireStrategy, VehicleFailureReason, VehicleKind, VehicleObservationPort, VehicleReceipt } from './vehicle-types'
@@ -34,6 +35,13 @@ export interface VehicleMoveOptions {
   goal: Vec3
   tolerance?: number
   shouldStop?: () => boolean
+  /**
+   * CD-E B0 rollout-planner switch for the elytra cruise phase.
+   *
+   * Absent keeps the heuristic cruise control byte-identically; see
+   * {@link ../flight/profile.FlightPlannerSwitch}.
+   */
+  flightPlanner?: FlightPlannerSwitch
   /**
    * Whether this session still owns the player's input (CD-0 D8).
    *

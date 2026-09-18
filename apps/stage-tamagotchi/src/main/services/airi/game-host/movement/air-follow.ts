@@ -35,6 +35,7 @@ export const AIR_REACQUIRE_BUDGET_MS = 6000
 /** The follow states of the design §3 state machine. */
 export type AirFollowPhase
   = | 'ground-follow'
+    | 'escort'
     | 'assess-launch'
     | 'launching'
     | 'air-track'
@@ -89,6 +90,7 @@ export const DEFAULT_AIR_FOLLOW_BUDGET: AirFollowBudgetLimits = {
 /** The action the follow loop must take for a directive. */
 export type AirFollowAction
   = | 'ground-follow'
+    | 'escort-hold'
     | 'assess-launch'
     | 'launch'
     | 'track'
@@ -146,6 +148,8 @@ export interface AirFollowReceipt {
   cannotAirFollow?: boolean
   /** Whether the bounded safety landing proved a touch-down. */
   landingVerified?: boolean
+  /** How strategy updates reached the driver; polling until a stream exists (escort design D6). */
+  updateStream?: 'polling' | 'ipc'
 }
 
 export interface AirFollowControllerOptions {
@@ -154,6 +158,12 @@ export interface AirFollowControllerOptions {
   spacing?: { min: number, max: number }
   launchConfirmTicks?: number
   landingConfirmTicks?: number
+  /**
+   * LR-0 escort insertion point (escort design D1). The strategy itself lands
+   * with LR-2/LR-3; the default `off` and an absent gate keep today's
+   * ground-to-launch flow exactly.
+   */
+  escort?: { mode: 'off' | 'on', gate?: () => 'launch' | 'hold' }
 }
 
 export interface AirFollowController {
@@ -359,10 +369,26 @@ export function createAirFollowController(options: AirFollowControllerOptions): 
 
     if (phase === 'ground-follow') {
       if (options.travelMode === 'auto' && !launchBlocked && flyingTicks >= launchConfirmTicks) {
+        // LR-0 escort insertion point: a holding gate keeps the ground follow
+        // while the escort strategy decides whether the launch is worth its
+        // fireworks (escort design D1).
+        if (options.escort?.mode === 'on' && options.escort.gate?.() === 'hold') {
+          phase = 'escort'
+          return { phase, action: 'escort-hold' }
+        }
         phase = 'assess-launch'
         return { phase, action: 'assess-launch' }
       }
       return { phase, action: 'ground-follow' }
+    }
+
+    if (phase === 'escort') {
+      if (flyingTicks < launchConfirmTicks)
+        return enterGroundFollow()
+      if (options.escort?.gate?.() === 'hold')
+        return { phase, action: 'escort-hold' }
+      phase = 'assess-launch'
+      return { phase, action: 'assess-launch' }
     }
 
     if (phase === 'assess-launch') {
