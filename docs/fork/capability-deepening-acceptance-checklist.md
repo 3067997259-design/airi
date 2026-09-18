@@ -20,9 +20,11 @@
 | 机器人客户端 | `versions\AIRI-bot`，玩家 `airitest`，模组 0.2.17 | 桥 25601 到 MCP 25600 | 在线，AIRI 驱动它 |
 | 人工客户端 | `versions\AIRI`，玩家 `AfterRain`，模组 0.2.17 | 桥 25599 | 在线，不被 AIRI 驱动 |
 | AIRI 应用 | Electron，CDP 9222 | `game-host.json`：客户端 25600、服务端 25602、planner terrain | 在线 |
-| 模组源码 | `D:\mcpfabric` | 服务端 jar 0.2.16 | 与在线一致 |
+| 模组源码 | `D:\mcpfabric` | 提交 `c5aecff`，`mod_version=0.2.34` | 源码已超前于本表初记的在线 jar，见下条基线锚定 |
 
 PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minecraft`。
+
+**基线锚定（2026-09-16，Step 0）**：AIRI `mods` 分支 `a71a798b3`（代码批 `75430cfb8`，docs 批 `9fdbd196d`）；game-host 套件基线 **793 通过 / 1 跳过（56 文件）**。mcpfabric `c5aecff`，`mod_version=0.2.34`。源码树已从本表初记的客户端 0.2.17 / 服务端 0.2.16 前进；下轮真机前按 §1.2 前置核对在线双 jar 实际版本，未同步则先重建部署再开始验收。工作树仅余 `botclass24.txt`（javap 草稿，未跟踪，不提交）。
 
 ### 1.2 每轮前置检查
 
