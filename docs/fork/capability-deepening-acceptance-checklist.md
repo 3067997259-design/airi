@@ -155,6 +155,8 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 
 现状：CD-E 的新 `flight/` 模块只接入共享 `LandingSite` 与 `classifyTouchdown` 契约，没有替换 live elytra 驾驶路径。CD-F 的粗走廊没有接入跟飞驱动，2 到 5 Hz 策略更新流只实现门控与测试，没有独立 IPC 通道。
 
+**状态（2026-09-18，提交 `571e6364c`）：接线项 1/3/4 已落地，离线门槛全过。** `movement.flight` 开关（默认 off，`game-host.json` 持久化，含 E-01 后才置位的 `calibrated`）；`flight/live-port.ts` 组装 FlightObservation（状态读新增 pitch）并以一次有界区域读服务 rollout ShapeSource（未读格未知非空气）；elytra 巡航段与 air-follow 巡航腿在开关打开时由 planRollout 替换启发式、planner 拒绝即回落；escort 相位槽 + hold/launch 可插拔门（默认关）；空中回执标注 `updateStream: 'polling'`。game-host 套件 **807 通过 / 1 跳过**（基线 793+1，含 14 个新测试），typecheck/eslint 干净，开关关闭时真机行为不变。**项 2（`planCorridor` 粗走廊接入跟飞驱动）待做**：需要覆盖完整的粗网格快照读取，随 E-01 校准批接线（绕行系数也是 D2 估算器输入）。两处契约发现：`RolloutLimits.fireworks` 在储备比较中按推进 tick 数读取（live-port 已换算并加 NOTICE）；地平线与读取半径须满足 半径 ≥ 地平线 × 最大加速速度（现取 12 tick / 20 格，单元数 28.6k 在 30k 预算内）。
+
 新增专题：[远距伴飞设计](./long-range-escort-design.md)。LR-0 与本接线批是同一批工作；伴飞策略（`escort`）与其接线一并实施，默认关闭。
 
 接线工作：

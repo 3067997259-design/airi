@@ -3,6 +3,12 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## B0/LR-0 接线批 + Step 0 基线锚定（2026-09-18）
+
+**Step 0 基线锚定**：两侧工作树分批提交——AIRI `75430cfb8`（载具会话与跟随修复批）/`9fdbd196d`（文档）/`a71a798b3`（live-acceptance 证据）/`61c01ef29`（清单锚定），mcpfabric `c5aecff`（载具与远程逐 tick 驱动、实体效果序列化，0.2.34）。game-host 套件基线 **793 通过 / 1 跳过**。清单 §1.1 已记录源码与在线 jar 的版本漂移（下轮真机前需核对双 jar 实际版本）。
+
+**B0/LR-0 接线（提交 `571e6364c`，离线门槛全过）**：`movement.flight` 开关（默认 off，`game-host.json` 持久化，含 E-01 后才置位的 `calibrated` 标记）；`flight/live-port.ts` 把 MovementState 组装成 FlightObservation（状态读新增 pitch 字段）并以一次有界区域读服务 rollout ShapeSource（未读格保持未知非空气）；elytra 巡航段与 air-follow 巡航腿在开关打开时由 planRollout 替换启发式、planner 拒绝即回落；escort 相位槽 + hold/launch 可插拔门（默认关）；空中回执标注 `updateStream: 'polling'`（策略流按轮询，escort 设计 D6）。套件 **807 通过 / 1 跳过**（含 14 个新测试），typecheck/eslint 干净。**范围**：清单 B0 四项中 1/3/4 完成；第 2 项（`planCorridor` 粗走廊接入跟飞驱动）待做，需覆盖完整的粗网格快照，随 E-01 校准批接线。**契约发现两处**：`RolloutLimits.fireworks` 在储备比较（`fireworks - rocketUses < reserveTicks`）中按推进 tick 数读取，live-port 已按 ×10 换算并加 NOTICE；地平线与形状读取半径须满足 半径 ≥ 地平线 × 最大加速速度（取 12 tick / 20 格，41×17×41 ≈ 28.6k 单元在 30k 区域读取预算内）。
+
 ## B-08 特殊弹药扩充：效果回读与烟花弩链路（2026-09-17，客户端 0.2.29→0.2.34，服务端 0.2.16→0.2.29）
 
 **效果回读通道**：服务端实体详情新增 `effects`（id/amplifier/duration），光谱箭命中回读 `glowing`、迟缓药水箭回读 `slowness`，均为真机通过。**弹种取档**：模组 `combat_status` 新增 `projectiles`（各远程武器下一发弹丸；弩含"已装填/无箭时优先箭、否则烟花"的原版取弹顺序），宿主在任务前读取并传给 `resolveWeaponProfile(weapon, ammo)`（带回归测试），回执 `profileId` 正确给出 `spectral-arrow`/`tipped-arrow`/`firework-rocket`。
