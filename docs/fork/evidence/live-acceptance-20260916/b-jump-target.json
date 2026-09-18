@@ -1,0 +1,207 @@
+{
+  "id": "B-03 stop and jump",
+  "startedAt": "2026-09-17T12:50:50.319Z",
+  "shotsPerCase": 12,
+  "cases": [
+    {
+      "id": "B-03a",
+      "label": "stationary target (baseline)",
+      "shots": [
+        {
+          "index": 1,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 2,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 3,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 4,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 5,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 6,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 7,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 8,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 9,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 10,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 11,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        },
+        {
+          "index": 12,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0
+        }
+      ],
+      "hits": 12
+    },
+    {
+      "id": "B-03b",
+      "label": "jumping target (lifted, fired while falling)",
+      "shots": [
+        {
+          "index": 1,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3,
+          "arrow": {
+            "y": 141.00683311117893,
+            "dy": -0.6431668888210709,
+            "distance": 4.510578231765174
+          }
+        },
+        {
+          "index": 2,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 3,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 4,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 5,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 6,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 7,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 8,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 9,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 10,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 11,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        },
+        {
+          "index": 12,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arrivalY": 142.3
+        }
+      ],
+      "hits": 11
+    }
+  ],
+  "verdict": "PASS"
+}

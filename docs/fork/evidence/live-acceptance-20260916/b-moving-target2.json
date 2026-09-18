@@ -1,0 +1,182 @@
+{
+  "id": "B-02 moving target (A-line)",
+  "startedAt": "2026-09-17T13:27:27.069Z",
+  "shotsPerCase": 6,
+  "cases": [
+    {
+      "id": "B-02",
+      "label": "A-line cart crossing the shot line",
+      "shots": [
+        {
+          "index": 1,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.45127030653956,
+            "z": -43.848522109375
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.46
+        },
+        {
+          "index": 2,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.45127030653956,
+            "z": -43.848522109375
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.38
+        },
+        {
+          "index": 3,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.45127030653956,
+            "z": -43.848522109375
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.34
+        },
+        {
+          "index": 4,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.47065546278955,
+            "z": -43.630131796875
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.37
+        },
+        {
+          "index": 5,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.45127030653956,
+            "z": -43.848522109375
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.37
+        },
+        {
+          "index": 6,
+          "status": "ok",
+          "endReason": "done",
+          "fired": 1,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.45127030653956,
+            "z": -43.848522109375
+          },
+          "cartFirst": {
+            "x": 240.5,
+            "z": -41.707188281250005
+          },
+          "cartLast": {
+            "x": 240.5,
+            "z": -44.425795778996346
+          },
+          "cartSpeed": 4.39
+        }
+      ]
+    }
+  ],
+  "verdict": "PASS",
+  "analysis": {
+    "fired": 6,
+    "meanSpeed": 4.39,
+    "predictions": [
+      {
+        "ticks": 4,
+        "closest": 0
+      },
+      {
+        "ticks": 4,
+        "closest": 0
+      },
+      {
+        "ticks": 4,
+        "closest": 0
+      },
+      {
+        "ticks": 4,
+        "closest": 0
+      },
+      {
+        "ticks": 4,
+        "closest": 0
+      },
+      {
+        "ticks": 4,
+        "closest": 0
+      }
+    ]
+  }
+}

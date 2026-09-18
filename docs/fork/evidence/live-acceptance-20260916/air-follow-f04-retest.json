@@ -1,0 +1,942 @@
+{
+  "id": "F-02",
+  "mode": "auto",
+  "startedAt": "2026-09-16T09:46:06.732Z",
+  "steps": [
+    {
+      "step": "start",
+      "bot": {
+        "x": 44.462994245870235,
+        "y": 141,
+        "z": -19.621926067843503,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 61.29632034218441,
+        "y": 141.78182623979208,
+        "z": -29.127629729352613,
+        "fallFlying": true
+      },
+      "horizontal": 19.331820130688143,
+      "entityTotal": 2,
+      "entityReturned": 2,
+      "truncated": false,
+      "playerInReturnedList": true
+    },
+    {
+      "step": "fireworks-before",
+      "count": 31
+    }
+  ],
+  "samples": [
+    {
+      "t": 11,
+      "bot": {
+        "x": 44.462994245870235,
+        "y": 141,
+        "z": -19.621926067843503,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 47.87246562103034,
+        "y": 143.32487845942944,
+        "z": -16.00985843954438,
+        "fallFlying": true
+      },
+      "distance": 4.9670441521535285,
+      "pending": true
+    },
+    {
+      "t": 299,
+      "bot": {
+        "x": 44.462994245870235,
+        "y": 141,
+        "z": -19.621926067843503,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 40.52007556800924,
+        "y": 146.8303279083641,
+        "z": -14.47884240200268,
+        "fallFlying": true
+      },
+      "distance": 6.480580012164326,
+      "pending": true
+    },
+    {
+      "t": 568,
+      "bot": {
+        "x": 44.759895147439664,
+        "y": 141,
+        "z": -19.310588328018362,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 31.712311240875803,
+        "y": 151.08642418839867,
+        "z": -12.630280031554058,
+        "fallFlying": true
+      },
+      "distance": 14.658307021434437,
+      "pending": true
+    },
+    {
+      "t": 836,
+      "bot": {
+        "x": 45.84110116606663,
+        "y": 141,
+        "z": -18.17680855050581,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 23.407418988945967,
+        "y": 155.73809385953703,
+        "z": -10.887059035355508,
+        "fallFlying": true
+      },
+      "distance": 23.588356110964906,
+      "pending": true
+    },
+    {
+      "t": 1101,
+      "bot": {
+        "x": 46.807273668598434,
+        "y": 141,
+        "z": -17.16365580617467,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 17.332824811808504,
+        "y": 160.12322447391614,
+        "z": -9.72502149492069,
+        "fallFlying": true
+      },
+      "distance": 30.398625229244992,
+      "pending": true
+    },
+    {
+      "t": 1378,
+      "bot": {
+        "x": 47.6875164922828,
+        "y": 141,
+        "z": -16.24061108056238,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 12.324171456628566,
+        "y": 164.23394335223463,
+        "z": -10.205535894087147,
+        "fallFlying": true
+      },
+      "distance": 35.8746192260927,
+      "pending": true
+    },
+    {
+      "t": 1668,
+      "bot": {
+        "x": 47.83685588096764,
+        "y": 142.24918707874468,
+        "z": -16.084010048048746,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 8.805650684943082,
+        "y": 168.23304988251812,
+        "z": -12.401563306415479,
+        "fallFlying": true
+      },
+      "distance": 39.20453281266263,
+      "pending": true
+    },
+    {
+      "t": 1942,
+      "bot": {
+        "x": 47.890574992740305,
+        "y": 142,
+        "z": -16.02767883869133,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 7.974058569092733,
+        "y": 170.97658071810096,
+        "z": -14.476022559121178,
+        "fallFlying": true
+      },
+      "distance": 39.946663447768145,
+      "pending": true
+    },
+    {
+      "t": 2220,
+      "bot": {
+        "x": 47.42300653956067,
+        "y": 142,
+        "z": -16.593861597489948,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 8.214939483272286,
+        "y": 172.21138199571914,
+        "z": -15.466173143696306,
+        "fallFlying": true
+      },
+      "distance": 39.224280790592275,
+      "pending": true
+    },
+    {
+      "t": 2499,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 8.821976167640983,
+        "y": 172.2796365472463,
+        "z": -16.20057662031151,
+        "fallFlying": true
+      },
+      "distance": 38.52587720551066,
+      "pending": true
+    },
+    {
+      "t": 2775,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 13.126142586326925,
+        "y": 169.00346912364085,
+        "z": -17.896325652763597,
+        "fallFlying": true
+      },
+      "distance": 34.23992560394024,
+      "pending": true
+    },
+    {
+      "t": 3086,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 21.22295223999948,
+        "y": 163.54304380449761,
+        "z": -21.02106146577932,
+        "fallFlying": true
+      },
+      "distance": 26.478653705089307,
+      "pending": true
+    },
+    {
+      "t": 3473,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 29.7801086754751,
+        "y": 158.34601754875234,
+        "z": -23.637886040999298,
+        "fallFlying": true
+      },
+      "distance": 18.889402078154248,
+      "pending": true
+    },
+    {
+      "t": 3758,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 41.52590700515583,
+        "y": 151.51971057184107,
+        "z": -24.053318706010632,
+        "fallFlying": true
+      },
+      "distance": 9.386055223425512,
+      "pending": true
+    },
+    {
+      "t": 4112,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 48.88098474069825,
+        "y": 146.4985115787527,
+        "z": -19.45947176197272,
+        "fallFlying": true
+      },
+      "distance": 3.168227185417398,
+      "pending": true
+    },
+    {
+      "t": 4376,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 52.087885387755215,
+        "y": 142.816385038767,
+        "z": -12.559174314868068,
+        "fallFlying": true
+      },
+      "distance": 6.288834881770361,
+      "pending": true
+    },
+    {
+      "t": 4653,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 50.392012850849966,
+        "y": 140.48292611049814,
+        "z": -6.771700310813886,
+        "fallFlying": true
+      },
+      "distance": 10.374526659560889,
+      "pending": true
+    },
+    {
+      "t": 5123,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 47.35270851981674,
+        "y": 139.14513535648956,
+        "z": -5.019795757959993,
+        "fallFlying": true
+      },
+      "distance": 11.668815372591032,
+      "pending": true
+    },
+    {
+      "t": 5402,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 38.25479998374616,
+        "y": 140.0269055898514,
+        "z": -10.40781739454855,
+        "fallFlying": true
+      },
+      "distance": 11.048789438145002,
+      "pending": true
+    },
+    {
+      "t": 5725,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 36.14224600856636,
+        "y": 141.8228020518883,
+        "z": -17.707491115540204,
+        "fallFlying": true
+      },
+      "distance": 11.248755029389597,
+      "pending": true
+    },
+    {
+      "t": 6005,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 39.84726514024015,
+        "y": 142.04126129315367,
+        "z": -28.619092432059624,
+        "fallFlying": true
+      },
+      "distance": 14.090738446726096,
+      "pending": true
+    },
+    {
+      "t": 6285,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 45.20517052383818,
+        "y": 141.93980347941712,
+        "z": -34.39487763383097,
+        "fallFlying": true
+      },
+      "distance": 17.83507279503183,
+      "pending": true
+    },
+    {
+      "t": 6579,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 54.73404815466737,
+        "y": 141.49655766575182,
+        "z": -33.57440284543956,
+        "fallFlying": true
+      },
+      "distance": 18.43180948675853,
+      "pending": true
+    },
+    {
+      "t": 6868,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 60.71460054661572,
+        "y": 140.85157540620904,
+        "z": -29.41232206445281,
+        "fallFlying": true
+      },
+      "distance": 18.456583315554443,
+      "pending": true
+    },
+    {
+      "t": 7195,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 62.36802047078669,
+        "y": 140.15338711353306,
+        "z": -24.674835919237367,
+        "fallFlying": true
+      },
+      "distance": 17.0140565513741,
+      "pending": true
+    },
+    {
+      "t": 7524,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 61.26213792252266,
+        "y": 139.35937389084884,
+        "z": -20.030421067091176,
+        "fallFlying": true
+      },
+      "distance": 14.312968255576589,
+      "pending": true
+    },
+    {
+      "t": 8235,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 59.06445949130121,
+        "y": 138.73367274192185,
+        "z": -16.82801611979123,
+        "fallFlying": true
+      },
+      "distance": 11.720526456101277,
+      "pending": true
+    },
+    {
+      "t": 8503,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 39.787504993148694,
+        "y": 142.29124840452792,
+        "z": -10.99188595838695,
+        "fallFlying": true
+      },
+      "distance": 9.46386720691176,
+      "pending": true
+    },
+    {
+      "t": 8778,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 33.885413570646,
+        "y": 142.021312958603,
+        "z": -16.405349811542383,
+        "fallFlying": true
+      },
+      "distance": 13.462328902238877,
+      "pending": true
+    },
+    {
+      "t": 9048,
+      "bot": {
+        "x": 47.34476214440874,
+        "y": 142,
+        "z": -16.688608424839803,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 33.772990824680015,
+        "y": 141.80712586870834,
+        "z": -25.29059720134079,
+        "fallFlying": true
+      },
+      "distance": 16.068204245218574,
+      "pending": true
+    },
+    {
+      "t": 9309,
+      "bot": {
+        "x": 46.33420542855574,
+        "y": 141.9215999984741,
+        "z": -17.075198864755837,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 37.210466709510165,
+        "y": 141.74740133341905,
+        "z": -31.69050903954322,
+        "fallFlying": true
+      },
+      "distance": 17.229332538396694,
+      "pending": true
+    },
+    {
+      "t": 9580,
+      "bot": {
+        "x": 45.166498889998046,
+        "y": 141.41999998688698,
+        "z": -17.52190727542906,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 41.73463670495213,
+        "y": 141.58461306853002,
+        "z": -35.361352234395845,
+        "fallFlying": true
+      },
+      "distance": 18.166548227474408,
+      "pending": true
+    },
+    {
+      "t": 9852,
+      "bot": {
+        "x": 43.49064145166426,
+        "y": 142.17675927506423,
+        "z": -18.16300980253973,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 46.718008872382235,
+        "y": 141.32669845061048,
+        "z": -36.41527848999191,
+        "fallFlying": true
+      },
+      "distance": 18.535404303852108,
+      "pending": true
+    },
+    {
+      "t": 10125,
+      "bot": {
+        "x": 42.124396926352375,
+        "y": 141,
+        "z": -18.685669306739214,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 49.62702415397683,
+        "y": 141.06550805860635,
+        "z": -35.41888523090014,
+        "fallFlying": true
+      },
+      "distance": 18.338209576763063,
+      "pending": true
+    },
+    {
+      "t": 10422,
+      "bot": {
+        "x": 41.00476756213157,
+        "y": 140.23152379758702,
+        "z": -19.113985700729703,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 51.812444332792445,
+        "y": 140.66925358306128,
+        "z": -33.290052398094396,
+        "fallFlying": true
+      },
+      "distance": 17.826013132139643,
+      "pending": true
+    },
+    {
+      "t": 10913,
+      "bot": {
+        "x": 40.660742000189956,
+        "y": 136.93665494615303,
+        "z": -19.245593349510813,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 52.66140659506201,
+        "y": 140.14031333078552,
+        "z": -30.766184764250365,
+        "fallFlying": true
+      },
+      "distance": 16.635503516996003,
+      "pending": true
+    },
+    {
+      "t": 11237,
+      "bot": {
+        "x": 40.38470371098173,
+        "y": 126.445858837125,
+        "z": -19.3511923346886,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 49.30000001192093,
+        "y": 140.46792525170807,
+        "z": -18.567683741805087,
+        "fallFlying": true
+      },
+      "distance": 8.949658867725766,
+      "pending": true
+    },
+    {
+      "t": 11597,
+      "bot": {
+        "x": 40.30862674393243,
+        "y": 117.5647608979838,
+        "z": -19.38029572660881,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 47.96563594515074,
+        "y": 140.56449959987154,
+        "z": -9.3375440443993,
+        "fallFlying": true
+      },
+      "distance": 12.628802447503238,
+      "pending": true
+    },
+    {
+      "t": 11878,
+      "bot": {
+        "x": 40.26031547835576,
+        "y": 105.1050685625789,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 40.39209346323161,
+        "y": 140.13302973490826,
+        "z": -0.8461827538771021,
+        "fallFlying": true
+      },
+      "distance": 18.541155621513298,
+      "pending": true
+    },
+    {
+      "t": 12158,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 92.8427095632668,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": false
+      },
+      "player": {
+        "x": 31.71300280790862,
+        "y": 136.9150963952803,
+        "z": -1.8211819813613896,
+        "fallFlying": true
+      },
+      "distance": 19.526348667616837,
+      "pending": true
+    },
+    {
+      "t": 12436,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 22.730620229002085,
+        "y": 132.9217311197048,
+        "z": -5.696549885317047,
+        "fallFlying": true
+      },
+      "distance": 22.226886520909478,
+      "pending": true
+    },
+    {
+      "t": 12735,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 14.629580736867766,
+        "y": 130.28690983049188,
+        "z": -9.284236179799105,
+        "fallFlying": true
+      },
+      "distance": 27.53184476690745,
+      "pending": true
+    },
+    {
+      "t": 13047,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 7.83174476135763,
+        "y": 127.77458245500685,
+        "z": -15.962611269417756,
+        "fallFlying": true
+      },
+      "distance": 32.58954392349544,
+      "pending": true
+    },
+    {
+      "t": 13667,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 6.860462424247355,
+        "y": 125.77183515680518,
+        "z": -22.800046941891605,
+        "fallFlying": true
+      },
+      "distance": 33.55447593129489,
+      "pending": true
+    },
+    {
+      "t": 13938,
+      "bot": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043,
+        "fallFlying": false,
+        "onGround": true
+      },
+      "player": {
+        "x": 14.212457221110224,
+        "y": 122.51249934526214,
+        "z": -28.476001570740753,
+        "fallFlying": true
+      },
+      "distance": 27.569761123619983,
+      "pending": false
+    }
+  ],
+  "receipt": {
+    "status": "failed",
+    "checked": false,
+    "commandId": "795afbaf-a719-468f-b6b9-8ec96dee7fc4",
+    "endReason": "target_unreachable",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 40.2408920005716,
+        "y": 86,
+        "z": -19.386870075114043
+      },
+      "health": 0,
+      "food": 17,
+      "heldItem": "minecraft:stone"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": false
+    },
+    "follow": {
+      "endReason": "cannot_air_follow",
+      "activeMs": 0,
+      "bandMs": 0,
+      "bandRatio": 0,
+      "lossCount": 0,
+      "modeSwitches": 0,
+      "fireworkSpend": 0,
+      "launchAttempts": 0,
+      "finalTargetObservation": {
+        "targetUuid": "d0451c6d-d02c-320a-b06b-495bc9b06605",
+        "entityType": "minecraft:player",
+        "isPlayer": true,
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "position": {
+          "x": 24.2954725957648,
+          "y": 133.51207274198623,
+          "z": -5.017988752276855
+        },
+        "velocity": {
+          "x": -1.5400802435703416,
+          "y": -0.6163298255235685,
+          "z": -0.6655910534431179
+        },
+        "yaw": 113.69324,
+        "pitch": 29.850046,
+        "bounds": {
+          "width": 0.6,
+          "height": 0.6
+        },
+        "onGround": false,
+        "fallFlying": true,
+        "riding": false,
+        "alive": true,
+        "source": "server-entity",
+        "sourceTick": 5594612,
+        "receivedAt": 1789551980758,
+        "requestStartedAt": 1789551980753,
+        "requestEndedAt": 1789551980758,
+        "requestDurationMs": 5,
+        "connectionGeneration": 1,
+        "visibility": "loaded",
+        "completeness": "complete",
+        "positionUncertainty": 0.5181067396952286
+      },
+      "cannotAirFollow": true
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "532508f4-75e7-4d86-a333-56ab393dac62"
+    }
+  },
+  "verdict": "RESOLVED",
+  "notes": [
+    "2026-09-16T09:46:06.824Z distance=19.3 truncated=false playerInList=true",
+    "2026-09-16T09:46:22.305Z endReason=target_unreachable after 13942ms minDistance=3.2 fallFlyingSeen=false fireworksUsed=0"
+  ],
+  "analysis": {
+    "endReason": "target_unreachable",
+    "resolvedAfterMs": 13942,
+    "minDistance": 3.168227185417398,
+    "maxBotY": 142.24918707874468,
+    "fallFlyingSeen": false,
+    "fireworksUsed": 0
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "M-07/M-08/M-09a retest",
+  "startedAt": "2026-09-17T01:24:46.408Z",
+  "cases": [
+    {
+      "id": "M-07a 1 格凹洞拾取",
+      "receipt": {
+        "status": "ok",
+        "endReason": "collected"
+      },
+      "passed": false
+    },
+    {
+      "id": "M-07b 2 格凹洞不可达",
+      "receipt": {
+        "status": "ok",
+        "endReason": "collected"
+      },
+      "passed": false
+    },
+    {
+      "id": "M-07c 垫脚恢复",
+      "receipt": {
+        "status": "ok",
+        "endReason": "collected"
+      },
+      "pitAfter": "minecraft:air",
+      "passed": false
+    },
+    {
+      "id": "M-08 破坏中取消",
+      "receipt": {
+        "status": "cancelled",
+        "endReason": "cancelled"
+      },
+      "blockAfter": "minecraft:air",
+      "passed": false
+    },
+    {
+      "id": "M-09a 默认前置（缺工具）",
+      "receipt": {
+        "status": "failed",
+        "endReason": "missing_tool",
+        "report": {
+          "craftable": false,
+          "reason": "missing-materials-or-station",
+          "steps": 0,
+          "missing": [
+            {
+              "itemId": "minecraft:oak_log",
+              "count": 1
+            }
+          ]
+        }
+      },
+      "passed": true
+    }
+  ],
+  "verdict": "FAIL"
+}

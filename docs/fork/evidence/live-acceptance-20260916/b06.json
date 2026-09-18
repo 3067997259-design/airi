@@ -1,0 +1,156 @@
+{
+  "id": "B-06 target gone and two shooters",
+  "startedAt": "2026-09-17T15:56:40.246Z",
+  "targetGone": {
+    "healthBefore": 0,
+    "endReason": "done",
+    "fired": 1,
+    "closestDistance": 0,
+    "predictedFlightTicks": 4,
+    "hitEvidence": "unobserved",
+    "receipt": {
+      "status": "ok",
+      "checked": false,
+      "commandId": "cbce0530-b0c9-4e47-add0-12f59ae3b65a",
+      "endReason": "done",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 258.5,
+          "y": 201,
+          "z": -31.5
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:bow"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": true
+      },
+      "shot": {
+        "weapon": "bow",
+        "targetUuid": "dcc6c115-74c2-4f42-b4b6-86c47bd49f97",
+        "shots": [
+          {
+            "shot": 1,
+            "projectileUuid": "6437a7b2-65b1-4cc6-97ac-366b1a29e2c0",
+            "verifiedBy": "projectile",
+            "hitEvidence": "unobserved"
+          }
+        ],
+        "profileId": "bow-arrow",
+        "aimTarget": {
+          "x": 258.5,
+          "y": 201.64999997615814,
+          "z": -19.5
+        },
+        "aimSource": "fresh",
+        "solutionRevision": 1,
+        "observationAgeMs": 6,
+        "predictedFlightTicks": 4,
+        "closestDistance": 0,
+        "arc": "low",
+        "fireReason": "ballistic_solution",
+        "observedSpeed": 0,
+        "endReason": "done"
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 9,
+        "connectionId": "cf99c94a-83d8-4a7f-9cf1-b271d29d32b0"
+      }
+    }
+  },
+  "twoShooters": {
+    "healthBefore": 18,
+    "endReason": "cancelled_after_shot",
+    "fired": 2,
+    "killed": true,
+    "killEvidence": "projectile",
+    "receipt": {
+      "status": "ok",
+      "checked": false,
+      "commandId": "b3344d0b-b788-4479-93fc-306ea50dc9ed",
+      "endReason": "cancelled_after_shot",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 258.5,
+          "y": 201,
+          "z": -31.5
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:bow"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": true
+      },
+      "shot": {
+        "weapon": "bow",
+        "targetUuid": "7672d0dd-2c2a-4319-a0de-13047a51dfca",
+        "shots": [
+          {
+            "shot": 1,
+            "projectileUuid": "0c8d84ee-501f-4f44-9fe2-37762f653741",
+            "verifiedBy": "projectile",
+            "hitEvidence": "entity_death"
+          },
+          {
+            "shot": 2,
+            "projectileUuid": "f20d5ea3-1f16-4913-abaa-22282d639734",
+            "verifiedBy": "projectile",
+            "hitEvidence": "entity_death"
+          }
+        ],
+        "profileId": "bow-arrow",
+        "killed": true,
+        "killEvidence": "projectile",
+        "aimTarget": {
+          "x": 258.5,
+          "y": 201.64999997615814,
+          "z": -19.5
+        },
+        "aimSource": "fresh",
+        "solutionRevision": 1,
+        "observationAgeMs": 10,
+        "predictedFlightTicks": 4,
+        "closestDistance": 0,
+        "arc": "low",
+        "fireReason": "ballistic_solution",
+        "observedSpeed": 0,
+        "endReason": "cancelled_after_shot"
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 9,
+        "connectionId": "cf99c94a-83d8-4a7f-9cf1-b271d29d32b0"
+      }
+    }
+  },
+  "finishedAt": "2026-09-17T15:58:37.080Z"
+}

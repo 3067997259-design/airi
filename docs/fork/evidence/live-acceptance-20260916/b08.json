@@ -1,0 +1,252 @@
+{
+  "id": "B-08 firework crossbow, spectral and tipped arrows",
+  "startedAt": "2026-09-17T16:25:53.054Z",
+  "parts": [
+    {
+      "name": "firework-crossbow",
+      "ammoReported": {
+        "bow": "",
+        "crossbow": "minecraft:firework_rocket",
+        "trident": ""
+      },
+      "healthBefore": 45,
+      "healthAfter": 45,
+      "effectsAfter": [],
+      "profileId": "firework-rocket",
+      "fired": 0,
+      "closestDistance": 0,
+      "refusal": "load_timeout",
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "5c2bcea3-c54f-4fd7-b96f-7442901ea884",
+        "endReason": "load_timeout",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 258.5,
+            "y": 201,
+            "z": -31.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:crossbow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "crossbow",
+          "targetUuid": "63975564-7e99-4869-a642-ad761e227e6f",
+          "shots": [],
+          "profileId": "firework-rocket",
+          "aimTarget": {
+            "x": 258.5,
+            "y": 201.64999997615814,
+            "z": -19.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 14,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "load_timeout"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 4,
+          "connectionId": "d9b65cd2-a18d-4dd7-9b04-6d24d5506b57"
+        }
+      }
+    },
+    {
+      "name": "spectral-arrow",
+      "ammoReported": {
+        "bow": "minecraft:spectral_arrow",
+        "crossbow": "",
+        "trident": ""
+      },
+      "healthBefore": 45,
+      "healthAfter": 39,
+      "effectsAfter": [
+        {
+          "id": "minecraft:glowing",
+          "amplifier": 0,
+          "duration": 160
+        }
+      ],
+      "profileId": "spectral-arrow",
+      "fired": 1,
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "f0520019-9ee8-4c2d-999a-aaf5c7bde028",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 258.5,
+            "y": 201,
+            "z": -31.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "63975564-7e99-4869-a642-ad761e227e6f",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "7f92d0bc-8d53-449a-86f3-ac3dbf50a123",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "spectral-arrow",
+          "aimTarget": {
+            "x": 258.5,
+            "y": 201.64999997615814,
+            "z": -19.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 11,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 4,
+          "connectionId": "d9b65cd2-a18d-4dd7-9b04-6d24d5506b57"
+        }
+      }
+    },
+    {
+      "name": "tipped-arrow-slowness",
+      "ammoReported": {
+        "bow": "minecraft:tipped_arrow",
+        "crossbow": "",
+        "trident": ""
+      },
+      "healthBefore": 39,
+      "healthAfter": 30,
+      "effectsAfter": [
+        {
+          "id": "minecraft:slowness",
+          "amplifier": 0,
+          "duration": 189
+        },
+        {
+          "id": "minecraft:glowing",
+          "amplifier": 0,
+          "duration": 81
+        }
+      ],
+      "profileId": "tipped-arrow",
+      "fired": 1,
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "b84f3268-10f0-4443-a0c2-fa5b40d9df89",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 258.5,
+            "y": 201,
+            "z": -31.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "63975564-7e99-4869-a642-ad761e227e6f",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "65a7fb55-2deb-4fd5-88ff-7fd1bfe3f35b",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "tipped-arrow",
+          "aimTarget": {
+            "x": 258.5,
+            "y": 201.64999997615814,
+            "z": -19.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 4,
+          "connectionId": "d9b65cd2-a18d-4dd7-9b04-6d24d5506b57"
+        }
+      }
+    }
+  ],
+  "ordinaryArrows": 256,
+  "restoredArrows": 256,
+  "finishedAt": "2026-09-17T16:26:09.526Z"
+}

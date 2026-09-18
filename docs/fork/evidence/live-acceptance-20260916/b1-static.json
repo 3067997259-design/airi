@@ -1,0 +1,321 @@
+{
+  "id": "B-01/B-04 static baseline",
+  "startedAt": "2026-09-17T01:31:41.367Z",
+  "fixture": {
+    "target": {
+      "x": 96.5,
+      "y": 75,
+      "z": -29.5
+    },
+    "stands": [
+      {
+        "label": "10 blocks",
+        "x": 86.5,
+        "y": 75,
+        "z": -29.5
+      },
+      {
+        "label": "20 blocks",
+        "x": 76.5,
+        "y": 75,
+        "z": -29.5
+      },
+      {
+        "label": "28 blocks (diagonal)",
+        "x": 74.5,
+        "y": 75,
+        "z": -11.5
+      }
+    ],
+    "chargeTicks": 20,
+    "shotsPerCondition": 30
+  },
+  "profile": {
+    "version": "1.21.1",
+    "profiles": [
+      {
+        "id": "bow-arrow",
+        "version": "1.21.1",
+        "projectileType": "minecraft:arrow",
+        "launcherItem": "minecraft:bow",
+        "ammo": "minecraft:arrow",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.6,
+        "speed": 3,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": true,
+        "source": "BowItem#releaseUsing/#getPowerForTime, Projectile#getMovementToShoot, AbstractArrow#tick",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "crossbow-arrow",
+        "version": "1.21.1",
+        "projectileType": "minecraft:arrow",
+        "launcherItem": "minecraft:crossbow",
+        "ammo": "minecraft:arrow",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.6,
+        "speed": 3.15,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": false,
+        "source": "CrossbowItem#getShootingPower/#shootProjectile, Projectile#shoot, AbstractArrow#tick",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "spectral-arrow",
+        "version": "1.21.1",
+        "projectileType": "minecraft:arrow",
+        "launcherItem": "minecraft:bow",
+        "ammo": "minecraft:spectral_arrow",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.6,
+        "speed": 3,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": true,
+        "source": "SpectralArrow extends AbstractArrow, BowItem#releaseUsing",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "tipped-arrow",
+        "version": "1.21.1",
+        "projectileType": "minecraft:arrow",
+        "launcherItem": "minecraft:bow",
+        "ammo": "minecraft:tipped_arrow",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.6,
+        "speed": 3,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": true,
+        "source": "Arrow with PotionContents, BowItem#releaseUsing",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "firework-rocket",
+        "version": "1.21.1",
+        "projectileType": "minecraft:firework_rocket",
+        "launcherItem": "minecraft:crossbow",
+        "ammo": "minecraft:firework_rocket",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.99,
+        "speed": 1.6,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": false,
+        "source": "CrossbowItem#getShootingPower (firework 1.6f), FireworkRocketEntity#tick",
+        "impact": {
+          "kind": "area",
+          "radius": 3
+        }
+      },
+      {
+        "id": "trident",
+        "version": "1.21.1",
+        "projectileType": "minecraft:trident",
+        "launcherItem": "minecraft:trident",
+        "ammo": "minecraft:trident",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.99,
+        "speed": 2.5,
+        "minChargeTicks": 10,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": true,
+        "source": "TridentItem#releaseUsing, ThrownTrident#getWaterInertia, AbstractArrow#tick",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "snowball",
+        "version": "1.21.1",
+        "projectileType": "minecraft:snowball",
+        "launcherItem": "minecraft:snowball",
+        "ammo": "minecraft:snowball",
+        "gravity": 0.03,
+        "airInertia": 0.99,
+        "waterInertia": 0.800000011920929,
+        "speed": 1.5,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": 0,
+        "inheritShooterVelocity": true,
+        "source": "SnowballItem#use, ThrowableProjectile#getDefaultGravity/#tick",
+        "impact": {
+          "kind": "single",
+          "radius": 0
+        }
+      },
+      {
+        "id": "splash-potion",
+        "version": "1.21.1",
+        "projectileType": "minecraft:splash_potion",
+        "launcherItem": "minecraft:splash_potion",
+        "ammo": "minecraft:splash_potion",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.800000011920929,
+        "speed": 0.5,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": -20,
+        "inheritShooterVelocity": true,
+        "source": "ThrowablePotionItem#use, ThrownPotion#getDefaultGravity/#applySplash",
+        "impact": {
+          "kind": "area",
+          "radius": 4
+        }
+      },
+      {
+        "id": "lingering-potion",
+        "version": "1.21.1",
+        "projectileType": "minecraft:lingering_potion",
+        "launcherItem": "minecraft:lingering_potion",
+        "ammo": "minecraft:lingering_potion",
+        "gravity": 0.05,
+        "airInertia": 0.99,
+        "waterInertia": 0.800000011920929,
+        "speed": 0.5,
+        "minChargeTicks": 0,
+        "yawOffsetDeg": 0,
+        "pitchOffsetDeg": -20,
+        "inheritShooterVelocity": true,
+        "source": "ThrowablePotionItem#use, ThrownPotion#getDefaultGravity/#makeAreaOfEffectCloud",
+        "impact": {
+          "kind": "area",
+          "radius": 3
+        }
+      }
+    ]
+  },
+  "rounds": [
+    {
+      "stand": "10 blocks",
+      "distance": 10,
+      "round": 1,
+      "status": "ok",
+      "endReason": "cancelled_after_shot",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "10 blocks",
+      "distance": 10,
+      "round": 2,
+      "status": "ok",
+      "endReason": "cancelled_after_shot",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "10 blocks",
+      "distance": 10,
+      "round": 3,
+      "status": "ok",
+      "endReason": "cancelled_after_shot",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "20 blocks",
+      "distance": 20,
+      "round": 1,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "20 blocks",
+      "distance": 20,
+      "round": 2,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "20 blocks",
+      "distance": 20,
+      "round": 3,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "28 blocks (diagonal)",
+      "distance": 28.4,
+      "round": 1,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "28 blocks (diagonal)",
+      "distance": 28.4,
+      "round": 2,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    },
+    {
+      "stand": "28 blocks (diagonal)",
+      "distance": 28.4,
+      "round": 3,
+      "status": "ok",
+      "endReason": "done",
+      "shotsFired": 0,
+      "hitEvidence": [],
+      "checked": false
+    }
+  ],
+  "noAmmo": {
+    "status": "failed",
+    "endReason": "no_ammo"
+  },
+  "verdict": "PARTIAL",
+  "serverProfileError": "Bridge error [unknown_method]: No such method: combat.ballistics",
+  "analysis": {
+    "totalShots": 0,
+    "totalHits": 0,
+    "noAmmoRefused": true
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "before": {
+    "equipment": {
+      "mainHand": "minecraft:crossbow",
+      "offHand": "minecraft:firework_rocket"
+    },
+    "projectiles": {
+      "bow": "minecraft:arrow",
+      "crossbow": "minecraft:firework_rocket",
+      "trident": ""
+    },
+    "sheep": {
+      "health": 8
+    }
+  },
+  "receipt": {
+    "status": "ok",
+    "checked": false,
+    "commandId": "b3b5f135-3ef5-4c64-a959-b7960f21f0dc",
+    "endReason": "done",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 258.5,
+        "y": 201,
+        "z": -31.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:crossbow"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": true
+    },
+    "shot": {
+      "weapon": "crossbow",
+      "targetUuid": "e8f116d5-201a-40b8-9be8-55e41e34be1e",
+      "shots": [
+        {
+          "shot": 1,
+          "projectileUuid": "9e987b5d-b5b1-4533-ab0b-30acbc03f9e2",
+          "verifiedBy": "projectile",
+          "hitEvidence": "unobserved"
+        }
+      ],
+      "profileId": "firework-rocket",
+      "aimTarget": {
+        "x": 258.5,
+        "y": 201.64999997615814,
+        "z": -19.5
+      },
+      "aimSource": "fresh",
+      "solutionRevision": 1,
+      "observationAgeMs": 15,
+      "predictedFlightTicks": 8,
+      "closestDistance": 0,
+      "arc": "low",
+      "fireReason": "ballistic_solution",
+      "observedSpeed": 0,
+      "endReason": "done"
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 4,
+      "connectionId": "d9b65cd2-a18d-4dd7-9b04-6d24d5506b57"
+    }
+  },
+  "after": {
+    "sheep": {
+      "health": 8
+    },
+    "equipment": {
+      "mainHand": "minecraft:crossbow",
+      "offHand": "minecraft:firework_rocket"
+    },
+    "status": {
+      "state": "done",
+      "weapon": "crossbow",
+      "shotsFired": 1,
+      "projectileUuids": [
+        "9e987b5d-b5b1-4533-ab0b-30acbc03f9e2"
+      ],
+      "shotVerifiedBy": [
+        "projectile"
+      ],
+      "endReason": "done",
+      "lastShot": {
+        "shot": 1,
+        "verifiedBy": "projectile",
+        "projectileUuid": "9e987b5d-b5b1-4533-ab0b-30acbc03f9e2"
+      },
+      "charged": true,
+      "projectiles": {
+        "bow": "minecraft:arrow",
+        "crossbow": "minecraft:firework_rocket",
+        "trident": ""
+      },
+      "aimTarget": {
+        "x": 258.5,
+        "y": 201.64999997615814,
+        "z": -19.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "own",
+        "aim": {
+          "x": 258.5,
+          "y": 201.64999997615814,
+          "z": -19.5
+        },
+        "target": {
+          "x": 258.5,
+          "y": 201,
+          "z": -19.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -0.03229875031113625,
+          "y": -0.12598250073194506,
+          "z": 2.9675250285863877,
+          "speed": 2.970373645696611,
+          "observedAtTrackTick": 1
+        }
+      },
+      "aimSource": "fresh",
+      "lastShotTick": 6593289
+    }
+  }
+}

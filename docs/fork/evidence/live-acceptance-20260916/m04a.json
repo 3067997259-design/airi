@@ -1,0 +1,67 @@
+{
+  "id": "M-04a shared patch, user mines alongside",
+  "startedAt": "2026-09-17T15:47:56.253Z",
+  "userDrop": [
+    {
+      "name": "Cobblestone",
+      "x": 260.0384038947182,
+      "y": 201,
+      "z": -33.15547391722905
+    }
+  ],
+  "botCobbleBefore": 0,
+  "receipt": {
+    "status": "failed",
+    "checked": true,
+    "commandId": "cddec421-6d73-46a9-808a-7bbf8c1c59fe",
+    "endReason": "out_of_reach",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 258.5,
+        "y": 201,
+        "z": -26.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:bow"
+    },
+    "postCondition": {
+      "kind": "broken",
+      "target": 1,
+      "actual": 0,
+      "met": false
+    },
+    "broken": {
+      "x": 259,
+      "y": 201,
+      "z": -32,
+      "blockId": "minecraft:stone",
+      "mode": "survival"
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 9,
+      "connectionId": "cf99c94a-83d8-4a7f-9cf1-b271d29d32b0"
+    }
+  },
+  "botCobbleAfter": 0,
+  "itemsAfter": [
+    {
+      "name": "Cobblestone",
+      "x": 260.0384038947182,
+      "y": 201,
+      "z": -33.15547391722905
+    }
+  ],
+  "botBlockAfter": "minecraft:stone"
+}

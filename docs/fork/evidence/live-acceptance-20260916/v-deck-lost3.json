@@ -1,0 +1,179 @@
+{
+  "id": "CD-V deck V-09",
+  "startedAt": "2026-09-17T12:01:27.794Z",
+  "cases": [
+    {
+      "id": "V-09a",
+      "label": "kill the cart mid-ride",
+      "cart": "7fae2db9-7f39-4ff9-b7f2-77895afc1a11",
+      "status": "failed",
+      "endReason": "vehicle_lost",
+      "vehicle": {
+        "commandId": "7a472db0-6309-4576-88a6-eeb3fecfeb9e",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "7fae2db9-7f39-4ff9-b7f2-77895afc1a11",
+        "distanceTravelled": 7.809,
+        "dismounted": false,
+        "failure": "vehicle_lost",
+        "endReason": "vehicle_lost",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 253.30860730091686,
+        "y": 201,
+        "z": -56.5
+      },
+      "traceTail": [
+        {
+          "x": 253.31,
+          "y": 201,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 253.31,
+          "y": 201,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 253.31,
+          "y": 201,
+          "z": -56.5,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-09b",
+      "label": "player to the nether mid-ride",
+      "status": "cancelled",
+      "endReason": "dimension_changed",
+      "vehicle": {
+        "commandId": "fdad5b65-8ed9-4416-9012-98a103e77282",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "a31ee1da-70a2-456c-93fa-d2a9618cb374",
+        "distanceTravelled": 4.586,
+        "dismounted": false,
+        "failure": "route_unavailable",
+        "endReason": "route_unavailable",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 0.5,
+        "y": 79.76636799395752,
+        "z": 0.5
+      },
+      "traceTail": [
+        {
+          "x": 253.71,
+          "y": 200.63,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 254.2,
+          "y": 200.59,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 0.5,
+          "y": 78.85,
+          "z": 0.5,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-09c",
+      "label": "kill the ridden horse mid-ride",
+      "horse": "a7f9fa02-e046-43dd-8a67-17711e7a0af0",
+      "status": "failed",
+      "endReason": "vehicle_lost",
+      "vehicle": {
+        "commandId": "9c3cbe78-c51a-4ae4-bd2c-3d5c2ead68e9",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "vehicleUuid": "a7f9fa02-e046-43dd-8a67-17711e7a0af0",
+        "distanceTravelled": 16.115,
+        "dismounted": false,
+        "failure": "vehicle_lost",
+        "endReason": "vehicle_lost",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 247.30000001192093,
+        "y": 201,
+        "z": -41.48122533826596
+      },
+      "traceTail": [
+        {
+          "x": 248.05,
+          "y": 201,
+          "z": -41.93,
+          "health": 20
+        },
+        {
+          "x": 247.3,
+          "y": 201,
+          "z": -41.58,
+          "health": 20
+        },
+        {
+          "x": 247.3,
+          "y": 201,
+          "z": -41.43,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": false
+      }
+    }
+  ],
+  "verdict": "PASS",
+  "notes": [
+    "V-09d passenger/controller change is unit-covered (the fake hijack case); a live single-seat vehicle cannot seat a second controller."
+  ]
+}

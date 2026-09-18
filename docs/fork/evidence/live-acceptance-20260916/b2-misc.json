@@ -1,0 +1,52 @@
+{
+  "id": "B-10/B-07/B-08 partial",
+  "startedAt": "2026-09-17T01:42:35.215Z",
+  "cases": [
+    {
+      "id": "B-10 薄墙拦截",
+      "predicted": {
+        "closestDistance": 0,
+        "predictedFlightTicks": 4,
+        "fireReason": "ballistic_solution"
+      },
+      "actual": {
+        "healthBefore": 400,
+        "healthAfter": 400,
+        "damage": 0
+      },
+      "verifiedBy": "projectile",
+      "glassAfter": "minecraft:glass",
+      "pass": "记录差异（预测命中、实际被玻璃拦截）"
+    },
+    {
+      "id": "B-07 忠诚三叉戟回返",
+      "tridentsBefore": 1,
+      "tridentsAfter": 1,
+      "endReason": "returned",
+      "returned": true,
+      "damage": 8,
+      "shots": 1
+    },
+    {
+      "id": "B-08 光谱箭",
+      "endReason": "done",
+      "shots": 1,
+      "damage": 8,
+      "note": "光谱箭的发光效果缺少实体效果回读通道，仅记录发射与伤害"
+    },
+    {
+      "id": "B-08 雪球投掷",
+      "endReason": "used",
+      "snowballsBefore": 8,
+      "snowballsAfter": 7,
+      "thrown": true,
+      "damage": 0
+    },
+    {
+      "id": "B-08 烟花弩",
+      "endReason": "load_timeout",
+      "shots": 0
+    }
+  ],
+  "verdict": "PASS"
+}

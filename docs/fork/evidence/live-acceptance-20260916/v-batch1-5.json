@@ -1,0 +1,399 @@
+{
+  "id": "CD-V batch 1",
+  "startedAt": "2026-09-17T08:53:26.750Z",
+  "cases": [
+    {
+      "id": "V-01a",
+      "label": "boat existing",
+      "boatBefore": 1,
+      "boatAfter": 1,
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "2355abab-0edb-42fb-a186-3131e6a16215"
+      },
+      "status": "failed",
+      "endReason": "reached",
+      "vehicle": {
+        "commandId": "b2fcffb9-000d-4823-a4df-c43320761132",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "existing",
+        "vehicleUuid": "2355abab-0edb-42fb-a186-3131e6a16215",
+        "distanceTravelled": 6.55,
+        "dockPosition": {
+          "x": 123.04999976542621,
+          "y": 103.11076049804666,
+          "z": -59.5
+        },
+        "dismounted": false,
+        "arrivedMounted": true,
+        "endReason": "arrived_mounted",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 123.09999961696145,
+        "y": 103.11076049804629,
+        "z": -59.5
+      }
+    },
+    {
+      "id": "V-01b",
+      "label": "boat prepare_owned",
+      "boatsBefore": 0,
+      "boatsAfter": 1,
+      "inventoryBoatsBefore": 1,
+      "inventoryBoatsAfter": 0,
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "422e1d87-0239-4f36-b327-a9d5556ab9a4"
+      },
+      "status": "ok",
+      "endReason": "reached",
+      "vehicle": {
+        "commandId": "add4d9ee-7fe5-461d-9bbd-5a8e7db56a6c",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "prepare_owned",
+        "vehicleUuid": "422e1d87-0239-4f36-b327-a9d5556ab9a4",
+        "distanceTravelled": 8.141,
+        "dockPosition": {
+          "x": 123.09721535460271,
+          "y": 103.11131541740636,
+          "z": -59.6986049776207
+        },
+        "dismounted": false,
+        "arrivedMounted": true,
+        "asset": {
+          "itemId": "minecraft:oak_boat",
+          "consumed": 1,
+          "recovered": 0,
+          "location": "vehicle"
+        },
+        "endReason": "arrived_mounted",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 124.21059010160583,
+        "y": 103.111196431774,
+        "z": -59.6986049776207
+      }
+    },
+    {
+      "id": "V-03",
+      "label": "cancel in water",
+      "ridingDuring": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "8a4ebf3c-2a34-44d3-abb5-4724c0538049"
+      },
+      "cancel": {
+        "status": "cancelled",
+        "checked": false,
+        "commandId": "69493eee-dc5f-44be-82ca-d29edeb7cbea",
+        "endReason": "cancelled",
+        "finalSnapshot": {
+          "position": {
+            "x": 115.6875,
+            "y": 103.11075578102566,
+            "z": -59.51677953214382
+          },
+          "health": 0.666667,
+          "food": 17,
+          "heldItem": null
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": false
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 2,
+          "connectionId": "9586ab93-69c4-402b-acf2-0823c3508266"
+        }
+      },
+      "status": "cancelled",
+      "endReason": "cancelled",
+      "vehicle": {
+        "commandId": "69493eee-dc5f-44be-82ca-d29edeb7cbea",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "existing",
+        "vehicleUuid": "8a4ebf3c-2a34-44d3-abb5-4724c0538049",
+        "distanceTravelled": 0.692,
+        "dismounted": false,
+        "failure": "unsafe_dismount",
+        "endReason": "cancelled",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 115.6875,
+        "y": 103.11075578102566,
+        "z": -59.51677953214382
+      },
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "8a4ebf3c-2a34-44d3-abb5-4724c0538049"
+      }
+    },
+    {
+      "id": "V-10a",
+      "label": "boat no materials",
+      "status": "failed",
+      "endReason": "no_materials",
+      "vehicle": {
+        "commandId": "299b8f1d-f348-4df8-bd55-cc1edcc45624",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "prepare_owned",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "no_materials",
+        "endReason": "no_materials",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 115.60051519887978,
+        "y": 103.07663577531792,
+        "z": -59.51677953214382
+      }
+    },
+    {
+      "id": "V-04a",
+      "label": "horse tamed saddled free",
+      "expectedUuid": "81cb2d71-83fc-4277-95db-cc38c9fe98b8",
+      "status": "failed",
+      "endReason": "vehicle_lost",
+      "vehicle": {
+        "commandId": "555debea-185e-4d76-b78e-d5c6997d7e0a",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "vehicleUuid": "81cb2d71-83fc-4277-95db-cc38c9fe98b8",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "vehicle_lost",
+        "endReason": "vehicle_lost",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 117.5,
+        "y": 101.76535002231599,
+        "z": -52.5
+      }
+    },
+    {
+      "id": "V-04b",
+      "label": "wild horse without allowTame",
+      "status": "failed",
+      "endReason": "vehicle_not_found",
+      "vehicle": {
+        "commandId": "c88699ed-88cc-4e52-8d07-f1b510107e3f",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "vehicle_not_found",
+        "endReason": "vehicle_not_found",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 11.5,
+        "y": 83,
+        "z": -20.54717445778955
+      }
+    },
+    {
+      "id": "V-10b",
+      "label": "no horse nearby",
+      "status": "failed",
+      "endReason": "vehicle_not_found",
+      "vehicle": {
+        "commandId": "86d3e4a6-4833-4095-a6a9-c167a1e453d7",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "vehicle_not_found",
+        "endReason": "vehicle_not_found",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 11.5,
+        "y": 83,
+        "z": -20.552491656138642
+      }
+    },
+    {
+      "id": "V-06",
+      "label": "minecart platform rail, powered start",
+      "status": "failed",
+      "endReason": "rail_not_powered",
+      "vehicle": {
+        "commandId": "4d6eb936-391f-4427-ab85-46071175b55e",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "e71cd602-8c72-4bf9-85d0-3ed5aa9396c2",
+        "distanceTravelled": 0,
+        "dismounted": true,
+        "failure": "rail_not_powered",
+        "endReason": "rail_not_powered",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 111.69999998807907,
+        "y": 102.20000004768372,
+        "z": -58.5
+      },
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-08",
+      "label": "minecart floating rail end",
+      "status": "failed",
+      "endReason": "no_materials",
+      "vehicle": {
+        "commandId": "b248dffb-0e38-4f52-9a3a-c68548d48f31",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "prepare_owned",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "no_materials",
+        "endReason": "no_materials",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 137.96666251052957,
+        "y": 102,
+        "z": -59.5
+      },
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-10c",
+      "label": "minecart unpowered rail",
+      "status": "failed",
+      "endReason": "rail_not_powered",
+      "vehicle": {
+        "commandId": "5958dd45-e1d2-4b7b-aa09-420e19b139ef",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "f6f0cd79-237b-47cb-a05c-991cee50914a",
+        "distanceTravelled": 0,
+        "dismounted": true,
+        "failure": "rail_not_powered",
+        "endReason": "rail_not_powered",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "finalPosition": {
+        "x": 141.5,
+        "y": 102,
+        "z": -60.5
+      }
+    }
+  ],
+  "verdict": "PASS",
+  "site": {
+    "x": 120,
+    "z": -60,
+    "y": 100
+  }
+}

@@ -1,0 +1,5451 @@
+{
+  "id": "B-01/B-09 matrix 30",
+  "startedAt": "2026-09-17T03:43:55.508Z",
+  "shotsPerCondition": 30,
+  "conditions": [
+    {
+      "group": "B-01 terrain",
+      "label": "flat d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -47.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -47.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "flat d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "flat d40",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -17.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 29,
+      "hitRate": 0.967,
+      "residualSamples": 12,
+      "residualP50": -0.641,
+      "residualP95": -0.641,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -17.5
+          },
+          "arrowY": 141.00885612863732,
+          "arrowDy": -0.6411438713626865
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "up d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -25.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "up d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -35.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 151.64999997615814,
+            "z": -15.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "down d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -25.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 11,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 11,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 11,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -25.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "down d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -35.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -35.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-01 terrain",
+      "label": "down d40",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -55.5
+      },
+      "chargeTicks": 20,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -55.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-09 speed",
+      "label": "charge5 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "chargeTicks": 5,
+      "fired": 0,
+      "hits": 0,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 2,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 3,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 4,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 5,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 6,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 7,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 8,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 9,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 10,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 11,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 12,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 13,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 14,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 15,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 16,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 17,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 18,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 19,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 20,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 21,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 22,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 23,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 24,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 25,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 26,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 27,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 28,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 29,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 30,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        }
+      ]
+    },
+    {
+      "group": "B-09 speed",
+      "label": "charge10 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "chargeTicks": 10,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 3,
+          "predictedFlightTicks": 17,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-09 speed",
+      "label": "charge15 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "chargeTicks": 15,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 5,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 4,
+          "predictedFlightTicks": 10,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        }
+      ]
+    },
+    {
+      "group": "B-09 posture",
+      "label": "sneak d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "chargeTicks": 20,
+      "sneak": true,
+      "fired": 30,
+      "hits": 30,
+      "hitRate": 1,
+      "residualSamples": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 11,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 12,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 13,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 14,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 15,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 16,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 17,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 18,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 19,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 20,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 21,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 22,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 23,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 24,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 25,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 26,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 27,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 28,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 29,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        },
+        {
+          "index": 30,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 43.5,
+            "y": 141.64999997615814,
+            "z": -37.5
+          }
+        }
+      ]
+    }
+  ],
+  "verdict": "PASS",
+  "analysis": {
+    "fired": 330,
+    "hits": 329,
+    "hitRate": 0.997
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "id": "M-07/M-08/M-06/M-09/M-10",
+  "startedAt": "2026-09-17T01:21:06.227Z",
+  "fixture": {
+    "pitTop": {
+      "x": 74,
+      "y": 75,
+      "z": -26
+    },
+    "pitMid": {
+      "x": 74,
+      "y": 74,
+      "z": -26
+    },
+    "pitBottom": {
+      "x": 74,
+      "y": 73,
+      "z": -26
+    },
+    "cancelTarget": {
+      "x": 76,
+      "y": 75,
+      "z": -26
+    },
+    "fullTarget": {
+      "x": 76,
+      "y": 75,
+      "z": -22
+    },
+    "collectTarget": {
+      "x": 80,
+      "y": 75,
+      "z": -26
+    },
+    "stand": {
+      "x": 78.5,
+      "y": 75,
+      "z": -26
+    }
+  },
+  "cases": [
+    {
+      "id": "M-07 凹洞掉落",
+      "receipt": {
+        "endReason": "timeout waiting for tool result"
+      },
+      "passed": false
+    },
+    {
+      "id": "M-08 破坏中取消",
+      "receipt": {
+        "status": "busy",
+        "endReason": "busy: e2493263-dcee-4d05-ab0f-1c981621a305",
+        "checked": false
+      },
+      "blockAfter": "minecraft:iron_ore",
+      "passed": false
+    },
+    {
+      "id": "M-06 背包满",
+      "slotsUsed": 36,
+      "receipt": {
+        "status": "failed",
+        "endReason": "inventory_full",
+        "rejection": {
+          "reason": "inventory_full",
+          "detail": "no inventory slot is free for the drop"
+        }
+      },
+      "blockAfter": "minecraft:stone",
+      "passed": true
+    },
+    {
+      "id": "M-09a 默认前置（缺工具）",
+      "receipt": {
+        "status": "failed",
+        "endReason": "missing_tool",
+        "prerequisites": {
+          "craftable": false,
+          "reason": "missing-materials-or-station",
+          "steps": 0,
+          "missing": [
+            {
+              "itemId": "minecraft:oak_log",
+              "count": 1
+            }
+          ]
+        }
+      },
+      "passed": false
+    },
+    {
+      "id": "M-09b/M-10 升级链（有原木）",
+      "receipt": {
+        "status": "failed",
+        "endReason": "missing_tool",
+        "prerequisites": {
+          "craftable": false,
+          "reason": "upgrade_incomplete",
+          "steps": 1,
+          "missing": []
+        }
+      },
+      "crafted": {
+        "planks": 10,
+        "sticks": 4
+      },
+      "passed": true
+    }
+  ],
+  "verdict": "FAIL"
+}

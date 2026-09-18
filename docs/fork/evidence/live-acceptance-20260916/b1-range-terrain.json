@@ -1,0 +1,1101 @@
+{
+  "id": "B-01 range matrix",
+  "startedAt": "2026-09-17T03:28:23.396Z",
+  "shotsPerCondition": 10,
+  "conditions": [
+    {
+      "label": "dy0 d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -47.5
+      },
+      "fired": 10,
+      "hits": 10,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "dy0 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -37.5
+      },
+      "fired": 10,
+      "hits": 10,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 7,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "dy0 d40",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -57.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -17.5
+      },
+      "fired": 5,
+      "hits": 5,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        }
+      ]
+    },
+    {
+      "label": "dy+10 d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -25.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "fired": 10,
+      "hits": 10,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "dy+10 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -35.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "fired": 10,
+      "hits": 10,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 9,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "dy-10 d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -25.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 131,
+        "z": -15.5
+      },
+      "fired": 0,
+      "hits": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 2,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 3,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 4,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 5,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 6,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 7,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 8,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 9,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 10,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        }
+      ]
+    },
+    {
+      "label": "dy-10 d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 141,
+        "z": -35.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 131,
+        "z": -15.5
+      },
+      "fired": 0,
+      "hits": 0,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 2,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 3,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 4,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 5,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 6,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 7,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 8,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 9,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 10,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        }
+      ]
+    },
+    {
+      "label": "high->main d10",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -25.5
+      },
+      "fired": 10,
+      "hits": 6,
+      "hitRate": 0.6,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": false,
+          "damage": 0,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "high->main d20",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -35.5
+      },
+      "fired": 10,
+      "hits": 10,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 7,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low"
+        }
+      ]
+    },
+    {
+      "label": "high->main d40",
+      "shooter": {
+        "x": 43.5,
+        "y": 151,
+        "z": -15.5
+      },
+      "target": {
+        "x": 43.5,
+        "y": 141,
+        "z": -55.5
+      },
+      "fired": 5,
+      "hits": 5,
+      "hitRate": 1,
+      "shots": [
+        {
+          "index": 1,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 14,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 2,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 3,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 9,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 4,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 5,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 8,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 6,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 7,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 6,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 8,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        },
+        {
+          "index": 9,
+          "endReason": "done",
+          "fired": true,
+          "hit": true,
+          "damage": 10,
+          "predictedFlightTicks": 15,
+          "closestDistance": 0,
+          "arc": "low"
+        },
+        {
+          "index": 10,
+          "endReason": "no_ballistic_solution",
+          "fired": false,
+          "hit": false,
+          "damage": 0
+        }
+      ]
+    }
+  ],
+  "verdict": "PARTIAL",
+  "analysis": {
+    "fired": 70,
+    "hits": 66,
+    "hitRate": 0.943
+  }
+}

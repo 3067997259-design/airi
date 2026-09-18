@@ -1,0 +1,119 @@
+{
+  "id": "CD-V deck boat",
+  "startedAt": "2026-09-17T12:07:41.183Z",
+  "cases": [
+    {
+      "id": "V-01a",
+      "label": "boat existing, whole course",
+      "boatsBefore": 1,
+      "boatsAfter": 0,
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "dd4a73bb-98c8-4f99-b022-deaf7686fca4"
+      },
+      "status": "failed",
+      "endReason": "route_unavailable",
+      "vehicle": {
+        "commandId": "9416feac-84fc-462a-8077-54f5bb83b1da",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "existing",
+        "vehicleUuid": "dd4a73bb-98c8-4f99-b022-deaf7686fca4",
+        "distanceTravelled": 1.387,
+        "dismounted": false,
+        "failure": "route_unavailable",
+        "endReason": "route_unavailable",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 237.6875,
+        "y": 200.1107612013976,
+        "z": -61
+      }
+    },
+    {
+      "id": "V-01b",
+      "label": "boat prepare_owned, whole course",
+      "inventoryBoatsBefore": 1,
+      "inventoryBoatsAfter": 0,
+      "boatsAfter": 1,
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "3494ec6c-1ffa-49e4-9072-585522659166"
+      },
+      "status": "failed",
+      "endReason": "route_unavailable",
+      "vehicle": {
+        "commandId": "bc16f858-bc34-4e54-bec4-8aebdfe5b603",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "boat",
+        "acquireMethod": "prepare_owned",
+        "vehicleUuid": "3494ec6c-1ffa-49e4-9072-585522659166",
+        "distanceTravelled": 46.938,
+        "dismounted": false,
+        "asset": {
+          "itemId": "minecraft:oak_boat",
+          "consumed": 1,
+          "recovered": 0,
+          "location": "vehicle"
+        },
+        "failure": "route_unavailable",
+        "endReason": "route_unavailable",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 275.3125,
+        "y": 200.11076049804612,
+        "z": -43.6875
+      }
+    },
+    {
+      "id": "V-03",
+      "label": "cancel mid course",
+      "positionDuring": {
+        "x": 237.6875,
+        "y": 200.11076089517252,
+        "z": -61
+      },
+      "ridingDuring": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "734c397a-879b-49e1-aed0-86faec8a5669"
+      },
+      "cancel": {
+        "status": "ok",
+        "endReason": "idle"
+      },
+      "status": "ok",
+      "endReason": "idle",
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:boat",
+        "uuid": "734c397a-879b-49e1-aed0-86faec8a5669"
+      }
+    }
+  ],
+  "verdict": "PASS"
+}

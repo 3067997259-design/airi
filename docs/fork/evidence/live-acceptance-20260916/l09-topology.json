@@ -1,0 +1,528 @@
+{
+  "id": "L-09",
+  "startedAt": "2026-09-16T15:15:22.916Z",
+  "facts": {
+    "serverGetEntity": {
+      "isError": false,
+      "keys": [
+        "alive",
+        "bounds",
+        "dimension",
+        "distance",
+        "fallFlying",
+        "health",
+        "height",
+        "isPlayer",
+        "maxHealth",
+        "motion",
+        "name",
+        "onGround",
+        "pitch",
+        "riding",
+        "source",
+        "sourceTick",
+        "type",
+        "uuid",
+        "velocity",
+        "width",
+        "x",
+        "y",
+        "yaw",
+        "z"
+      ],
+      "fallFlying": false,
+      "onGround": false,
+      "bounds": {
+        "width": 0.9,
+        "height": 1.3
+      },
+      "sourceTick": 5723706,
+      "dimension": "minecraft:overworld",
+      "name": "Lumi"
+    },
+    "clientGetEntity": {
+      "isError": true,
+      "keys": []
+    },
+    "clientGetSelf": {
+      "isError": false,
+      "keys": [
+        "air",
+        "dimension",
+        "fallFlying",
+        "food",
+        "gameMode",
+        "health",
+        "inWater",
+        "maxAir",
+        "maxHealth",
+        "motion",
+        "name",
+        "onGround",
+        "pitch",
+        "saturation",
+        "selectedSlot",
+        "sneaking",
+        "sprinting",
+        "usingHand",
+        "usingItem",
+        "usingItemId",
+        "usingTicks",
+        "uuid",
+        "x",
+        "xpLevel",
+        "xpProgress",
+        "y",
+        "yaw",
+        "z"
+      ],
+      "fallFlying": false,
+      "onGround": true,
+      "dimension": "minecraft:overworld",
+      "name": "airitest"
+    },
+    "serverGetSelf": {
+      "isError": true,
+      "keys": []
+    }
+  },
+  "steps": [
+    {
+      "step": "kill-server-endpoint",
+      "pid": "24956"
+    }
+  ],
+  "samples": [
+    {
+      "phase": "alive",
+      "t": 0,
+      "bot": {
+        "x": 76.5,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 261,
+      "bot": {
+        "x": 76.5,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 526,
+      "bot": {
+        "x": 77.85516029200772,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 789,
+      "bot": {
+        "x": 79.2497367806897,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 1053,
+      "bot": {
+        "x": 80.65240798718017,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 1317,
+      "bot": {
+        "x": 81.77678747290835,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 1583,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 1847,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 2110,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 2373,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 2636,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "alive",
+      "t": 2900,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "server-down",
+      "t": 3502,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 4019,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 4531,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 5048,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 5561,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 6071,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 6585,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 7101,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 7612,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 8121,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 8636,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 9150,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 9678,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 10191,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 10704,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 11216,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 11732,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 12256,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 12768,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 13281,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 13796,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 14311,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 14824,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 15330,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 15844,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 16355,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 16869,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": true
+    },
+    {
+      "phase": "server-down",
+      "t": 17383,
+      "bot": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "pending": false
+    }
+  ],
+  "receipt": {
+    "status": "failed",
+    "checked": false,
+    "commandId": "ded733a5-f2e6-4b5b-95fe-b8af44bd8576",
+    "endReason": "locator_unavailable",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 81.82683735676984,
+        "y": 75,
+        "z": -28.5
+      },
+      "health": 20,
+      "food": 16,
+      "heldItem": "minecraft:firework_rocket"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "2d66a712-6865-46f7-9eab-3bebee9dffba"
+    }
+  },
+  "verdict": "PASS",
+  "analysis": {
+    "endReason": "locator_unavailable",
+    "met": false,
+    "degradedAfterMs": 17389
+  }
+}

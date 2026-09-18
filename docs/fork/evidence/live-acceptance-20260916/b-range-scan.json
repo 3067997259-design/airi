@@ -1,0 +1,1325 @@
+{
+  "north": {
+    "dimension": "minecraft:overworld",
+    "volume": 1595,
+    "count": 27,
+    "truncated": false,
+    "exactShapes": true,
+    "blocks": [
+      {
+        "x": 42,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      }
+    ]
+  },
+  "south": {
+    "dimension": "minecraft:overworld",
+    "volume": 1595,
+    "count": 39,
+    "truncated": false,
+    "exactShapes": true,
+    "blocks": [
+      {
+        "x": 42,
+        "y": 130,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 130,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 130,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 130,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 130,
+        "z": -15,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 130,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 130,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 130,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 130,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 150,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 150,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 150,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 150,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 150,
+        "z": -15,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 150,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 150,
+        "z": -16,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 150,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 150,
+        "z": -14,
+        "id": "minecraft:white_glazed_terracotta"
+      }
+    ]
+  },
+  "floor": {
+    "dimension": "minecraft:overworld",
+    "volume": 468,
+    "count": 150,
+    "truncated": false,
+    "exactShapes": true,
+    "blocks": [
+      {
+        "x": 42,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -55,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -54,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -53,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -52,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -51,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -50,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -49,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -48,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -47,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -46,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -45,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -44,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -43,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -42,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -41,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -40,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -39,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -38,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -37,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -36,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -35,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -34,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -33,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -32,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -31,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -30,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -29,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -28,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -27,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -26,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -25,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -24,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -23,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -22,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 42,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -55,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -54,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -53,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -52,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -51,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -50,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -49,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -48,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -47,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -46,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -45,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -44,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -43,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -42,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -41,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -40,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -39,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -38,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -37,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -36,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -35,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -34,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -33,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -32,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -31,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -30,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -29,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -28,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -27,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -26,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -25,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -24,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -23,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -22,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 43,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:pink_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -64,
+        "id": "minecraft:white_glazed_terracotta"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -63,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -62,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -61,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -60,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -59,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -58,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -57,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -56,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -55,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -54,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -53,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -52,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -51,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -50,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -49,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -48,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -47,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -46,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -45,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -44,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -43,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -42,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -41,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -40,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -39,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -38,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -37,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -36,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -35,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -34,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -33,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -32,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -31,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -30,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -29,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -28,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -27,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -26,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -25,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -24,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -23,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -22,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -21,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -20,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -19,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -18,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -17,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -16,
+        "id": "minecraft:smooth_stone"
+      },
+      {
+        "x": 44,
+        "y": 140,
+        "z": -15,
+        "id": "minecraft:white_glazed_terracotta"
+      }
+    ]
+  }
+}

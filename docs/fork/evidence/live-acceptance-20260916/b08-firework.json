@@ -1,0 +1,169 @@
+{
+  "trace": [
+    {
+      "t": 0,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 400,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 800,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 1200,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 1600,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 2000,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 2400,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 2800,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 3200,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "running",
+      "endReason": "running",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 3600,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "done",
+      "endReason": "load_timeout",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 4000,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "done",
+      "endReason": "load_timeout",
+      "charged": false,
+      "done": false
+    },
+    {
+      "t": 4400,
+      "offHand": "minecraft:firework_rocket",
+      "mainHand": "minecraft:crossbow",
+      "state": "done",
+      "endReason": "load_timeout",
+      "charged": false,
+      "done": true
+    }
+  ],
+  "receipt": {
+    "status": "ok",
+    "checked": false,
+    "commandId": "938c20ec-66fa-419d-8041-3333f1dc9486",
+    "endReason": "load_timeout",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 258.5,
+        "y": 201,
+        "z": -31.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:crossbow"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": true
+    },
+    "shot": {
+      "weapon": "crossbow",
+      "targetUuid": "292207dc-c460-4b46-8721-54fabf3d4c21",
+      "shots": [],
+      "profileId": "firework-rocket",
+      "aimTarget": {
+        "x": 258.5,
+        "y": 201.64999997615814,
+        "z": -19.5
+      },
+      "aimSource": "fresh",
+      "solutionRevision": 1,
+      "observationAgeMs": 7,
+      "predictedFlightTicks": 8,
+      "closestDistance": 0,
+      "arc": "low",
+      "fireReason": "ballistic_solution",
+      "observedSpeed": 0,
+      "endReason": "load_timeout"
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 4,
+      "connectionId": "d9b65cd2-a18d-4dd7-9b04-6d24d5506b57"
+    }
+  }
+}

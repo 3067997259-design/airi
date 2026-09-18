@@ -1,0 +1,11 @@
+{
+  "equip": "{\"status\":\"ok\",\"checked\":false,\"commandId\":\"6f39a235-4330-4ab9-9853-afc24d95d125\",\"endReason\":\"used\",\"resultPhases\":{\"requested\":true,\"accepted\":true,\"clientExecuted\":true,\"serverSettled\":false,\"unobserved\":[\"serverSettled\"]},\"finalSnapshot\":{\"position\":{\"x\":258.5,\"y\":201,\"z\":-25.5},\"health\":20,\"food\":20,\"heldItem\":\"minecraft:splash_potion\"},\"postCondition\":{\"kind\":\"none\",\"target\":0,\"actual\":0,\"met\":true},\"used\":{\"mode\":\"entity\",\"heldTicks\":0,\"released\":false,\"aborted\":false},\"world\":{\"worldId\":\"connection-scoped\",\"dimension\":\"minecraft:overworld\",\"connectionGeneration\":6,\"connectionId\":\"b9e488c8-57fd-47d6-adc9-7435ffe54a56\"}}",
+  "before": {
+    "health": 45,
+    "effects": []
+  },
+  "after": {
+    "health": 45,
+    "effects": []
+  }
+}

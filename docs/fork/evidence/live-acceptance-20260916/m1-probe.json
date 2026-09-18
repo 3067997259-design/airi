@@ -1,0 +1,336 @@
+[
+  {
+    "step": "clear",
+    "result": {
+      "isError": false,
+      "text": "{\n  \"command\": \"clear airitest minecraft:wooden_pickaxe\",\n  \"success\": false,\n  \"resultValue\": 0,\n  \"output\": [\n    \"No "
+    }
+  },
+  {
+    "step": "setblock",
+    "result": {
+      "isError": false,
+      "text": "{\n  \"command\": \"setblock 78 75 -24 minecraft:stone\",\n  \"success\": true,\n  \"resultValue\": 1,\n  \"output\": [\n    \"Changed t"
+    }
+  },
+  {
+    "step": "give",
+    "result": {
+      "isError": false,
+      "text": "{\n  \"command\": \"give airitest minecraft:wooden_pickaxe 1\",\n  \"success\": true,\n  \"resultValue\": 1,\n  \"output\": [\n    \"Gav"
+    }
+  },
+  {
+    "step": "block-before",
+    "block": {
+      "x": 78,
+      "y": 75,
+      "z": -24,
+      "id": "minecraft:stone",
+      "air": false,
+      "liquid": false,
+      "dimension": "minecraft:overworld",
+      "blockLight": 0,
+      "skyLight": 0,
+      "hardness": 1.5
+    }
+  },
+  {
+    "step": "teleport",
+    "result": {
+      "isError": false,
+      "text": "{\n  \"command\": \"tp airitest 77.5 75 -24.5\",\n  \"success\": true,\n  \"resultValue\": 1,\n  \"output\": [\n    \"Teleported airites"
+    }
+  },
+  {
+    "step": "inventory",
+    "structured": {
+      "selectedSlot": 6,
+      "hotbar": [
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 6,
+          "maxDamage": 384,
+          "enchantments": {
+            "minecraft:power": 5
+          },
+          "slot": 0
+        },
+        {
+          "id": "minecraft:chest",
+          "count": 1,
+          "name": "箱子",
+          "slot": 1
+        },
+        {
+          "id": "minecraft:crossbow",
+          "count": 1,
+          "name": "弩",
+          "damage": 0,
+          "maxDamage": 465,
+          "slot": 2
+        },
+        {
+          "id": "minecraft:wheat",
+          "count": 1,
+          "name": "小麦",
+          "slot": 3
+        },
+        {
+          "id": "minecraft:iron_sword",
+          "count": 1,
+          "name": "铁剑",
+          "damage": 13,
+          "maxDamage": 250,
+          "slot": 4
+        },
+        {
+          "id": "minecraft:cooked_mutton",
+          "count": 13,
+          "name": "熟羊肉",
+          "food": true,
+          "slot": 5
+        },
+        {
+          "id": "minecraft:bucket",
+          "count": 1,
+          "name": "铁桶",
+          "slot": 6
+        },
+        {
+          "id": "minecraft:wooden_pickaxe",
+          "count": 1,
+          "name": "木镐",
+          "damage": 0,
+          "maxDamage": 59,
+          "slot": 7
+        }
+      ],
+      "main": [
+        {
+          "id": "minecraft:lapis_lazuli",
+          "count": 2,
+          "name": "青金石",
+          "slot": 9
+        },
+        {
+          "id": "minecraft:trident",
+          "count": 1,
+          "name": "三叉戟",
+          "damage": 0,
+          "maxDamage": 250,
+          "enchantments": {
+            "minecraft:loyalty": 3
+          },
+          "slot": 10
+        },
+        {
+          "id": "minecraft:water_bucket",
+          "count": 1,
+          "name": "水桶",
+          "slot": 11
+        },
+        {
+          "id": "minecraft:iron_sword",
+          "count": 1,
+          "name": "ServerSword",
+          "damage": 0,
+          "maxDamage": 250,
+          "slot": 12
+        },
+        {
+          "id": "minecraft:water_bucket",
+          "count": 1,
+          "name": "水桶",
+          "slot": 13
+        },
+        {
+          "id": "minecraft:filled_map",
+          "count": 1,
+          "name": "地图",
+          "slot": 14
+        },
+        {
+          "id": "minecraft:cooked_beef",
+          "count": 1,
+          "name": "牛排",
+          "food": true,
+          "slot": 15
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 64,
+          "name": "烟花火箭",
+          "slot": 16
+        },
+        {
+          "id": "minecraft:white_banner",
+          "count": 1,
+          "name": "白色旗帜",
+          "slot": 17
+        },
+        {
+          "id": "minecraft:red_dye",
+          "count": 8,
+          "name": "红色染料",
+          "slot": 18
+        },
+        {
+          "id": "minecraft:iron_ingot",
+          "count": 19,
+          "name": "铁锭",
+          "slot": 19
+        },
+        {
+          "id": "minecraft:oak_log",
+          "count": 2,
+          "name": "橡木原木",
+          "slot": 20
+        },
+        {
+          "id": "minecraft:bread",
+          "count": 6,
+          "name": "面包",
+          "food": true,
+          "slot": 21
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 64,
+          "name": "烟花火箭",
+          "slot": 22
+        },
+        {
+          "id": "minecraft:wheat_seeds",
+          "count": 2,
+          "name": "小麦种子",
+          "slot": 23
+        },
+        {
+          "id": "minecraft:arrow",
+          "count": 12,
+          "name": "箭",
+          "slot": 24
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 64,
+          "name": "烟花火箭",
+          "slot": 25
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 64,
+          "name": "烟花火箭",
+          "slot": 26
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 36,
+          "name": "烟花火箭",
+          "slot": 27
+        },
+        {
+          "id": "minecraft:white_wool",
+          "count": 1,
+          "name": "白色羊毛",
+          "slot": 28
+        },
+        {
+          "id": "minecraft:mutton",
+          "count": 1,
+          "name": "生羊肉",
+          "food": true,
+          "slot": 29
+        },
+        {
+          "id": "minecraft:water_bucket",
+          "count": 1,
+          "name": "水桶",
+          "slot": 32
+        }
+      ],
+      "armor": [
+        {
+          "id": "minecraft:elytra",
+          "count": 1,
+          "name": "鞘翅",
+          "damage": 133,
+          "maxDamage": 432,
+          "enchantments": {
+            "minecraft:unbreaking": 3
+          },
+          "slot": "chest"
+        }
+      ],
+      "offhand": {
+        "id": "minecraft:arrow",
+        "count": 61,
+        "name": "箭"
+      }
+    }
+  },
+  {
+    "step": "break-receipt",
+    "receipt": {
+      "status": "ok",
+      "checked": true,
+      "commandId": "2c0a99a5-5dd9-4bc1-8ee8-ebd03149a177",
+      "endReason": "broken",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": true,
+        "unobserved": []
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 77.5,
+          "y": 75,
+          "z": -24.5
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:bucket"
+      },
+      "postCondition": {
+        "kind": "broken",
+        "target": 1,
+        "actual": 1,
+        "met": true
+      },
+      "broken": {
+        "x": 78,
+        "y": 75,
+        "z": -24,
+        "blockId": "minecraft:stone",
+        "mode": "survival",
+        "breakId": "2c0a99a5-5dd9-4bc1-8ee8-ebd03149a177-9"
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 1,
+        "connectionId": "23b07d7b-d25f-488f-a73d-fc56622d9af7"
+      }
+    }
+  },
+  {
+    "step": "block-after",
+    "block": {
+      "x": 78,
+      "y": 75,
+      "z": -24,
+      "id": "minecraft:air",
+      "air": true,
+      "liquid": false,
+      "dimension": "minecraft:overworld",
+      "blockLight": 2,
+      "skyLight": 15,
+      "hardness": 0
+    }
+  }
+]

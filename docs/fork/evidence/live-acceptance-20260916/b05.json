@@ -1,0 +1,143 @@
+{
+  "id": "B-05 friendly in the line",
+  "startedAt": "2026-09-17T15:54:37.623Z",
+  "blocked": {
+    "arrowsBefore": 260,
+    "arrowsAfter": 260,
+    "targetHealthBefore": 45,
+    "targetHealthAfter": 45,
+    "endReason": "friendly_blocked",
+    "fired": 0,
+    "receipt": {
+      "status": "failed",
+      "checked": false,
+      "commandId": "3ec59615-34c7-49b3-a421-d20e5c5c3895",
+      "endReason": "friendly_blocked",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 258.5,
+          "y": 201,
+          "z": -31.5
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:bow"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": false
+      },
+      "shot": {
+        "weapon": "bow",
+        "targetUuid": "d8953e5a-78c0-4dbe-80fa-f5181716aaf6",
+        "shots": [],
+        "profileId": "bow-arrow",
+        "aimTarget": {
+          "x": 258.5,
+          "y": 201.64999997615814,
+          "z": -19.5
+        },
+        "aimSource": "fresh",
+        "solutionRevision": 1,
+        "observationAgeMs": 13,
+        "predictedFlightTicks": 4,
+        "closestDistance": 0,
+        "arc": "low",
+        "fireReason": "ballistic_solution",
+        "observedSpeed": 0,
+        "endReason": "friendly_blocked"
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 9,
+        "connectionId": "cf99c94a-83d8-4a7f-9cf1-b271d29d32b0"
+      }
+    }
+  },
+  "aside": {
+    "arrowsBefore": 260,
+    "arrowsAfter": 259,
+    "targetHealthAfter": 39,
+    "endReason": "done",
+    "fired": 1,
+    "closestDistance": 0,
+    "hitEvidence": "unobserved",
+    "receipt": {
+      "status": "ok",
+      "checked": false,
+      "commandId": "1844cb28-e2d6-4b13-8241-15a986982737",
+      "endReason": "done",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 258.5,
+          "y": 201,
+          "z": -31.5
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:bow"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": true
+      },
+      "shot": {
+        "weapon": "bow",
+        "targetUuid": "d8953e5a-78c0-4dbe-80fa-f5181716aaf6",
+        "shots": [
+          {
+            "shot": 1,
+            "projectileUuid": "b97b7947-4547-4450-a261-a3d2a1a4d5a9",
+            "verifiedBy": "projectile",
+            "hitEvidence": "unobserved"
+          }
+        ],
+        "profileId": "bow-arrow",
+        "aimTarget": {
+          "x": 258.5,
+          "y": 201.64999997615814,
+          "z": -19.5
+        },
+        "aimSource": "fresh",
+        "solutionRevision": 1,
+        "observationAgeMs": 28,
+        "predictedFlightTicks": 4,
+        "closestDistance": 0,
+        "arc": "low",
+        "fireReason": "ballistic_solution",
+        "observedSpeed": 0,
+        "endReason": "done"
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 9,
+        "connectionId": "cf99c94a-83d8-4a7f-9cf1-b271d29d32b0"
+      }
+    }
+  },
+  "finishedAt": "2026-09-17T15:56:02.736Z"
+}

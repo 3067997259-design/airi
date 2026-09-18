@@ -1,0 +1,150 @@
+{
+  "id": "L-03",
+  "startedAt": "2026-09-16T08:13:38.777Z",
+  "fixture": {
+    "tag": "airi-l03",
+    "target": 105,
+    "grid": {
+      "xFrom": 85,
+      "xTo": 93,
+      "zFrom": -25,
+      "zTo": -13
+    },
+    "lumi": {
+      "x": 74.5,
+      "y": 90,
+      "z": -38.5
+    },
+    "botStart": {
+      "x": 92.5,
+      "y": 75,
+      "z": -27.5
+    }
+  },
+  "steps": [
+    {
+      "step": "start",
+      "bot": {
+        "x": 92.5,
+        "y": 75,
+        "z": -27.5
+      },
+      "occupiedCells": 233
+    },
+    {
+      "step": "cells",
+      "valid": 116,
+      "chosen": 105,
+      "maxDistance": 14.866068747318506
+    },
+    {
+      "step": "spawn",
+      "spawned": 105,
+      "errors": 0
+    },
+    {
+      "step": "truncation-check",
+      "total": 217,
+      "returned": 100,
+      "truncated": true,
+      "afterRainInList": false,
+      "nearest": [
+        {
+          "name": "airitest",
+          "distance": 0
+        },
+        {
+          "name": "Raw Mutton",
+          "distance": 2.6269676882620887
+        },
+        {
+          "name": "White Wool",
+          "distance": 2.771707123001325
+        }
+      ],
+      "farthest": [
+        {
+          "name": "Raw Mutton",
+          "distance": 9.147524311420934
+        },
+        {
+          "name": "Sheep",
+          "distance": 9.219544457292887
+        }
+      ]
+    },
+    {
+      "step": "lumi-placed",
+      "lumi": {
+        "uuid": "71b2700c-b92d-4ad3-9075-9721fc65663d",
+        "type": "minecraft:sheep",
+        "name": "Lumi",
+        "isPlayer": false,
+        "x": 74.5,
+        "y": 90,
+        "z": -38.5,
+        "distance": 0,
+        "health": 8,
+        "maxHealth": 8
+      },
+      "lumiDistanceFromBot": 21.095023109728988
+    },
+    {
+      "step": "lumi-visibility",
+      "total": 218,
+      "returned": 100,
+      "truncated": true,
+      "lumiInReturnedList": false,
+      "afterRainInReturnedList": false
+    }
+  ],
+  "samples": [],
+  "receipt": {
+    "status": "failed",
+    "checked": false,
+    "commandId": "6d40d07f-09b4-437f-98b9-28e62ca5361b",
+    "endReason": "target_not_in_read",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": true,
+      "serverSettled": false,
+      "unobserved": [
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 92.5,
+        "y": 75,
+        "z": -27.5
+      },
+      "health": 20,
+      "food": 20,
+      "heldItem": "minecraft:torch"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "5f800959-3597-4c68-a8cd-bfa7767d6380"
+    }
+  },
+  "verdict": "PASS",
+  "notes": [
+    "2026-09-16T08:13:40.371Z spawned 105 tagged sheep, 0 errors",
+    "2026-09-16T08:13:41.889Z entities total=217 returned=100 truncated=true afterRainInList=false",
+    "2026-09-16T08:13:45.109Z sub-case (b) endReason=target_not_in_read after 264ms"
+  ],
+  "analysis": {
+    "endReason": "target_not_in_read",
+    "resolvedAfterMs": 264,
+    "expected": "target_not_in_read"
+  }
+}

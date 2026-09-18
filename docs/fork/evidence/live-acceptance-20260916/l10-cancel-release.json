@@ -1,0 +1,541 @@
+{
+  "id": "L-10",
+  "startedAt": "2026-09-16T15:14:47.072Z",
+  "fixture": {
+    "label": "Lumi",
+    "keepDistance": 3,
+    "start": {
+      "x": 76.5,
+      "y": 75,
+      "z": -28.5
+    },
+    "sheep": {
+      "x": 84.5,
+      "y": 75,
+      "z": -28.5
+    }
+  },
+  "steps": [
+    {
+      "step": "start",
+      "sheep": {
+        "x": 84.5,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 8
+    },
+    {
+      "step": "cancel",
+      "latencyMs": 218
+    }
+  ],
+  "samples": [
+    {
+      "phase": "walking",
+      "t": 17,
+      "bot": {
+        "x": 76.5,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 8
+    },
+    {
+      "phase": "walking",
+      "t": 291,
+      "bot": {
+        "x": 76.5,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 8
+    },
+    {
+      "phase": "walking",
+      "t": 567,
+      "bot": {
+        "x": 77.31497835350197,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 7.185021646498029
+    },
+    {
+      "phase": "walking",
+      "t": 839,
+      "bot": {
+        "x": 78.96948074646578,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 5.530519253534223
+    },
+    {
+      "phase": "walking",
+      "t": 1115,
+      "bot": {
+        "x": 80.37180868695536,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 4.128191313044638
+    },
+    {
+      "phase": "walking",
+      "t": 1389,
+      "bot": {
+        "x": 81.4961711301104,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 3.0038288698896025
+    },
+    {
+      "phase": "walking",
+      "t": 1672,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 1954,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 2241,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 2520,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 2798,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 3073,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 3357,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 3636,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "walking",
+      "t": 3916,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "distance": 2.953779408630311
+    },
+    {
+      "phase": "post-cancel",
+      "t": 232,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 502,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 766,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 1035,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 1299,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 1561,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 1825,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 2085,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 2353,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 2625,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 2888,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 3159,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 3426,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 3687,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 3948,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 4212,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 4474,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 4747,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 5008,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 5271,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 5534,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 5799,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 6065,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 6325,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 6597,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 6861,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 7123,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 7388,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 7657,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 7919,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    },
+    {
+      "phase": "post-cancel",
+      "t": 8184,
+      "bot": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      }
+    }
+  ],
+  "followReceipt": {
+    "status": "cancelled",
+    "checked": false,
+    "commandId": "74c606b8-6f5f-4a4c-a948-30faad25e476",
+    "endReason": "cancelled",
+    "resultPhases": {
+      "requested": true,
+      "accepted": true,
+      "clientExecuted": false,
+      "serverSettled": false,
+      "unobserved": [
+        "clientExecuted",
+        "serverSettled"
+      ]
+    },
+    "finalSnapshot": {
+      "position": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "health": 20,
+      "food": 16,
+      "heldItem": "minecraft:firework_rocket"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "2d66a712-6865-46f7-9eab-3bebee9dffba"
+    }
+  },
+  "cancelReceipt": {
+    "status": "cancelled",
+    "checked": false,
+    "commandId": "74c606b8-6f5f-4a4c-a948-30faad25e476",
+    "endReason": "cancelled",
+    "finalSnapshot": {
+      "position": {
+        "x": 81.54622059136969,
+        "y": 75,
+        "z": -28.5
+      },
+      "health": 20,
+      "food": 16,
+      "heldItem": "minecraft:firework_rocket"
+    },
+    "postCondition": {
+      "kind": "none",
+      "target": 0,
+      "actual": 0,
+      "met": false
+    },
+    "world": {
+      "worldId": "connection-scoped",
+      "dimension": "minecraft:overworld",
+      "connectionGeneration": 1,
+      "connectionId": "2d66a712-6865-46f7-9eab-3bebee9dffba"
+    }
+  },
+  "finalStatus": {
+    "endReason": "cancelled",
+    "commandId": "74c606b8-6f5f-4a4c-a948-30faad25e476"
+  },
+  "verdict": "PASS",
+  "analysis": {
+    "endReason": "cancelled",
+    "cancelledLatencyMs": 218,
+    "postCancelDisplacement": 0,
+    "finalStatusEndReason": "cancelled"
+  }
+}

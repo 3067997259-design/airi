@@ -1,0 +1,189 @@
+{
+  "id": "B-02 moving target",
+  "startedAt": "2026-09-17T12:53:07.659Z",
+  "shotsPerCase": 8,
+  "cases": [
+    {
+      "id": "B-02",
+      "label": "boosted cart crossing the shot line",
+      "shots": [
+        {
+          "index": 1,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.89697265625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.08"
+        },
+        {
+          "index": 2,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.89697265625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.06"
+        },
+        {
+          "index": 3,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.8990625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.03"
+        },
+        {
+          "index": 4,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.89697265625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.08"
+        },
+        {
+          "index": 5,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.8990625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.08"
+        },
+        {
+          "index": 6,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.89697265625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.08"
+        },
+        {
+          "index": 7,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.8990625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.03"
+        },
+        {
+          "index": 8,
+          "fired": 1,
+          "predictedFlightTicks": 5,
+          "closestDistance": 0,
+          "arc": "low",
+          "aimTarget": {
+            "x": 321.8990625,
+            "y": 201.34999999403954,
+            "z": 0.5
+          },
+          "cartStart": {
+            "x": 321.5,
+            "z": 0.5
+          },
+          "cartLast": {
+            "x": 321.899609375
+          },
+          "cartSpeed": "0.06"
+        }
+      ]
+    }
+  ],
+  "verdict": "PASS",
+  "analysis": {
+    "fired": 8,
+    "meanSpeed": 0.0625,
+    "missDistances": [],
+    "closestDistances": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+}

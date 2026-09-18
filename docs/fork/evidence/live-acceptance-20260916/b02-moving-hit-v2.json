@@ -1,0 +1,1685 @@
+{
+  "id": "B-02 moving target hit verification",
+  "startedAt": "2026-09-17T15:25:26.322Z",
+  "shooter": {
+    "x": 248,
+    "y": 201,
+    "z": -35
+  },
+  "target": {
+    "name": "MTarget",
+    "health": 45,
+    "mount": "minecart on the short oscillating rail"
+  },
+  "shots": [
+    {
+      "shot": 1,
+      "calledAt": "2026-09-17T15:25:29.770Z",
+      "cartAtCall": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 202.0625,
+        "z": -36.18080904586826
+      },
+      "cartAfter": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 201.0625,
+        "z": -30.127517421292165
+      },
+      "before": {
+        "health": 45,
+        "x": 240.5,
+        "y": 202.25,
+        "z": -36.18080904586826
+      },
+      "after": {
+        "health": 39,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -30.127517421292165
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 3,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89605535239846,
+        "z": -27.075812665567067
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89605535239846,
+        "z": -27.075812665567067
+      },
+      "aimLead": {
+        "source": "measured",
+        "x": 0,
+        "y": -0.0013148745865692035,
+        "z": 0.3988827573109788,
+        "ownSpeed": 0,
+        "vehicleFound": true,
+        "vehicleSpeed": 0.604,
+        "measuredSpeed": 0.3988849244772076
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "measured",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89605535239846,
+          "z": -27.075812665567067
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.2552594983463,
+          "z": -29.86799196674392
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": -0.0013148745865692035,
+          "z": 0.3988827573109788
+        },
+        "arrow": {
+          "x": -2.1612937708199023,
+          "y": -0.0900950003862381,
+          "z": 2.0160112694203853,
+          "speed": 2.9569594706910514,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "27bee255-e078-4607-a886-330b9802ce4c",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "a2adf106-a6a7-47b8-b2bb-e8d14ea47f42",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89605535239846,
+            "z": -27.075812665567067
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 21,
+          "predictedFlightTicks": 3,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 6.37,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 2,
+      "calledAt": "2026-09-17T15:25:33.384Z",
+      "cartAtCall": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 202.0625,
+        "z": -36.435044990463254
+      },
+      "cartAfter": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 201.0625,
+        "z": -27.327517421292175
+      },
+      "before": {
+        "health": 39,
+        "x": 240.5,
+        "y": 202.25,
+        "z": -36.435044990463254
+      },
+      "after": {
+        "health": 31,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -27.327517421292175
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 3,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89150595506487,
+        "z": -27.48143853073175
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89150595506487,
+        "z": -27.48143853073175
+      },
+      "aimLead": {
+        "source": "measured",
+        "x": 0,
+        "y": -0.0021235052733175053,
+        "z": 0.3977678087233123,
+        "ownSpeed": 0,
+        "vehicleFound": true,
+        "vehicleSpeed": 0.607625,
+        "measuredSpeed": 0.3977734769076382
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "measured",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89150595506487,
+          "z": -27.48143853073175
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25637051581995,
+          "z": -30.265813191794937
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": -0.0021235052733175053,
+          "z": 0.3977678087233123
+        },
+        "arrow": {
+          "x": -2.245072521626949,
+          "y": -0.08143250030279159,
+          "z": 1.9692337689697743,
+          "speed": 2.98745100651389,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "b29a1430-cba3-40ec-9ed8-0bde30c7204a",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "ebc0ec45-1c4d-4693-b22e-7850af15d39b",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89150595506487,
+            "z": -27.48143853073175
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 16,
+          "predictedFlightTicks": 3,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 5.17,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 3,
+      "calledAt": "2026-09-17T15:25:37.166Z",
+      "cartAtCall": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 202.0625,
+        "z": -36.18080904586826
+      },
+      "cartAfter": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 201.0625,
+        "z": -28.127517421292172
+      },
+      "before": {
+        "health": 31,
+        "x": 240.5,
+        "y": 202.25,
+        "z": -36.18080904586826
+      },
+      "after": {
+        "health": 23,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -28.127517421292172
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 3,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89349751242005,
+        "z": -27.078730174594327
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89349751242005,
+        "z": -27.078730174594327
+      },
+      "aimLead": {
+        "source": "measured",
+        "x": 0,
+        "y": -0.0016256159345289234,
+        "z": 0.3984082766639183,
+        "ownSpeed": 0,
+        "vehicleFound": true,
+        "vehicleSpeed": 0.60575,
+        "measuredSpeed": 0.3984115931313745
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "measured",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89349751242005,
+          "z": -27.078730174594327
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25487684780362,
+          "z": -29.867588111241755
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": -0.0016256159345289234,
+          "z": 0.3984082766639183
+        },
+        "arrow": {
+          "x": -2.146320020675659,
+          "y": -0.08762000036239624,
+          "z": 2.0561062698066235,
+          "speed": 2.973539959098377,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "e38c09b1-2797-4661-8a7c-46eaf6513c7b",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "824e5d01-a91c-412d-a68f-1a63beb43e8d",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89349751242005,
+            "z": -27.078730174594327
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 14,
+          "predictedFlightTicks": 3,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 6.37,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 4,
+      "calledAt": "2026-09-17T15:25:40.840Z",
+      "cartAtCall": {
+        "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+        "x": 240.5,
+        "y": 202.0625,
+        "z": -36.33026985546326
+      },
+      "before": {
+        "health": 23,
+        "x": 240.5,
+        "y": 202.25,
+        "z": -36.33026985546326
+      },
+      "after": {
+        "health": 23,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 3,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89614930140633,
+        "z": -27.076094493656722
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89614930140633,
+        "z": -27.076094493656722
+      },
+      "aimLead": {
+        "source": "measured",
+        "x": 0,
+        "y": -0.0012835582506056653,
+        "z": 0.3987888146144236,
+        "ownSpeed": 0,
+        "vehicleFound": true,
+        "vehicleSpeed": 0.604,
+        "measuredSpeed": 0.398790880266036
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "measured",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89614930140633,
+          "z": -27.076094493656722
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25513423300242,
+          "z": -29.867616195957687
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": -0.0012835582506056653,
+          "z": 0.3987888146144236
+        },
+        "arrow": {
+          "x": -2.1918600211143495,
+          "y": -0.12066125068068503,
+          "z": 2.0098237693607808,
+          "speed": 2.976273017292399,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "feb2b283-8363-41d1-8da8-9708952223a4",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "f20bb84f-9f0a-422c-810b-0c66fbb8e0ea",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89614930140633,
+            "z": -27.076094493656722
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 34,
+          "predictedFlightTicks": 3,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 6.37,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 5,
+      "calledAt": "2026-09-17T15:25:55.658Z",
+      "before": {
+        "health": 23,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "after": {
+        "health": 15,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 4,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "own",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89999997615814,
+          "z": -26.27248257870785
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25,
+          "z": -26.27248257870785
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -2.0271487695276735,
+          "y": -0.07536875024437904,
+          "z": 2.142978770643473,
+          "speed": 2.950825408888091,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "a324f1de-664b-4283-b24a-007010548f30",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "2cc5fe9f-b32e-4ae5-a3a4-664714f94949",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89999997615814,
+            "z": -26.27248257870785
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 14,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 6,
+      "calledAt": "2026-09-17T15:26:10.200Z",
+      "before": {
+        "health": 15,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "after": {
+        "health": 7,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 4,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "own",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89999997615814,
+          "z": -26.27248257870785
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25,
+          "z": -26.27248257870785
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -2.0693475199341775,
+          "y": -0.05532125005126,
+          "z": 2.1401325206160546,
+          "speed": 2.9774866590403715,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "114bd1e6-58ed-4e49-a043-f6c63f14952f",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "2002fe5f-1bd6-4c36-85f0-59c089b9cbd5",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89999997615814,
+            "z": -26.27248257870785
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 12,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 7,
+      "calledAt": "2026-09-17T15:26:25.024Z",
+      "before": {
+        "health": 7,
+        "x": 240.5,
+        "y": 201.25,
+        "z": -26.27248257870785
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 4,
+      "arc": "low",
+      "aimTarget": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+      "clientAim": {
+        "x": 240.5,
+        "y": 201.89999997615814,
+        "z": -26.27248257870785
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 7,
+        "leadSource": "own",
+        "aim": {
+          "x": 240.5,
+          "y": 201.89999997615814,
+          "z": -26.27248257870785
+        },
+        "target": {
+          "x": 240.5,
+          "y": 201.25,
+          "z": -26.27248257870785
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -2.03284126958251,
+          "y": -0.05965250009298325,
+          "z": 2.130232520520687,
+          "speed": 2.945147303543423,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "fe0a13be-6408-410e-b4eb-820e66000bef",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "1fc9a2e0-c758-42fd-8db1-0af3edbe9f60",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "379ea62e-6433-45e2-acd1-8b8fe8fe12e3",
+              "verifiedBy": "projectile",
+              "hitEvidence": "entity_death"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "killed": true,
+          "killEvidence": "projectile",
+          "aimTarget": {
+            "x": 240.5,
+            "y": 201.89999997615814,
+            "z": -26.27248257870785
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 33,
+          "predictedFlightTicks": 4,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      },
+      "targetDied": true
+    },
+    {
+      "shot": 8,
+      "calledAt": "2026-09-17T15:26:40.693Z",
+      "before": {
+        "health": 45,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "after": {
+        "health": 35,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 2,
+      "arc": "low",
+      "aimTarget": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+      "clientAim": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 5,
+        "leadSource": "own",
+        "aim": {
+          "x": 246.5,
+          "y": 201.64999997615814,
+          "z": -29.5
+        },
+        "target": {
+          "x": 246.5,
+          "y": 201,
+          "z": -29.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -1.1011275106072425,
+          "y": -0.5676462549865247,
+          "z": 2.7467550264596943,
+          "speed": 3.01319883857636,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "553cd053-145d-4d51-b031-aad1246b3023",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "fba66c01-74db-4082-b37a-d3c400279f20",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 246.5,
+            "y": 201.64999997615814,
+            "z": -29.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 27,
+          "predictedFlightTicks": 2,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 9,
+      "calledAt": "2026-09-17T15:26:55.494Z",
+      "before": {
+        "health": 35,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "after": {
+        "health": 25,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 2,
+      "arc": "low",
+      "aimTarget": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+      "clientAim": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 5,
+        "leadSource": "own",
+        "aim": {
+          "x": 246.5,
+          "y": 201.64999997615814,
+          "z": -29.5
+        },
+        "target": {
+          "x": 246.5,
+          "y": 201,
+          "z": -29.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -1.050885010123253,
+          "y": -0.5525487548410893,
+          "z": 2.7211387762129307,
+          "speed": 2.968882899406407,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "b1057bac-8ea4-4064-a80d-3da2fb33ec1b",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "1b5e3ac6-30d9-4dce-95b3-c8eba1b65279",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 246.5,
+            "y": 201.64999997615814,
+            "z": -29.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 30,
+          "predictedFlightTicks": 2,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 10,
+      "calledAt": "2026-09-17T15:27:10.271Z",
+      "before": {
+        "health": 25,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "after": {
+        "health": 16,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 2,
+      "arc": "low",
+      "aimTarget": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+      "clientAim": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 5,
+        "leadSource": "own",
+        "aim": {
+          "x": 246.5,
+          "y": 201.64999997615814,
+          "z": -29.5
+        },
+        "target": {
+          "x": 246.5,
+          "y": 201,
+          "z": -29.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -1.0489050101041795,
+          "y": -0.5594787549078465,
+          "z": 2.71519877615571,
+          "speed": 2.9640382236827425,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "44c1af8b-2a15-49b4-b679-73cdf20ba838",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "962a3ea5-9169-42e7-acb9-c0cd62a8c372",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 246.5,
+            "y": 201.64999997615814,
+            "z": -29.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 8,
+          "predictedFlightTicks": 2,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 11,
+      "calledAt": "2026-09-17T15:27:24.773Z",
+      "before": {
+        "health": 16,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "after": {
+        "health": 6,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 2,
+      "arc": "low",
+      "aimTarget": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+      "clientAim": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 5,
+        "leadSource": "own",
+        "aim": {
+          "x": 246.5,
+          "y": 201.64999997615814,
+          "z": -29.5
+        },
+        "target": {
+          "x": 246.5,
+          "y": 201,
+          "z": -29.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -1.0578150101900101,
+          "y": -0.5271800045967102,
+          "z": 2.7298012762963775,
+          "speed": 2.9746775222029043,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "6f439d77-1e82-4443-88de-8725dd4e69ab",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "45b07582-722c-4171-bfc5-ac59ccfa7e32",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "aimTarget": {
+            "x": 246.5,
+            "y": 201.64999997615814,
+            "z": -29.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 10,
+          "predictedFlightTicks": 2,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      }
+    },
+    {
+      "shot": 12,
+      "calledAt": "2026-09-17T15:27:39.306Z",
+      "before": {
+        "health": 6,
+        "x": 246.5,
+        "y": 201,
+        "z": -29.5
+      },
+      "endReason": "done",
+      "fired": 1,
+      "closestDistance": 0,
+      "predictedFlightTicks": 2,
+      "arc": "low",
+      "aimTarget": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+      "clientAim": {
+        "x": 246.5,
+        "y": 201.64999997615814,
+        "z": -29.5
+      },
+      "aimLead": {
+        "source": "own",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "ownSpeed": 0,
+        "vehicleFound": false,
+        "vehicleSpeed": -1,
+        "measuredSpeed": 0
+      },
+      "release": {
+        "holdTicks": 20,
+        "chargeTicks": 20,
+        "flightTicks": 5,
+        "leadSource": "own",
+        "aim": {
+          "x": 246.5,
+          "y": 201.64999997615814,
+          "z": -29.5
+        },
+        "target": {
+          "x": 246.5,
+          "y": 201,
+          "z": -29.5
+        },
+        "leadVelocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "arrow": {
+          "x": -1.099271260589361,
+          "y": -0.5730912550389767,
+          "z": 2.74415627643466,
+          "speed": 3.0111832492320376,
+          "observedAtTrackTick": 1
+        }
+      },
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "52ac053b-ce71-4eb3-971d-3634cc3eccf2",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 248.5,
+            "y": 201,
+            "z": -34.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:bow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "bow",
+          "targetUuid": "bdd2feb7-698f-4b27-ad1c-75250ec0704c",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "44c3c876-fdf8-407e-b44b-16b4eaccfcff",
+              "verifiedBy": "projectile",
+              "hitEvidence": "entity_death"
+            }
+          ],
+          "profileId": "bow-arrow",
+          "killed": true,
+          "killEvidence": "projectile",
+          "aimTarget": {
+            "x": 246.5,
+            "y": 201.64999997615814,
+            "z": -29.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 8,
+          "predictedFlightTicks": 2,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 8,
+          "connectionId": "02128e6c-6e78-4d76-9737-6d9991638a02"
+        }
+      },
+      "targetDied": true
+    }
+  ],
+  "verdict": "hit-verified",
+  "botBefore": {
+    "x": 248.5,
+    "y": 201,
+    "z": -34.5
+  },
+  "cartAtStart": {
+    "uuid": "e98b878b-c25e-4c25-a5c5-e9077a714af4",
+    "x": 240.5,
+    "y": 201.0625,
+    "z": -28.77790222333788
+  },
+  "targetMounted": {
+    "health": 45,
+    "x": 240.5,
+    "y": 201.59539153776984,
+    "z": -35.34539153776985
+  },
+  "summary": {
+    "shots": 12,
+    "fired": 12,
+    "damaged": 9,
+    "killed": 2
+  },
+  "finishedAt": "2026-09-17T15:27:42.726Z"
+}

@@ -1,0 +1,321 @@
+{
+  "id": "CD-V deck rail",
+  "startedAt": "2026-09-17T11:09:40.147Z",
+  "cases": [
+    {
+      "id": "V-10b",
+      "label": "no cart, no cart item",
+      "status": "failed",
+      "endReason": "no_materials",
+      "vehicle": {
+        "commandId": "2c8d07ee-ce21-4678-9aa2-1255751e0237",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "prepare_owned",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "no_materials",
+        "endReason": "no_materials",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 241.41442854839235,
+        "y": 201,
+        "z": -40.91442854839241
+      },
+      "trace": [
+        {
+          "x": 241.41,
+          "y": 201,
+          "z": -40.91,
+          "health": 20
+        }
+      ]
+    },
+    {
+      "id": "V-10a",
+      "label": "cart on plain rail, lever off",
+      "status": "failed",
+      "endReason": "rail_not_powered",
+      "vehicle": {
+        "commandId": "d97dbfce-297b-4e32-9cb9-1e523650b2ba",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "2d6ac81f-0e7d-44e5-9757-f2f1a5f960b1",
+        "distanceTravelled": 0,
+        "dismounted": true,
+        "failure": "rail_not_powered",
+        "endReason": "rail_not_powered",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 240.5,
+        "y": 201,
+        "z": -44.5
+      },
+      "trace": [
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -43.5,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -43.5,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 201,
+          "z": -44.5,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 201,
+          "z": -44.5,
+          "health": 20
+        }
+      ]
+    },
+    {
+      "id": "V-06",
+      "label": "powered start, junction, station dock",
+      "cart": "5a2ce024-5667-4f0b-8236-95ddf84c4568",
+      "status": "failed",
+      "endReason": "rail_not_powered",
+      "vehicle": {
+        "commandId": "ce525e1b-45bd-42f8-bb90-297ef4cc0fae",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "5a2ce024-5667-4f0b-8236-95ddf84c4568",
+        "distanceTravelled": 2.371,
+        "dismounted": true,
+        "failure": "rail_not_powered",
+        "endReason": "rail_not_powered",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 241.5,
+        "y": 201,
+        "z": -48.5
+      },
+      "trace": [
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -44.91,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -45.83,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -46.51,
+          "health": 20
+        },
+        {
+          "x": 240.5,
+          "y": 200.65,
+          "z": -47.28,
+          "health": 20
+        },
+        {
+          "x": 241.5,
+          "y": 201,
+          "z": -48.5,
+          "health": 20
+        },
+        {
+          "x": 241.5,
+          "y": 201,
+          "z": -48.5,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-07",
+      "label": "cancel while moving on rail B",
+      "cart": "8abb88a0-d82f-4811-8989-804ce328f6c8",
+      "status": "cancelled",
+      "endReason": "cancelled",
+      "vehicle": {
+        "commandId": "5f538168-4140-4afd-9cbd-c6a41eb6ce82",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "8abb88a0-d82f-4811-8989-804ce328f6c8",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "unsafe_dismount",
+        "endReason": "cancelled",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 254.68231679726364,
+        "y": 200.4924709227469,
+        "z": -56.50000067108864
+      },
+      "trace": [
+        {
+          "x": 249.13,
+          "y": 200.65,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 250.46,
+          "y": 200.65,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 253.08,
+          "y": 200.64,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 254.89,
+          "y": 200.38,
+          "z": -56.5,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": true,
+        "type": "minecraft:minecart",
+        "uuid": "8abb88a0-d82f-4811-8989-804ce328f6c8"
+      }
+    },
+    {
+      "id": "V-08",
+      "label": "goal past the break (hole)",
+      "cart": "d94f495d-c558-4381-93bd-decccc225a73",
+      "status": "failed",
+      "endReason": "reached",
+      "vehicle": {
+        "commandId": "1402b953-1b3f-4831-880f-7c95daf3e304",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "minecart",
+        "acquireMethod": "existing",
+        "vehicleUuid": "d94f495d-c558-4381-93bd-decccc225a73",
+        "distanceTravelled": 5.819,
+        "dockPosition": {
+          "x": 254.76809755018428,
+          "y": 200.4633425350725,
+          "z": -56.500000536870914
+        },
+        "dismounted": true,
+        "endReason": "reached",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 256.5023070968171,
+        "y": 198.48161184791465,
+        "z": -56.5
+      },
+      "trace": [
+        {
+          "x": 249.13,
+          "y": 200.65,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 250.29,
+          "y": 200.65,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 252.82,
+          "y": 200.64,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 254.77,
+          "y": 200.46,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 256.5,
+          "y": 199.55,
+          "z": -56.5,
+          "health": 20
+        },
+        {
+          "x": 256.5,
+          "y": 197.52,
+          "z": -56.5,
+          "health": 20
+        }
+      ],
+      "ridingAfter": {
+        "riding": false
+      }
+    }
+  ],
+  "verdict": "PASS"
+}

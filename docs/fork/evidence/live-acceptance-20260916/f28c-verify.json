@@ -1,0 +1,161 @@
+{
+  "id": "F-28 verification: autonomous firework crossbow",
+  "shots": [
+    {
+      "shot": 1,
+      "before": {
+        "health": 45
+      },
+      "after": {
+        "health": 28.36127
+      },
+      "endReason": "done",
+      "fired": 1,
+      "profileId": "firework-rocket",
+      "verifiedBy": "projectile",
+      "closestDistance": 0,
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "b607a310-e4a2-4a89-875c-761d5f7bd22e",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 258.5,
+            "y": 201,
+            "z": -31.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:crossbow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "crossbow",
+          "targetUuid": "2ba279dd-d259-4d18-b563-41f3e4d80d11",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "acc4cb9f-99b0-48a7-940d-99fa0bc25f9f",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "firework-rocket",
+          "aimTarget": {
+            "x": 258.5,
+            "y": 201.64999997615814,
+            "z": -19.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 31,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 6,
+          "connectionId": "b9e488c8-57fd-47d6-adc9-7435ffe54a56"
+        }
+      }
+    },
+    {
+      "shot": 2,
+      "before": {
+        "health": 28.36127
+      },
+      "after": {
+        "health": 11.539291
+      },
+      "endReason": "done",
+      "fired": 1,
+      "profileId": "firework-rocket",
+      "verifiedBy": "projectile",
+      "closestDistance": 0,
+      "receipt": {
+        "status": "ok",
+        "checked": false,
+        "commandId": "8fd0baba-f5dc-46d9-9b7b-a6b1fd6c5c44",
+        "endReason": "done",
+        "resultPhases": {
+          "requested": true,
+          "accepted": true,
+          "clientExecuted": true,
+          "serverSettled": false,
+          "unobserved": [
+            "serverSettled"
+          ]
+        },
+        "finalSnapshot": {
+          "position": {
+            "x": 258.5,
+            "y": 201,
+            "z": -31.5
+          },
+          "health": 20,
+          "food": 20,
+          "heldItem": "minecraft:crossbow"
+        },
+        "postCondition": {
+          "kind": "none",
+          "target": 0,
+          "actual": 0,
+          "met": true
+        },
+        "shot": {
+          "weapon": "crossbow",
+          "targetUuid": "2ba279dd-d259-4d18-b563-41f3e4d80d11",
+          "shots": [
+            {
+              "shot": 1,
+              "projectileUuid": "0c1b942c-95b1-4d49-a91b-94af7948d995",
+              "verifiedBy": "projectile",
+              "hitEvidence": "unobserved"
+            }
+          ],
+          "profileId": "firework-rocket",
+          "aimTarget": {
+            "x": 258.5,
+            "y": 201.64999997615814,
+            "z": -19.5
+          },
+          "aimSource": "fresh",
+          "solutionRevision": 1,
+          "observationAgeMs": 18,
+          "predictedFlightTicks": 8,
+          "closestDistance": 0,
+          "arc": "low",
+          "fireReason": "ballistic_solution",
+          "observedSpeed": 0,
+          "endReason": "done"
+        },
+        "world": {
+          "worldId": "connection-scoped",
+          "dimension": "minecraft:overworld",
+          "connectionGeneration": 6,
+          "connectionId": "b9e488c8-57fd-47d6-adc9-7435ffe54a56"
+        }
+      }
+    }
+  ]
+}

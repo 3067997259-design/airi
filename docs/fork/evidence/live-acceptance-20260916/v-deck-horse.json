@@ -1,0 +1,331 @@
+{
+  "id": "CD-V deck horse",
+  "startedAt": "2026-09-17T10:36:21.609Z",
+  "horses": [
+    {
+      "name": "Horse",
+      "uuid": "7a2513b3-1099-4995-9c68-493bd207e6cb",
+      "x": 259.52,
+      "y": 201,
+      "z": -46.12,
+      "tamed": true,
+      "saddled": true,
+      "free": true,
+      "passengers": []
+    },
+    {
+      "name": "Horse",
+      "uuid": "89d46d22-a475-4287-aa2c-0dc8f663cd5a",
+      "x": 263.99,
+      "y": 201,
+      "z": -49.31,
+      "tamed": true,
+      "saddled": true,
+      "free": false,
+      "passengers": [
+        "d0451c6d-d02c-320a-b06b-495bc9b06605"
+      ]
+    },
+    {
+      "name": "Horse",
+      "uuid": "dab18f00-b926-42a8-ae37-4adbc93ed24a",
+      "x": 254.74,
+      "y": 201,
+      "z": -50.21,
+      "tamed": false,
+      "saddled": false,
+      "free": true,
+      "passengers": []
+    },
+    {
+      "name": "Horse",
+      "uuid": "539d63d5-26fd-48d8-baef-0c40e66322af",
+      "x": 267.28,
+      "y": 201,
+      "z": -32.63,
+      "tamed": false,
+      "saddled": false,
+      "free": true,
+      "passengers": []
+    }
+  ],
+  "cases": [
+    {
+      "id": "V-04a",
+      "label": "tamed+saddled horse over both walls",
+      "uuid": "7a2513b3-1099-4995-9c68-493bd207e6cb",
+      "maxY": 205.08,
+      "zSpan": [
+        -45.47,
+        -40.08
+      ],
+      "trace": [
+        {
+          "x": 262.48,
+          "y": 201.84,
+          "z": -45.47,
+          "onGround": false
+        },
+        {
+          "x": 260.41,
+          "y": 201.84,
+          "z": -44.96,
+          "onGround": false
+        },
+        {
+          "x": 257.59,
+          "y": 201.84,
+          "z": -44.28,
+          "onGround": false
+        },
+        {
+          "x": 254.41,
+          "y": 202.84,
+          "z": -43.5,
+          "onGround": false
+        },
+        {
+          "x": 251.74,
+          "y": 202.62,
+          "z": -42.85,
+          "onGround": false
+        },
+        {
+          "x": 249.43,
+          "y": 201.84,
+          "z": -42.29,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 247.7,
+          "y": 201.84,
+          "z": -41.7,
+          "onGround": false
+        },
+        {
+          "x": 248.13,
+          "y": 205.08,
+          "z": -41.8,
+          "onGround": false
+        },
+        {
+          "x": 247.53,
+          "y": 203.99,
+          "z": -41.66,
+          "onGround": false
+        },
+        {
+          "x": 245.96,
+          "y": 203.88,
+          "z": -41.28,
+          "onGround": false
+        },
+        {
+          "x": 243.61,
+          "y": 201.85,
+          "z": -40.71,
+          "onGround": false
+        },
+        {
+          "x": 241.03,
+          "y": 201.84,
+          "z": -40.08,
+          "onGround": false
+        },
+        {
+          "x": 240.18,
+          "y": 201,
+          "z": -40.94,
+          "onGround": true
+        }
+      ],
+      "status": "ok",
+      "endReason": "reached",
+      "vehicle": {
+        "commandId": "e30245fd-f712-4c1d-867e-8b7e80a5deee",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "vehicleUuid": "7a2513b3-1099-4995-9c68-493bd207e6cb",
+        "distanceTravelled": 22.554,
+        "dockPosition": {
+          "x": 241.73016515072788,
+          "y": 201.84375002384186,
+          "z": -40.24918333610969
+        },
+        "dismounted": true,
+        "endReason": "reached",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "verify-control",
+          "plan",
+          "travel",
+          "dock",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 240.21119564819253,
+        "y": 201,
+        "z": -40.94310539479461
+      },
+      "ridingAfter": {
+        "riding": false
+      }
+    },
+    {
+      "id": "V-04b",
+      "label": "wild horse by uuid without allowTame",
+      "uuid": "dab18f00-b926-42a8-ae37-4adbc93ed24a",
+      "status": "failed",
+      "endReason": "not_tamed",
+      "vehicle": {
+        "commandId": "b788030a-29a2-4604-aea9-e4fcf5447f71",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "vehicleUuid": "dab18f00-b926-42a8-ae37-4adbc93ed24a",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "not_tamed",
+        "endReason": "not_tamed",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 260.5,
+        "y": 201,
+        "z": -45.5
+      }
+    },
+    {
+      "id": "V-04c",
+      "label": "occupied horse by uuid (player riding)",
+      "uuid": "89d46d22-a475-4287-aa2c-0dc8f663cd5a",
+      "status": "failed",
+      "endReason": "occupied",
+      "vehicle": {
+        "commandId": "ec405a05-e1d2-4608-8877-dd1175738b57",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "existing",
+        "vehicleUuid": "89d46d22-a475-4287-aa2c-0dc8f663cd5a",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "occupied",
+        "endReason": "occupied",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 260.5,
+        "y": 201,
+        "z": -45.5
+      }
+    },
+    {
+      "id": "V-05",
+      "label": "tame the wild horse",
+      "uuid": "dab18f00-b926-42a8-ae37-4adbc93ed24a",
+      "status": "failed",
+      "endReason": "acquire_timeout",
+      "vehicle": {
+        "commandId": "f6d70deb-c5e7-4e60-8f61-7e0816f1abd7",
+        "controlSessionId": "vehicle-session",
+        "controlSessionGeneration": 0,
+        "kind": "horse",
+        "acquireMethod": "tame",
+        "vehicleUuid": "dab18f00-b926-42a8-ae37-4adbc93ed24a",
+        "distanceTravelled": 0,
+        "dismounted": false,
+        "failure": "acquire_timeout",
+        "endReason": "acquire_timeout",
+        "phases": [
+          "discover",
+          "prepare",
+          "acquire",
+          "finish"
+        ]
+      },
+      "final": {
+        "x": 260.5,
+        "y": 201,
+        "z": -45.5
+      }
+    }
+  ],
+  "verdict": "PASS"
+}

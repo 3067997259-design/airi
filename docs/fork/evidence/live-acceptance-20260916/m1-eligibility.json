@@ -1,0 +1,725 @@
+{
+  "id": "M-01/M-02/M-03",
+  "startedAt": "2026-09-17T01:18:40.425Z",
+  "fixture": {
+    "target": {
+      "x": 78,
+      "y": 75,
+      "z": -24
+    },
+    "stand": {
+      "x": 77.5,
+      "y": 75,
+      "z": -24.5
+    }
+  },
+  "cases": [
+    {
+      "id": "M-01a 石 + 木镐",
+      "block": "minecraft:stone",
+      "tools": [
+        "minecraft:wooden_pickaxe"
+      ],
+      "receipt": {
+        "status": "ok",
+        "endReason": "broken",
+        "checked": true,
+        "tool": "minecraft:wooden_pickaxe",
+        "durability": {
+          "known": true,
+          "remaining": 59,
+          "expectedBlocks": 59,
+          "riskOfBreak": false
+        }
+      },
+      "blockAfter": "minecraft:air",
+      "freeSlotsBefore": 27,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:wooden_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 1
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:wooden_pickaxe",
+          "count": 1,
+          "damage": 1
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-01b 石 + 铁斧（错误工具）",
+      "block": "minecraft:stone",
+      "tools": [
+        "minecraft:iron_axe"
+      ],
+      "receipt": {
+        "status": "failed",
+        "endReason": "tool_level_too_low",
+        "checked": true,
+        "rejection": {
+          "reason": "tool_level_too_low",
+          "detail": "no candidate meets the block tool requirement"
+        }
+      },
+      "blockAfter": "minecraft:stone",
+      "freeSlotsBefore": 27,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:iron_axe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:iron_axe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-01c 钻石矿 + 石镐（等级不足）",
+      "block": "minecraft:diamond_ore",
+      "tools": [
+        "minecraft:stone_pickaxe"
+      ],
+      "receipt": {
+        "status": "failed",
+        "endReason": "tool_level_too_low",
+        "checked": true,
+        "rejection": {
+          "reason": "tool_level_too_low",
+          "detail": "no candidate meets the block tool requirement"
+        }
+      },
+      "blockAfter": "minecraft:diamond_ore",
+      "freeSlotsBefore": 27,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:stone_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:stone_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-01d 石 + 空手",
+      "block": "minecraft:stone",
+      "tools": [],
+      "receipt": {
+        "status": "failed",
+        "endReason": "no_tool",
+        "checked": true,
+        "rejection": {
+          "reason": "no_tool",
+          "detail": "the inventory holds no usable tool"
+        }
+      },
+      "blockAfter": "minecraft:stone",
+      "freeSlotsBefore": 28,
+      "equippedBefore": [
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-01e 原木 + 铁斧",
+      "block": "minecraft:oak_log",
+      "tools": [
+        "minecraft:iron_axe"
+      ],
+      "receipt": {
+        "status": "ok",
+        "endReason": "broken",
+        "checked": true,
+        "tool": "minecraft:iron_axe",
+        "durability": {
+          "known": true,
+          "remaining": 250,
+          "expectedBlocks": 250,
+          "riskOfBreak": false
+        }
+      },
+      "blockAfter": "minecraft:air",
+      "freeSlotsBefore": 27,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:iron_axe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:iron_axe",
+          "count": 1,
+          "damage": 1
+        },
+        {
+          "slot": 1,
+          "id": "minecraft:oak_log",
+          "count": 1
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-01f 小麦 + 空手（作物）",
+      "block": "minecraft:wheat[age=7]",
+      "tools": [],
+      "receipt": {
+        "status": "ok",
+        "endReason": "broken",
+        "checked": true,
+        "tool": "hand"
+      },
+      "blockAfter": "minecraft:air",
+      "freeSlotsBefore": 28,
+      "equippedBefore": [
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:wheat_seeds",
+          "count": 1
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-02 主背包工具换槽",
+      "step": "moved-tool-to-main",
+      "from": 0,
+      "to": 36
+    },
+    {
+      "id": "M-02 主背包工具换槽",
+      "block": "minecraft:stone",
+      "tools": [
+        "minecraft:wooden_pickaxe"
+      ],
+      "receipt": {
+        "status": "ok",
+        "endReason": "broken",
+        "checked": true,
+        "tool": "minecraft:wooden_pickaxe",
+        "durability": {
+          "known": true,
+          "remaining": 59,
+          "expectedBlocks": 59,
+          "riskOfBreak": false
+        }
+      },
+      "blockAfter": "minecraft:air",
+      "freeSlotsBefore": 27,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:wooden_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:wooden_pickaxe",
+          "count": 1,
+          "damage": 1
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    },
+    {
+      "id": "M-03 低耐久 + 备用",
+      "block": "minecraft:stone",
+      "tools": [
+        "minecraft:diamond_pickaxe[minecraft:damage=1555]",
+        "minecraft:diamond_pickaxe"
+      ],
+      "receipt": {
+        "status": "ok",
+        "endReason": "broken",
+        "checked": true,
+        "tool": "minecraft:diamond_pickaxe",
+        "durability": {
+          "known": true,
+          "remaining": 6,
+          "expectedBlocks": 6,
+          "riskOfBreak": false
+        }
+      },
+      "blockAfter": "minecraft:air",
+      "freeSlotsBefore": 26,
+      "equippedBefore": [
+        {
+          "slot": 0,
+          "id": "minecraft:diamond_pickaxe",
+          "count": 1,
+          "damage": 1555
+        },
+        {
+          "slot": 1,
+          "id": "minecraft:diamond_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 2
+        },
+        {
+          "slot": 16,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 22,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 25,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 26,
+          "id": "minecraft:firework_rocket",
+          "count": 64
+        },
+        {
+          "slot": 27,
+          "id": "minecraft:firework_rocket",
+          "count": 36
+        },
+        {
+          "slot": 28,
+          "id": "minecraft:white_wool",
+          "count": 1
+        },
+        {
+          "slot": 29,
+          "id": "minecraft:mutton",
+          "count": 1
+        }
+      ],
+      "blockAfterInventory": [
+        {
+          "slot": 0,
+          "id": "minecraft:diamond_pickaxe",
+          "count": 1,
+          "damage": 1556
+        },
+        {
+          "slot": 1,
+          "id": "minecraft:diamond_pickaxe",
+          "count": 1,
+          "damage": 0
+        },
+        {
+          "slot": 8,
+          "id": "minecraft:cobblestone",
+          "count": 3
+        }
+      ],
+      "checks": {
+        "status": true,
+        "block": true,
+        "rejection": true,
+        "tool": true,
+        "durability": true
+      },
+      "passed": true
+    }
+  ],
+  "verdict": "PASS"
+}

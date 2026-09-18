@@ -1,0 +1,67 @@
+{
+  "id": "B-08 splash and lingering potions",
+  "cases": [
+    {
+      "name": "splash-poison",
+      "target": {
+        "uuid": "a076611e-b1a2-4447-a4db-f93a1a0b7626",
+        "health": 45
+      },
+      "expect": "minecraft:poison",
+      "equip": {
+        "status": "ok",
+        "endReason": "equipped"
+      },
+      "use": {
+        "status": "ok",
+        "endReason": "used"
+      },
+      "before": {
+        "health": 45,
+        "effects": []
+      },
+      "after": {
+        "health": 44,
+        "effects": [
+          {
+            "id": "minecraft:poison",
+            "amplifier": 0,
+            "duration": 587
+          }
+        ]
+      },
+      "matched": true
+    },
+    {
+      "name": "lingering-slowness",
+      "target": {
+        "uuid": "e9296ecf-21a3-4a70-9142-ec131d38ea3c",
+        "health": 45
+      },
+      "expect": "minecraft:slowness",
+      "equip": {
+        "status": "ok",
+        "endReason": "equipped"
+      },
+      "use": {
+        "status": "ok",
+        "endReason": "used"
+      },
+      "before": {
+        "health": 45,
+        "effects": []
+      },
+      "after": {
+        "health": 45,
+        "effects": [
+          {
+            "id": "minecraft:slowness",
+            "amplifier": 0,
+            "duration": 434
+          }
+        ]
+      },
+      "matched": true
+    }
+  ]
+}

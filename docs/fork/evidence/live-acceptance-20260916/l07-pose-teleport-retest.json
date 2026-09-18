@@ -1,0 +1,4435 @@
+{
+  "id": "L-07",
+  "startedAt": "2026-09-17T00:56:36.996Z",
+  "fixture": {
+    "target": "AfterRain",
+    "keepDistance": 3,
+    "teleportDest": {
+      "x": 50,
+      "y": 78,
+      "z": 33
+    }
+  },
+  "steps": [
+    {
+      "step": "facts-walking",
+      "facts": {
+        "onGround": false,
+        "fallFlying": false,
+        "riding": true,
+        "bounds": {
+          "width": 0.6,
+          "height": 1.8
+        },
+        "dimension": "minecraft:overworld",
+        "sourceTick": 5799907
+      }
+    },
+    {
+      "step": "teleport",
+      "dest": {
+        "x": 50,
+        "y": 78,
+        "z": 33
+      }
+    },
+    {
+      "step": "teleport-result",
+      "endReason": "target_unreachable",
+      "jumpAtMs": 12
+    },
+    {
+      "step": "teleport-back",
+      "horse": {
+        "x": 86.28810991259968,
+        "y": 75,
+        "z": -9.6982421875
+      }
+    },
+    {
+      "step": "riding",
+      "riding": true
+    },
+    {
+      "step": "riding-result",
+      "endReason": "timeout"
+    }
+  ],
+  "samples": [
+    {
+      "phase": "Teleport",
+      "t": 15,
+      "bot": {
+        "x": 86.94949093855772,
+        "y": 75,
+        "z": -17.891915385346287
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.5
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800037
+        }
+      },
+      "distance": 63.005510526100764,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 375,
+      "bot": {
+        "x": 86.94949093855772,
+        "y": 75,
+        "z": -17.891915385346287
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800044
+        }
+      },
+      "distance": 63.005510526100764,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 721,
+      "bot": {
+        "x": 86.94949093855772,
+        "y": 75,
+        "z": -17.891915385346287
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800051
+        }
+      },
+      "distance": 63.005510526100764,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 986,
+      "bot": {
+        "x": 86.94949093855772,
+        "y": 75,
+        "z": -17.891915385346287
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800057
+        }
+      },
+      "distance": 63.005510526100764,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 1263,
+      "bot": {
+        "x": 86.44783793998609,
+        "y": 75,
+        "z": -18.54269412629127
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800062
+        }
+      },
+      "distance": 63.251000501827754,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 1532,
+      "bot": {
+        "x": 86.14347318465825,
+        "y": 75,
+        "z": -19.61879285185325
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800068
+        }
+      },
+      "distance": 63.969237409113674,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 1796,
+      "bot": {
+        "x": 86.28794321457964,
+        "y": 75,
+        "z": -19.69999998807907
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800073
+        }
+      },
+      "distance": 64.11721202814101,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 2060,
+      "bot": {
+        "x": 86.48978247251459,
+        "y": 75,
+        "z": -20.71137908079288
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800078
+        }
+      },
+      "distance": 65.07025483475799,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 2323,
+      "bot": {
+        "x": 86.57588826021806,
+        "y": 75,
+        "z": -22.093068343641892
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800083
+        }
+      },
+      "distance": 66.27261094618633,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 2591,
+      "bot": {
+        "x": 86.76645192240593,
+        "y": 75,
+        "z": -23.466997569855586
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800089
+        }
+      },
+      "distance": 67.53143229018701,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 2853,
+      "bot": {
+        "x": 87.56160728550181,
+        "y": 75,
+        "z": -24.91456629229727
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800094
+        }
+      },
+      "distance": 69.17965228086906,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 3117,
+      "bot": {
+        "x": 88.68376359777535,
+        "y": 75,
+        "z": -25.73114417088884
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800099
+        }
+      },
+      "distance": 70.47218062670838,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 3383,
+      "bot": {
+        "x": 88.93261655599734,
+        "y": 75,
+        "z": -26.419433637303584
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800105
+        }
+      },
+      "distance": 71.18570462357978,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 3649,
+      "bot": {
+        "x": 89.69999998807907,
+        "y": 75.7531999805212,
+        "z": -26.771705085002385
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800110
+        }
+      },
+      "distance": 71.89797238391985,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 3910,
+      "bot": {
+        "x": 89.94714798819456,
+        "y": 76.17675927506424,
+        "z": -26.687778080918356
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800115
+        }
+      },
+      "distance": 71.96281063660867,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 4177,
+      "bot": {
+        "x": 90.4838445088805,
+        "y": 76,
+        "z": -26.56688303792503
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800121
+        }
+      },
+      "distance": 72.15773180749308,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 4439,
+      "bot": {
+        "x": 90.00693412362757,
+        "y": 76.7531999805212,
+        "z": -26.30000001192093
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800126
+        }
+      },
+      "distance": 71.67173672567444,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 4710,
+      "bot": {
+        "x": 89.27068191000934,
+        "y": 77.02442408821369,
+        "z": -25.9711817778938
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800131
+        }
+      },
+      "distance": 70.99286751376094,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 4973,
+      "bot": {
+        "x": 89.320901363863,
+        "y": 77,
+        "z": -25.6230042406555
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800136
+        }
+      },
+      "distance": 70.7290040446163,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 5235,
+      "bot": {
+        "x": 89.7770475982128,
+        "y": 78.24918707874468,
+        "z": -25.17262380401672
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800142
+        }
+      },
+      "distance": 70.60568852493363,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 5497,
+      "bot": {
+        "x": 90.31933846523121,
+        "y": 78,
+        "z": -24.65449172360764
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800147
+        }
+      },
+      "distance": 70.48066843780492,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 5761,
+      "bot": {
+        "x": 90.88234104365901,
+        "y": 78.7531999805212,
+        "z": -25.058806224695438
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800152
+        }
+      },
+      "distance": 71.13274389919046,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 6027,
+      "bot": {
+        "x": 91.69999998807907,
+        "y": 79.17675927506424,
+        "z": -25.719501442335435
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800158
+        }
+      },
+      "distance": 72.14145375646713,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 6297,
+      "bot": {
+        "x": 91.51969759554414,
+        "y": 79,
+        "z": -25.658601127074114
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800163
+        }
+      },
+      "distance": 71.98858019257042,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 6577,
+      "bot": {
+        "x": 91.47157808515837,
+        "y": 79,
+        "z": -25.601192683037823
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800169
+        }
+      },
+      "distance": 71.91398464377977,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 6874,
+      "bot": {
+        "x": 91.47157808515837,
+        "y": 79,
+        "z": -25.601192683037823
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800174
+        }
+      },
+      "distance": 71.91398464377977,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 7154,
+      "bot": {
+        "x": 91.47157808515837,
+        "y": 79,
+        "z": -25.601192683037823
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800180
+        }
+      },
+      "distance": 71.91398464377977,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 7432,
+      "bot": {
+        "x": 91.47157808515837,
+        "y": 79,
+        "z": -25.601192683037823
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800186
+        }
+      },
+      "distance": 71.91398464377977,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 7695,
+      "bot": {
+        "x": 91.69999998807907,
+        "y": 80.24918707874468,
+        "z": -25.906496993921042
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800191
+        }
+      },
+      "distance": 72.29503360609542,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 7958,
+      "bot": {
+        "x": 91.74794567801533,
+        "y": 79.1212968405392,
+        "z": -26.43202018213875
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800196
+        }
+      },
+      "distance": 72.75465666037323,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 8220,
+      "bot": {
+        "x": 92.1213630872771,
+        "y": 76.21589434553873,
+        "z": -26.814872864539648
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800201
+        }
+      },
+      "distance": 73.2817968796381,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 8491,
+      "bot": {
+        "x": 92.50261732981741,
+        "y": 75.41999998688698,
+        "z": -26.493199607316356
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800207
+        }
+      },
+      "distance": 73.23526378513552,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 8753,
+      "bot": {
+        "x": 92.67302053072234,
+        "y": 76.17675927506424,
+        "z": -26.466993315905587
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800212
+        }
+      },
+      "distance": 73.31169039133249,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 9011,
+      "bot": {
+        "x": 92.48128759803473,
+        "y": 75,
+        "z": -26.813621275702516
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800217
+        }
+      },
+      "distance": 73.48579059775963,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 9278,
+      "bot": {
+        "x": 92.29801319938412,
+        "y": 75.41999998688698,
+        "z": -26.30000001192093
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800223
+        }
+      },
+      "distance": 72.95967316841292,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 9547,
+      "bot": {
+        "x": 92.68489125288943,
+        "y": 76.25220334025373,
+        "z": -26.391260301219777
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800228
+        }
+      },
+      "distance": 73.25659090134192,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 9817,
+      "bot": {
+        "x": 92.88678878107497,
+        "y": 75,
+        "z": -26.777911844663347
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800233
+        }
+      },
+      "distance": 73.68898506238547,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 10089,
+      "bot": {
+        "x": 92.29577743830026,
+        "y": 75.41999998688698,
+        "z": -26.364970982606476
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800239
+        }
+      },
+      "distance": 73.01165497658744,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 10353,
+      "bot": {
+        "x": 92.10935965498487,
+        "y": 76.17675927506424,
+        "z": -26.401912646813734
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800244
+        }
+      },
+      "distance": 72.93543685784287,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 10618,
+      "bot": {
+        "x": 92.40858497201589,
+        "y": 75,
+        "z": -26.61057151474059
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800249
+        }
+      },
+      "distance": 73.27762483995657,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 10883,
+      "bot": {
+        "x": 92.93187798783337,
+        "y": 75.41999998688698,
+        "z": -26.511014988713857
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800255
+        }
+      },
+      "distance": 73.49684475914607,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 11142,
+      "bot": {
+        "x": 92.5179753742928,
+        "y": 76.25220334025373,
+        "z": -26.30000001192093
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800260
+        }
+      },
+      "distance": 73.08591010571341,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 11404,
+      "bot": {
+        "x": 91.95687233399856,
+        "y": 75,
+        "z": -26.54659541126904
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800265
+        }
+      },
+      "distance": 72.96756734469152,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 11667,
+      "bot": {
+        "x": 92.57891354274322,
+        "y": 75.41999998688698,
+        "z": -26.61176978717613
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800270
+        }
+      },
+      "distance": 73.37615301911187,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 11932,
+      "bot": {
+        "x": 92.79811068414365,
+        "y": 76.25220334025373,
+        "z": -26.30000001192093
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800276
+        }
+      },
+      "distance": 73.24732192287858,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 12198,
+      "bot": {
+        "x": 92.5700469566276,
+        "y": 75.1212968405392,
+        "z": -26.399795752861355
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800281
+        }
+      },
+      "distance": 73.19750256782918,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 12466,
+      "bot": {
+        "x": 92.13901124094299,
+        "y": 75.41999998688698,
+        "z": -26.81406634958272
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800286
+        }
+      },
+      "distance": 73.29115810754557,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 12728,
+      "bot": {
+        "x": 92.53279437891936,
+        "y": 76.25220334025373,
+        "z": -26.56261943066371
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800292
+        }
+      },
+      "distance": 73.30944043009234,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 12999,
+      "bot": {
+        "x": 92.88127022959979,
+        "y": 75,
+        "z": -26.31019223231709
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800297
+        }
+      },
+      "distance": 73.30369132002211,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 13278,
+      "bot": {
+        "x": 92.17207345402528,
+        "y": 75.41999998688698,
+        "z": -26.69070708976733
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800303
+        }
+      },
+      "distance": 73.20848943888848,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 13553,
+      "bot": {
+        "x": 91.65704910351171,
+        "y": 76.17675927506424,
+        "z": -26.81828392040395
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800308
+        }
+      },
+      "distance": 73.02190127633855,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 13815,
+      "bot": {
+        "x": 91.78111947419232,
+        "y": 75,
+        "z": -26.707915495884045
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800313
+        }
+      },
+      "distance": 73.00084871699818,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 14086,
+      "bot": {
+        "x": 92.6058144584227,
+        "y": 75.7531999805212,
+        "z": -26.412364873111954
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800319
+        }
+      },
+      "distance": 73.22834885408804,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 14364,
+      "bot": {
+        "x": 92.86887110836933,
+        "y": 76.02442408821369,
+        "z": -26.428577642607554
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800324
+        }
+      },
+      "distance": 73.39315810934733,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 14627,
+      "bot": {
+        "x": 92.50640011799081,
+        "y": 75,
+        "z": -26.575518553915817
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800330
+        }
+      },
+      "distance": 73.30488101344017,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 14889,
+      "bot": {
+        "x": 92.59477412706029,
+        "y": 75.7531999805212,
+        "z": -26.361165893783685
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800335
+        }
+      },
+      "distance": 73.1801147236824,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 15158,
+      "bot": {
+        "x": 92.76805983512176,
+        "y": 76.02442408821369,
+        "z": -26.399274789407063
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800340
+        }
+      },
+      "distance": 73.31106330235791,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 15420,
+      "bot": {
+        "x": 92.67231989068688,
+        "y": 75,
+        "z": -26.89743992950296
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800345
+        }
+      },
+      "distance": 73.66379921644241,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 15734,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.314047623221196
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800351
+        }
+      },
+      "distance": 73.95271358287474,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 16007,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800357
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 16280,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800362
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 16558,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800368
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 17007,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800374
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 17277,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800382
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 17580,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800388
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 17859,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800394
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 18152,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800400
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 18429,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800406
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 18816,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800411
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 19081,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800419
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 19360,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800424
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 19638,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800429
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 19976,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800435
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 20307,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800443
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 20597,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800449
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 21096,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800455
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 21391,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800464
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 21726,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800471
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 22016,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800477
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 22330,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800483
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 22611,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800489
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 23060,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800495
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 23339,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800504
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 23610,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800509
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 23875,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800514
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 24142,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800520
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 24412,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800525
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 24699,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800531
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 24969,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800536
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 25298,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800542
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 25734,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800548
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 26015,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800557
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 26291,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800563
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 26564,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800568
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 26925,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800575
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 27200,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800581
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 27822,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800587
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": true
+    },
+    {
+      "phase": "Teleport",
+      "t": 28088,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 50.5,
+        "y": 78,
+        "z": 33.5,
+        "facts": {
+          "onGround": true,
+          "fallFlying": false,
+          "riding": false,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5800599
+        }
+      },
+      "distance": 73.96497739802467,
+      "pending": false
+    },
+    {
+      "phase": "Riding",
+      "t": 19,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 77.85091009011416,
+        "y": 75.84375002384186,
+        "z": -10.017273606310493,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801383
+        }
+      },
+      "distance": 22.729182963294658,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 360,
+      "bot": {
+        "x": 92.57915704896298,
+        "y": 75,
+        "z": -27.328960401596625
+      },
+      "player": {
+        "x": 76.32172005686085,
+        "y": 75.84375002384186,
+        "z": -11.118454545762999,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801388
+        }
+      },
+      "distance": 22.95832654298189,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 632,
+      "bot": {
+        "x": 92.15816895102644,
+        "y": 75,
+        "z": -27.417662642652502
+      },
+      "player": {
+        "x": 77.34043239189492,
+        "y": 75.84375002384186,
+        "z": -12.3017578125,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801395
+        }
+      },
+      "distance": 21.167330856063323,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 892,
+      "bot": {
+        "x": 90.92221830053711,
+        "y": 75,
+        "z": -27.569691515479253
+      },
+      "player": {
+        "x": 77.41269487001605,
+        "y": 75.84375002384186,
+        "z": -12.3017578125,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801400
+        }
+      },
+      "distance": 20.3866873934528,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 1171,
+      "bot": {
+        "x": 90.32464020300426,
+        "y": 75,
+        "z": -27.43548032508336
+      },
+      "player": {
+        "x": 77.23208569006034,
+        "y": 75.84375002384186,
+        "z": -12.3017578125,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801406
+        }
+      },
+      "distance": 20.01111043301397,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 1444,
+      "bot": {
+        "x": 89.94577511090023,
+        "y": 76.24918707874468,
+        "z": -27.101159164148786
+      },
+      "player": {
+        "x": 76.79110887832199,
+        "y": 75.9517500281334,
+        "z": -11.837146011964013,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801411
+        }
+      },
+      "distance": 20.15031863769414,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 1704,
+      "bot": {
+        "x": 89.47955170880678,
+        "y": 75.49520087700593,
+        "z": -26.59794447654954
+      },
+      "player": {
+        "x": 76.58458572045711,
+        "y": 75.99375002384187,
+        "z": -11.656463670730592,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801416
+        }
+      },
+      "distance": 19.73646362729024,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 1973,
+      "bot": {
+        "x": 89.17656314405767,
+        "y": 75,
+        "z": -26.30000001192093
+      },
+      "player": {
+        "x": 76.58458572045711,
+        "y": 75.99375002384187,
+        "z": -11.656463670730592,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801422
+        }
+      },
+      "distance": 19.312976259816306,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 2237,
+      "bot": {
+        "x": 88.5484084146312,
+        "y": 75,
+        "z": -26.087718226686615
+      },
+      "player": {
+        "x": 76.58458572045711,
+        "y": 75.99375002384187,
+        "z": -11.656463670730592,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801427
+        }
+      },
+      "distance": 18.745510436273435,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 2524,
+      "bot": {
+        "x": 88.28458201147811,
+        "y": 75,
+        "z": -25.124209314170614
+      },
+      "player": {
+        "x": 76.7416284782835,
+        "y": 75.84375002384186,
+        "z": -12.091675355927277,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801433
+        }
+      },
+      "distance": 17.4093859065234,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 2790,
+      "bot": {
+        "x": 88.08026898355016,
+        "y": 75,
+        "z": -23.945493337352445
+      },
+      "player": {
+        "x": 76.60016230775119,
+        "y": 75.84375002384186,
+        "z": -11.920922712191711,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801438
+        }
+      },
+      "distance": 16.624775126515317,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 3064,
+      "bot": {
+        "x": 87.6033592464659,
+        "y": 75,
+        "z": -23.002084229356676
+      },
+      "player": {
+        "x": 78.09643419013742,
+        "y": 75.84375002384186,
+        "z": -11.172491830519203,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801444
+        }
+      },
+      "distance": 15.17632631269108,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 3342,
+      "bot": {
+        "x": 87.43302958188136,
+        "y": 75,
+        "z": -21.730407988559087
+      },
+      "player": {
+        "x": 80.35110307234281,
+        "y": 75.84375002384186,
+        "z": -11.451050894348048,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801449
+        }
+      },
+      "distance": 12.482742701698678,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 3624,
+      "bot": {
+        "x": 87.44514871189598,
+        "y": 75,
+        "z": -20.65229251164764
+      },
+      "player": {
+        "x": 82.92705719005116,
+        "y": 75.84375002384186,
+        "z": -12.606175763042367,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801455
+        }
+      },
+      "distance": 9.227846213063607,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 3895,
+      "bot": {
+        "x": 86.96343870053907,
+        "y": 75,
+        "z": -19.549230576712695
+      },
+      "player": {
+        "x": 85.2861412354051,
+        "y": 75.84375002384186,
+        "z": -13.018079565312588,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801460
+        }
+      },
+      "distance": 6.743089819975521,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 4167,
+      "bot": {
+        "x": 85.86467346615038,
+        "y": 75,
+        "z": -18.855895431147847
+      },
+      "player": {
+        "x": 88.06092129439617,
+        "y": 75.84375002384186,
+        "z": -13.639448224945124,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801466
+        }
+      },
+      "distance": 5.65993162310063,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 4444,
+      "bot": {
+        "x": 84.60795378300787,
+        "y": 75,
+        "z": -17.76001461389228
+      },
+      "player": {
+        "x": 90.0933959202963,
+        "y": 75.84375002384186,
+        "z": -14.809439002277085,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801471
+        }
+      },
+      "distance": 6.228641254832216,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 4730,
+      "bot": {
+        "x": 83.7129452619847,
+        "y": 75,
+        "z": -16.685849146833867
+      },
+      "player": {
+        "x": 92.11591516838735,
+        "y": 75.84375002384186,
+        "z": -16.713950418528164,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801477
+        }
+      },
+      "distance": 8.403016894507552,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 5002,
+      "bot": {
+        "x": 82.56749649576763,
+        "y": 75,
+        "z": -15.452433589856577
+      },
+      "player": {
+        "x": 93.52554373835486,
+        "y": 75.84375002384186,
+        "z": -18.617393057907883,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801482
+        }
+      },
+      "distance": 11.405953173899196,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 5278,
+      "bot": {
+        "x": 81.55312919857579,
+        "y": 75,
+        "z": -14.488480655846281
+      },
+      "player": {
+        "x": 94.60427649931479,
+        "y": 75.84375002384186,
+        "z": -21.201931769890038,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801488
+        }
+      },
+      "distance": 14.676609680925711,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 5539,
+      "bot": {
+        "x": 80.25282884763533,
+        "y": 75,
+        "z": -13.421956690659876
+      },
+      "player": {
+        "x": 94.66907512681496,
+        "y": 75.84375002384186,
+        "z": -23.553137493146227,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801493
+        }
+      },
+      "distance": 17.620130000503078,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 5808,
+      "bot": {
+        "x": 79.17567745338904,
+        "y": 76.24918707874468,
+        "z": -12.303141295823096
+      },
+      "player": {
+        "x": 93.6982421875,
+        "y": 75.84375002384186,
+        "z": -25.595000022402488,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801498
+        }
+      },
+      "distance": 19.687010815859985,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 6068,
+      "bot": {
+        "x": 78.5502121668359,
+        "y": 75.49520087700593,
+        "z": -11.651083618960083
+      },
+      "player": {
+        "x": 92.93784448667776,
+        "y": 75.84375002384186,
+        "z": -27.413748986096955,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801504
+        }
+      },
+      "distance": 21.341639656954527,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 6448,
+      "bot": {
+        "x": 78.21647717296533,
+        "y": 75,
+        "z": -11.303159490363953
+      },
+      "player": {
+        "x": 90.2844923737747,
+        "y": 75.84375002384186,
+        "z": -28.01904922377184,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801510
+        }
+      },
+      "distance": 20.616933827958444,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 6722,
+      "bot": {
+        "x": 78.26486947858244,
+        "y": 75,
+        "z": -11.53450305990256
+      },
+      "player": {
+        "x": 86.97451681815295,
+        "y": 75.84375002384186,
+        "z": -28.21920830370112,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801517
+        }
+      },
+      "distance": 18.821194060211134,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 6990,
+      "bot": {
+        "x": 78.65885497336625,
+        "y": 75,
+        "z": -12.664911350298967
+      },
+      "player": {
+        "x": 84.60657339181574,
+        "y": 75.84375002384186,
+        "z": -28.34502932721802,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801522
+        }
+      },
+      "distance": 16.77025504144953,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 7250,
+      "bot": {
+        "x": 78.90285893378366,
+        "y": 75.7531999805212,
+        "z": -12.993625429858056
+      },
+      "player": {
+        "x": 82.70115763105872,
+        "y": 75.84375002384186,
+        "z": -27.325890087509286,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801527
+        }
+      },
+      "distance": 14.827032178109008,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 7518,
+      "bot": {
+        "x": 79.30772049088641,
+        "y": 76.17675927506424,
+        "z": -13.401739884169084
+      },
+      "player": {
+        "x": 81.41022266711126,
+        "y": 75.84375002384186,
+        "z": -24.82808704750951,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801533
+        }
+      },
+      "distance": 11.618172184048918,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 7796,
+      "bot": {
+        "x": 79.90575273997749,
+        "y": 75,
+        "z": -13.888366704685305
+      },
+      "player": {
+        "x": 80.49628248848268,
+        "y": 75.84375002384186,
+        "z": -22.644026882137478,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801538
+        }
+      },
+      "distance": 8.775551864520626,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 8073,
+      "bot": {
+        "x": 80.3822467028141,
+        "y": 75,
+        "z": -14.36280803329338
+      },
+      "player": {
+        "x": 79.95400670950234,
+        "y": 75.84375002384186,
+        "z": -19.867097968225732,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801544
+        }
+      },
+      "distance": 5.52092358031419,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 8342,
+      "bot": {
+        "x": 81.66049102892761,
+        "y": 76.24918707874468,
+        "z": -15.703830548026506
+      },
+      "player": {
+        "x": 80.38878548645836,
+        "y": 75.84375002384186,
+        "z": -17.565021362968746,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801549
+        }
+      },
+      "distance": 2.2541664171867097,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 8602,
+      "bot": {
+        "x": 82.41416124242943,
+        "y": 75.49520087700593,
+        "z": -16.48913304382209
+      },
+      "player": {
+        "x": 81.517877415537,
+        "y": 75.84375002384186,
+        "z": -15.599953090182774,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801554
+        }
+      },
+      "distance": 1.2625235397025087,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 8866,
+      "bot": {
+        "x": 82.47485138475488,
+        "y": 75,
+        "z": -16.517306340481614
+      },
+      "player": {
+        "x": 84.19385370097056,
+        "y": 75.84375002384186,
+        "z": -14.65425775057118,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801560
+        }
+      },
+      "distance": 2.534939646524573,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 9138,
+      "bot": {
+        "x": 81.92232541477303,
+        "y": 76.25220334025373,
+        "z": -15.876861223537857
+      },
+      "player": {
+        "x": 86.31653735032833,
+        "y": 75.84375002384186,
+        "z": -15.10308723958575,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801565
+        }
+      },
+      "distance": 4.461818543241961,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 9420,
+      "bot": {
+        "x": 81.35346631917383,
+        "y": 75.1212968405392,
+        "z": -15.284350512461362
+      },
+      "player": {
+        "x": 88.82087645406665,
+        "y": 75.84375002384186,
+        "z": -16.3807172020435,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801571
+        }
+      },
+      "distance": 7.5474654050697865,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 9699,
+      "bot": {
+        "x": 81.0195554482031,
+        "y": 75,
+        "z": -14.977137988326707
+      },
+      "player": {
+        "x": 90.9012227202531,
+        "y": 75.84375002384186,
+        "z": -17.493428699877587,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801576
+        }
+      },
+      "distance": 10.197012651779012,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 9978,
+      "bot": {
+        "x": 81.19439587873053,
+        "y": 76.00133597911214,
+        "z": -15.156325039709898
+      },
+      "player": {
+        "x": 92.55169422949591,
+        "y": 75.84375002384186,
+        "z": -19.72081172115366,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801582
+        }
+      },
+      "distance": 12.24021096604856,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 10250,
+      "bot": {
+        "x": 81.7059739425554,
+        "y": 75.79673560066871,
+        "z": -15.679109538600118
+      },
+      "player": {
+        "x": 93.31990776734018,
+        "y": 75.84375002384186,
+        "z": -21.956890718546894,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801587
+        }
+      },
+      "distance": 13.202045123001737,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 10530,
+      "bot": {
+        "x": 82.36599516759244,
+        "y": 75,
+        "z": -16.353588938299367
+      },
+      "player": {
+        "x": 94.16406429911433,
+        "y": 75.84375002384186,
+        "z": -24.67090560082586,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801593
+        }
+      },
+      "distance": 14.435102760178411,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 10801,
+      "bot": {
+        "x": 83.09672493606506,
+        "y": 76.24918707874468,
+        "z": -17.100325795972577
+      },
+      "player": {
+        "x": 93.6982421875,
+        "y": 75.84375002384186,
+        "z": -26.329074254992044,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801598
+        }
+      },
+      "distance": 14.055673806414507,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 11066,
+      "bot": {
+        "x": 83.7025489128891,
+        "y": 75.49520087700593,
+        "z": -17.719420723092178
+      },
+      "player": {
+        "x": 92.79426257141064,
+        "y": 75.84375002384186,
+        "z": -27.35557599239708,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801604
+        }
+      },
+      "distance": 13.24819782546667,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 11335,
+      "bot": {
+        "x": 84.1610170512623,
+        "y": 75,
+        "z": -18.175439012310093
+      },
+      "player": {
+        "x": 90.79130009750926,
+        "y": 76.61629656517886,
+        "z": -27.9314203828354,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801609
+        }
+      },
+      "distance": 11.795754565748929,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 11605,
+      "bot": {
+        "x": 85.05970451921002,
+        "y": 75,
+        "z": -19.044523738359924
+      },
+      "player": {
+        "x": 89.29634891576079,
+        "y": 75.84375002384186,
+        "z": -27.59165221388156,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801614
+        }
+      },
+      "distance": 9.539526241899955,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 11873,
+      "bot": {
+        "x": 86.04213118370744,
+        "y": 75,
+        "z": -19.69999998807907
+      },
+      "player": {
+        "x": 87.0680473088305,
+        "y": 75.84375002384186,
+        "z": -25.903720246041228,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801620
+        }
+      },
+      "distance": 6.2879765373956005,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 12135,
+      "bot": {
+        "x": 86.77227133329895,
+        "y": 75,
+        "z": -20.422087375236877
+      },
+      "player": {
+        "x": 85.16450608150305,
+        "y": 75.84375002384186,
+        "z": -24.521444434325236,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801625
+        }
+      },
+      "distance": 4.403366598726465,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 12400,
+      "bot": {
+        "x": 86.91458534231103,
+        "y": 75,
+        "z": -21.461553787237463
+      },
+      "player": {
+        "x": 82.95932448215109,
+        "y": 75.84375002384186,
+        "z": -23.604224658996642,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801630
+        }
+      },
+      "distance": 4.498347133847985,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 12675,
+      "bot": {
+        "x": 87.22241699299683,
+        "y": 75,
+        "z": -22.4670225338464
+      },
+      "player": {
+        "x": 80.57628993513964,
+        "y": 75.84375002384186,
+        "z": -21.96565742007913,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801636
+        }
+      },
+      "distance": 6.6650110162312775,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 12945,
+      "bot": {
+        "x": 87.47781348561779,
+        "y": 75.7531999805212,
+        "z": -22.78634465487716
+      },
+      "player": {
+        "x": 79.80365183056347,
+        "y": 75.84375002384186,
+        "z": -19.925343025859746,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801641
+        }
+      },
+      "distance": 8.190121331771975,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 13221,
+      "bot": {
+        "x": 87.894681350574,
+        "y": 76.17675927506424,
+        "z": -23.15857038704388
+      },
+      "player": {
+        "x": 80.43607838569007,
+        "y": 75.84375002384186,
+        "z": -17.24380110073163,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801647
+        }
+      },
+      "distance": 9.519204478215508,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 13495,
+      "bot": {
+        "x": 88.61348212824923,
+        "y": 75,
+        "z": -23.685628072739703
+      },
+      "player": {
+        "x": 82.46246957708622,
+        "y": 75.84375002384186,
+        "z": -16.25443435045146,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801652
+        }
+      },
+      "distance": 9.646636488576783,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 13755,
+      "bot": {
+        "x": 88.68346506760852,
+        "y": 75,
+        "z": -24.01163080503298
+      },
+      "player": {
+        "x": 84.73612588782166,
+        "y": 75.84375002384186,
+        "z": -15.977241217741781,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801657
+        }
+      },
+      "distance": 8.95169831041315,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 14020,
+      "bot": {
+        "x": 88.44314697871688,
+        "y": 75,
+        "z": -24.98598503352086
+      },
+      "player": {
+        "x": 87.32031123566769,
+        "y": 75.84375002384186,
+        "z": -17.090967085869003,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801663
+        }
+      },
+      "distance": 7.974463524251254,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 14281,
+      "bot": {
+        "x": 88.62698781694897,
+        "y": 75,
+        "z": -25.96495560359381
+      },
+      "player": {
+        "x": 89.20558758755456,
+        "y": 75.84375002384186,
+        "z": -18.464244720838078,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801668
+        }
+      },
+      "distance": 7.522994180592934,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 14554,
+      "bot": {
+        "x": 89.36206357042208,
+        "y": 75,
+        "z": -26.648540758151523
+      },
+      "player": {
+        "x": 90.7459391122082,
+        "y": 75.84375002384186,
+        "z": -20.259893532593463,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801673
+        }
+      },
+      "distance": 6.536813052840393,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 14836,
+      "bot": {
+        "x": 89.74660911987036,
+        "y": 76.00133597911214,
+        "z": -26.76133334639695
+      },
+      "player": {
+        "x": 92.5549258370496,
+        "y": 75.84375002384186,
+        "z": -22.455589705852507,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801679
+        }
+      },
+      "distance": 5.140629444151492,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 15106,
+      "bot": {
+        "x": 90.20679076848018,
+        "y": 76.02442408821369,
+        "z": -26.610761173425786
+      },
+      "player": {
+        "x": 93.61201716586052,
+        "y": 75.84375002384186,
+        "z": -24.3017578125,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801684
+        }
+      },
+      "distance": 4.114251248791511,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 15378,
+      "bot": {
+        "x": 90.54731094847897,
+        "y": 76,
+        "z": -26.493538084903015
+      },
+      "player": {
+        "x": 94.83012254617404,
+        "y": 75.84375002384186,
+        "z": -25.672729624596336,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801690
+        }
+      },
+      "distance": 4.360757011100532,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 15645,
+      "bot": {
+        "x": 90.5623753278388,
+        "y": 76,
+        "z": -26.490183706587946
+      },
+      "player": {
+        "x": 96.27293430758817,
+        "y": 75.84375002384186,
+        "z": -24.79232941548993,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801695
+        }
+      },
+      "distance": 5.9576163903860255,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 15920,
+      "bot": {
+        "x": 90.5623753278388,
+        "y": 76,
+        "z": -26.490183706587946
+      },
+      "player": {
+        "x": 95.4048104574837,
+        "y": 75.84375002384186,
+        "z": -24.319489673414843,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801701
+        }
+      },
+      "distance": 5.306702419626753,
+      "pending": true
+    },
+    {
+      "phase": "Riding",
+      "t": 16188,
+      "bot": {
+        "x": 90.5623753278388,
+        "y": 76,
+        "z": -26.490183706587946
+      },
+      "player": {
+        "x": 94.34600307467065,
+        "y": 75.84375002384186,
+        "z": -23.149708673419656,
+        "facts": {
+          "onGround": false,
+          "fallFlying": false,
+          "riding": true,
+          "bounds": {
+            "width": 0.6,
+            "height": 1.8
+          },
+          "dimension": "minecraft:overworld",
+          "sourceTick": 5801706
+        }
+      },
+      "distance": 5.047238093632653,
+      "pending": false
+    }
+  ],
+  "receipts": {
+    "teleport": {
+      "status": "failed",
+      "checked": false,
+      "commandId": "82876dcb-9d21-48b1-9c33-324bb7aacc5c",
+      "endReason": "target_unreachable",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 92.57915704896298,
+          "y": 75,
+          "z": -27.328960401596625
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:cooked_mutton"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": false
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 1,
+        "connectionId": "23b07d7b-d25f-488f-a73d-fc56622d9af7"
+      }
+    },
+    "riding": {
+      "status": "ok",
+      "checked": false,
+      "commandId": "531d5b24-eca0-422b-8e07-91782c0bf81f",
+      "endReason": "timeout",
+      "resultPhases": {
+        "requested": true,
+        "accepted": true,
+        "clientExecuted": true,
+        "serverSettled": false,
+        "unobserved": [
+          "serverSettled"
+        ]
+      },
+      "finalSnapshot": {
+        "position": {
+          "x": 90.5623753278388,
+          "y": 76,
+          "z": -26.490183706587946
+        },
+        "health": 20,
+        "food": 20,
+        "heldItem": "minecraft:cooked_mutton"
+      },
+      "postCondition": {
+        "kind": "none",
+        "target": 0,
+        "actual": 0,
+        "met": true
+      },
+      "world": {
+        "worldId": "connection-scoped",
+        "dimension": "minecraft:overworld",
+        "connectionGeneration": 1,
+        "connectionId": "23b07d7b-d25f-488f-a73d-fc56622d9af7"
+      }
+    }
+  },
+  "facts": {
+    "walking": {
+      "onGround": false,
+      "fallFlying": false,
+      "riding": true,
+      "bounds": {
+        "width": 0.6,
+        "height": 1.8
+      },
+      "dimension": "minecraft:overworld",
+      "sourceTick": 5799907
+    },
+    "riding": {
+      "onGround": false,
+      "fallFlying": false,
+      "riding": true,
+      "bounds": {
+        "width": 0.6,
+        "height": 1.8
+      },
+      "dimension": "minecraft:overworld",
+      "sourceTick": 5801382
+    }
+  },
+  "verdict": "PASS",
+  "analysis": {
+    "teleportEndReason": "target_unreachable",
+    "teleportJumpDetectedMs": 12,
+    "teleportTrackingLoss": false,
+    "ridingFact": true,
+    "ridingEndReason": "timeout",
+    "ridingTrackingLoss": false
+  }
+}
