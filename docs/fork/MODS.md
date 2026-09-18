@@ -1,7 +1,183 @@
-﻿# AIRI fork mods（本地魔改记录）
+# AIRI fork mods（本地魔改记录）
 
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
+
+## B-08 特殊弹药扩充：效果回读与烟花弩链路（2026-09-17，客户端 0.2.29→0.2.34，服务端 0.2.16→0.2.29）
+
+**效果回读通道**：服务端实体详情新增 `effects`（id/amplifier/duration），光谱箭命中回读 `glowing`、迟缓药水箭回读 `slowness`，均为真机通过。**弹种取档**：模组 `combat_status` 新增 `projectiles`（各远程武器下一发弹丸；弩含"已装填/无箭时优先箭、否则烟花"的原版取弹顺序），宿主在任务前读取并传给 `resolveWeaponProfile(weapon, ammo)`（带回归测试），回执 `profileId` 正确给出 `spectral-arrow`/`tipped-arrow`/`firework-rocket`。
+
+**烟花弩**：模组补齐预检（烟花可作弩弹药）、弹药计数、投射物识别（`FireworkRocketEntity`）与"烟花无重力直线瞄准"；原版机制要求**副手持有烟花**（`getSupportedHeldProjectiles`=ARROW_OR_FIREWORK，`getAllSupportedProjectiles`=ARROW_ONLY），模组因此在无箭时自动把烟花移入副手并补发 `SetCarriedItem`（服务端此前手持槽从未同步，一并修复：`selectWeapon`/`selectRiptideTrident` 同时补包）。真机：宿主档案链路 ✓、**用户手装填后发射链 ✓**（`fired 1`、`verifiedBy projectile`、回执 `profileId firework-rocket`）。
+
+**F-28 已修（0.2.32/0.2.33）**：根因是弩的 `useOnRelease()==true`（按住永不自动完成）且 `tryLoadProjectiles` 只在 `releaseUsing` 中调用——原版装填发生在"松开"那一刻（此前 F-25 之前是原版输入路径过早松手、F-25 之后是模组从不松手，两次 `load_timeout` 都被解释）。修复：按住 ≥30 tick 后主动松手并循环等待（每轮一次松手），副手烟花计入预检与弹药计数。真机连续两轮 `fired 1`、`profileId firework-rocket`、爆炸伤害 45→28.4→11.5。**B-08 转 PASS（带范围）**：未单独验收喷溅/滞留药水（投掷路径 `game_use` 抽测 `equipped`/`used` ✓，弹道未瞄准未命中）。
+
+**B-08 全范围收尾（0.2.34）**：喷溅/滞留药水此前投掷未瞄准（`interact.useEntity` 只做实体交互、药水沿视线扔出）→ 改为手持投掷药水时先瞄准目标再 `useItem`。真机：喷溅毒药 → 靶 `poison` 587 tick、掉血；滞留迟缓 → 靶 `slowness` 434 tick（滞留云生效）。**B-08 转 PASS（全范围）**。
+
+另记录环境事故更正：服务端多次 `Can't keep up`（`Running 13172226ms/16612981ms behind`）为**机器休眠**（挂起数小时）所致，与轮询无关；恢复方式为重启客户端 + 玩家重进。
+
+## M-04/M-05/B-05/B-06 用户配合验收（2026-09-17）
+
+用户与 bot 同服，一次会话完成四项，全部 PASS：
+
+- **M-04 他人同时挖同一区域**：同区他人掉落在场时账本只记自己可证明的 `count 1 / lowerBound 1 / fuzzy 0`；用户抢拾（站在目标块上）→ `broken_no_product` + `fuzzy 1`，不伪造产出。
+- **M-05 他人扔物/合并/拆分/被捡**：用户扔 5 个鹅卵石（4 个实体、含拆分合并）后 bot 破块收取，账本仍 `count 1`；实体 4→2（1 收 + 1 合并）不影响。
+- **B-05 友军站在弹道**：`friendly_blocked` 零耗弹（箭 260→260）；走开后 1 发命中（45→39）。
+- **B-06 目标离开/读数晚到/两人同射**：目标中途消失与箭在途死亡都是 `hitEvidence unobserved`（不把预测写成命中）；两人同射 → `killed true` + `killEvidence projectile` 如实归属。
+
+过程备注：`game_break` 不走位（`out_of_reach`，需 `move_to` 或预置位置）；首次换工具出现一次 `data_unavailable`（`equip did not verify`）瞬态，重试通过。证据 [evidence/live-acceptance-20260916/m4-m5-b5-b6.md](./evidence/live-acceptance-20260916/m4-m5-b5-b6.md)。
+
+## CD-B2 移动靶命中核验：F-24/F-25/F-26 修复链（2026-09-17，客户端 0.2.22→0.2.28）
+
+在用户新建的短轨往返矿车夹具（x240.5，z −36.5…−23.5，周期 5.6 s）上完成 B-02 命中核验。三个缺口逐个定位并修复：
+
+**F-24 骑乘目标无速度**：乘客自身 `motion` 恒为 0（载具在动）→ 预判前置为 0，12 发全空。宿主在 `riding` 时改读载具速度（新增回执字段 `observedSpeed`，真机 5.17–6.37 格/秒，带回归用例）；客户端瞄准三源（载具运动/实测位置差分/自身），因载具客户端值有 0 与尖峰噪声而实测差分优先，`aimLead` 进战斗状态可审计。
+
+**F-25 聚焦窗口蓄力被重置**（用户观察）：原版输入路径仅在无菜单时运行 `if (isUsingItem && !keyUse.isDown()) releaseUsingItem`，模组只用 `gameMode.useItem` 蓄力、从不按住 `keyUse` → 失焦（暂停菜单）时蓄力正常、聚焦时无法完成。修复：蓄力/装填/三叉戟期间按住 `keyUse`，释放/中止/终止路径全部松开；反编译核对不会重启蓄力。真机：聚焦窗口静止靶 45→37 命中 ✓。
+
+**F-26 移动靶最后一公里**：释放包不带旋转（服务端用上一 tick 的滞后角度出箭）+ 客户端插值位置滞后服务端 3–5 tick → 箭落点≈发射瞬间靶位。修复：释放前补发 `ServerboundMovePlayerPacket.Rot`（同连接有序）；前置追加固定 3 tick 插值补偿；`release`/`aimLead` 快照进战斗状态（模组自证）。
+
+结果：前 3 发对在途骑手 **3/3 命中**（6/8/8 伤害；前置 2.79 格、满蓄力箭速 2.97、`leadSource measured`）；第 4 发箭击中车体摧毁矿车（F-27 夹具注意项），后续退化为静止靶。**B-02 转 PASS**。证据 [evidence/live-acceptance-20260916/b02-moving-hit-v2.json](./evidence/live-acceptance-20260916/b02-moving-hit-v2.json)、[b02-rail-cart-90s.json](./evidence/live-acceptance-20260916/b02-rail-cart-90s.json)。
+
+## 小批次快赢：L-08 注入验证与 F-20 结案（2026-09-17）
+
+**L-08 PASS（注入）**：迟到观测不复活已结束的跟随、重复命令去重、旧响应/低序号丢弃、不可读玩家态拒绝均已有覆盖；本轮补上**零坐标伪造**缺口——`snapshotFrom` 不再用 `Number(x) || 0` 把缺失坐标当原点，observe 回执 `missing` 标注 `self`，回归用例断言宿主报 `check_failed: fresh_state`（无位置读数不核验命令）。game-host 定向 index.test.ts **151 通过**。
+
+**F-20 结案：误报**：客户端模组早已实现 `player.respawn`；先前报 `unknown_method` 是手动调用打到了服务端桥。真机复验：`kill airitest` 后宿主 `game_respawn` → `endReason: respawned`、`respawned` 带回新位置、血量恢复 20。遗留小项：服务端桥暴露 client-only 工具并以 `unknown_method` 回答（工具面过滤，随 OV 线处理）。证据 [evidence/live-acceptance-20260916/f20-respawn.mjs](./evidence/live-acceptance-20260916/f20-respawn.mjs)。
+
+## 小批次快赢：B-03 通过、B-02 完成专项（2026-09-17）
+
+靶道新增 **B-03** 抽测：静止靶 12/12；把羊持续抛接（释放时刻随机处于空中、落体速度真实）11/12，`predictedFlightTicks 5` 与实际一致 → **PASS**。**B-02** 专项完成：A 线矿车匀速 4.3–4.5 格/秒，射手移到墙以南后 6/6 发射，逐发 `predictedFlightTicks 4`、`closestDistance 0`、瞄准点前置约 1.6 格（方向正确）。**F-23 结案：非缺陷**——拒绝来自射击线上的金合欢墙，地形避让正确工作（顺带验证 CD-B3 真机生效）；为此给拒绝回执增加 `refusalDetail` 并加被挡格调试日志。**F-22 已修**（走廊用 detailed 精确碰撞盒 + 目标格 ±1 豁免）。B-02 余下仅"命中核验"受靶型限制：矿车不留可归属命中证据，下一版夹具建议 `/ride` 盔甲架上矿车判击杀。回归 790 通过。
+
+
+## CD-V 载具批次完成（用户夹具，2026-09-17）
+
+在用户搭建的 2 格厚平台夹具上完成 CD-V 真机验收：**V-03/V-04/V-05/V-06/V-07/V-08/V-09/V-10 通过**（马按 UUID 选择 + 实测蓄力跳越墙、矿车拉杆机关起步→分歧→站台、行驶中取消保持骑乘、无安全下骑点判定 `unsafe_dismount`、载具被毁 `vehicle_lost`、换维度 `dimension_changed`）；**V-01/V-02 部分通过**（船取得/放置/直段航行 ✓，夹具第三水道急斜段仍卡，水路航点跟随已实现待调参）。
+
+本轮修复：F-14 船放置选水面+瞄准稳定、F-15 矿车轨道格读取、F-16 矿车骑乘校验、F-17 下骑支撑核对、F-18 滑行判定；新增 F-19 拉杆机关交互与水路 BFS 航点；撤回 F-13（夹具封顶假阳性）。记录 F-20（服务端 `respawn` 工具存在但桥方法缺失）。全套定向测试 **790 通过 / 1 跳过**。证据 [evidence/live-acceptance-20260916/v-deck.md](./evidence/live-acceptance-20260916/v-deck.md)。
+
+## CD-V 载具第一批与 F-11…F-14（2026-09-17）
+
+载具回执接线（F-11）：`VehicleReceipt`（取得方式/UUID/里程/停靠/是否下骑/阶段）此前只算不报，现已进入命令结果（`command-registry` + `index.ts` + 共享契约），并加脚本化船行程集成测试。挂载确认竞态（F-12）：`board_vehicle` 成功后 riding 需 ~150–400 ms 才生效，宿主立即回读误判 `not_controllable` → `confirmControl` 改为有界重试（8×100 ms），回归测试覆盖。
+
+真机结果：V-03 水中央取消 ✓、V-04a 马取得/乘坐/reached ✓、V-04b `not_tamed` ✓、V-10a `no_materials` ✓、V-10c `rail_not_powered` ✓；**F-13（新）模组按键输入不驱动已乘船**（船位零变化，阻塞 V-01a 行程/V-02/移动中取消）、**F-14（新）船 `prepare_owned` 放置不计耗材不生成实体**（阻塞 V-01b）；V-06/V-08 夹具（`powered_rail[shape=east_west]` + 红石块 + 挡块起步）已定位待重跑。证据 [evidence/live-acceptance-20260916/v-batch1.md](./evidence/live-acceptance-20260916/v-batch1.md)。
+
+## CD-B1/CD-B9 全量矩阵（2026-09-17，客户端 0.2.19）
+
+30 发/条件的验收矩阵（[b1b9-matrix30.json](./evidence/live-acceptance-20260916/b1b9-matrix30.json)）：B-01 地形组 240 发 239 中（平地 10/20/40 = 100%/100%/96.7%，上坡 100%，下坡 100%；唯一脱靶为 40 格散布，命中余差 P50 −0.64 格）；B-09 速度组蓄力 5 tick 整组正确拒绝、10/15/20 tick 各 30/30（预测 17/10/7 tick 与实际一致）；B-09 姿态组潜行 30/30（宿主潜行眼高假设差约 0.35 格已记录）。B-01/B-09 在清单中转为 PASS（可达条件），未覆盖项（滑翔/骑乘射击、移动射击、其他版本）列入后续批次。
+
+## CD-B1 弹道接线与地形避让（2026-09-17，客户端 0.2.18/0.2.19）
+
+**F-08 修复（0.2.18）**：客户端 `BotController.aimAtTarget` 不再直视目标点，改为本地跑与宿主档案同源的弹道模型（重力 0.05、空气惯性 0.99、出生点 `eyeY-0.1`、弓蓄力速度曲线、弩 3.15/1.6、三叉戟 2.5），逐 tick 解发射俯仰角（候选 −80°…+80° 粗扫 + 两轮细化 + 逐拍模拟，评分=最早命中 → 最平弧线 → 最近接近）；预判用解算飞行时间迭代两轮。靶道复验：平地 20/40 格从 0% → 100%（落点从瞄准点下 1.0 格抬到 0.3–0.5 格内）。
+
+**地形避让（0.2.19 + 宿主）**：客户端候选弹道逐拍用 `Level#clip`（COLLIDER）查方块碰撞，被挡候选作废；宿主射击执行器新增走廊区域读取（`get_blocks_region` 含空气，缺失格按 `unknown` 遮蔽）并把 `isObstacle` 传入 `planShotFromObservation`，解不出干净弧线时 `no_ballistic_solution` 拒绝且保留弹药。靶道最终矩阵：**可达条件 80/80 全中**（平地 10/20/40、上坡 10/20、下坡 10/20/40），上坡组从 40%/70% → 100%；下方平台组因几何不可达正确拒绝。
+
+**夹具与遗留**：目标加 `knockback_resistance=1.0` 规避 F-09（击退残速 × 全程飞行时间的预判把瞄准点推过静止靶或推入墙体）；F-09 的真实修复属 CD-B2 目标模型迭代；F-10 记录“下方平台组”条件无效。宿主新增“走廊墙后目标 → 解出越墙弧线”的集成测试（`index.test.ts`），game-host 定向测试 782 通过。证据 [evidence/live-acceptance-20260916/b1-range.md](./evidence/live-acceptance-20260916/b1-range.md)。
+
+## CD-B1 靶道矩阵与 F-08 发现（2026-09-17）
+
+用户在旧鞘翅起飞台位置新建靶道（主平台 x42–44、y140、z−64…−15；南端 ±10 各一个 3×3 高/低台）。矩阵（10 发/条件，白板弓满蓄力）：平地 **10 格 100%**、**20/40 格 0%**；上坡（目标 +10）10 格 **40%**、20 格 0%；下坡 10/20 格 **100%/90%**、40 格 0%。全部回执 `closestDistance 0`、`arc low`。
+
+落点实测（射 3 格石墙、瞄准 y142、20 格）：箭停留于 y≈141.006 → **下垂约 1.0 格**，正对平地羊中心时箭头扎进地板，故 ≥20 格平地命中率为 0；下坡时下垂与下降对齐所以命中。**F-08**：客户端 `aimAtTarget` 线性预判 + 固定初速、无重力补偿，宿主弹道解（预测命中）不是实际执行路径——正是设计里"客户端瞄准未替换"的实测确认。B-01 剩余条件、B-09 正式标定受阻于该缺口；修复方案（把弹道解接入客户端逐 tick 瞄准或先加重力补偿）待用户排期。证据 [evidence/live-acceptance-20260916/b1-range.md](./evidence/live-acceptance-20260916/b1-range.md)、[b1-range.json](./evidence/live-acceptance-20260916/b1-range.json)。
+
+## CD-B 短距批次验收（B-04/B-07/B-10 通过，B-01/B-08 部分）（2026-09-17）
+
+10 格已验证干净线（白板弓、400 HP NoAI 靶羊）。**B-01** 10 格组 **30/30 命中**（单发伤害 6–10）；20/28 因庭院内结构阻挡（用户确认）数据无效，40 与 ±10 高差待用户搭无遮挡靶道。**B-04** 无箭 `no_ammo` 零发射；每发 `projectileUuid`、箭 64→61。**B-07** 正常投掷 `returned: true`；轮询捕捉投出（1311ms）后立即取消 → `cancelled`+`shots:[1]`，6 秒后三叉戟自动回包（回返跟踪不受取消影响）；蓄力中取消零发射、物品保留。**B-08** 光谱箭（发射/伤害 8）与雪球投掷（8→7）✓；烟花弩 `load_timeout`（活路径只认箭类）；药水箭与效果回读未覆盖。**B-10** 预测 `closestDistance 0` 而实际被玻璃拦截（伤害 0、玻璃完好）——未接地形回调的差异如实记录。
+
+证据 [evidence/live-acceptance-20260916/b-items-short.md](./evidence/live-acceptance-20260916/b-items-short.md)。
+
+## CD-M1 验收（M-01/02/03）与 CD-M2/M3 自动化验收通过 + F-07 修复（2026-09-16/17）
+
+**M-01/02/03**（8 例）：资格 6 例（石+镐、石+斧拒绝、钻石矿+石镐拒绝、空手拒绝、原木+斧、小麦+空手）、主背包换槽、耐久策略全部通过（survival 模式；`instant` 为该桥创造专属）。**M-06** 背包满 `inventory_full` 开挖前拒绝；**M-07** 1 格凹洞拾取 `actual 1`、3 格不可达 `dropPosition` 如实；**M-08** 黑曜石 1.5 秒取消 → `cancelled`、方块完好；**M-09/M-10** 默认结构化前置（missing oak_log）+ 2×2 制作（木板 10/木棍 4 保留）、工作台步骤 `upgrade_incomplete`（设计边界）。
+
+**F-07 修复**：宿主采掘端口调用 `mine_evaluate_harvest`/`mine_break_evidence`，桥实际暴露 `evaluate_harvest`/`get_break_evidence` → 评估永远失败、静默回退手动破坏（首跑 8/8 无 `tool`/`rejection`）。改名对齐、`SERVER_FIRST_TOOLS` 与能力表（`break-evidence` 加 `get_break_evidence`）同步、单测 mock 同步；game-host 定向 **781 passed / 1 skipped**；重建重启后 8/8 通过。
+
+途中观察：命令未结束时发起第二个写命令被拒为 `busy: <commandId>`（单写者契约成立）；取消场景需用慢方块（铁矿石 900ms 内已挖掉，黑曜石稳定）。证据 [evidence/live-acceptance-20260916/m1-eligibility.md](./evidence/live-acceptance-20260916/m1-eligibility.md)、[m2-m3.md](./evidence/live-acceptance-20260916/m2-m3.md)。
+
+## L-07 真机验收通过 + CD-L 收尾（2026-09-16）
+
+L-07 姿态/骑乘/瞬移：服务端详情读的走路/骑乘/滑翔三态字段与实际一致；跟随中把目标命令瞬移约 100 格（同维度），跳跃在 **12ms** 检出、追踪无丢失（收尾 `target_unreachable` 属跨地形腿失败）；骑乘跟随 `timeout` 正常。首轮脚本因采样起点晚于瞬移未检出跳跃，修正（瞬移前种子）后复测通过。证据 [evidence/live-acceptance-20260916/l07-pose-teleport.md](./evidence/live-acceptance-20260916/l07-pose-teleport.md)。
+
+**CD-L 十项（L-01 至 L-10）全部通过**，含本轮修复的 F-01（停车半径）与 F-02（远距初解析）。
+
+## L-04/L-05 真机验收通过（2026-09-16）
+
+L-04 维度切换：目标走进庭院新建的下界传送门，跟随 **759ms** 后以 `target_dimension_changed` 收尾（`met: false`）、未向错误维度发移动；返回主世界后第二条跟随 `timeout` 正常。L-05 目标离线：目标关闭客户端后 **1.87 秒**以 `target_offline` 收尾（`met: false`），非 `target_lost`；权限/超时变体由 L-09 的 `locator_unavailable` 覆盖。证据 [evidence/live-acceptance-20260916/l04-l05.md](./evidence/live-acceptance-20260916/l04-l05.md)。
+
+## L-02/L-06 边界往返与远离返回验收通过（2026-09-16）
+
+发射台起跟随（`travelMode: auto`，keep 3）。目标飞离最远 **269.3 格**、横跨约 900 格后返回并落回她附近 **1.0 格**：全程 **0 条**跟踪失败日志（`waiting_for_target|target_lost|target_not_in_read|locator_unavailable|entity_unloaded`）；她评估起飞并空中跟随（251 条 `air-follow` 日志），收尾（外部脚本保护性取消）进入有界安全降落并安全着陆（health 20）。证明范围：服务端详情读对在线玩家全距离有效，本次来源始终 `server-entity`、**未触发**精细→粗切换（滞回由 `target-tracking.test.ts` 单测覆盖；粗路径由 L-01/L-03/L-09 覆盖）。
+
+新发现 **F-06**（清单发现跟踪，低优先）：`auto` 的 F-05 守卫只覆盖滑翔目标；目标在空中但未滑翔（创造悬停）时，地面腿仍会把圆环站位瞄准目标高度，可能再次搭塔/搭桥追空。本轮由外部脚本取消，未复现完整风险路径。证据 [evidence/live-acceptance-20260916/l02-l06.md](./evidence/live-acceptance-20260916/l02-l06.md)。
+
+## L-09/L-10 真机验收通过（2026-09-16）
+
+L-09 双端点拓扑：服务端 25602 的 `get_entity` 返回 24 字段（含 `fallFlying`、`bounds`、`sourceTick`、`dimension`），客户端 25600 不提供 `get_entity`，`get_self` 只在客户端——与 `SERVER_FIRST_TOOLS` 路由、`preferDetail` 门槛一致。降级：跟踪中杀掉 25602 进程，跟随 17.4 秒以 `locator_unavailable` 类型化收尾（`met: false`），非 `target_lost`、无崩溃；随后恢复 25602 与 AIRI。L-10 取消收敛：`game_cancel` 回执延迟 218ms、终态 `cancelled`；取消后 8 秒位移 0.00；`game_status` 保持终态不复活。证据 [evidence/live-acceptance-20260916/l09-l10.md](./evidence/live-acceptance-20260916/l09-l10.md)。
+
+同批环境：用户关机导致服务端/客户端/MCP 全部退出，按 `mcserver-wrap` → `launch-client.mjs` → `mcp-wrap-25600`（指向 bot 桥 25601）→ `mcp-wrap-25602` 恢复。
+
+## F-01 停车半径修复与真机抽检通过（2026-09-16）
+
+用户裁定选项 B：`keepDistance` 改为停车半径。跟随腿的规划目标从目标格改为"以目标为圆心、`keepDistance` 为半径"的圆环站位（`FOLLOW_RING_TOLERANCE = 0.75`），进入半径即停、目标走近不后退；粗定位 8 格会合语义不变。回归：新增圆环站位用例、更新旧用例读窗口期望；game-host 定向 **781 passed / 1 skipped**；typecheck 0；重建重启。真机抽检（羊目标 6 格、keep 3）：最小=最终 **2.77 格**（对照修复前 0.14/0.92；玩家目标曾 0.00）。证据 [evidence/live-acceptance-20260916/f01-standoff.md](./evidence/live-acceptance-20260916/f01-standoff.md)。
+
+同批记录环境事故恢复：抽检前 MC 服务端、双客户端与双 MCP 全部退出；按 `mcserver-wrap` → `launch-client.mjs`（bot gameDir）→ `mcp-wrap-25600`（已修正指向 bot 桥 25601）与 `mcp-wrap-25602` 顺序恢复，服务端 `Done (1.344s)`。
+
+## 跨线批次影响标记（2026-09-16，文档）
+
+按[跨线执行顺序](./cross-line-execution-order.md)（用户定稿）与 OV/TG 计划逐项对照，在[验收清单](./capability-deepening-acceptance-checklist.md)新增 §8"跨线批次影响标记"：L-03 的 PASS 只对当前构建有效（OV-1 改 `entities.query` 字段与排序，落地后做增量复核）；L-02/L-09 在 OV-1 后各补一条字段/能力增量；E/FS 的"起飞可用性、边缘起飞假设、间距带与能耗阈值"只取 LR-0 后的临时基线，起飞语义待 OV-5 修正（`launch_unavailable` 不作最终上限）；烟花经济不作判据；M/B/V、L-04..L-08/L-10 与 RS 不受影响、照常验收。本轮仅文档；对照依据为 OV-D2/OV-D16/OV-5、TG-3。
+
+## 远距伴飞设计定稿（2026-09-16，未实施）
+
+新增[远距伴飞设计](./long-range-escort-design.md)：把"追不上"变成可判断、可商量、可终止。要点：`game_follow` 的 auto 内增加 `escort: off|suggest|on`（不新增模型工具）；乐观预算门（`fireworks - reserve` 对比含地形系数的乐观需求，不足则 `cannot_catch_up`，不点火不搭塔）；协同建议（`game_say`，频率上限，配合只作收敛加成）；爬升-滑翔能量管理 + 5 秒闭合窗口（连续 2 个 ≤0 则 `escort_inconclusive` 转安全降落）；类型化终态与回执扩展（闭合速率、每公里烟花、剩余储备、建议次数）；并顺带纳入未接线的实验改动：`planRollout` 候选动作替换 `air-track` 阈值打舵、`planCorridor` 接跟飞驱动、策略流先按轮询、标定前默认关闭。批次 LR-0（与验收清单 B0 接线批为同一批工作）至 LR-4。
+
+本轮仅新增文档；文档定向 ESLint 通过。
+
+## F-04 复验通过 + 水上平台落水观察（2026-09-16）
+
+实心地面落点复验：目标落地后她完成空地交接（`modeSwitches: 2`），从 17.3 格步行到距目标 **1.0 格**并陪站 110 秒；回执 `cancelled`（用户主动停止）。陈旧目标与 `target_unreachable` 未再出现，F-04 修复成立。F-05 守卫保持有效：目标滑翔期间无地面追空；评估拒绝日志实测记录过一次 `launch_unavailable`（落点无起飞边缘，属诚实拒绝）。
+
+另记水上平台落水：跟飞进近在 d≈8.1 悬停约 30 秒（无烟花消耗）后 `safety-landing → terminated`，机器人落水（health 20，后传送回平台）。水面落点选择与 `landing_in_water` 类型化结果属 CD-E3（未接线）范围，不计跟随缺陷；进近为何在 8 格处悬停留给 CD-E3 验收核对。原始日志片段 [air-follow-water-platform.log.txt](./evidence/live-acceptance-20260916/air-follow-water-platform.log.txt)。全部证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## F-05 目标滑翔时地面跟随搭塔追空修复（2026-09-16）
+
+F-04 复验运行中机器人阵亡：目标滑翔在附近时，地面腿对空中的目标格规划成功（搭塔到 y142、把空中格记为"到达"），随后的腿通向空中目标，她走出台缘从 y142 摔到 y86；命令 `target_unreachable`。修复：细观测 `fallFlying === true` 且存在空中控制器时跳过地面腿、等待空中决策；空中评估拒绝原因加入调试日志（`air-follow: launch assessment refused: <reason>`）。高草假设在上一轮已排除。game-host 定向 **780 passed / 1 skipped**；typecheck 0；重建重启，待复验。证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## F-04 空地交接陈旧目标修复（2026-09-16）
+
+第二次滑翔跟随（跟随下降着陆）在着陆后报 `target_unreachable`。日志显示第一条地面腿 goal=(60,137,-44)——起飞前约 30 秒的空中位置，距着陆点 143 格，规划直接 `search_budget`；起飞前的 2 次地面腿失败与落地后的 1 次合并成 3 次连续失败。修复：空中到地面的干净交接分支清空共享 `target`、重置 `consecutiveFailures` 并 `continue`，先刷新观测再规划。同时排除用户提出的高草假设：`tall_grass` 由 `_grass` 后缀放行，纯地面跟随在同片草坡 5.8→2.3 格。game-host 定向 **780 passed / 1 skipped**；typecheck 0；重建重启，待真机复验。证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## 空中跟随首次真机冒烟与 F-03 修复（2026-09-16）
+
+F-03 复现：滑翔目标下 `assessHostAirLaunch` 报 `cannot_air_follow`（只数快捷栏/主背包鞘翅，不认穿戴）。修复：评估改读装备槽（`equipmentItemIdOf`），+1 回归，game-host 定向 **780 passed / 1 skipped**，typecheck 0，重建重启。
+
+真机冒烟（非正式；CD-F/CD-E 属 B 类，正式验收待接线批）：机器人传送发射台 (48.5, 141, -15.5)，用户滑翔绕行。修复后起飞成功（`launchAttempts 1`、y141 起飞、观测到 `fallFlying`），空中 33.3s、间距带（12–24）内 45.7%、烟花 19 发、模式切换 1 次、目标丢失 0；结束 `low_health`/`landingVerified: true`，命令 `touchdown_unverified`、`met: false`，随后机器人阵亡于 (-378.7, 164, -93.5)，已 `game_respawn` 复活。45.7% 相对 80% 门槛偏低，但目标是高速大范围绕行（10 秒内从 x-339 到 x-425），属极端场景，待温和目标复测。证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## F-02 远距初解析修复与复测（2026-09-16）
+
+L-03 之后的远距探测确认：跟随开始时目标玩家在 64 格外且实体列表未截断时，`resolveFollowTarget` 只在截断分支回退玩家列表 → 实测 124.4 格、289ms `target_lost`。修复：实体查询未命中时总是回退服务端玩家列表（`truncated` 仍用于区分 `target_not_in_read`），新增回归 1 条。`game-host` 定向 **779 passed / 1 skipped**；桌面包 typecheck 0；构建重启后复测同距离解析成功（`timeout` 收尾）。证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。遗留观察（F-03 候选）：起飞评估 `assessHostAirLaunch` 只数快捷栏与主背包的鞘翅，不认已穿戴的胸甲鞘翅；待滑翔真机复现。
+
+## 能力深化验收 L-03：截断列表语义通过（2026-09-16）
+
+庭院里用 105 只带标签的 NoAI 羊（清理前先清空掉落表）+ 悬浮 Lumi 构成 200+ 实体。**(b)** 非玩家目标在截断返回（217 total / 100 returned）之外 → 264ms `target_not_in_read`，不是 `target_lost`。**(a)** 玩家目标被挤出前 100（截止 9.2 格、玩家 18.0 格）→ 名字解析走服务端玩家列表回退成功，4.3 秒走到目标，回执 `timeout`/`met: true`。夹具首版 95 只羊 + 落地 Lumi 时前 100 截止被羊群与 5 只炽足兽推到 23.7 格，Lumi 排进第 100 名被正常跟随；修正后通过。F-01 追加数据点：玩家目标下 `keepDistance: 3` 仍走到距离 0.00。清理核对：tag 查询与掉落物品均为零；剩余羊只命中用户远处饲养的 3 只。证据 [evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## L-01 修复与复测通过（2026-09-16）
+
+修复上一项发现的有界失败缺失：`movement/target-tracking.ts` 只让终态 forced 原因（`target_offline`、`target_dimension_changed`）短路等待窗口，非终态的 `entity_unloaded`/`locator_unavailable` 只作诊断、等待预算继续计时，且终态不被后续非终态读取降级；`index.ts` 跟随循环在 `outcome` 为终态时立即结束。新增回归 4 条（tracker 2、follow 2）。`game-host` 定向 **778 passed / 1 skipped**；桌面包 typecheck 0；构建重启后真机复测：目标移除 14.1 秒（3 秒转等待 + 10 秒预算）以 `entity_unloaded` 结束，`status: failed`、`met: false`；同名新羊不顶替仍成立（最近 9.92 格）。残留观察：`keepDistance` 未形成停车半径（单腿最近 0.14、终点 0.92），语义待复核。
+
+证据：[evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。
+
+## 能力深化验收 L-01：同名不顶替通过，有界失败缺失（2026-09-16）
+
+按[剩余真机验收清单](./capability-deepening-acceptance-checklist.md)开跑第一项。夹具：NoAI 羊 `Lumi`，跟随中 `remove_entity` 再生成同名新羊。结果 **PARTIAL**：**同名新实体不顶替 PASS**（按 uuid 固定，B 最近距离 8.08、无接近趋势）；**目标消失后的有界类型化失败 FAIL**——跟随运行满 `timeoutSeconds: 40`，回执 `endReason: timeout`、`status: ok`、`met: true`，`entity_unloaded`/`waiting_for_target` 未出现。
+
+只读根因：`index.ts:3383` 对非玩家目标消失调用 `forceOutcome('entity_unloaded')`；forced 在 `target-tracking.ts:197-210` 是粘性的；跟随循环唯一有界收尾分支（`index.ts:3352`）只认 `waiting_for_target`，于是空转到期限并按初始值 `timeout`（`index.ts:3262`）结算；`timeout` 不在 `command-contract.ts:758-777` 的失败清单里，完成门记为成功。玩家目标走 `offline` 直接 break，不受影响。附带观察：`keepDistance: 3` 未形成停车半径（单腿最近 0.07 格、终点 0.92 格），语义待复核。
+
+证据、时间线与复现脚本：[evidence/live-acceptance-20260916](./evidence/live-acceptance-20260916/)。未改产品代码；修复另开批次并复验。
+
+## 能力深化剩余真机验收执行清单（2026-09-16，待执行）
+
+新增[能力深化剩余真机验收执行清单](./capability-deepening-acceptance-checklist.md)：把[总方案](./capability-deepening-plan.md)中代码已落地、真机未验收的专题分成三类——**A 可直接验收**（CD-L 目标追踪、CD-M 采掘、CD-B 弹道、CD-V 载具）、**B 需先接线**（CD-E 鞘翅驾驶路径与粗走廊未接 live 驾驶；CD-F 跟飞驱动与 2–5Hz 更新流未接线）、**C 阻塞**（RS 等 Litematica 产物与甘蔗机蓝图）。清单含平台现状核对（服务端 0.2.16、客户端 0.2.17、25600→bot 25601、25602→服务端 25598、CDP 9222）、每轮前置检查、脚本运行环境（`@modelcontextprotocol/sdk` 解析）、人工配合与天空旁观分工、逐项场景表（L-01…L-10、M-01…M-10、B-01…B-10、V-01…V-10、E-01…E-10、F-01…F-09）、已验收基线（CD-0/CD-G 等不重复）与结果登记表。
+
+本轮仅新增文档；只读核对了平台在线状态（`get_self` 确认 25600 驱动 `airitest`），未重启服务、未改配置、未操作真机。
 
 ## 真机验收：地面走廊与 CD-0 身份（2026-09-15，客户端/服务端 0.2.16）
 

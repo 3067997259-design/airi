@@ -32,6 +32,9 @@ export default defineConfig({
     // The movement-corridor harness scripts are standalone Node programs
     // (top-level await, console output); their bytes are the evidence.
     'docs/fork/evidence/movement-corridor-acceptance-20260915/**/*.mjs',
+    // The live-acceptance harness scripts are standalone Node programs
+    // (top-level await, console output); their bytes are the evidence.
+    'docs/fork/evidence/live-acceptance-20260916/**/*.mjs',
     '.agents/**',
     '.github/**',
     '.zcode/**', // Local agent session state, not repository code
