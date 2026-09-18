@@ -3,6 +3,22 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## Mimosa 深度审计与两条后续处理（2026-09-18）
+
+**审计**：完整 deep 扫描通过——此前 hook 报 `scanner_enobufs` 为宿主内存不足所致，释放进程后 28 秒完成。scanId `scan-2026-09-18T03-57-58.071Z-591bc9380d9c`，seal `sha256:20e6ac0e…894a60a1`，120 findings（108 high / 12 medium），52 依赖包 0 公告命中。产物：`C:\Users\86130\.mimosa\security-scans\project-f8258cc0aa238ea45b544ca2\`。覆盖 partial：2700 文件解析零失败，调用图因动态派发不完整（runStatus inconclusive）。静态分析边界，本记录不构成任何"安全/不安全"判定。
+
+**后续 ①（mediapipe 噪音源核实，无需仓库改动）**：91 条 high 全部锚定 `packages/model-driver-mediapipe/tasks/assets/wasm/vision_wasm_{,module,nosimd}_internal.js` 三个文件——postinstall 从 node_modules 拷贝的 Emscripten 胶水（模型文件另从 storage.googleapis.com 下载），**已被 `.gitignore`（`packages/model-driver-mediapipe/tasks/assets/*`）覆盖且未被 git 跟踪**（tasks/ 下跟踪的仅 3 个 ts 脚本）。Mimosa 的文件选择不读取 .gitignore，属工具行为；后续 compare 按该路径前缀归档为已知噪音即可。
+
+**后续 ②（`server/apps/api` 六条 business-logic 人工核对：全部为误报）**。共同模式：全局 `sessionMiddleware` 只注入不拦截（设计如此），认证由**路由级 `.use('*', authGuard)`** 提供——静态分析未能绑定这类注册（报告自述"存在 7 条未绑定到具体入口的框架防护注册"）。逐条：
+
+- `characters` DELETE /:id 与 `providers` DELETE /:id：authGuard + handler 内联 `existing.ownerId !== user.id → 403`。
+- `chats` DELETE /:id：authGuard + `chatService.deleteChat(user.id, id)`。
+- `chats` DELETE /:id/members/:memberId：authGuard + `removeMember(user.id, …)`，服务层 `verifyMembership(tx, chatId, userId)` 校验发起者为聊天成员。注：是成员级校验而非管理员级（任意成员可移除成员），属上游业务规则设计点，非"无权限检查"。
+- `stripe`：checkout/orders/invoices/portal 均 `authGuard`；webhook 走 Stripe 签名验证（`webhookSecret` + `stripe-signature` 头）。
+- `auth/server.ts:72`：Better Auth 宿主构建器，鉴权语义在框架层与 OIDC 流程，:72 处仅 cache/cors/bodyLimit 中间件。
+
+代码中既有 TODO（"属主检查下沉服务层 actor-aware API"）为代码质量事项，非安全缺口。`computer-use-mcp`（7 条命令注入类）与 `integrations/minecraft`（5 条，MC-0a 起休眠）未逐条展开，属预期面/遗留面。
+
 ## B0/LR-0 接线批 + Step 0 基线锚定（2026-09-18）
 
 **Step 0 基线锚定**：两侧工作树分批提交——AIRI `75430cfb8`（载具会话与跟随修复批）/`9fdbd196d`（文档）/`a71a798b3`（live-acceptance 证据）/`61c01ef29`（清单锚定），mcpfabric `c5aecff`（载具与远程逐 tick 驱动、实体效果序列化，0.2.34）。game-host 套件基线 **793 通过 / 1 跳过**。清单 §1.1 已记录源码与在线 jar 的版本漂移（下轮真机前需核对双 jar 实际版本）。
