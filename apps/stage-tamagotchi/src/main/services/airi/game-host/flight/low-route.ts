@@ -243,37 +243,85 @@ export const LOW_ROUTE_DESCENT_STEP = 8
  */
 export const LOW_ROUTE_JOIN_DROP = 96
 
+/**
+ * Walks the candidate slots along the bearing, accepting only laterally
+ * connected steps.
+ *
+ * ROOT CAUSE (user review, 2026-09-19): the walk was purely greedy — it picked
+ * the candidate closest to the current band and accepted it if the band delta
+ * was within the climb/descent limits, with NO check that the air pocket
+ * extends between consecutive points. Underground caves at the goal's altitude
+ * were accepted as valid steps even though they are sealed from the surface
+ * and lead nowhere near the goal.
+ *
+ * The fix: before accepting a candidate, verify that the candidate's column
+ * has air at the current band altitude (the air pocket continues into this
+ * column). If no candidate at a step is both within band limits AND
+ * laterally connected, the walk stops — the route ends at the last connected
+ * point instead of wandering through disconnected pockets.
+ */
 export function walkLowRoute(input: {
   points: LowRoutePoint[]
   span: number
   step: number
   startBandY: number
+  /**
+   * Column data for lateral connectivity checks. Key: `x,z`, value: the
+   * column's entries. Built by the caller from the segment reads.
+   */
+  columns?: Map<string, SnapshotEntry[]>
 }): { waypoint?: Vec3, bandY?: number, reached: number, accepted: LowRoutePoint[] } {
   const accepted: LowRoutePoint[] = []
   let bandY = input.startBandY
   let blocked = false
+
+  const hasAirAt = (x: number, z: number, y: number): boolean => {
+    if (!input.columns)
+      return true // no column data = no check (unit tests without reads)
+    const column = input.columns.get(`${x},${z}`)
+    if (!column)
+      return false // unread column = unknown = not connected (CD-0)
+    const entry = column.find(e => e.y === y)
+    if (!entry)
+      return false
+    return isAir(entry.id)
+  }
+
   for (let ahead = input.step; ahead <= input.span; ahead += input.step) {
     const atStep = input.points.filter(point => point.ahead === ahead)
     if (atStep.length === 0) {
       blocked = true
       break
     }
-    // Prefer the candidate closest to the current band, then the straight one.
-    const best = atStep
+    // Try candidates in band-proximity order; accept the first that is both
+    // within the band limits AND laterally connected at the current band.
+    const descentLimit = accepted.length === 0 ? LOW_ROUTE_JOIN_DROP : LOW_ROUTE_DESCENT_STEP
+    const sorted = atStep
       .slice()
       .sort((a, b) => {
         const bandDelta = Math.abs(a.bandY - bandY) - Math.abs(b.bandY - bandY)
         if (bandDelta !== 0)
           return bandDelta
         return Math.abs(a.lateral) - Math.abs(b.lateral)
-      })[0]!
-    const descentLimit = accepted.length === 0 ? LOW_ROUTE_JOIN_DROP : LOW_ROUTE_DESCENT_STEP
-    if (best.bandY - bandY > LOW_ROUTE_BAND_STEP || bandY - best.bandY > descentLimit) {
+      })
+    let chosen: LowRoutePoint | undefined
+    for (const candidate of sorted) {
+      if (candidate.bandY - bandY > LOW_ROUTE_BAND_STEP || bandY - candidate.bandY > descentLimit)
+        continue
+      // Lateral connectivity: the candidate's column must have air at the
+      // current band altitude — the pocket continues into this column, it is
+      // not a separate sealed cave that merely shares the altitude.
+      if (accepted.length > 0 && !hasAirAt(candidate.x, candidate.z, bandY))
+        continue
+      chosen = candidate
+      break
+    }
+    if (!chosen) {
       blocked = true
       break
     }
-    accepted.push(best)
-    bandY = best.bandY
+    accepted.push(chosen)
+    bandY = chosen.bandY
   }
   if (accepted.length === 0)
     return { reached: 0, accepted, ...(blocked ? {} : { waypoint: undefined }) }
@@ -358,6 +406,8 @@ export async function planLowRoute(input: {
   }
 
   const points: LowRoutePoint[] = []
+  /** All column entries across segments, for the walk's connectivity checks. */
+  const allColumns = new Map<string, SnapshotEntry[]>()
   let readFailed = false
   for (let start = 0; start < span; start += LOW_ROUTE_SEGMENT) {
     const near = start
@@ -393,6 +443,13 @@ export async function planLowRoute(input: {
       halfWidth,
       minClearance,
     })
+    // Accumulate column data for the walk's lateral connectivity checks.
+    for (const entry of entries) {
+      const key = `${entry.x},${entry.z}`
+      const list = allColumns.get(key) ?? []
+      list.push(entry)
+      allColumns.set(key, list)
+    }
     // The segment's own `ahead` values start at `step`; shift them onto the route.
     for (const point of segment)
       points.push({ ...point, ahead: point.ahead + near })
@@ -401,7 +458,7 @@ export async function planLowRoute(input: {
   if (points.length === 0)
     return { status: readFailed ? 'read_failed' : 'blocked', reached: 0, points: [] }
 
-  const walk = walkLowRoute({ points, span, step, startBandY })
+  const walk = walkLowRoute({ points, span, step, startBandY, columns: allColumns })
   if (!walk.waypoint)
     return { status: 'blocked', reached: walk.reached, points: walk.accepted }
   return { status: 'planned', waypoint: walk.waypoint, bandY: walk.bandY, reached: walk.reached, points: walk.accepted }

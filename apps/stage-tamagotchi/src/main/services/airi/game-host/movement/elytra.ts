@@ -327,8 +327,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   // The goal's roof caps the strategic route from the first plan: probe once
   // before the cruise so every low-route scan enters the columns below it
   // (E-02 canyon gap 1, success half — she used to overfly the cave glass).
-  goalRoofY = await probeGoalRoof(port, goal, debug)
-  goalRoofProbed = true
+  {
+    const probe = await probeGoalRoof(port, goal, debug)
+    if (probe.covered) {
+      goalRoofY = probe.roofY
+      goalRoofProbed = true
+    }
+  }
 
   /**
    * Resolves the landing aim once. A verified site steers the glider; when no
@@ -343,8 +348,11 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     // Probe the goal column once; the roof constrains both the site search and
     // the arrival judgment (E-02 canyon gap 1).
     if (!goalRoofProbed) {
-      goalRoofProbed = true
-      goalRoofY = await probeGoalRoof(port, goal, debug)
+      const probe = await probeGoalRoof(port, goal, debug)
+      if (probe.covered) {
+        goalRoofY = probe.roofY
+        goalRoofProbed = true
+      }
     }
     landingSite = await findLandingSite(port, state, now, debug, goalRoofY)
     if (landingSite) {
@@ -688,8 +696,11 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     // (cancel, safety, an immediate landing) never resolves a site, and the
     // arrival judgment still needs the roof (E-02 canyon gap 1).
     if (!goalRoofProbed) {
-      goalRoofProbed = true
-      goalRoofY = await probeGoalRoof(port, goal, debug)
+      const probe = await probeGoalRoof(port, goal, debug)
+      if (probe.covered) {
+        goalRoofY = probe.roofY
+        goalRoofProbed = true
+      }
     }
     return await finishFlight({
       port,
@@ -905,31 +916,47 @@ async function finishFlight(input: {
  * A failed or partial read keeps the roof unset: arrival then stays
  * horizontal-only rather than refusing on a fabricated ceiling.
  */
+/**
+ * Reads the goal column once and reports the lowest roof over the goal.
+ *
+ * The result distinguishes a definitive answer from an unread column: the
+ * server-side read only covers chunks a player has within view distance, so
+ * at run start the goal column (hundreds of blocks out) is often unloaded and
+ * the read comes back empty. An empty read is NOT "no roof" — the caller must
+ * retry once the glider is actually near the goal (her own presence loads the
+ * chunk). ROOT CAUSE (live, 2026-09-19): treating the empty read as final
+ * disabled the roof protection for whole batches and two runs falsely
+ * reported `reached` on the glass.
+ */
 async function probeGoalRoof(
   port: MovementControlPort,
   goal: Vec3,
   debug?: (message: string) => void,
-): Promise<number | undefined> {
+): Promise<{ roofY?: number, covered: boolean }> {
   try {
     const gx = Math.floor(goal.x)
     const gz = Math.floor(goal.z)
-    // ROOT CAUSE (live, 2026-09-19): anchoring the read top to the glider's
-    // own altitude missed roofs ABOVE it — the probe read 13 cells up to y=77
-    // while the cave glass sat at y=85, so every roof check silently passed.
     // The helper scans at most 40 above the goal; read two extra layers.
     const topProbe = Math.floor(goal.y) + 42
     const column = await port.getBlocksRegion(
       { x: gx, y: Math.floor(goal.y), z: gz },
       { x: gx, y: topProbe, z: gz },
     )
+    if (column.length === 0) {
+      // Unloaded chunk, not an open sky: name it and let the caller retry.
+      debug?.(`elytra goal roof probe read an empty column (chunk unloaded); will retry near the goal`)
+      return { covered: false }
+    }
     const roofY = lowestRoofAboveGoal(column, goal, topProbe)
     if (roofY !== undefined)
       debug?.(`elytra goal roof at y=${roofY}; landing above it is not arrival`)
-    return roofY
+    else
+      debug?.(`elytra goal roof: none within ${topProbe - Math.floor(goal.y)} blocks above the goal`)
+    return { ...(roofY !== undefined ? { roofY } : {}), covered: true }
   }
   catch (error) {
     debug?.(`elytra goal roof probe failed: ${errorMessageFrom(error) ?? 'unknown error'}`)
-    return undefined
+    return { covered: false }
   }
 }
 

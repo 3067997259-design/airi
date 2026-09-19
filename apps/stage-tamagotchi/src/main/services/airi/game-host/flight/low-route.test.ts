@@ -239,3 +239,57 @@ describe('roof-capped slot mechanics', () => {
     expect(fromGoal?.bandY).toBe(fromGlider?.bandY)
   })
 })
+
+describe('lateral connectivity walk', () => {
+  /**
+   * ROOT CAUSE (user review, 2026-09-19): the walk was purely greedy. A
+   * candidate in a sealed underground cave at the goal's altitude was accepted
+   * because the band delta was within limits, even though the cave's column
+   * has solid rock at the current band altitude (no air pocket extends there).
+   * The fix checks that the candidate's column has air at the current band.
+   */
+  it('rejects a candidate whose column is solid at the current band altitude', () => {
+    // Surface channel at band 66, then an underground cave also at 66 but
+    // separated by solid rock at the surface level.
+    const points = [
+      { x: 0, z: 4, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 4 },
+      { x: 0, z: 8, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 8 },
+    ]
+    // Column (0,4) has air at 66 (surface channel); column (0,8) has solid
+    // at 66 (underground cave sealed from the surface path).
+    const columns = new Map<string, SnapshotEntry[]>([
+      ['0,4', column(0, 4, 40, 100, y => y < 62 || y > 70)],
+      ['0,8', column(0, 8, 40, 100, () => true)], // all solid: no air anywhere
+    ])
+    const walk = walkLowRoute({ points, span: 8, step: 4, startBandY: 66, columns })
+    // The first step (0,4) connects (air at 66). The second step (0,8) is
+    // rejected: its column has no air at band 66.
+    expect(walk.reached).toBe(4)
+    expect(walk.accepted).toHaveLength(1)
+  })
+
+  it('accepts consecutive candidates when air extends through all columns', () => {
+    const points = [
+      { x: 0, z: 4, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 4 },
+      { x: 0, z: 8, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 8 },
+    ]
+    // Both columns have air at 66 (continuous surface channel).
+    const columns = new Map<string, SnapshotEntry[]>([
+      ['0,4', column(0, 4, 40, 100, y => y < 62 || y > 70)],
+      ['0,8', column(0, 8, 40, 100, y => y < 62 || y > 70)],
+    ])
+    const walk = walkLowRoute({ points, span: 8, step: 4, startBandY: 66, columns })
+    expect(walk.reached).toBe(8)
+    expect(walk.accepted).toHaveLength(2)
+  })
+
+  it('without column data the walk falls back to the greedy behavior (compatibility)', () => {
+    const points = [
+      { x: 0, z: 4, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 4 },
+      { x: 0, z: 8, surface: 62, y: 66, bandY: 66, lateral: 0, clearance: 10, ahead: 8 },
+    ]
+    const walk = walkLowRoute({ points, span: 8, step: 4, startBandY: 66 })
+    expect(walk.reached).toBe(8)
+    expect(walk.accepted).toHaveLength(2)
+  })
+})
