@@ -301,6 +301,8 @@ export async function planLowRoute(input: {
   port: MovementControlPort
   self: Vec3
   goal: Vec3
+  /** Lowest solid roof over the goal when it sits under one; caps the scan. */
+  roofY?: number
   span?: number
   step?: number
   halfWidth?: number
@@ -318,6 +320,13 @@ export async function planLowRoute(input: {
   const dirX = -Math.sin(yawRad)
   const dirZ = Math.cos(yawRad)
   const centerY = Math.floor(input.self.y)
+  /**
+   * A goal under a roof caps the whole strategic scan: every column is entered
+   * from below the roof, so a route over the cave's glass can never be planned
+   * when the endpoint sits beneath it (live 2026-09-19, E-02 canyon: every run
+   * landed on the glass at y=86 while the platform waited at y=65).
+   */
+  const scanY = input.roofY !== undefined ? Math.min(centerY, input.roofY - 1) : centerY
   const topY = centerY + rise
   /**
    * The vertical window follows the read's own footprint.
@@ -365,7 +374,7 @@ export async function planLowRoute(input: {
     const segment = candidatesOfSegment(entries, origin, { dirX, dirZ }, {
       bottomY: from.y,
       topY,
-      startY: centerY,
+      startY: scanY,
       step,
       halfWidth,
       minClearance,
@@ -378,7 +387,7 @@ export async function planLowRoute(input: {
   if (points.length === 0)
     return { status: readFailed ? 'read_failed' : 'blocked', reached: 0, points: [] }
 
-  const walk = walkLowRoute({ points, span, step, startBandY: centerY })
+  const walk = walkLowRoute({ points, span, step, startBandY: scanY })
   if (!walk.waypoint)
     return { status: 'blocked', reached: walk.reached, points: walk.accepted }
   return { status: 'planned', waypoint: walk.waypoint, bandY: walk.bandY, reached: walk.reached, points: walk.accepted }

@@ -29,6 +29,8 @@ import type { MovementControlPort, MovementState } from './port'
 import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
 
+import { errorMessageFrom } from '@moeru/std'
+
 import { evaluatePatch, lowestRoofAboveGoal } from '../flight/landing-site'
 import { createLiveCorridorPort } from '../flight/live-corridor'
 import { planLiveFlightControl } from '../flight/live-port'
@@ -322,6 +324,11 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let lowRouteReplans = 0
   let lowRouteRefusals = 0
   let lowRouteLastRefusal: 'blocked' | 'read_failed' | undefined
+  // The goal's roof caps the strategic route from the first plan: probe once
+  // before the cruise so every low-route scan enters the columns below it
+  // (E-02 canyon gap 1, success half — she used to overfly the cave glass).
+  goalRoofY = await probeGoalRoof(port, goal, debug)
+  goalRoofProbed = true
 
   /**
    * Resolves the landing aim once. A verified site steers the glider; when no
@@ -337,7 +344,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     // the arrival judgment (E-02 canyon gap 1).
     if (!goalRoofProbed) {
       goalRoofProbed = true
-      goalRoofY = await probeGoalRoof(port, goal, state.position.y, debug)
+      goalRoofY = await probeGoalRoof(port, goal, debug)
     }
     landingSite = await findLandingSite(port, state, now, debug, goalRoofY)
     if (landingSite) {
@@ -495,7 +502,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         const routeReached = lowRoute !== undefined
           && horizontalDistance(state.position, lowRoute.waypoint) <= LOW_ROUTE_WAYPOINT_REACH
         if (routeStale || routeReached) {
-          const plan = await planLowRoute({ port, self: state.position, goal })
+          const plan = await planLowRoute({ port, self: state.position, goal, ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}) })
           lowRouteAt = now()
           if (plan.status === 'planned' && plan.waypoint) {
             lowRoute = { waypoint: plan.waypoint, bandY: plan.bandY ?? plan.waypoint.y }
@@ -524,10 +531,26 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       // terrain it can see; any refusal (unknown window, no route, failed read)
       // keeps the direct goal, because unknown space is not a route.
       if (corridor && phase === 'cruise') {
-        const routeAim = await corridor.step(state.position, goal)
+        // The corridor answers the NEAR field: its target is the fresh
+        // long-route waypoint when one exists (usually inside the window), so
+        // it never guesses clamped exits for a goal hundreds of blocks out.
+        // Live 2026-09-19: aiming at the far goal picked west-corner window
+        // exits and spiralled two canyon runs off-course.
+        const corridorTarget = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+          ? lowRoute.waypoint
+          : goal
+        const routeAim = await corridor.step(state.position, corridorTarget)
         if (routeAim) {
-          target = routeAim
-          debug?.(`elytra corridor aim ${routeAim.x.toFixed(1)},${routeAim.y.toFixed(1)},${routeAim.z.toFixed(1)}`)
+          // The corridor is a LATERAL avoidance layer; the low-route band owns
+          // altitude. Live 2026-09-19: an unclamped corridor aim at y=163 made
+          // the rollout chase the corridor's own upward detour to y=166, where
+          // stale chunk reads turned into unknown cells and the grid routed
+          // west around them. The corridor may command descent, never climb.
+          const aimY = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+            ? Math.min(routeAim.y, state.position.y)
+            : routeAim.y
+          target = { x: routeAim.x, y: aimY, z: routeAim.z }
+          debug?.(`elytra corridor aim ${routeAim.x.toFixed(1)},${aimY.toFixed(1)},${routeAim.z.toFixed(1)}`)
         }
         else if (corridor.status() !== 'planned') {
           const reason = corridor.refusal?.()
@@ -654,7 +677,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     // arrival judgment still needs the roof (E-02 canyon gap 1).
     if (!goalRoofProbed) {
       goalRoofProbed = true
-      goalRoofY = await probeGoalRoof(port, goal, state.position.y, debug)
+      goalRoofY = await probeGoalRoof(port, goal, debug)
     }
     return await finishFlight({
       port,
@@ -873,13 +896,16 @@ async function finishFlight(input: {
 async function probeGoalRoof(
   port: MovementControlPort,
   goal: Vec3,
-  fromY: number,
   debug?: (message: string) => void,
 ): Promise<number | undefined> {
   try {
     const gx = Math.floor(goal.x)
     const gz = Math.floor(goal.z)
-    const topProbe = Math.floor(fromY) + 2
+    // ROOT CAUSE (live, 2026-09-19): anchoring the read top to the glider's
+    // own altitude missed roofs ABOVE it — the probe read 13 cells up to y=77
+    // while the cave glass sat at y=85, so every roof check silently passed.
+    // The helper scans at most 40 above the goal; read two extra layers.
+    const topProbe = Math.floor(goal.y) + 42
     const column = await port.getBlocksRegion(
       { x: gx, y: Math.floor(goal.y), z: gz },
       { x: gx, y: topProbe, z: gz },
@@ -889,7 +915,8 @@ async function probeGoalRoof(
       debug?.(`elytra goal roof at y=${roofY}; landing above it is not arrival`)
     return roofY
   }
-  catch {
+  catch (error) {
+    debug?.(`elytra goal roof probe failed: ${errorMessageFrom(error) ?? 'unknown error'}`)
     return undefined
   }
 }

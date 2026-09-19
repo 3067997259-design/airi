@@ -182,4 +182,29 @@ describe('planLowRoute', () => {
     expect(plan.status).toBe('planned')
     expect(plan.bandY).toBeLessThan(70)
   })
+
+  it('caps the scan under a roof over the goal', async () => {
+    // Live 2026-09-19 (E-02 canyon): the endpoint sits in a roofed cave at
+    // y=65 under glass at y=85. The roofY cap enters every column from below
+    // the roof, so even a glider at y=130 plans a band it can hold under the
+    // roof instead of overflying the glass.
+    const { port } = fakePort({ ceilingFrom: 200 })
+    const plan = await planLowRoute({ port, self: { x: 0, y: 130, z: 0 }, goal: { x: 0, y: 65, z: 380 }, roofY: 85 })
+    expect(plan.status).toBe('planned')
+    expect(plan.bandY).toBeLessThanOrEqual(84)
+  })
+})
+
+describe('roof-capped slot mechanics', () => {
+  it('enters the cave column from below the glass, not onto its top', () => {
+    // The endpoint column of the live venue: floor 64, cave air 65..84,
+    // glass 85, open above. Entered from y=130 the slot is the roof top;
+    // entered from under the roof it is the cave itself.
+    const cave = column(0, 0, 40, 132, y => y === 64 || y === 85 ? true : y < 64)
+    const fromAbove = slotInColumn(cave, { startY: 130, bottomY: 40, topY: 132 })
+    expect(fromAbove?.surface).toBe(85)
+    const fromUnder = slotInColumn(cave, { startY: 84, bottomY: 40, topY: 132 })
+    expect(fromUnder?.surface).toBe(64)
+    expect(fromUnder?.bandY).toBeLessThanOrEqual(66)
+  })
 })
