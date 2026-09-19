@@ -837,6 +837,31 @@ prepare
 - 点火不因轮询重复提交。
 - 单程飞行与空中跟随都实际调用新起飞路径。
 
+**状态（2026-09-18，用户指示提前本批）**：实现全部落地——模组 `movement.elytraLaunch`
+（`prepare → jump → release-jump → deploy → boost → handoff`，相位按真实状态推进，
+类型化失败 `no_elytra / grounded / not_deployed / no_fireworks / no_climb / deadline /
+cancelled / no_player`）、宿主 `movement/launch.ts`（单次点火 + 轮询 + `deployed` 与
+`outcome` 分离）、两条入口（`runElytraMove`、`runAirTrackMove`）、`flight/lifecycle.ts`
+的 `flat`/`edge` 候选与 `surface/void/unknown` 三分、`probeLaunchSite` 读到 `flatCeiling`。
+
+已验收：平地起飞（真机三处：平台 y=202、谷底 y=128、宿主级探针与 AIRI `game_move_to`
+各一次，均 `done/launched` 交接）、点火不重复（真机烟花库存 54→53→52→51，宿主巡航另耗 4 枚）、
+边缘路径不回归（离线回退用例）、低顶棚与未知地形（离线用例）、巡航交接与降落（宿主探针与
+AIRI 各一次 `reached`）。
+
+实机暴露并修掉三个宿主缺陷：`getInventory` 不读副手槽（带 52 枚烟花却报没有）、
+发射宏整叠搬运火箭导致巡航无法点火、`fallbackToFoot` 吞掉飞行失败原因
+（AIRI 对被拒的起飞报「寻路搜索预算耗尽」）。
+
+**已补齐的真机分支（2026-09-18 晚）**：逐阶段取消（prepare 0 ms / release-jump 150 ms /
+deploy 220 ms / boost 300 ms 四档都 `cancelled` 且落地无按键残留；handoff 后取消如实
+`done/launched`；随后复飞成功）、无烟花（模组 `failed/no_fireworks`、宿主 `unavailable`）、
+耐久不足（431/432 的鞘翅根本不可飞；备件换装经护甲位是空操作，已改为「空快捷栏 + `use_item`
++ 核对换件」，修复后实机换装并飞完全程）。
+
+未验收：低顶棚与前景障碍、未知区域的真机场景；空中跟随的真机起飞。
+证据：`docs/fork/evidence/ov5-elytra-launch-20260918/README.md`。
+
 ## 10. OV-6：原移动障碍专题撤销
 
 原"移动障碍真实高度与 game_jump"不再作为独立 OV 批次。

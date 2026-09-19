@@ -24,10 +24,31 @@
 
 PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minecraft`。
 
-**基线锚定（2026-09-16，Step 0）**：AIRI `mods` 分支 `a71a798b3`（代码批 `75430cfb8`，docs 批 `9fdbd196d`）；game-host 套件基线 **793 通过 / 1 跳过（56 文件）**。mcpfabric `c5aecff`，`mod_version=0.2.34`。源码树已从本表初记的客户端 0.2.17 / 服务端 0.2.16 前进；下轮真机前按 §1.2 前置核对在线双 jar 实际版本，未同步则先重建部署再开始验收。工作树仅余 `botclass24.txt`（javap 草稿，未跟踪，不提交）。
+**基线锚定（2026-09-16，Step 0）**：AIRI `mods` 分支 `a71a798b3`（代码批 `75430cfb8`，docs 批 `9fdbd196d`）；game-host 套件基线 **793 通过 / 1 跳过（56 文件）**。mcpfabric `c5aecff`，`mod_version=0.2.34`。源码树已从本表初记的客户端 0.2.17 / 服务端 0.2.16 前进；下轮真机前按 §1.3 前置核对在线双 jar 实际版本，未同步则先重建部署再开始验收。工作树仅余 `botclass24.txt`（javap 草稿，未跟踪，不提交）。
 
-### 1.2 每轮前置检查
+### 1.2 飞行起飞台（主测试台，已实测 2026-09-18）
 
+主测试台：白色混凝土围边的 97×97×2 石制平台，行走面 y=201（下方 y=200 与 y=199 为石头），
+边框中白色混凝土方块本身顶面再高一格。西侧（x<235.5）是落差约 115 格的悬崖，崖底 y≈87。
+
+| 项 | 坐标 | 说明 |
+| --- | --- | --- |
+| 起飞台 | x=237..240, y=201, z=−18..−16 | `orange_terracotta` 4×3，与平台面齐平；支撑为石头 |
+| 起飞标定点 | **(236, 201, −17)** | 全平台唯一的 `orange_glazed_terracotta`；(236,200,−17) 为石头 |
+| 西侧净空 | x=230..235, z=−17 | y 150..204 全为空气 |
+| 起飞通道 | 固定用 **z=−17** | 见下表 |
+
+**平台不是严格空旷**：x=240、z=−23/−24 有移动靶测试留下的夹具（`polished_granite` ×3 +
+`powered_rail` ×1）。夹具位置必须用逐列读取或 `edge-map.mjs` 复核；**用单条 z 线代替面扫描会漏判**
+（2026-09-18 因此误判过两次）。
+
+地图层 y=201 的固定器具（初次扫描结果，供参考，不代替逐次复核）：铁轨 36、去皮金合欢原木 14、
+钻石块 14、橡木栅栏 7、动力铁轨 6、拉杆 5、抛光花岗岩 4、绯红菌柄 3、橡木楼梯 3。
+
+方向标定（yaw=270 时实测，`calibrate-direction.mjs`）：`forward` = +x、`back` = −x、
+`left` = −z、`right` = +z。**运动由按键决定，不由视角决定**——向西冲出崖用 `back`。
+
+### 1.3 每轮前置检查
 1. 运行 `netstat -ano | Select-String "LISTENING"`，核对 25565、25598、25599、25601、25600、25602、9222 都在。
 2. 运行 `node client.mjs 25600 get_self`，名字必须是 `airitest`。如果返回 `AfterRain`，停止验收，先修 MCP 服务指向再开始。
 3. `%TEMP%\mcp-wrap-25600.cmd` 的内容可能过期（指向用户号 25599）。重启 MCP 服务时按 bot 桥 25601 重建包装脚本；`%TEMP%` 清理会删除这些脚本（`mcp-wrap-*`、`mcserver-wrap`、`airi-wrap`）。
@@ -38,7 +59,7 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 
 启动机器人客户端：`node launch-client.mjs "<PCL 根>\versions\AIRI-bot" airitest`。
 
-### 1.3 常用命令
+### 1.4 常用命令
 
 全部脚本位于 `docs/fork/evidence/movement-corridor-acceptance-20260915/`。
 
@@ -51,7 +72,7 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 
 脚本运行环境：脚本导入 `@modelcontextprotocol/sdk`，它位于 `D:\mcpfabric\mcp-server\node_modules`。在 evidence 目录直接运行会 `ERR_MODULE_NOT_FOUND`。用临时目录建 `node_modules` junction，或把脚本复制到 `D:\mcpfabric\mcp-server` 下运行。
 
-### 1.4 分工与记录规则
+### 1.5 分工与记录规则
 
 自动化侧负责：CDP 下令、MCP 采样、轨迹统计、回执收集、夹具脚本、证据落盘。
 
@@ -155,7 +176,22 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 
 现状：CD-E 的新 `flight/` 模块只接入共享 `LandingSite` 与 `classifyTouchdown` 契约，没有替换 live elytra 驾驶路径。CD-F 的粗走廊没有接入跟飞驱动，2 到 5 Hz 策略更新流只实现门控与测试，没有独立 IPC 通道。
 
-**状态（2026-09-18，提交 `571e6364c`）：接线项 1/3/4 已落地，离线门槛全过。** `movement.flight` 开关（默认 off，`game-host.json` 持久化，含 E-01 后才置位的 `calibrated`）；`flight/live-port.ts` 组装 FlightObservation（状态读新增 pitch）并以一次有界区域读服务 rollout ShapeSource（未读格未知非空气）；elytra 巡航段与 air-follow 巡航腿在开关打开时由 planRollout 替换启发式、planner 拒绝即回落；escort 相位槽 + hold/launch 可插拔门（默认关）；空中回执标注 `updateStream: 'polling'`。game-host 套件 **807 通过 / 1 跳过**（基线 793+1，含 14 个新测试），typecheck/eslint 干净，开关关闭时真机行为不变。**项 2（`planCorridor` 粗走廊接入跟飞驱动）待做**：需要覆盖完整的粗网格快照读取，随 E-01 校准批接线（绕行系数也是 D2 估算器输入）。两处契约发现：`RolloutLimits.fireworks` 在储备比较中按推进 tick 数读取（live-port 已换算并加 NOTICE）；地平线与读取半径须满足 半径 ≥ 地平线 × 最大加速速度（现取 12 tick / 20 格，单元数 28.6k 在 30k 预算内）。
+**状态（2026-09-18，提交 `571e6364c`）：接线项 1/3/4 已落地，离线门槛全过。** `movement.flight` 开关（默认 off，`game-host.json` 持久化，含 E-01 后才置位的 `calibrated`）；`flight/live-port.ts` 组装 FlightObservation（状态读新增 pitch）并以一次有界区域读服务 rollout ShapeSource（未读格未知非空气）；elytra 巡航段与 air-follow 巡航腿在开关打开时由 planRollout 替换启发式、planner 拒绝即回落；escort 相位槽 + hold/launch 可插拔门（默认关）；空中回执标注 `updateStream: 'polling'`。game-host 套件 **807 通过 / 1 跳过**（基线 793+1，含 14 个新测试），typecheck/eslint 干净，开关关闭时真机行为不变。
+
+**第 2 项已完成（2026-09-18 第二轮）**：新增 `flight/live-corridor.ts`（有界区域读按 4 格粗格点对齐、1.5 s 或目标移动 >8 格重规划、路线瞄准点），`air-track.ts` 巡航腿接入——路线点替换直连目标，拒绝即保留直连目标，回执新增 `corridor`。套件 **830 通过 / 1 跳过（60 文件）**，typecheck 与 `pnpm lint` 干净。**四项全部完成**，等 E-01 真机采集。证据见 [b0-wiring-status-20260918](./evidence/e01-flight-calibration-20260918/b0-wiring-status-20260918.md)。
+
+**LR-1 接线完成（2026-09-18 第三轮）**：D2 门在起飞评估与每拍起飞前生效，D4 闭合窗口每拍喂样本、连续两个不闭合窗口转 `escort_inconclusive` 有界安全降落，回执补齐 D5 字段（`escortGate`/`escortClosure`/`reserveFireworks`/`escortSuggestions`/`flightDistanceKm`/`fireworksPerKm`/`lastTargetAgeMs`）。新增 `GameHostFlightConfig.escort`，非 `off` 仍需 `planner: 'on'` 且 `calibrated: true`，**E-01 通过前不会真正生效**。套件 **842 通过 / 1 跳过**。LR-2 仅建议模式与计数就绪（消息发送未实施），LR-3/LR-4 未实施。见 [lr1-wiring-status-20260918](./evidence/e01-flight-calibration-20260918/lr1-wiring-status-20260918.md)。
+
+**LR-2/LR-3/LR-4 代码完成（2026-09-18 第四轮，用户批准启用 escort）**：LR-3 新增
+`movement/flight-energy.ts`，点火只按 D4 的三类条件（高度低于所需 / 速度低于滑翔下限 /
+闭合速率为负且预算允许），落地储备不再被推进消耗，目标样本越旧高度余量越大；LR-2 新增
+`movement/escort-say.ts`（2 条/分钟、同文不重发、命令结束关闭、`say` 被拒不占额度），驱动在
+D4 判 `stalled` 时发建议、只统计真正发出的；LR-4 用走廊实测路线弯折替换 D2 的常数
+`detourFactor`，并把 `rocketBoostTicks` 由 10 改成 E-01 实测的 35。`escort` 已置 `on`。
+**真机场景仍 NOT-RUN**（200/500 格伴飞、低空绕山穿谷、残差分组），与 E-02..E-10 + FS-01..09
+合并验收一起跑。套件 **885 通过 / 2 跳过**。见 [MODS.md](./MODS.md) 同日条目。
+
+两处契约发现（保留待办）：`RolloutLimits.fireworks` 在储备比较中按推进 tick 数读取（live-port 已换算并加 NOTICE）；地平线与读取半径须满足 半径 ≥ 地平线 × 最大加速速度（现取 12 tick / 20 格，单元数 28.6k 在 30k 预算内；走廊读取 65×9×65 ≈ 25k，同样在预算内）。走廊的粗格点把高度量化到 ±2 格，路线瞄准点取格中心，**爬升是否引起高度振荡需要 E-02 真机确认**。
 
 新增专题：[远距伴飞设计](./long-range-escort-design.md)。LR-0 与本接线批是同一批工作；伴飞策略（`escort`）与其接线一并实施，默认关闭。
 
@@ -174,7 +210,7 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 
 | 编号 | 场景 | 人工配合 | 判据 | 结果 |
 | --- | --- | --- | --- | --- |
-| E-01 | 无障碍滑翔、不同 pitch、转向、火箭推进、速度衰减 | 旁观 | 10/20/40 tick 预测残差可量化 | |
+| E-01 | 无障碍滑翔、不同 pitch、转向、火箭推进、速度衰减 | 旁观 | 10/20/40 tick 预测残差可量化 | **PASS（用户裁定 2026-09-18）**：三个维度全部覆盖。直线滑翔 5 次（pitch −3 ×3、−15、−30）40 tick 残差 0.0005–0.0019 格；转向（−3，10°/s，390°）0.0315 格；助推（−3，一发）0.0027 格。去重后逐 tick 对齐（distinct tick / 时长 ≈ 20.0）。**过程中发现并修正真实缺陷**：`ROCKET_BOOST_TICKS` 10 → 35（实测助推平台期，绑定 `flight_duration:2`），助推残差 40 tick 由 5.594 格降到 0.0027 格。**未覆盖**：其他 `flight_duration` 的助推窗口、其他 MC 版本、其他移动类模组。见 [e01-residuals](./evidence/e01-flight-calibration-20260918/e01-residuals.md) |
 | E-02 | 薄墙、低顶棚、斜向通道、山脊、突然出现的障碍 | 搭场地 | 侧绕有效；每类至少 20 次 | |
 | E-03 | 各阶段取消与独立期限 | 无 | 停止与异常场景有界收敛 | |
 | E-04 | 复飞三阶段：recover、leave、re-align | 无 | 有界过程 | |
@@ -262,6 +298,10 @@ PCL 根目录：`D:\未完成TimeLimit\残灯花火\杂七杂八的东西\.minec
 | B-01（靶道·地形避让后） | 2026-09-17 | 客户端 0.2.19 / 服务端 0.2.16 | **PASS（可达条件）** | [b1-range-terrain2](./evidence/live-acceptance-20260916/b1-range-terrain2.json) | 80/80 全中（8 组可达条件 × 10 发）；dy-10 两组正确拒绝；夹具加击退抗性（F-09） |
 | L-09 | 2026-09-16 | 客户端 0.2.17 / 服务端 0.2.16 | **PASS** | [l09-l10](./evidence/live-acceptance-20260916/l09-l10.md) | 双端点事实 + 端点丢失降级：杀掉 25602 后 17.4 秒 `locator_unavailable`、`met: false`；环境已复原 |
 | L-10 | 2026-09-16 | 客户端 0.2.17 / 服务端 0.2.16 | **PASS** | [l09-l10](./evidence/live-acceptance-20260916/l09-l10.md) | 取消回执 218ms、取消后 8 秒位移 0.00、终态不复活 |
+| E-01（直线滑翔） | 2026-09-18 | 客户端 0.2.34 / 服务端 0.2.29 | **PASS** | [e01-residuals](./evidence/e01-flight-calibration-20260918/e01-residuals.md) | 5 次无障碍滑翔（pitch −3 ×3、−15、−30，30–60 s）。去重后逐 tick 对齐（distinct tick/时长 ≈ 20.0）。40 tick 残差 0.0005–0.0019 格，随 tick 单调但不爆炸（真物理项错误会到几格至几十格） |
+| E-01（转向） | 2026-09-18 | 客户端 0.2.34 / 服务端 0.2.29 | **PASS** | [e01-residuals](./evidence/e01-flight-calibration-20260918/e01-residuals.md) | 恒定 pitch −3、yaw 10°/s、40 s、转过 390.5°。偏航率由录像 yaw 序列最小二乘拟合 = 10.0 °/s（与计划比值 1.000）。40 tick 残差 0.0315 格 |
+| E-01（火箭推进） | 2026-09-18 | 客户端 0.2.34 / 服务端 0.2.29 | **PASS（修正后）** | [e01-residuals](./evidence/e01-flight-calibration-20260918/e01-residuals.md) | 发现 `ROCKET_BOOST_TICKS` 10 → 实测 35（平台期），修正前 40 tick 残差 5.594 格且发散，修正后 0.0027 格；脉冲幅度本已正确（点火那一 tick 差 1.2%）。绑定 `flight_duration:2` |
+| E-01（姿态基线） | 2026-09-18 | 客户端 0.2.34 / 服务端 0.2.29 | **PASS** | [e01-residuals](./evidence/e01-flight-calibration-20260918/e01-residuals.md) | 用户裁定通过；`movement.flight.calibrated` 置 true（同时解锁 escort 与低空捷径的开关，设计 D6） |
 
 ## 7. 发现跟踪（验收产出）
 

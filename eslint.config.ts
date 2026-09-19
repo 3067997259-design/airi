@@ -35,6 +35,12 @@ export default defineConfig({
     // The live-acceptance harness scripts are standalone Node programs
     // (top-level await, console output); their bytes are the evidence.
     'docs/fork/evidence/live-acceptance-20260916/**/*.mjs',
+    // The captured JSON in the same directory is evidence too: its bytes were
+    // read back during the run, so this config does not reformat it.
+    'docs/fork/evidence/live-acceptance-20260916/**/*.json',
+    // The E-01 calibration harness is a standalone Node program and its audit
+    // test prints the residual report; both are evidence, not repository code.
+    'docs/fork/evidence/e01-flight-calibration-20260918/**',
     '.agents/**',
     '.github/**',
     '.zcode/**', // Local agent session state, not repository code

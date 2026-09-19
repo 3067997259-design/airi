@@ -46,6 +46,14 @@
 1. B0/LR-0 接线批：flight/ 决策层接 live 驾驶、走廊接跟飞驱动、策略流按轮询；
    回归门槛 flight 77 / air-follow 33 / 移动 338 不回退，默认行为不变。
    并行 LR-1（纯函数估计器）与 LR-2（协同建议，真机部分可并入 B 场）。
+   **进度（2026-09-18）**：接线四项全部完成，离线门槛通过（套件 842 通过 / 1 跳过）。
+   LR-1 **接线完成**：D2 门在起飞评估与每拍起飞前生效，D4 闭合窗口每拍喂样本、连续两个
+   不闭合窗口转有界安全降落，D5 回执字段就位。LR-2 仅建议模式与计数就绪，**消息发送链路
+   未实施**；LR-3（能量管理）与 LR-4（走廊捷径、绕行系数进 D2）未实施。
+   `escort` 非 `off` 仍需 `planner: 'on'` 且 `calibrated: true`，所以 E-01 通过前 escort 不会
+   真正生效（宿主记 warn 并保持关闭）。E-01 采集脚本、运行手册与残差审计已就绪，
+   真机采集 NOT-RUN（本轮连接前置全部不满足）。
+   见[证据](./evidence/e01-flight-calibration-20260918/lr1-wiring-status-20260918.md)。
 2. E-01 残差校准（10/20/40 tick）。清单硬规则：校准不通过，不启用 E2、E3
    与 F——这是后续一切飞行验收的前置。
 3. B1 CD-E（E-02..E-10）与 B2 CD-F（FS-01..FS-09）**合并成一场飞行验收
@@ -79,6 +87,15 @@ C 类允许带阻塞记录进入阶段 1。
 
 - **OV-5 鞘翅地面起飞宏**：飞行路径已在阶段 0 接线并校准，随时可开工；建议
   紧随阶段 0 飞行验收（记忆与场地新鲜）进行，验收按 OV §9 场景单独一轮。
+  **进度（2026-09-18，用户指示提前本批）**：模组侧 `movement.elytraLaunch` 状态机
+  （`prepare → jump → release-jump → deploy → boost → handoff`，按真实状态推进）、
+  宿主侧 `movement/launch.ts` 单次点火客户端、`runElytraMove` 与 `runAirTrackMove`
+  两条起飞入口、`flight/lifecycle.ts` 的平地/边缘候选与未知地形语义、`probeLaunchSite`
+  读取高度全部落地；离线 862 通过。真机模组级两次平地起飞通过（平台 y=202、
+  谷底 y=128），各自恰好消耗 1 枚烟花，交接 `done/launched`；宿主级单程飞行也通过
+  （无 LLM 探针两次 + AIRI `game_move_to` 一次 `reached`），并顺带修掉三个宿主缺陷
+  （副手槽读不到、宏整叠搬火箭、`fallbackToFoot` 吞掉飞行失败原因）。见
+  [证据](./evidence/ov5-elytra-launch-20260918/README.md)。
 - **OV-4 截图探针（建议最早做）**：纯验证切片，结果是"中继是否接受 image
   content block"，决定 OV-D13 工具描述的写法与 OV-4 的去留——早知道早改文案。
 - **OV-2B 宏观地形**：OV-1 之后任意空档，最晚不迟于 free-play F0（候选需要

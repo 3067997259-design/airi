@@ -1,0 +1,60 @@
+{
+  "cancelAfterMs": 220,
+  "startedAtPhase": "prepare",
+  "phaseAtCancel": "deploy",
+  "ticksAtCancel": 5,
+  "deployedAtCancel": false,
+  "cancelledState": "cancelled",
+  "cancelledReason": "cancelled",
+  "finalStatus": {
+    "state": "cancelled",
+    "endReason": "cancelled",
+    "phase": "deploy",
+    "ticks": 5,
+    "airborne": true,
+    "deployed": false,
+    "jumpReleased": true,
+    "deployPressed": true,
+    "boostPressed": false,
+    "boostSeen": false,
+    "fireworksUsed": 0,
+    "withFireworks": true,
+    "startY": 202,
+    "minY": 202,
+    "maxY": 203.00133597911216,
+    "climb": 1.0013359791121559,
+    "gliding": false,
+    "onGround": true,
+    "verticalSpeed": -0.0784000015258789,
+    "position": {
+      "x": 238.0102106608372,
+      "y": 202,
+      "z": -17
+    }
+  },
+  "before": {
+    "position": {
+      "x": 238.49762410083042,
+      "y": 202,
+      "z": -17
+    },
+    "onGround": true,
+    "fallFlying": false,
+    "health": 20
+  },
+  "after": {
+    "position": {
+      "x": 238.0102106608372,
+      "y": 202,
+      "z": -17
+    },
+    "onGround": true,
+    "fallFlying": false,
+    "health": 20,
+    "motion": {
+      "x": 0,
+      "y": -0.0784000015258789,
+      "z": 0
+    }
+  }
+}

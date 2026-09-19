@@ -3,6 +3,148 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## 长程航路层（2026-09-18 深夜，用户批准"推进到能做综合验收"）
+
+**新增 `flight/low-route.ts`**（纯逻辑 + 读取器，12 例单测）：沿航向读 6 段 16 格板条（垂直窗口
+y−40..y+8，每段 ≤ 32768 格并有测试钉住），对每列求**最低可飞空气槽**（地面/水面→槽→天花板），
+沿航向逐步走：**下一步的槽不得要求爬升超过 6 格**（下降永远允许，高空滑翔机因此能落到低航路），
+无槽即停在最后一根可用列。
+
+**接入 `runElytraMove` 巡航段**（与走廊/rollout 同一开关）：航路点取代直连目标，**巡航带跟随航路
+高度**而不是 `goal.y + 30`；每 6 秒或距航路点 16 格内重规划；拒绝时退回直连目标并记日志。
+
+**真机（河峡谷夹具）**：实施前 8 次全部在 y≈95–112 撞崖（每次掉 7–15 血、1 次阵亡）；实施后
+**3 次 `reached`**（水平差 0.7–1.4 格、其中两次零伤害，巡航 band=64 贴河谷），3 次走成翻崖
+（y=101/127/143）。第二轮修掉三处实现问题：**槽扫描必须从滑翔机高度往下扫**（往上扫会选中地下
+洞穴，曾规划出 band=15 往地里飞）、**垂直读窗口按 footprint 自适应放宽到 −80**（一旦被抬高就看不到
+谷底，曾锁定崖顶 band=109 并爬到 y=173）、**每步下降 ≤8 格 + 首次接入允许 ≤96 格俯冲**。
+mover 侧两处：新低航路存在时前方扫描不再抬高巡航带、大高度差改用 60° 俯冲消耗。
+
+**仍差两步**：①**垂直到达**——mover 到达判据只看水平距离、`findLandingSite` 把洞口上方的玻璃顶
+判成已核实落点，所以三次"成功"都停在 y=86 而终点台在 y=65（需在"终点位于实体天花板之下"时禁止
+取天花板上方的面，或让航路点延伸进洞口）；②**成功率**约 1/2–1/3，失败分支都是"低航路被拒 →
+退回直连目标 → 按 `goal.y+30` 翻崖"，低航路拒绝原因尚未类型化输出到回执。
+
+## 河峡谷夹具核对与首轮真机（2026-09-18 深夜，用户搭建场地）
+
+**夹具**：起跳桥（蜡铜 2×16、桥面 y=73、河面 y=62）→ 东偏段 → 两道淡蓝羊毛**上下闸门**
+（y=76 / y=70-71，中间可穿）→ 黑曜石板（29×31×6，板下净空 12 格）+ 板上新砌 18 格高黑曜石墙
+（总屏障 y 75..98）→ 恶地 TNT 洞口（`netherrack` @ (−867,68,−240)）→ 有顶洞腔 → 3×3 海晶石台
+终点（y=65）。航程约 380 格。几何全部由桥接口实测，记录见
+`docs/fork/evidence/flight-venue-20260918/README.md`。
+
+**新增采集工具**：`e02-route.integration.test.ts`（无 LLM 全程路线跑，逐次落 JSONL：状态/血量/
+轨迹采样/mover debug/烟花）、`fixture-scan.mjs`、`ceiling-gap.mjs`、`cave-profile.mjs`、
+`col-ids.mjs`、`read-budget.mjs`。
+
+**首轮 6 次全部不通过，暴露三个真实缺陷**：
+
+1. **采集侧（已修）**：`get_blocks_region` 是 SERVER_FIRST；只连客户端桥会得到
+   `Bridge error [no_server]`，于是走廊与 rollout 双双静默退回启发式。**同时更正**：
+   此前 `elytra-live.integration.test.ts` 的两次 "reached" 只验证了启发式路径。
+2. **走廊窗口超预算（已修）**：走廊读 65×33×65 = **139425 格**，桥接实测每次**最多返回 32768 格
+   并静默截断**（75809 格请求 → `truncated: true` + 32768 条）。窗口约四分之三未读 → 未读格按
+   "未知不是自由空间" → A* 起点都认不出，每次轮询 `corridor no_route (start_unknown)`，**整层静默
+   失效**。修：`LIVE_CORRIDOR_UP/DOWN` 16 → 3（29575 格）+ 回归测试钉住"窗口格数 ≤ 32768"。
+3. **走廊对窗口外目标永远拒绝（已修）**：`corridorReachesGoal` 用调用方真实目标判定，380 格外的
+   目标在 32 格窗口内永远到不了。修：目标先**夹进窗口**（离边一整格），再沿窗口边界按目标方向
+   依次试多个候选落点（±12/±24 位移、±6 高度），第一个"能规划且能到达"的胜出——只试一个点时
+   常常落在河岸里（`no_corridor`）。修后真机首次出现 `elytra corridor aim …`。
+4. **仍开（需设计决策）**：走廊接通后飞行依然到不了终点。单程 380 格时巡航带是 `goal.y+30`
+   （≈95），而近场走廊只有 ±32 格窗口 / 1.5 s 重规划——翼装 30 格/秒，2 秒飞出窗口，瞄准点永远
+   滞后；真机轨迹出现"爬到 y=97→反向飞到 −1036→撞崖掉血"的组合，8 次里 1 次阵亡。
+   候选方案：①给单程加**长程航路点**（E-07 正式范围，推荐）；②巡航带改地形轮廓跟随（回归面大）；
+   ③把该线 E-02 判 FAIL 归档。**未在决策前继续改**。
+
+**当下行为**：起飞宏每次都成功（9 tick 交接、1 发烟花、从 2 格宽桥面），随后因走廊失效退化为
+"目标高度 +30" 巡航，爬到 y≈95–112 撞峡谷崖壁，每次掉 7–15 血（其中一次 4 血起飞触发安全降落并
+绕回桥面）。**夹具有效**：它把这个问题稳定暴露（6/6 复现）。
+
+## LR-2/LR-3/LR-4 与 OV-5 收尾（2026-09-18 晚，用户批准启用 escort）
+
+**LR-3 能量管理**：新增 `movement/flight-energy.ts`（纯函数 + 11 例）。点火按设计 D4 只三种情况：
+高度低于剩余滑翔所需（`CRUISE_DROP_PER_BLOCK = 0.26`，取自 E-01 实测 3.76–4.47:1，替代旧
+`MIN_GLIDE_RATIO = 0.08` 的 12.5:1 乐观值）、速度低于滑翔下限、闭合速率为负且预算允许。落地储备
+（默认 2 发）不再被推进消耗；目标样本越旧高度余量越大（1.5 格/秒、上限 8 格）。`air-track.ts`
+里原来的三条独立阈值（爬升 / 速度 / 出带）删除 —— 真机 108 秒烧 114 发就是它。
+
+**LR-2 建议发送链路**：新增 `movement/escort-say.ts`（纯函数 + 9 例：内容含目标航向与期望、
+2 条/分钟滑动窗口、同文不重发、关闭后不发、`say` 被拒记 `failed` 不占额度、`sentCount` 为终身计数）。
+驱动在 D4 判 `stalled` 时发一条并只统计真正发出的；宿主 `suggest` 走 `send_chat`；命令结束关闭通道。
+**未做**：`suggest` 模式「不追只劝」语义（该模式仍会起飞过门）。
+
+**LR-4 走廊绕行与校准预算**：`routeDetourRatio` 用路线拐点的狗腿比替换 D2 常数 `detourFactor`
+（上限 2.5，无路线时退回 1.3）；`DEFAULT_ESCORT_GATE.rocketBoostTicks` 10 → **35**（E-01 实测，
+单一定义在 `flight/simulation.ts`）——旧常数让门多算 3.5 倍烟花、拒掉飞得起来的追逐。
+`escort` 已在 `game-host.json` 置 `on`（planner on + calibrated 皆满足）。
+
+**OV-5 真机收尾（两项不需要人工的）**：
+
+- 逐阶段取消：prepare 0 ms / release-jump 150 ms / deploy 220 ms / boost 300 ms 四档都
+  `cancelled`，落地、health 20、无按键残留；handoff（450 ms）后取消如实 `done/launched`；
+  随后复飞 `done/launched` 9 tick、1 发烟花，**无卡死**。
+- 无烟花：模组级 `failed/no_fireworks`（deployed true、0 发）、宿主级
+  `unavailable: no firework rockets in the inventory`。
+- 耐久：431/432 的鞘翅**根本飞不起来**（`ElytraItem.isFlyEnabled` 要求
+  `damage < maxDamage - 1`），而旧 `equipElytra` 用 `swap_slots` 换备件——**护甲位 36/37/38/39
+  实机全是空操作**（回 `swapped`、胸口不动），于是「换好了」的鞘翅让飞行以 `not_deployed` 收场。
+  修复：`wearFromHotbar`（备件→空快捷栏→选中→`use_item`→**核对胸口确实换件**），旧的护甲写只作
+  最后退路。修复后实机复跑：胸口换成无耐久鞘翅、旧件回到手里、飞行 `reached`、46 → 45 发。
+
+**离线**：game-host 套件 **885 通过 / 2 跳过（62 文件）**；typecheck 与 eslint 干净。
+
+**未验收**：LR-2/3/4 的真机场景（200/500 格伴飞、低空绕山穿谷、残差分组）仍 NOT-RUN，
+随 E-02..E-10 + FS-01..09 那一场人工验收一起跑；OV-5 的低顶棚/前景障碍/未知区域真机场景同样待场地。
+
+## OV-5 鞘翅地面起飞宏（2026-09-18，用户指示从阶段 1 提前）
+
+**模组侧（`D:\mcpfabric`，客户端 0.2.34 重建）**：新增 `movement.elytraLaunch` /
+`movement.elytraLaunchStatus` / `movement.elytraLaunchCancel`（`BotController` 每 tick 状态机
+`prepare → jump → release-jump → deploy → boost → handoff`）。相位按真实状态推进：装备就位
+（`EquipmentSlot.CHEST` 是鞘翅）、已离地、按键已释放、已确认 `fallFlying`、vy 已上爬、
+烟花已消耗。失败类型化：`no_elytra / grounded / not_deployed / no_fireworks / no_climb /
+deadline / cancelled / no_player`。部署后的重试用三拍循环（按一 tick、放一 tick、歇一 tick），
+因为「按住不是新按键」。点火改为显式 `gameMode.useItem(OFF_HAND)`：`javap` 反编译确认
+`LocalPlayer.aiStep` 的展开判定是 `input.jumping` 电平 + `!jumpedThisTick` + `!onGround`，
+而 vanilla `startUseItem` 会先跑主手，可能顺手放方块。顺带修掉 `tickCombat` 未与起飞宏互斥
+（OV-D17 控制纪律）。
+
+**宿主侧（`apps/stage-tamagotchi`）**：新增 `movement/launch.ts`（单次点火 + 轮询 +
+`deployed` 与 `outcome` 分离的判定；取消与失去输入租约都会 `cancelLaunch`）；
+`runElytraMove` 与 `runAirTrackMove` 两条起飞入口都改走它，边缘跑保留为回退；
+`air-track.ts` 原有「按住前进+冲刺直接按 jump」的缺陷一并修掉（E-01 已定性的根因）；
+`flight/lifecycle.ts` 的 `surfaceAt` 改为三分 `LaunchColumnProbe`（`surface`/`void`/`unknown`），
+候选带 `kind: 'flat' | 'edge'`，`prefer` 决定排序（不再默认悬崖优于平地），新增
+`flatCeiling` 需求与 `launch_terrain_unknown`；`probeLaunchSite` 读高到 `flatCeiling` 并返回
+`LaunchPlan`。
+
+**离线**：`pnpm -F @proj-airi/stage-tamagotchi typecheck` 干净；
+`vitest run src/main/services/airi/game-host` 862 通过 / 1 跳过（60 文件）。
+
+**真机（模组级）**：平台 y=202 与谷底 y=128 两处平地起飞各一次通过，均 9 tick 交接
+`done/launched`，烟花库存 54 → 53 → 52（每次恰好一枚，证明未重复点火）。
+
+**真机（宿主级）**：新增无 LLM 探针 `movement/elytra-live.integration.test.ts`（自建生产端口跑
+`runElytraMove`），两次 `status: "reached"`；AIRI 侧同一条路径（管理员聊天指令 → `game_move_to`
+`vehicle: elytra`）也通过：日志逐行对上宏的 `deploy/handoff/handed over/deployed via launched`，
+回执 `endReason: "reached"`，落点 (149.18, 95, −17)。
+
+**实机暴露的三个宿主缺陷（本批一并修掉）**：
+
+1. `host-port.getInventory` 不读副手槽 → 发射宏把火箭放进副手后，带 52 枚烟花的 bot 被判
+   `no firework rockets in the inventory`。修复：副手按桥接约定的槽位 40 进列表
+   （`InventoryHandlers.toMenuSlot`：0-8 快捷栏 / 9-35 主栏 / 36-39 护甲 / **40 副手**）。
+2. 宏的 `equipRocketOffhand` 用两次整叠 PICKUP 把**整叠**火箭搬进副手，巡航推进（选中快捷栏槽 +
+   主手 use）再也点不着火。修复：`containerClick` 增加 button 参数，宏改为「拿整叠 → 右键放 1 枚 →
+   余下放回」，主手已持火箭时直接用主手。
+3. `fallbackToFoot` 走步行分支后回执只报步行自己的 `endReason`，飞行失败被吞（AIRI 对被拒的起飞
+   报告「寻路搜索预算耗尽」）。修复：`GameExecutorOutcome.vehicleAttempt` 随回执落盘。
+
+**未验收**：逐阶段取消的真机测试、无烟花/耐久不足的真机路径、低顶棚与前景障碍的真机场景、
+空中跟随的真机起飞（与单程飞行共用同一函数与同一宏工具）。
+
+证据与边界：`docs/fork/evidence/ov5-elytra-launch-20260918/README.md`。
+
 ## Mimosa 深度审计与两条后续处理（2026-09-18）
 
 **审计**：完整 deep 扫描通过——此前 hook 报 `scanner_enobufs` 为宿主内存不足所致，释放进程后 28 秒完成。scanId `scan-2026-09-18T03-57-58.071Z-591bc9380d9c`，seal `sha256:20e6ac0e…894a60a1`，120 findings（108 high / 12 medium），52 依赖包 0 公告命中。产物：`C:\Users\86130\.mimosa\security-scans\project-f8258cc0aa238ea45b544ca2\`。覆盖 partial：2700 文件解析零失败，调用图因动态派发不完整（runStatus inconclusive）。静态分析边界，本记录不构成任何"安全/不安全"判定。
@@ -18,6 +160,108 @@
 - `auth/server.ts:72`：Better Auth 宿主构建器，鉴权语义在框架层与 OIDC 流程，:72 处仅 cache/cors/bodyLimit 中间件。
 
 代码中既有 TODO（"属主检查下沉服务层 actor-aware API"）为代码质量事项，非安全缺口。`computer-use-mcp`（7 条命令注入类）与 `integrations/minecraft`（5 条，MC-0a 起休眠）未逐条展开，属预期面/遗留面。
+
+## E-01 验收通过（用户裁定，2026-09-18）
+
+**裁定**：用户判定 E-01 通过。三个维度全部覆盖，残差有界且比执行器精度低几个数量级（rollout 的误差膨胀 `inflate` = 0.25 格，是助推残差的 90 倍）。
+
+| 维度 | 40 tick 残差 |
+| --- | --- |
+| 直线滑翔（5 次，−3/−15/−30） | 0.0005–0.0019 格 |
+| 转向（−3，10°/s，390°） | 0.0315 格 |
+| 助推（−3，一发 `flight_duration:2`，修正后） | 0.0027 格 |
+
+**已置位**：`game-host.json` 的 `movement.flight` = `{ planner: "on", calibrated: true, escort: "off" }`（备份 `game-host.json.bak-e01`）。理由：E-02/E-03 的避障与低空绕行场景需要 rollout planner 真正生效；`escort` 保持 `off`，因为 LR-2 的建议通道与 LR-3 的能量管理都还没实施。
+
+**保留限制**（随验收一同记录，不因通过而消失）：助推寿命 35 tick **绑定 `flight_duration:2`**，其他时长的烟花窗口未测；只覆盖 1.21.1 + 无移动类模组；转向与助推各只采 1 次；残差是"远小于本方法测量精度"，不是严格误差上界（要上界需模组加客户端 tick 字段）。
+
+**下一步**：按[跨线执行顺序](./cross-line-execution-order.md) §2，阶段 0 的 B 类进入「B1 CD-E（E-02..E-10）与 B2 CD-F（FS-01..09）合并成一场飞行验收活动」；E-01 既已通过，硬闸门解除，E2/E3/F 可启用。
+
+## E-01 机动补测（转向 / 火箭推进）与一个真实档案缺陷（2026-09-18）
+
+**转向通过**：恒定 pitch −3、yaw 以 10°/秒 扫、40 秒。偏航率**从录像 yaw 序列最小二乘拟合**得 10.0 °/s（计划值也是 10，比值 1.000），总转角 390.5°。残差 10/20/40 tick = 0.004341 / 0.010046 / 0.031480 格，tick 抖动 3–4 ms。显著大于直线滑翔的 0.0008，但仍在测量精度量级内（40 tick 上 3–4 ms 抖动值约 0.02 格）。
+
+**火箭推进：发现 `ROCKET_BOOST_TICKS` 错了 3.5 倍**。同步长滑翔后点火一发 `flight_duration:2` 烟花，速度序列对照：
+
+| 阶段 | 实测 | 模型 | 差 |
+| --- | --- | --- | --- |
+| 点火后一 tick | 1.1139 | 1.1015 | −0.0123 |
+| 加速完成 t+9 | 1.6786 | 1.6583 | −0.0203 |
+| 平台期 | **保持 1.6796 直到 t+35** | **t+10 起即衰减** | 持续扩大 |
+| t+30 | 1.6796 | 1.3565 | **−0.3231** |
+
+**脉冲幅度正确**（点火那一 tick 差 1.2%），**助推寿命错误**：实测平台期 35 tick，`simulation.ts`/`live-port.ts` 的 `ROCKET_BOOST_TICKS = 10`。t+36 起以 0.0198 格/tick 衰减。原因：原版烟花火箭实体**存活期间每 tick 都调用一次 `boostPlayer`**，助推窗口等于火箭实体存活时间（与 `flight_duration` 有关），不是"附着后固定 10 tick"；10 tick 更可能只是首次加速到目标速度所需时间。
+
+**影响面（三处共用该常数）**：① `simulation.ts:28` 助推弹道预测系统性偏低（位置残差在 40 tick 涨到 5.6 格且不收敛）；② `live-port.ts:24` 实时助推状态读数偏低；③ **`escort.ts:59` 的 D2 预算按每发 10 tick 估算，会高估追上所需烟花，从而在其实放得下的追击上误判 `cannot_catch_up`**。
+
+**已修正并复验**：`ROCKET_BOOST_TICKS` 10 → **35**（实测平台期），并收敛为单一来源（`simulation.ts` 拥有，`live-port.ts` 改为 re-export——原先两处各写一份 10，正中"没跟着模型一起被验证"的成因）。复算同一份录像：位置残差 20 tick **0.333 → 0.0032**、40 tick **5.594 → 0.0027**（不再单调增长）；速度对照从持续发散变为**恒定偏置 −0.0203 格/tick**，最差误差 0.323 → 0.021（降 15 倍）。
+
+**保留限制**：35 tick 绑定 `flight_duration:2`；其他烟花的助推窗口未测。
+
+**又修掉两个方法缺陷**：① `findBoostTick` 原只看垂直速度分量，而 yaw=90 时火箭沿视线**纯水平**加速，导致报出错误的点火 tick（抖动 250 ms）；改为看速度绝对值。② 曾把助推位置残差不收敛误判为"相位问题"，实际是上述寿命缺陷——用速度序列对照（`boost-impulse.test.ts`）定位。
+
+**又修掉两个输入缺陷**：① `select_hotbar_slot` 报 `{"ok":true,"message":"selected slot 5"}` 但 `selectedSlot` 未变，`use_item` 报 `{"result":"PASS"}` 却不消耗物品——两者都会谎报成功，导致一次点火静默失败（28 秒全是普通滑翔、背包里还有 64 发）。修法：切槽后读回验证 + 用烟花数量变化确认点火。② 上一批已记的"按住跳跃 vs 独立按下空格"。
+
+**新增采集脚本**：`capture-maneuver.mjs`（`--mode turn|boost`，脚本化输入），配套审计函数 `auditGlideWindow`（逐 tick 计划输入的统一比对核心）、`fitYawRatePerTick`、`findBoostTick`。
+
+**验证**：game-host 套件待本轮结束复核；typecheck 干净。证据见 [e01-residuals.md](./evidence/e01-flight-calibration-20260918/e01-residuals.md) §6。
+
+## E-01 鞘翅残差校准：真机采集与审计（2026-09-18）
+
+**五次无障碍滑翔采集成功**（pitch −3 ×3、−15、−30，各 30–60 秒，17ms 采样）。起飞台＝用户搭建的橙色陶瓦平台，标定点 `orange_glazed_terracotta` (236, 201, −17)，向西冲出即落差约 115 格的悬崖（崖底 y≈87）。
+
+**稳定段残差（10/20/40 tick，格）**：pitch −3 三次 0.000034/0.000125/0.000500、0.000063/0.000224/0.000833、0.000058/0.000207/0.000774；−15 0.000191/0.000618/0.001903；−30 0.000072/0.000212/0.000552。**量级 10⁻⁴–10⁻³ 格**，随 tick 单调但不爆炸。若档案缺一项持续作用的力，40 tick 会累积到几格到几十格——不可能停在毫米级。三个 −3 运行彼此一致，不同 pitch 同量级。**阈值待用户裁定**；裁定通过后才置 `movement.flight.calibrated: true`。
+
+**过程中修掉三个方法缺陷（都不是模型问题）**：
+
+1. **残差恒为 0 不可信** → 用 `residual-diagnostic.test.ts` 打印逐 tick 速度场，确认模型是**逐 tick 复现**游戏速度（不是只对上起点），因为档案取自同一份 vanilla 字节码、飞行段无随机性。
+2. **p-3 run3 在 20 tick 跳到 0.76 格** → 根因是**桥对同一客户端 tick 重复返回相同读数**（1748 次读里 1148 对完全相同）。按读取次数当 tick 会把标记错位约 5 tick（抖动扫描：偏移 256ms → 误差 3.94 格，偏移 4ms → 误差 0）。修法：`dedupeGlideRecording()` 只保留状态发生变化的读取。去重后 `distinct tick / 时长 ≈ 20.0`，与 20 TPS 一致，**等价于逐 tick 对齐**，因此本批次不需要改模组加客户端 tick 字段。
+3. **p-30 在 10 tick 有 0.53 格、40 tick 归零** → 录像从展翅瞬间开始，仍带冲刺跳跃速度（首样本 `motion.y=-0.59`，稳定滑翔约 −0.13）。修法：`startGlideAudit(recording, 20)` 丢掉起跳瞬态。
+
+**起跳流程的三条实测结论**（写进 RUNBOOK，都是真机上踩出来的）：
+
+- **运动由按键决定，不由视角决定**；且必须**面朝运动方向**。`facing-probe.mjs` 实测 yaw 270 时 `forward`=+x 且 `facing·movement=+1.00`（面朝行进方向），`back`=−x 但 `facing·movement=−1.00`（**倒着跑**）。前几次采集让 AIRI 倒着滑向悬崖——由用户肉眼发现。
+- **按住跳跃＝自动跑跳**（用于越过陶瓦台的一格台阶、冲出边缘），**但开鞘翅需要一次独立的空格按下**：`deploy-from-edge.mjs` 实测"全程按住跳跃"展翅恒失败，改「松手 → 单次 jump」后连续五次成功。每轮必须用**服务端权威 `list_players`** 验活：客户端 `get_self` 在已死状态仍报 `health: 20`，服务端报 `health: 0` 并静默拒绝所有移动包（症状是"按键无效、零位移"）。
+- `teleport_player` 落在陶瓦平台**下方**，传送后需先跳才站得上去（用户指出）。
+
+**验证**：game-host 套件 **845 通过 / 1 跳过（60 文件）**，typecheck 与 `pnpm lint` 干净。证据目录 [evidence/e01-flight-calibration-20260918](./evidence/e01-flight-calibration-20260918/)：`e01-residuals.md`（结果）、`RUNBOOK.md`（含场地坐标与起跳流程）、5 份录像 JSON、`residual-table.test.ts` / `residual-diagnostic.test.ts` / `tick-window-trace.test.ts`（审计与分析）。
+
+**范围限制**：只覆盖 1.21.1 + 无移动类模组、**无烟花无移动输入的直线滑翔**、三个 pitch。**转向、火箭推进、速度衰减未覆盖**（设计 §9 列为 E-01 内容，本轮只做 pitch 维度）。残差数字**不能读成"残差为零"**——它是"模型与游戏的一致性远好于本方法测量精度"。
+
+## LR-1 接线 + LR-2 建议模式（2026-09-18）
+
+**LR-1 接线完成**：`movement/escort.ts` 新增 `createEscortPolicy`（一条跟随命令一个策略，闭合历史只在本次命令内有意义）与 `escortSampleFromObservation`（观测→估计器输入，每 tick 速度→格/秒 + 朝向归一，静止目标不带朝向）。两处接线：① 宿主 `assessHostAirLaunch` 在资源检查通过后跑 D2 门，超预算返回 `cannot_catch_up` 并不起飞；② 驱动每拍起飞前重算（目标会转向/落地/消失，一次性许可会在两拍之间过期）。D4 闭合窗口每拍喂"自身→目标"水平距离，连续两个不闭合窗口转 `escort_inconclusive` 有界安全降落。回执补齐 D5 字段：`escortGate`/`escortClosure`（整套闭合序列，失败可事后解释）/`reserveFireworks`/`escortSuggestions`/`flightDistanceKm`/`fireworksPerKm`/`lastTargetAgeMs`。
+
+**controller 门的语义修正**：LR-0 的插入点是 `gate: () => 'launch' | 'hold'` 且只在"该起飞时"询问，导致策略永远拿不到判断机会（先有鸡先有蛋）。改为 `approve: () => 'assess' | 'launch' | 'hold'`：`assess` 停在 escort 相位反复询问**不消耗起飞尝试**，`hold` 保持地面跟随（继续走，不空转），`launch` 才进入原起飞评估。
+
+**开关纪律（D6/D8）**：新增 `GameHostFlightConfig.escort: 'off' | 'suggest' | 'on'`（默认 off）。非 `off` 仍需 `planner: 'on'` **且** `calibrated: true`——D2 预算按助推巡航速度估算，未校准档案不能支撑该估算；请求了却跑不起来时 `log.warn` 并保持关闭。**E-01 通过前 escort 不会真正生效**。开关关闭时控制器拿不到 escort 选项，状态机与回执与接线前一致（有测试断言三个字段为 `undefined`）。
+
+**LR-2 部分**：`suggest` 模式、建议计数就绪；**消息发送链路未实施**，回执的建议次数目前恒为 0，不要当成"已实现仅发建议"。
+
+**验证**：game-host 套件 **842 通过 / 1 跳过（60 文件）**（起点 830，净增 12 例），typecheck 与 `pnpm lint` 干净。新增测试覆盖：估计器输入三例、策略五例、控制器四例、驱动三例（门控拒绝时零烟花零跳跃、两窗口后 `escort_inconclusive`、关闭时无字段）、配置往返含未知值。证据见 [lr1-wiring-status-20260918](./evidence/e01-flight-calibration-20260918/lr1-wiring-status-20260918.md)。
+
+**范围限制**：全部是离线行为（脚本化地形、假端口、注入时钟），不证明真机追击质量。**每公里烟花是下界**（相邻 `get_self` 直线距离累加，不是弧长），LR-3 重定阈值时必须知道。D2 的 `detourFactor` 仍是常数 1.3，未接入走廊实测绕行系数（LR-4）。**LR-3/LR-4 未实施**。
+
+## B0/LR-0 第 2 项收尾：粗走廊接入跟飞驱动 + E-01 离线就绪（2026-09-18）
+
+**B0 第 2 项完成**：新增 `flight/live-corridor.ts`——粗走廊的 live 调用方，负责一件有界区域读（按 4 格粗格点对齐，65×9×65 ≈ 25k 单元，落在既有 ~30k 区域读预算内）、慢节奏重规划（1.5 s 或目标移动 >8 格）与路线瞄准点选择。`air-track.ts` 巡航腿接入：路线点替换直连目标，任何拒绝（`read_failed`/`no_route`）都保留直连目标；回执新增 `corridor` 字段。`index.ts` 跟飞调用点传世界绑定。**默认行为不变**：走廊只在 `movement.flight.planner=on` 且世界绑定存在时创建。
+
+**三条行为边界**（离线测试固化）：① 读窗口必须对齐粗格点，否则规划器边缘单元"看起来被覆盖"而实际没读到；② 未读格保持未知，A\* 不穿未知格；③ 路线没到达目标格时返回 `no_route`——A\* 在窗口边缘停住时直连目标一定比路线末端更近，保留直连是正确取舍而非降级。
+
+**E-01 离线部分就绪**：`capture-glide.mjs` 修正工具名（`set_movement`/`jump`/`stop_movement`）并在所有退出路径释放输入；新增 `RUNBOOK.md`（前置、人工准备、采集与审计命令、判定顺序、已知限制）与采集链自检 `make-synthetic-recording.test.ts`——自检已跑通（模型自生成录像 → 审计报 10/20/40 三点、误差 0、notes 空），证明"读文件 → 解析档案 → 映射 tick → 报残差"这条链是通的。**真机部分 NOT-RUN**：本轮 25565/25598/25599/25600/25601/25602/9222 全部无监听，E-01 采集、E-02..E-10、FS-01..09、OV-5 均未执行。
+
+**更正（同日核对）**：上一稿曾把 LR-1 写成"随批次落地"，不准确。实际状态是
+`movement/escort.ts`（D2 `escortGate` + D4 `createClosureEvaluator`，7 例单测）只被
+`escort.test.ts` 引用，**没有任何运行时消费者**；`AirFollowReceipt` 也缺 D5 要求的
+闭合速率序列、每公里烟花、剩余储备、最后一次目标观测年龄、建议次数。因此 LR-1 只算
+"离线核心就绪"，LR-2/LR-3/LR-4 未实施。各批次判据见
+[远距伴飞设计](./long-range-escort-design.md) §3。
+
+**顺带修复两处门禁缺陷**（均为 `571e6364c` 遗留）：① `typecheck` 当时并未通过，共 12 处错误（`live-port.test.ts` 2、`index.test.ts` 3、`air-track.test.ts` 7）——根因是 `shot.observedSpeed` 只存在于宿主侧内联对象、未进 Eventa 共享契约（已在 `shared/eventa/game-host.ts` 补），以及测试用 `this` 绑定 + 双重 `as unknown as` 的假端口写法；现已全部修掉。② `pnpm lint` 失败 68 处，全部来自 `live-acceptance-20260916/**/*.json` 的 `style/eol-last`；该目录是证据字节，按既有惯例（同目录 `.mjs`、`short-scenarios/**`）加 ignore，不改证据文件。
+
+**验证**：game-host 套件 **830 通过 / 1 跳过（60 文件）**（本轮起点 817/58，净增 13 例），B0 回归门槛 flight/air-follow/移动套件无回退；`typecheck` 与 `pnpm lint` 干净（lint 保留既有 30 条 warning）。证据见 [b0-wiring-status-20260918](./evidence/e01-flight-calibration-20260918/b0-wiring-status-20260918.md)。
+
+**范围限制**：830 通过只证明离线行为（脚本化地形上的选路与拒绝语义、回执字段、契约边界），不证明真机选路质量，也不证明残差。粗格点把高度量化到 ±2 格，路线瞄准点取格中心——**走廊指示的爬升是否引起高度振荡需要 E-02 真机确认**。
 
 ## B0/LR-0 接线批 + Step 0 基线锚定（2026-09-18）
 
