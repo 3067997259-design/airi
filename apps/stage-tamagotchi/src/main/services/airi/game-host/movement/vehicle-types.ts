@@ -91,6 +91,7 @@ export type VehicleFailureReason
     | 'touchdown_unverified'
     | 'landing_in_water'
     | 'go_around_exhausted'
+    | 'goal_under_roof'
 
 /** One consumed spawn item and where it went. */
 export interface VehicleAssetReceipt {

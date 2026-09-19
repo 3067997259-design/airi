@@ -29,7 +29,7 @@ import type { MovementControlPort, MovementState } from './port'
 import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
 
-import { evaluatePatch } from '../flight/landing-site'
+import { evaluatePatch, lowestRoofAboveGoal } from '../flight/landing-site'
 import { createLiveCorridorPort } from '../flight/live-corridor'
 import { planLiveFlightControl } from '../flight/live-port'
 import { LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
@@ -314,6 +314,14 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let landingResolved = false
   /** True when no verified support area existed; an unverified point is not a site. */
   let noReachableLanding = false
+  /** Lowest solid block over the goal, probed once; landing above it is not arrival. */
+  let goalRoofY: number | undefined
+  let goalRoofProbed = false
+  /** E-02 venue gap 2: how the long-route layer participated, typed into the result. */
+  let lowRouteUsed = false
+  let lowRouteReplans = 0
+  let lowRouteRefusals = 0
+  let lowRouteLastRefusal: 'blocked' | 'read_failed' | undefined
 
   /**
    * Resolves the landing aim once. A verified site steers the glider; when no
@@ -324,7 +332,14 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
     if (landingResolved)
       return
     landingResolved = true
-    landingSite = await findLandingSite(port, state, now, debug)
+    // A goal under a roof (a cave mouth, a slab) must be reached from below.
+    // Probe the goal column once; the roof constrains both the site search and
+    // the arrival judgment (E-02 canyon gap 1).
+    if (!goalRoofProbed) {
+      goalRoofProbed = true
+      goalRoofY = await probeGoalRoof(port, goal, state.position.y, debug)
+    }
+    landingSite = await findLandingSite(port, state, now, debug, goalRoofY)
     if (landingSite) {
       landingPoint = {
         x: landingSite.support.x + landingSite.support.width / 2,
@@ -484,10 +499,18 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
           lowRouteAt = now()
           if (plan.status === 'planned' && plan.waypoint) {
             lowRoute = { waypoint: plan.waypoint, bandY: plan.bandY ?? plan.waypoint.y }
+            lowRouteUsed = true
+            lowRouteReplans += 1
             debug?.(`elytra low-route waypoint ${plan.waypoint.x.toFixed(0)},${plan.waypoint.y.toFixed(0)},${plan.waypoint.z.toFixed(0)} band=${(plan.bandY ?? plan.waypoint.y).toFixed(0)} reached=${plan.reached}`)
           }
           else {
             lowRoute = undefined
+            // A 'planned' without a waypoint falls through the same branch but
+            // is not a typed refusal; only blocked/read_failed count.
+            if (plan.status !== 'planned') {
+              lowRouteRefusals += 1
+              lowRouteLastRefusal = plan.status
+            }
             debug?.(`elytra low-route ${plan.status} at ${plan.reached}; flying the direct goal`)
           }
         }
@@ -626,6 +649,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       state = await port.getState()
     }
 
+    // The roof probe must not depend on the approach path: a mid-cruise stop
+    // (cancel, safety, an immediate landing) never resolves a site, and the
+    // arrival judgment still needs the roof (E-02 canyon gap 1).
+    if (!goalRoofProbed) {
+      goalRoofProbed = true
+      goalRoofY = await probeGoalRoof(port, goal, state.position.y, debug)
+    }
     return await finishFlight({
       port,
       finalState: state,
@@ -634,6 +664,10 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       landingPoint,
       landingSite,
       noReachableLanding,
+      ...(goalRoofY !== undefined ? { goalRoofY } : {}),
+      ...(lowRouteEnabled
+        ? { lowRoute: { used: lowRouteUsed, replans: lowRouteReplans, refusals: lowRouteRefusals, ...(lowRouteLastRefusal ? { lastRefusal: lowRouteLastRefusal } : {}) } }
+        : {}),
       tolerance,
       fireworks,
       shouldStop,
@@ -731,6 +765,10 @@ async function finishFlight(input: {
   landingPoint: Vec3
   landingSite: LandingSite | undefined
   noReachableLanding: boolean
+  /** Roof over the goal when probed; landing above it is not arrival. */
+  goalRoofY?: number
+  /** Long-route participation typed into every terminal outcome. */
+  lowRoute?: VehicleMoveResult['lowRoute']
   tolerance: number
   fireworks: number
   shouldStop: () => boolean
@@ -741,6 +779,7 @@ async function finishFlight(input: {
   debug?: (message: string) => void
 }): Promise<VehicleMoveResult> {
   const { port, goal, landingPoint, landingSite, reason, shouldStop, ownsControl, sleep, now, debug, fireworks } = input
+  const lowRouteField = input.lowRoute ? { lowRoute: input.lowRoute } : {}
   // Only a verified site or the goal can be the reference; an unverified point
   // ahead is not a support claim, so contact there is not a plausible landing.
   const reference = landingSite ? { x: landingPoint.x, y: landingPoint.y, z: landingPoint.z } : goal
@@ -765,17 +804,17 @@ async function finishFlight(input: {
   }
 
   if (outcome.kind === 'water') {
-    return { status: 'stuck', failure: 'landing_in_water', detail: 'touch-down landed in water' }
+    return { status: 'stuck', failure: 'landing_in_water', detail: 'touch-down landed in water', ...lowRouteField }
   }
   if (outcome.kind !== 'landed' && outcome.kind !== 'unsettled') {
     if (outcome.kind === 'still-flying')
-      return { status: 'unknown', failure: 'touchdown_unverified', detail: 'the glide was still active at the deadline' }
+      return { status: 'unknown', failure: 'touchdown_unverified', detail: 'the glide was still active at the deadline', ...lowRouteField }
     if (input.noReachableLanding)
-      return { status: 'unknown', failure: 'no_reachable_landing', detail: 'no verified landing site on the flight' }
+      return { status: 'unknown', failure: 'no_reachable_landing', detail: 'no verified landing site on the flight', ...lowRouteField }
     const detail = outcome.kind === 'lost-flight'
       ? 'the glide ended without a confirmed ground contact'
       : outcome.kind === 'unknown' ? outcome.reason : 'the touch-down was never verified'
-    return { status: 'unknown', failure: 'touchdown_unverified', detail }
+    return { status: 'unknown', failure: 'touchdown_unverified', detail, ...lowRouteField }
   }
 
   // A confirmed ground contact can stop a few blocks short of the aim; close
@@ -799,16 +838,59 @@ async function finishFlight(input: {
       status: 'cancelled',
       ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
       detail: `landed ${distance.toFixed(1)} blocks from the goal`,
+      ...lowRouteField,
     }
   }
   if (reason === 'low_supply')
-    return { status: 'low_supply', detail: `landed early with ${fireworks} rockets` }
-  if (distance <= input.tolerance)
-    return { status: 'reached' }
+    return { status: 'low_supply', detail: `landed early with ${fireworks} rockets`, ...lowRouteField }
+  if (distance <= input.tolerance) {
+    // Landing on the roof over the goal is horizontally "at" it but is not
+    // arrival: the goal sits under that roof (E-02 canyon gap 1).
+    if (input.goalRoofY !== undefined && finalState.position.y > input.goalRoofY) {
+      return {
+        status: 'stuck',
+        failure: 'goal_under_roof',
+        detail: `landed on the roof y=${finalState.position.y.toFixed(0)} above goal ceiling y=${input.goalRoofY.toFixed(0)} at ${distance.toFixed(1)} blocks horizontal`,
+        ...lowRouteField,
+      }
+    }
+    return { status: 'reached', ...lowRouteField }
+  }
   return {
     status: 'stuck',
     ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
     detail: `landing miss: ${distance.toFixed(1)} blocks`,
+    ...lowRouteField,
+  }
+}
+
+/**
+ * Reads the goal column once and returns the lowest roof over the goal.
+ *
+ * A failed or partial read keeps the roof unset: arrival then stays
+ * horizontal-only rather than refusing on a fabricated ceiling.
+ */
+async function probeGoalRoof(
+  port: MovementControlPort,
+  goal: Vec3,
+  fromY: number,
+  debug?: (message: string) => void,
+): Promise<number | undefined> {
+  try {
+    const gx = Math.floor(goal.x)
+    const gz = Math.floor(goal.z)
+    const topProbe = Math.floor(fromY) + 2
+    const column = await port.getBlocksRegion(
+      { x: gx, y: Math.floor(goal.y), z: gz },
+      { x: gx, y: topProbe, z: gz },
+    )
+    const roofY = lowestRoofAboveGoal(column, goal, topProbe)
+    if (roofY !== undefined)
+      debug?.(`elytra goal roof at y=${roofY}; landing above it is not arrival`)
+    return roofY
+  }
+  catch {
+    return undefined
   }
 }
 
@@ -824,6 +906,8 @@ async function findLandingSite(
   state: MovementState,
   now: () => number,
   debug?: (message: string) => void,
+  /** When set, patches standing at or above this y are roofs over the goal, not ways in. */
+  maxContactY?: number,
 ): Promise<LandingSite | undefined> {
   const radians = state.yaw * Math.PI / 180
   const dirX = -Math.sin(radians)
@@ -863,6 +947,11 @@ async function findLandingSite(
         now: now(),
       })
       if (site) {
+        // A patch standing on a roof over the goal is not a way in: the goal
+        // is under that roof (E-02 canyon gap 1). Keep scanning for a site
+        // below the roof instead of aiming at the glass.
+        if (maxContactY !== undefined && site.contactY >= maxContactY)
+          continue
         debug?.(`elytra landing target ${(site.support.x + site.support.width / 2).toFixed(1)},${site.contactY},${(site.support.z + site.support.depth / 2).toFixed(1)}`)
         return site
       }

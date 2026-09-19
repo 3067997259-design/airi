@@ -4,6 +4,7 @@ import type { Vec3 } from './types'
 
 import { describe, expect, it } from 'vitest'
 
+import { FLIGHT_PROFILE_1_21_1 } from '../flight/profile'
 import { runElytraMove } from './elytra'
 import { runVehicleMove } from './vehicle'
 
@@ -806,5 +807,63 @@ describe('runElytraMove', () => {
     const result = await runElytraMove({ port, goal, deps: FAST, debug: message => messages.push(message) })
     expect(messages.filter(message => message.includes('go-around'))).toHaveLength(1)
     expect(result.status).toBe('stuck')
+  })
+
+  it('does not count a landing on the roof over the goal as arrival', async () => {
+    // ROOT CAUSE (E-02 canyon, 2026-09-18): the goal platform sits in a roofed
+    // cave at y=65; the mover reported `reached` three times while standing on
+    // the glass at y=87 because arrival only measured the horizontal gap.
+    const goal = { x: 100, y: 65, z: 0 }
+    const port = new ElytraFakePort({
+      goal,
+      speed: 0.1,
+      landImmediately: true,
+      landAt: { x: 100, y: 87, z: 0 },
+      blocks: [
+        { x: 100, y: 86, z: 0, id: 'minecraft:glass' },
+        { x: 100, y: 64, z: 0, id: 'minecraft:sea_lantern' },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('stuck')
+    expect(result.failure).toBe('goal_under_roof')
+    expect(result.detail).toContain('roof')
+  })
+
+  it('types the long-route participation into the flight result', async () => {
+    // E-02 venue gap 2: refusals used to exist only in debug logs; the receipt
+    // now carries whether the layer ever planned, how often, and why not.
+    const goal = { x: 200, y: 64, z: 0 }
+    const ground: SnapshotEntry[] = []
+    for (let x = 0; x <= 210; x++) {
+      for (let z = -4; z <= 4; z++)
+        ground.push({ x, y: 60, z, id: 'minecraft:stone' })
+    }
+    const port = new ElytraFakePort({ goal, speed: 0.1, blocks: ground })
+    const result = await runElytraMove({
+      port,
+      goal,
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      deps: FAST,
+    })
+    expect(result.lowRoute).toBeDefined()
+    if (result.lowRoute) {
+      expect(result.lowRoute.replans).toBeGreaterThanOrEqual(0)
+      expect(result.lowRoute.refusals).toBeGreaterThanOrEqual(0)
+      // Either the layer planned at least once over open ground, or it refused
+      // with a typed reason that the receipt names.
+      if (result.lowRoute.refusals > 0)
+        expect(result.lowRoute.lastRefusal).toBeDefined()
+      else
+        expect(result.lowRoute.used).toBe(true)
+    }
+  })
+
+  it('omits the long-route field when the flight planner switch is off', async () => {
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal, speed: 0.1 })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('reached')
+    expect(result.lowRoute).toBeUndefined()
   })
 })

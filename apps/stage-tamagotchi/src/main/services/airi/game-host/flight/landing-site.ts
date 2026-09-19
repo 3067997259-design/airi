@@ -121,11 +121,40 @@ function isAirId(id: string): boolean {
  * isHazardBlock('minecraft:fire')
  * // => true
  */
-export function isHazardBlock(id: string): boolean {
+export function isDamagingBlock(id: string): boolean {
+  return HAZARD_IDS.has(normalizeBlockId(id))
+}
+
+/**
+ * True when an id names a no-collision surface plant (grass, flowers, saplings,
+ * crops). A plant is never a support, but it is transparent: the real support
+ * is the solid block under it (plants never float on their own), so column
+ * scans and clearance checks skip past it instead of refusing the column.
+ */
+export function isPlantBlock(id: string): boolean {
   const normalized = normalizeBlockId(id)
-  if (HAZARD_IDS.has(normalized) || PLANT_IDS.has(normalized))
+  if (PLANT_IDS.has(normalized))
     return true
   return PLANT_SUFFIXES.some(suffix => normalized.endsWith(suffix))
+}
+
+/** A plant that cannot hurt the player on contact; safe to fly and stand in. */
+function isTransparentPlant(id: string): boolean {
+  return isPlantBlock(id) && !isDamagingBlock(id)
+}
+
+/**
+ * True when an id names a plant or a hazard that a support area must not use.
+ *
+ * The combined never-support predicate: damaging hazards hurt on contact and
+ * plants have no collision volume, so neither can be a verified support.
+ *
+ * @example
+ * isHazardBlock('minecraft:fire')
+ * // => true
+ */
+export function isHazardBlock(id: string): boolean {
+  return isDamagingBlock(id) || isPlantBlock(id)
 }
 
 /** True when a classified block is a full cube a glider can stand on. */
@@ -155,8 +184,11 @@ interface ColumnScan {
  * Scans one column top-down for its highest full support with clearance above.
  *
  * A cell the snapshot does not cover sets `blocked`: unknown space is not air,
- * so the column cannot be claimed. A hazard id above the support also blocks
- * the column so a fire or a flower can never be a landing site.
+ * so the column cannot be claimed. A damaging id blocks the column so a fire
+ * can never be a landing site; a no-collision plant is transparent — the scan
+ * keeps descending to the solid block under it, so a flower meadow stays
+ * landable (user review 2026-09-18: refusing grass columns would leave a
+ * plains biome without a single verified site).
  */
 function scanColumn(
   cells: Map<string, SnapshotEntry>,
@@ -171,7 +203,11 @@ function scanColumn(
     if (!entry)
       return { hazards, blocked: true }
     const id = entry.id
-    // A plant at the surface is a hazard even when the column below is solid.
+    // A no-collision plant is transparent: the real support is the solid
+    // block under it, so keep descending instead of refusing the column.
+    if (isTransparentPlant(id))
+      continue
+    // A damaging block never forms a site, even when the blocks below are solid.
     if (isHazardBlock(id) && !isAirId(id)) {
       hazards.push(id)
       return { hazards, blocked: true }
@@ -183,10 +219,15 @@ function scanColumn(
       const cell = cells.get(`${x},${above},${z}`)
       if (!cell)
         return { hazards, blocked: true }
+      // A no-collision plant in the clearance is transparent: the pose box
+      // passes through grass and flowers unimpeded.
+      if (isTransparentPlant(cell.id))
+        continue
       if (!isAirId(cell.id)) {
-        // A plant in the clearance makes the patch unusable; record it so the
-        // caller can explain why the site was refused. Water likewise blocks a
-        // normal landing (it is its own outcome, handled by the mover).
+        // A damaging or solid block in the clearance makes the patch unusable;
+        // record it so the caller can explain why the site was refused. Water
+        // likewise blocks a normal landing (it is its own outcome, handled by
+        // the mover).
         if (isHazardBlock(cell.id))
           hazards.push(cell.id)
         return { hazards, blocked: true }
@@ -300,4 +341,40 @@ export function evaluatePatch(input: EvaluatePatchInput): LandingSite | undefine
     hazards,
   }
   return site
+}
+
+/**
+ * The lowest solid block in the goal column strictly above the goal's head.
+ *
+ * A goal under a roof (a cave mouth, a slab over a channel) must be reached
+ * from below: landing on the roof is horizontally "at the goal" but is not
+ * arrival, and a site search that cannot see the roof will happily verify the
+ * glass top as a landing patch. Returns the roof block's y, or undefined when
+ * the column is open above the goal — including when the read did not cover
+ * the column (unknown keeps the roof unset, never fabricated).
+ *
+ * @example
+ * lowestRoofAboveGoal([{ x: 0, y: 86, z: 0, id: 'minecraft:glass' }], { x: 0.5, y: 65, z: 0.5 }, 95)
+ * // => 86
+ */
+export function lowestRoofAboveGoal(entries: SnapshotEntry[], goal: Vec3, topY: number): number | undefined {
+  const x = Math.floor(goal.x)
+  const z = Math.floor(goal.z)
+  const cells = new Map<string, SnapshotEntry>()
+  for (const entry of entries)
+    cells.set(`${entry.x},${entry.y},${entry.z}`, entry)
+  // Two blocks of headroom above the feet belong to the goal itself; a solid
+  // there clips the pose box and is a different (already failing) problem.
+  const floorGoal = Math.floor(goal.y)
+  const top = Math.min(Math.floor(topY), floorGoal + 40)
+  // Scan UP from the goal: the first solid found is the LOWEST roof, which is
+  // the binding ceiling. Scanning down from the glider would find the highest
+  // slab and miss a landing between two roofs (caught by the multi-slab test).
+  for (let y = floorGoal + 2; y <= top; y++) {
+    const id = cells.get(`${x},${y},${z}`)?.id
+    // No-collision plants are not a roof: the glider flies through them.
+    if (id && !id.endsWith('air') && !isTransparentPlant(id))
+      return y
+  }
+  return undefined
 }

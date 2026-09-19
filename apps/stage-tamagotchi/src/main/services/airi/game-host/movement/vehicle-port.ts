@@ -26,6 +26,17 @@ export interface VehicleMoveResult {
   detail?: string
   /** Typed failure, present whenever the trip did not reach cleanly. */
   failure?: VehicleFailureReason
+  /**
+   * E-02 venue: how the long-route layer participated in an elytra flight.
+   * Present only when the flight planner switch enabled the layer.
+   */
+  lowRoute?: {
+    used: boolean
+    replans: number
+    refusals: number
+    /** Last refusal reason; present only when the layer refused at least once. */
+    lastRefusal?: 'blocked' | 'read_failed'
+  }
   /** Full end-of-trip receipt; the movers fill this so the host can record it. */
   receipt?: VehicleReceipt
 }
