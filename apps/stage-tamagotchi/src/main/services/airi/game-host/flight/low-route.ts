@@ -310,7 +310,13 @@ export async function planLowRoute(input: {
   drop?: number
   rise?: number
 }): Promise<LowRoutePlan> {
-  const span = input.span ?? LOW_ROUTE_SPAN
+  const defaultSpan = input.span ?? LOW_ROUTE_SPAN
+  // The walk never extends past the goal: a 96-block span from 30 blocks out
+  // planned a waypoint 66 blocks beyond the target and pulled the glider
+  // through and past it (live 2026-09-19, E-02 canyon: waypoint z=-360 while
+  // the goal sat at z=-266). Cap at the goal distance so the terminal
+  // waypoint lands at or just before the goal.
+  const span = Math.min(defaultSpan, Math.hypot(input.goal.x - input.self.x, input.goal.z - input.self.z))
   const step = input.step ?? LOW_ROUTE_STEP
   const halfWidth = input.halfWidth ?? LOW_ROUTE_HALF_WIDTH
   const minClearance = input.minClearance ?? LOW_ROUTE_MIN_CLEARANCE

@@ -421,7 +421,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         break
       }
 
-      if (phase === 'cruise' && reason === 'goal' && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE) {
+      // A goal under a roof cannot be approached from above: the approach
+      // must start below the roof so the glide enters the cave mouth, not
+      // the glass over it. While above the roof the cruise keeps descending
+      // along the low-route band (E-02 canyon, live 2026-09-19: 3/3 runs
+      // landed on the glass at y=86 because the approach started from y=150).
+      if (phase === 'cruise' && reason === 'goal' && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE
+        && (goalRoofY === undefined || state.position.y <= goalRoofY)) {
         phase = 'approach'
         approachDeadline = now() + APPROACH_TIMEOUT_MS
         minApproachGap = horizontalDistance(state.position, goal)
@@ -526,6 +532,12 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       // The band follows the route's altitude, not a fixed offset above the goal.
       if (phase === 'cruise' && lowRoute)
         cruiseY = Math.max(lowRoute.bandY + LOW_ROUTE_BAND_MARGIN, Math.min(cruiseY, state.position.y))
+      // A goal under a roof caps the cruise band: the approach must enter the
+      // cave mouth, and the band cannot sit above the roof while the glider
+      // still needs to descend under it (live 2026-09-19: without the cap the
+      // band followed the canyon wall upward and she overflew east 300 blocks).
+      if (phase === 'cruise' && goalRoofY !== undefined && reason === 'goal')
+        cruiseY = Math.min(cruiseY, goalRoofY)
       // CD-E2: on the cruise leg the coarse corridor owns the near-field route
       // hint. A route point replaces the direct goal so the rollout plans around
       // terrain it can see; any refusal (unknown window, no route, failed read)
