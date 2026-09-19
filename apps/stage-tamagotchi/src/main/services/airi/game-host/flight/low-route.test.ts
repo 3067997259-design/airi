@@ -207,4 +207,35 @@ describe('roof-capped slot mechanics', () => {
     expect(fromUnder?.surface).toBe(64)
     expect(fromUnder?.bandY).toBeLessThanOrEqual(66)
   })
+
+  it('a goal-anchored scan (startY = goal.y + 1) finds the cave interior through a multi-layer ceiling', () => {
+    // User insight (2026-09-19): anchor the scan to the goal's own altitude.
+    // Column: floor 60-64, cave air 65-74, obsidian 75-80, gap air 81-84,
+    // glass 85, open above. Entering at startY=goal.y+1=66 finds the cave
+    // interior directly, regardless of the ceiling layers above.
+    const withCeiling: SnapshotEntry[] = []
+    for (let y = 40; y <= 132; y++) {
+      const solid = y < 65 || (y >= 75 && y <= 80) || y === 85
+      withCeiling.push({ x: 0, y, z: 0, id: solid ? 'minecraft:obsidian' : 'minecraft:air' })
+    }
+    // From the glider's altitude: surface = 85 (glass), wrong slot.
+    const fromGlider = slotInColumn(withCeiling, { startY: 130, bottomY: 40, topY: 132 })
+    expect(fromGlider?.surface).toBe(85)
+
+    // From the goal's altitude: surface = 64 (cave floor), correct slot.
+    const fromGoal = slotInColumn(withCeiling, { startY: 66, bottomY: 40, topY: 132 })
+    expect(fromGoal?.surface).toBe(64)
+    expect(fromGoal?.ceiling).toBe(75)
+    expect(fromGoal?.bandY).toBeLessThanOrEqual(67)
+  })
+
+  it('a goal-anchored scan over open terrain finds the same slot as the glider scan', () => {
+    // Flat ground at 64, open sky: the goal altitude and the glider altitude
+    // both find the same surface slot.
+    const flat = column(0, 0, 40, 132, y => y < 64)
+    const fromGlider = slotInColumn(flat, { startY: 130, bottomY: 40, topY: 132 })
+    const fromGoal = slotInColumn(flat, { startY: 66, bottomY: 40, topY: 132 })
+    expect(fromGoal?.surface).toBe(fromGlider?.surface)
+    expect(fromGoal?.bandY).toBe(fromGlider?.bandY)
+  })
 })

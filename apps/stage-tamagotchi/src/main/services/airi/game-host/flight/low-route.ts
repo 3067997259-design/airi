@@ -101,7 +101,7 @@ const isAir = (id: string | undefined): boolean => !id || id === '' || id.endsWi
  * // => { surface: 62, clearance: 20, bandY: 64 }
  */
 export function slotInColumn(column: SnapshotEntry[], options: {
-  /** Altitude the scan starts from: the glider's own level, plus its rise. */
+  /** Altitude the scan starts from: the glider's own level, or the goal's. */
   startY: number
   bottomY: number
   topY: number
@@ -327,12 +327,20 @@ export async function planLowRoute(input: {
   const dirZ = Math.cos(yawRad)
   const centerY = Math.floor(input.self.y)
   /**
-   * A goal under a roof caps the whole strategic scan: every column is entered
-   * from below the roof, so a route over the cave's glass can never be planned
-   * when the endpoint sits beneath it (live 2026-09-19, E-02 canyon: every run
-   * landed on the glass at y=86 while the platform waited at y=65).
+   * A goal under a roof anchors the whole strategic scan to the goal's own
+   * altitude (user insight, 2026-09-19): every column is entered at
+   * goal.y + 1, not the glider's altitude, so the scan finds the air pocket
+   * that CONTAINS the goal's level — the cave interior, the river channel,
+   * or whichever slot the goal itself sits in. This eliminates the "which
+   * sub-roof pocket?" ambiguity entirely: the goal's altitude disambiguates.
+   *
+   * Replaces the earlier roofY cap (min(centerY, roofY-1)) and the
+   * preferSubRoofSlot mechanism; both tried to guess the right pocket from
+   * the glider's perspective and picked wrong ones (ceiling tops,
+   * underground caves).
    */
-  const scanY = input.roofY !== undefined ? Math.min(centerY, input.roofY - 1) : centerY
+  const scanY = input.roofY !== undefined ? Math.floor(input.goal.y) + 1 : centerY
+  const startBandY = input.roofY !== undefined ? Math.floor(input.goal.y) + 2 : centerY
   const topY = centerY + rise
   /**
    * The vertical window follows the read's own footprint.
@@ -393,7 +401,7 @@ export async function planLowRoute(input: {
   if (points.length === 0)
     return { status: readFailed ? 'read_failed' : 'blocked', reached: 0, points: [] }
 
-  const walk = walkLowRoute({ points, span, step, startBandY: scanY })
+  const walk = walkLowRoute({ points, span, step, startBandY })
   if (!walk.waypoint)
     return { status: 'blocked', reached: walk.reached, points: walk.accepted }
   return { status: 'planned', waypoint: walk.waypoint, bandY: walk.bandY, reached: walk.reached, points: walk.accepted }
