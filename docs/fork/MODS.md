@@ -3,6 +3,16 @@
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
 
+## E-02 峡谷两处遗留修复 + 植物透明拆分（2026-09-19，提交 `7bf3131ef`，套件 911/3）
+
+**垂直到达（"仍差两步"之①）**：`finishFlight` 到达判据增加顶盖感知。目标列一次性探测**最低实心顶盖**（`landing-site.lowestRoofAboveGoal`——必须从目标向上扫：从滑翔高度向下扫取到的是最高板，会漏判"站在两层板之间"的情况，该实现 bug 由多板测试抓到）；她落在顶盖之上时不再报 `reached`，类型化 `goal_under_roof`；落点搜索收到 `maxContactY` 约束，洞口玻璃顶的 patch 被跳过。探测兜底放在 finishFlight 调用前，中途着陆（cancel/safety/immediate）同样生效。
+
+**低航路拒绝类型化（"仍差两步"之②）**：`VehicleMoveResult.lowRoute = { used, replans, refusals, lastRefusal? }` 贯穿所有终态返回，拒绝原因不再只存在于 debug 日志；`'planned'` 无 waypoint 不计为拒绝。
+
+**植物透明拆分（用户裁定 2026-09-19）**：`isHazardBlock` 拆为 `isDamagingBlock`（伤害类照旧挡列+记录）与 `isPlantBlock`（无碰撞植物）；列扫描与净空判定对透明植物**跳过**（往下找实心块——植物必坐实心块上），繁花平原恢复可落；甜浆果丛同时命中两集合，**伤害优先级最高**；`lowestRoofAboveGoal` 同样跳过植物（树苗丛不是顶盖）。既有"净空里的花要拒绝"测试按新契约改写（花放行 + 浆果丛拒绝变体）。
+
+**回归**：911 通过 / 3 跳过，typecheck/eslint 干净。**真机复验待跑**：峡谷赛道此前三次误报 `reached`（停 y=86、终点台 y=65）的场景应转为 `goal_under_roof`，或随 low-route 把她带进洞内槽位后真正落到 y=65。
+
 ## 长程航路层（2026-09-18 深夜，用户批准"推进到能做综合验收"）
 
 **新增 `flight/low-route.ts`**（纯逻辑 + 读取器，12 例单测）：沿航向读 6 段 16 格板条（垂直窗口
