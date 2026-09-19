@@ -54,6 +54,8 @@ export type AirFollowPhase
 export type AirFollowEndReason
   = | 'follow_completed'
     | 'cannot_air_follow'
+    | 'cannot_catch_up'
+    | 'escort_inconclusive'
     | 'launch_unavailable'
     | 'low_supply'
     | 'low_health'
@@ -150,6 +152,27 @@ export interface AirFollowReceipt {
   landingVerified?: boolean
   /** How strategy updates reached the driver; polling until a stream exists (escort design D6). */
   updateStream?: 'polling' | 'ipc'
+  /** Last coarse-route verdict when the corridor is wired (B0 item 2). */
+  corridor?: 'planned' | 'read_failed' | 'no_route' | 'not_started'
+  /**
+   * LR-1 escort evidence (escort design D5).
+   *
+   * `escortGate` is the last D2 verdict; `escortClosure` is the closure series
+   * the D4 window evaluated, kept in full so a failed chase can be explained
+   * after the fact instead of only being counted.
+   */
+  escortGate?: 'launch' | 'not_assessed' | 'cannot_catch_up' | 'cannot_fly' | 'no_supply'
+  escortClosure?: Array<{ at: number, distance: number, status: 'closing' | 'stalled' | 'escort_inconclusive', closureRatePerSecond?: number }>
+  /** Fireworks kept for the nearest landing site at the end of the follow. */
+  reserveFireworks?: number
+  /** Cooperative suggestions sent (LR-2 channel; always 0 until it lands). */
+  escortSuggestions?: number
+  /** Straight-line distance flown while gliding, km (a lower bound). */
+  flightDistanceKm?: number
+  /** Fireworks spent per kilometre flown; the LR-3 tuning input. */
+  fireworksPerKm?: number
+  /** Age of the newest target observation at the end of the follow, ms. */
+  lastTargetAgeMs?: number
 }
 
 export interface AirFollowControllerOptions {
@@ -159,11 +182,19 @@ export interface AirFollowControllerOptions {
   launchConfirmTicks?: number
   landingConfirmTicks?: number
   /**
-   * LR-0 escort insertion point (escort design D1). The strategy itself lands
-   * with LR-2/LR-3; the default `off` and an absent gate keep today's
-   * ground-to-launch flow exactly.
+   * LR-1 escort wiring (escort design D1).
+   *
+   * `approve` runs on every poll where a launch is due, before the phase leaves
+   * `ground-follow`. It returns the strategy's current launch verdict:
+   *
+   * - `'assess'` — the strategy has not decided yet, so the follow waits in the
+   *   `escort` phase and keeps re-asking without spending a launch attempt.
+   * - `'launch'` — a chase is worth trying; the normal launch assessment runs.
+   * - `'hold'` — the strategy says no. The follow stays grounded this poll.
+   *
+   * `undefined` (the default) keeps today's ground-to-launch flow exactly.
    */
-  escort?: { mode: 'off' | 'on', gate?: () => 'launch' | 'hold' }
+  escort?: { mode: 'off' | 'on', approve?: () => 'assess' | 'launch' | 'hold' }
 }
 
 export interface AirFollowController {
@@ -369,13 +400,17 @@ export function createAirFollowController(options: AirFollowControllerOptions): 
 
     if (phase === 'ground-follow') {
       if (options.travelMode === 'auto' && !launchBlocked && flyingTicks >= launchConfirmTicks) {
-        // LR-0 escort insertion point: a holding gate keeps the ground follow
-        // while the escort strategy decides whether the launch is worth its
-        // fireworks (escort design D1).
-        if (options.escort?.mode === 'on' && options.escort.gate?.() === 'hold') {
+        // LR-1 escort wiring: the strategy answers before the launch is
+        // assessed. An 'assess' answer parks the follow in the `escort` phase
+        // and re-asks each poll, so no launch attempt is spent while the
+        // strategy is still deciding (escort design D1/D2).
+        const verdict = options.escort?.mode === 'on' ? options.escort.approve?.() ?? 'launch' : 'launch'
+        if (verdict === 'assess') {
           phase = 'escort'
           return { phase, action: 'escort-hold' }
         }
+        if (verdict === 'hold')
+          return { phase, action: 'ground-follow' }
         phase = 'assess-launch'
         return { phase, action: 'assess-launch' }
       }
@@ -385,7 +420,8 @@ export function createAirFollowController(options: AirFollowControllerOptions): 
     if (phase === 'escort') {
       if (flyingTicks < launchConfirmTicks)
         return enterGroundFollow()
-      if (options.escort?.gate?.() === 'hold')
+      const verdict = options.escort?.approve?.() ?? 'launch'
+      if (verdict !== 'launch')
         return { phase, action: 'escort-hold' }
       phase = 'assess-launch'
       return { phase, action: 'assess-launch' }

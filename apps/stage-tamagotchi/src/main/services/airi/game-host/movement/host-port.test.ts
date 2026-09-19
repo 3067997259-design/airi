@@ -305,4 +305,87 @@ describe('createMcpMovementPort', () => {
     expect(disabled.queryVehicles).toBeUndefined()
     expect(disabled.boardVehicle).toBeUndefined()
   })
+
+  it('reads the offhand stack as a slot, so a rocket parked there is visible', async () => {
+    // ROOT CAUSE (live, 2026-09-18): the elytra launch macro puts one rocket in
+    // the offhand, and the inventory read walked only `hotbar` and `main`. A bot
+    // carrying 52 rockets therefore reported `no firework rockets in the
+    // inventory` and the flight refused to take off.
+    const callTool = callerWith({
+      get_inventory: {
+        selectedSlot: 0,
+        hotbar: [{ id: 'minecraft:firework_star', count: 64, slot: 0 }],
+        main: [{ id: 'minecraft:elytra', count: 1, slot: 14, damage: 431, maxDamage: 432 }],
+        offhand: { id: 'minecraft:firework_rocket', count: 52, name: '烟花火箭' },
+      },
+    })
+    const port = createMcpMovementPort(callTool)
+    const slots = await port.getInventory()
+    expect(slots).toEqual([
+      { slot: 0, id: 'minecraft:firework_star', count: 64, hotbar: true },
+      { slot: 14, id: 'minecraft:elytra', count: 1, hotbar: false, damage: 431, maxDamage: 432 },
+      { slot: 40, id: 'minecraft:firework_rocket', count: 52, hotbar: false },
+    ])
+  })
+
+  it('attaches the launch macro only when all three of its tools exist', async () => {
+    const callTool = callerWith({
+      elytra_launch: { state: 'running', endReason: 'running', ticks: 0, phase: 'prepare' },
+      elytra_launch_status: {
+        state: 'done',
+        endReason: 'launched',
+        ticks: 12,
+        phase: 'handoff',
+        airborne: true,
+        deployed: true,
+        climb: 4.25,
+        fireworksUsed: 1,
+        verticalSpeed: 0.86,
+        position: { x: 1.5, y: 202.5, z: -17.5 },
+      },
+      elytra_launch_cancel: { state: 'cancelled', endReason: 'cancelled', ticks: 3 },
+    })
+    const enabled = createMcpMovementPort(callTool, {
+      hasTool: name => ['elytra_launch', 'elytra_launch_status', 'elytra_launch_cancel'].includes(name),
+    })
+
+    const started = await enabled.startLaunch?.({
+      goal: { x: 200, y: 140, z: -17 },
+      deadlineMs: 1_700_000_000_000,
+      withFireworks: true,
+    })
+    expect(started).toEqual({ state: 'running', endReason: 'running', ticks: 0, phase: 'prepare' })
+    expect(callTool).toHaveBeenCalledWith('elytra_launch', {
+      goalX: 200,
+      goalY: 140,
+      goalZ: -17,
+      deadlineMs: 1_700_000_000_000,
+      withFireworks: true,
+    })
+
+    const status = await enabled.launchStatus?.()
+    expect(status).toEqual({
+      state: 'done',
+      endReason: 'launched',
+      ticks: 12,
+      phase: 'handoff',
+      airborne: true,
+      deployed: true,
+      climb: 4.25,
+      fireworksUsed: 1,
+      verticalSpeed: 0.86,
+      position: { x: 1.5, y: 202.5, z: -17.5 },
+    })
+
+    expect(await enabled.cancelLaunch?.()).toMatchObject({ state: 'cancelled' })
+
+    // Two of the three tools is not enough: a launch that cannot be read or
+    // aborted would have to guess whether the glider opened.
+    const partial = createMcpMovementPort(callTool, {
+      hasTool: name => ['elytra_launch', 'elytra_launch_status'].includes(name),
+    })
+    expect(partial.startLaunch).toBeUndefined()
+    expect(partial.launchStatus).toBeUndefined()
+    expect(partial.cancelLaunch).toBeUndefined()
+  })
 })

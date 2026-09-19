@@ -234,6 +234,26 @@ describe('game host config persistence', () => {
       movement: { planner: 'terrain', flight: { planner: 'on', calibrated: true } },
     })
 
+    // LR-1: the escort mode is the switch that arms the D2 gate and the D4
+    // window, so it must survive the round trip like the planner switch does.
+    await writeGameHostConfig(path, {
+      url: 'http://127.0.0.1:25600/mcp',
+      allowedTools: [],
+      movement: { planner: 'terrain', flight: { planner: 'on', calibrated: true, escort: 'on' } },
+    })
+    expect((await readGameHostConfig(path))?.movement?.flight).toMatchObject({ planner: 'on', calibrated: true, escort: 'on' })
+
+    // An unknown escort value drops only the escort field: the planner and the
+    // calibration it carries stay trusted.
+    await writeGameHostConfig(path, {
+      url: 'http://127.0.0.1:25600/mcp',
+      allowedTools: [],
+      movement: { planner: 'terrain', flight: { planner: 'on', calibrated: true, escort: 'warp' as never } },
+    })
+    const unknownEscort = (await readGameHostConfig(path))?.movement?.flight
+    expect(unknownEscort).toMatchObject({ planner: 'on', calibrated: true })
+    expect(unknownEscort?.escort).toBeUndefined()
+
     // An unknown flight value drops only the flight section, not the planner.
     await writeGameHostConfig(path, {
       url: 'http://127.0.0.1:25600/mcp',

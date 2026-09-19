@@ -19,6 +19,18 @@ export function yawTo(from: Vec3, to: Vec3): number {
   return Math.atan2(-(to.x - from.x), to.z - from.z) * 180 / Math.PI
 }
 
+/**
+ * Point `distance` blocks from `from` along a Minecraft yaw.
+ *
+ * The inverse of {@link yawTo}, for callers that hold a heading instead of a
+ * target. Keep the sign pair here rather than in each mover: a flipped sine aims
+ * the flight at the mirror image of the heading and still looks plausible.
+ */
+export function pointAtYaw(from: Vec3, yaw: number, distance: number): Vec3 {
+  const radians = yaw * Math.PI / 180
+  return { x: from.x - Math.sin(radians) * distance, y: from.y, z: from.z + Math.cos(radians) * distance }
+}
+
 export function angleDelta(a: number, b: number): number {
   let delta = (b - a) % 360
   if (delta > 180)

@@ -142,6 +142,69 @@ export interface JumpTaskStatus {
   support?: string
 }
 
+/**
+ * One flat-ground elytra launch handed to the mod's per-tick macro (OV-5).
+ *
+ * The host cannot run this sequence itself. The deploy press counts only on a
+ * tick that follows a released jump key, and the boost has to leave from the
+ * airborne gliding state; both are single ticks, while the host reads the
+ * bridge every 150 to 200 ms. A host-side takeoff therefore needs a real drop
+ * to fall off, which is why the macro exists.
+ */
+export interface ElytraLaunchTask {
+  /**
+   * Aim point for the climb.
+   *
+   * The macro only turns the bot toward it before the boost: the rocket pulls
+   * the velocity toward the look vector, so the goal decides which way the
+   * handoff speed points, not where the flight ends.
+   */
+  goal?: Vec3
+  /** Absolute deadline in epoch milliseconds. */
+  deadlineMs: number
+  /**
+   * False when the inventory holds no rocket.
+   *
+   * The macro then deploys and reports `no_fireworks` instead of pretending it
+   * climbed, so the caller can hand over to a glide without thrust.
+   */
+  withFireworks: boolean
+}
+
+/**
+ * Result of one elytra launch macro.
+ *
+ * `launched` is the only success: it means the glider was confirmed open and
+ * the boost moved the bot up. Every other reason is typed, so a caller can tell
+ * a missing suit (`no_elytra`) from a jump that never left the ground
+ * (`grounded`) or a rocket that failed to fire (`no_fireworks`, `no_climb`).
+ */
+export interface ElytraLaunchStatus {
+  state: 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
+  endReason: string
+  ticks: number
+  /** `prepare`, `jump`, `release-jump`, `deploy`, `boost` or `handoff`. */
+  phase?: string
+  /** The macro saw the bot leave the ground. */
+  airborne?: boolean
+  /**
+   * The glider was confirmed open at least once.
+   *
+   * A failed macro can still report `true`: the rocket may be the part that
+   * failed, and the caller then keeps gliding instead of repeating a takeoff it
+   * already completed.
+   */
+  deployed?: boolean
+  onGround?: boolean
+  /** Vertical speed at the read time, blocks per tick. */
+  verticalSpeed?: number
+  /** How far the macro climbed above its start height. */
+  climb?: number
+  fireworksUsed?: number
+  /** Live position at the read time. */
+  position?: Vec3
+}
+
 export interface MovementControlPort {
   getState: () => Promise<MovementState>
   getBlocksRegion: (from: Vec3, to: Vec3) => Promise<SnapshotEntry[]>
@@ -167,6 +230,15 @@ export interface MovementControlPort {
   startJump?: (task: JumpTask) => Promise<JumpTaskStatus>
   jumpStatus?: () => Promise<JumpTaskStatus>
   cancelJump?: () => Promise<JumpTaskStatus>
+  /**
+   * Per-tick flat-ground launch macro (OV-5).
+   *
+   * Optional: a bridge without the launch tools keeps the host-side edge run,
+   * which cannot take off from flat ground but still flies a real cliff.
+   */
+  startLaunch?: (task: ElytraLaunchTask) => Promise<ElytraLaunchStatus>
+  launchStatus?: () => Promise<ElytraLaunchStatus>
+  cancelLaunch?: () => Promise<ElytraLaunchStatus>
   getBlock: (pos: Vec3) => Promise<BlockView | undefined>
   getInventory: () => Promise<InventorySlot[]>
   look: (yaw: number, pitch: number) => Promise<void>

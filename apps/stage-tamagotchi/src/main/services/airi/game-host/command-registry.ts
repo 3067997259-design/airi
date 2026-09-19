@@ -312,6 +312,16 @@ export interface GameExecutorOutcome extends GamePostConditionInput {
   shot?: GameShotReceipt
   /** MC-4e: riptide movement details copied onto the receipt. */
   riptide?: GameRiptideReceipt
+  /**
+   * The vehicle mover's own verdict when a foot fallback replaced it.
+   *
+   * `endReason` describes the trip that actually ran. Without this field the
+   * operator sees only the walk's reason and cannot tell that the vehicle never
+   * started (live 2026-09-18: an elytra `move_to` reported `search_budget` from
+   * the fallback walk while the flight had refused over a rocket it could not
+   * find, and nothing in the receipt named the flight).
+   */
+  vehicleAttempt?: { status: string, failure?: string, detail?: string }
   /** MC-4f: menu business result, content observations and placement details. */
   menuAction?: GameMenuActionReceipt
   itemContent?: GameItemContentReceipt
@@ -702,6 +712,7 @@ export function createGameCommandRegistry(options: GameCommandRegistryOptions): 
       ...(outcome.prerequisites ? { prerequisites: outcome.prerequisites } : {}),
       ...(outcome.follow ? { follow: outcome.follow } : {}),
       ...(outcome.vehicle ? { vehicle: outcome.vehicle } : {}),
+      ...(outcome.vehicleAttempt ? { vehicleAttempt: outcome.vehicleAttempt } : {}),
     }
   }
 

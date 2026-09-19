@@ -1,8 +1,9 @@
-import type { MovementControlPort } from '../movement/port'
+import type { MovementControlPort, MovementState } from '../movement/port'
+import type { SnapshotEntry } from '../movement/snapshot'
 
 import { describe, expect, it } from 'vitest'
 
-import { fireworkStateSince, planLiveFlightControl } from './live-port'
+import { fireworkStateSince, planLiveFlightControl, ROCKET_BOOST_TICKS } from './live-port'
 import { FLIGHT_PROFILE_1_21_1, resolveFlightPlannerSwitch } from './profile'
 
 describe('resolveFlightPlannerSwitch', () => {
@@ -30,8 +31,10 @@ describe('fireworkStateSince', () => {
   })
 
   it('models the boost window from the last spent rocket', () => {
-    expect(fireworkStateSince(10_000, 10_050)).toEqual({ active: true, ticksRemaining: 9 })
-    expect(fireworkStateSince(10_000, 10_500)).toEqual({ active: false, ticksRemaining: 0 })
+    // The window is the firework entity's lifetime, measured at 35 ticks by the
+    // E-01 boost run, so a read 500 ms after the fire is still inside it.
+    expect(fireworkStateSince(10_000, 10_050)).toEqual({ active: true, ticksRemaining: ROCKET_BOOST_TICKS - 1 })
+    expect(fireworkStateSince(10_000, 10_050 + ROCKET_BOOST_TICKS * 50)).toEqual({ active: false, ticksRemaining: 0 })
   })
 })
 
@@ -50,17 +53,28 @@ describe('planLiveFlightControl', () => {
     }
   }
 
-  function fakePort(entries: () => Array<{ x: number, y: number, z: number }>): MovementControlPort & { reads: number } {
-    return {
-      reads: 0,
-      async getState() {
+  /**
+   * A port with only the two methods the planner under test calls: it reads the
+   * world and nothing else. Any other method would be a test bug, so it fails
+   * loudly instead of returning an empty answer.
+   */
+  function fakePort(readRegion: () => SnapshotEntry[]) {
+    let reads = 0
+    const port = {
+      async getState(): Promise<MovementState> {
         throw new Error('unexpected in this test')
       },
-      async getBlocksRegion() {
-        this.reads++
-        return entries().map(({ x, y, z }) => ({ x, y, z, id: 'minecraft:air' }))
+      async getBlocksRegion(): Promise<SnapshotEntry[]> {
+        reads++
+        return readRegion()
       },
-    } as unknown as MovementControlPort & { reads: number }
+    } as unknown as MovementControlPort
+    return { port, reads: () => reads }
+  }
+
+  /** Region reader for a fully read, fully passable box of cells. */
+  function airCells(cells: () => Array<{ x: number, y: number, z: number }>): () => SnapshotEntry[] {
+    return () => cells().map(({ x, y, z }) => ({ x, y, z, id: 'minecraft:air' }))
   }
 
   it('returns a control when the swept cells are read and passable', async () => {
@@ -71,10 +85,10 @@ describe('planLiveFlightControl', () => {
           around.push({ x, y, z })
       }
     }
-    const port = fakePort(() => around)
+    const fake = fakePort(airCells(() => around))
     const control = await planLiveFlightControl({
       planner,
-      port,
+      port: fake.port,
       state: stateOf({ x: 0, y: 82, z: 0 }),
       poll: 1,
       fireworks: 16,
@@ -84,14 +98,13 @@ describe('planLiveFlightControl', () => {
       now: () => 0,
     })
     expect(control).toBeDefined()
-    expect(port.reads).toBe(1)
+    expect(fake.reads()).toBe(1)
   })
 
   it('falls back when the read covers none of the swept cells', async () => {
-    const port = fakePort(() => [])
     const control = await planLiveFlightControl({
       planner,
-      port,
+      port: fakePort(airCells(() => [])).port,
       state: stateOf({ x: 0, y: 82, z: 0 }),
       poll: 1,
       fireworks: 16,
@@ -106,17 +119,11 @@ describe('planLiveFlightControl', () => {
   })
 
   it('falls back when the region read itself fails', async () => {
-    const port: MovementControlPort = {
-      async getState() {
-        throw new Error('unexpected')
-      },
-      async getBlocksRegion() {
-        throw new Error('bridge unavailable')
-      },
-    }
     const control = await planLiveFlightControl({
       planner,
-      port,
+      port: fakePort(() => {
+        throw new Error('bridge unavailable')
+      }).port,
       state: stateOf({ x: 0, y: 82, z: 0 }),
       poll: 1,
       fireworks: 16,

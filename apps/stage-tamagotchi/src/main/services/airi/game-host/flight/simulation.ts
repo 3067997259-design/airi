@@ -24,8 +24,23 @@
 import type { Vec3 } from '../movement/types'
 import type { FlightProfile } from './profile'
 
-/** Rocket boost ticks used for a fresh firework when the read has no estimate. */
-export const ROCKET_BOOST_TICKS = 10
+/**
+ * Rocket boost ticks a fresh firework applies.
+ *
+ * NOTICE:
+ * Why 35: measured on 2026-09-18 (E-01, `flight_duration: 2` rockets). A live
+ * burn held its plateau speed from the impulse through tick 35 and only then
+ * began decaying at 0.0198 blocks/tick; the pre-fix value of 10 started decaying
+ * at tick 10 and left the speed 0.32 blocks/tick low by tick 30, which is what
+ * made the boost trajectory residual grow to 5.6 blocks instead of converging.
+ * Root cause: a firework entity calls `boostPlayer` on EVERY tick it stays
+ * alive, so the window is the entity's lifetime, not a fixed 10 ticks — 10 is
+ * most likely just the rise time to `rocketTargetSpeed`.
+ * Source: docs/fork/evidence/e01-flight-calibration-20260918/e01-residuals.md §6.2.
+ * Removal condition: none — re-measure when the profile moves to another
+ * Minecraft version or a different `flight_duration` is used in flight.
+ */
+export const ROCKET_BOOST_TICKS = 35
 
 /** Modelled per-tick state. `velocity` is left after this tick's drag. */
 export interface FlightState {

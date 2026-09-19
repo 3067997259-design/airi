@@ -41,11 +41,13 @@ import type {
   GamePostCondition,
   StopScope,
 } from './command-registry'
+import type { LaunchColumnProbe, LaunchPlan } from './flight/lifecycle'
 import type { FlightPlannerSwitch } from './flight/profile'
 import type { MiningPort, MiningSlot } from './mining/session'
 import type { BreakFact, GeneratedDrop } from './mining/types'
 import type { AirFollowEndReason } from './movement/air-follow'
 import type { AirTrackStatus } from './movement/air-track'
+import type { EscortMode } from './movement/escort'
 import type { FailedEdge } from './movement/executor'
 import type { MovementPortControl } from './movement/host-port'
 import type { SnapshotEntry } from './movement/snapshot'
@@ -87,7 +89,7 @@ import {
   StaleGameBindingError,
   stopScopeFor,
 } from './command-registry'
-import { selectLaunchPoint } from './flight/lifecycle'
+import { DEFAULT_LAUNCH_REQUIREMENTS, selectLaunchPoint } from './flight/lifecycle'
 import { FLIGHT_PROFILE_VERSION, resolveFlightPlannerSwitch } from './flight/profile'
 import { parseHarvestEvaluation } from './mining/harvest'
 import { MiningSession, nextBreakId } from './mining/session'
@@ -96,6 +98,7 @@ import { assessAirLaunch, createAirFollowController, DEFAULT_AIR_FOLLOW_BUDGET }
 import { DEFAULT_AIR_SPACING_BAND } from './movement/air-spacing'
 import { runAirTrackMove } from './movement/air-track'
 import { cellOf } from './movement/coordinates'
+import { escortGate, escortSampleFromObservation } from './movement/escort'
 import { runTerrainMove, runTerrainRoute, SCAFFOLDING_ITEMS } from './movement/executor'
 import { createMcpMovementPort } from './movement/host-port'
 import { actionResultPhases, DimensionMismatchError } from './movement/observation'
@@ -367,8 +370,13 @@ export async function readGameHostConfig(path: string): Promise<GameHostConfig |
       ? movementRecord.flight as Record<string, unknown>
       : undefined
     const flightPlannerRaw = flightRecord?.planner
+    const flightEscortRaw = flightRecord?.escort
     const flight: GameHostFlightConfig | undefined = flightPlannerRaw === 'on' || flightPlannerRaw === 'off'
-      ? { planner: flightPlannerRaw, ...(flightRecord?.calibrated === true ? { calibrated: true } : {}) }
+      ? {
+          planner: flightPlannerRaw,
+          ...(flightRecord?.calibrated === true ? { calibrated: true } : {}),
+          ...(flightEscortRaw === 'off' || flightEscortRaw === 'suggest' || flightEscortRaw === 'on' ? { escort: flightEscortRaw } : {}),
+        }
       : undefined
     const movement: GameHostConfig['movement'] = plannerRaw === 'terrain' || plannerRaw === 'legacy'
       ? { planner: plannerRaw, ...(flight ? { flight } : {}) }
@@ -487,7 +495,7 @@ const DOMAIN_TOOLS: GameHostDomainToolDescriptor[] = [
   {
     name: 'game_move_to',
     action: 'move_to',
-    description: 'Walk to a position with a bounded lease. Reports the measured final distance; unreachable targets fail with the final position.',
+    description: 'Walk or ride to a position with a bounded lease: on foot, or on a boat, horse, minecart, strider or elytra. The elytra takes off from the ground with its launch macro, so flat ground needs no cliff. Reports the measured final distance; unreachable targets fail with the final position.',
     parameters: {
       type: 'object',
       properties: {
@@ -2506,6 +2514,31 @@ export async function setupGameHost(
     return resolved
   }
 
+  /**
+   * LR-1/LR-2 escort switch for the air follow (escort design D6/D8).
+   *
+   * The strategy stays off unless the config asks for it **and** the rollout
+   * planner resolved **and** the E-01 calibration is registered. An escort
+   * estimate is only as good as the physics it assumes: the D2 gate spends its
+   * budget at the boosted cruise speed, and D6 forbids the strategy and the
+   * low-altitude shortcuts before an archive is calibrated.
+   *
+   * A requested mode that cannot run is not silent: the caller logs it, so a
+   * misconfigured run is visible instead of looking like a strategy that chose
+   * to do nothing.
+   */
+  function escortModeOf(): { mode: EscortMode, blockedBy?: string } {
+    const requested = config?.movement?.flight?.escort ?? 'off'
+    if (requested === 'off')
+      return { mode: 'off' }
+    const planner = flightPlannerOf()
+    if (!planner)
+      return { mode: 'off', blockedBy: 'requested escort without a resolvable flight profile' }
+    if (!planner.calibrated)
+      return { mode: 'off', blockedBy: 'requested escort before the E-01 calibration is registered' }
+    return { mode: requested }
+  }
+
   /** Counts placeable scaffolding blocks in the local player's inventory. */
   async function countScaffolding(): Promise<number> {
     try {
@@ -2610,14 +2643,18 @@ export async function setupGameHost(
    * must not treat unknown terrain as free. This is a heuristic for the
    * assessment only and needs real-machine calibration.
    *
+   * The read reaches `flatCeiling` blocks above the player, because a flat
+   * takeoff is only usable when the air above it was actually read: a ceiling
+   * that falls outside the scan would otherwise look like open sky (OV-D16).
+   *
    * @example
-   * probeLaunchSite({ x: 0, y: 64, z: 0 }, 0)
-   * // => false on covered flat ground
+   * probeLaunchSite({ x: 0, y: 64, z: 0 }, 0).ok
+   * // => true under open sky, false under a low roof
    */
-  async function probeLaunchSite(from: { x: number, y: number, z: number }, heading: number): Promise<boolean> {
+  async function probeLaunchSite(from: { x: number, y: number, z: number }, heading: number): Promise<LaunchPlan> {
     const radius = 10
     const bottom = Math.floor(from.y) - 6
-    const top = Math.floor(from.y) + 2
+    const top = Math.floor(from.y) + DEFAULT_LAUNCH_REQUIREMENTS.flatCeiling + 1
     let entries
     try {
       entries = await createTerrainPort().getBlocksRegion(
@@ -2626,23 +2663,27 @@ export async function setupGameHost(
       )
     }
     catch {
-      return false
+      return { ok: false, reason: 'launch_terrain_unknown' }
     }
     if (entries.length === 0)
-      return false
+      return { ok: false, reason: 'launch_terrain_unknown' }
     const cells = new Map<string, string>()
     for (const entry of entries) cells.set(`${entry.x},${entry.y},${entry.z}`, entry.id)
     const isAir = (id: string): boolean => id === '' || id.endsWith('air')
     const isSolid = (id: string): boolean => !isAir(id) && id !== 'minecraft:water'
-    const surfaceAt = (x: number, z: number): number | undefined => {
+    const surfaceAt = (x: number, z: number): LaunchColumnProbe => {
+      let sawCell = false
       for (let y = top; y >= bottom; y--) {
         const id = cells.get(`${x},${y},${z}`)
         if (id === undefined)
-          return undefined
+          continue
+        sawCell = true
         if (isSolid(id))
-          return y
+          return { kind: 'surface', y }
       }
-      return undefined
+      // A column that was read from end to end without a solid block is proven
+      // open air; one with no cells at all was never covered by the read.
+      return sawCell ? { kind: 'void' } : { kind: 'unknown' }
     }
     const clearAt = (x: number, y: number, z: number): boolean | undefined => {
       const id = cells.get(`${x},${y},${z}`)
@@ -2650,7 +2691,7 @@ export async function setupGameHost(
         return undefined
       return isAir(id)
     }
-    return selectLaunchPoint({ from, heading, surfaceAt, clearAt, searchRadius: 8 }).ok
+    return selectLaunchPoint({ from, heading, surfaceAt, clearAt, searchRadius: 8 })
   }
 
   /**
@@ -2725,6 +2766,12 @@ export async function setupGameHost(
     self: { x: number, y: number, z: number }
     heading: number
     deadline: number
+    /**
+     * LR-1 D2 context. The escort gate needs a live target observation; without
+     * one it cannot estimate a chase, so the assessment falls back to the
+     * resource-only verdict instead of refusing on missing data.
+     */
+    escort?: { observation: TargetObservation, reserve: number }
   }): Promise<{ ok: true } | { ok: false, reason: AirFollowEndReason }> {
     const slots = await readInventorySlots()
     const all = slots ? [...slots.hotbar, ...slots.main] : []
@@ -2739,15 +2786,35 @@ export async function setupGameHost(
       .filter(slot => slot.id.includes('firework_rocket'))
       .reduce((total, slot) => total + slot.count, 0)
     const health = (await readFreshSnapshot())?.health ?? 20
-    const launchSiteAvailable = await probeLaunchSite(input.self, input.heading)
-    return assessAirLaunch({
+    const launchPlan = await probeLaunchSite(input.self, input.heading)
+    if (!launchPlan.ok && env.AIRI_TERRAIN_DEBUG)
+      log.warn(`air-follow: no launch site: ${launchPlan.reason}${launchPlan.unknownColumns ? ` (${launchPlan.unknownColumns} unread columns)` : ''}`)
+    const assessment = assessAirLaunch({
       hasElytra,
       fireworks,
       health,
-      launchSiteAvailable,
+      launchSiteAvailable: launchPlan.ok,
       deadlineReached: Date.now() >= input.deadline,
       budget: DEFAULT_AIR_FOLLOW_BUDGET,
     })
+    if (!assessment.ok)
+      return assessment
+    // LR-1 D2: after the resource checks pass, the escort gate may still refuse
+    // because even an optimistic chase cannot close inside the spendable
+    // supply. Refusing here keeps the follow on the ground instead of spending
+    // a takeoff on a chase the design forbids (escort design D2/D8).
+    if (!input.escort)
+      return assessment
+    const target = escortSampleFromObservation(input.escort.observation)
+    if (!target)
+      return assessment
+    const permission = escortGate({
+      target,
+      self: { position: input.self, fireworks, reserve: input.escort.reserve, canFly: hasElytra },
+    })
+    if (permission.ok)
+      return assessment
+    return { ok: false, reason: permission.reason === 'cannot_catch_up' ? 'cannot_catch_up' : 'cannot_air_follow' }
   }
 
   /**
@@ -2769,11 +2836,27 @@ export async function setupGameHost(
     stillOwnsControl: () => boolean,
     control: MovementPortControl,
   ): Promise<GameExecutorOutcome> {
+    /**
+     * The vehicle mover's verdict, kept for the receipt when a walk replaces it.
+     *
+     * A foot fallback may legitimately finish the trip, but the vehicle failure
+     * must survive into the receipt: live 2026-09-18 an elytra `move_to` reported
+     * `search_budget` from the fallback walk and nothing named the takeoff that
+     * never happened, so the flight failure was invisible to the operator.
+     */
+    let vehicleAttempt: GameExecutorOutcome['vehicleAttempt']
     if (moveTo.vehicle) {
       const flightPlanner = flightPlannerOf()
+      // CD-E2: the coarse corridor plans over live terrain, so an elytra trip
+      // needs the binding it belongs to. An unbound dimension keeps the direct
+      // goal instead of a corridor read of a world this command cannot name.
+      const corridorWorld = worldIdentity?.dimension
+        ? { worldId: worldIdentity.worldId, dimension: worldIdentity.dimension, mapVersion: 'live' }
+        : undefined
       const vehicleResult = await runVehicleMove(moveTo.vehicle, {
         port: createTerrainPort(control),
         ...(flightPlanner ? { flightPlanner } : {}),
+        ...(corridorWorld ? { world: corridorWorld } : {}),
         goal: { x: moveTo.x, y: moveTo.y, z: moveTo.z },
         tolerance: moveTo.tolerance,
         shouldStop,
@@ -2801,6 +2884,11 @@ export async function setupGameHost(
         if (!mayWalk) {
           const fresh = await readFreshSnapshot() ?? fallback
           return { endReason: vehicleResult.failure ?? 'vehicle_unavailable', finalSnapshot: fresh, ...(vehicleResult.receipt ? { vehicle: vehicleResult.receipt } : {}) }
+        }
+        vehicleAttempt = {
+          status: vehicleResult.status,
+          ...(vehicleResult.failure ? { failure: vehicleResult.failure } : {}),
+          ...(vehicleResult.detail ? { detail: vehicleResult.detail } : {}),
         }
       }
       else {
@@ -2852,8 +2940,12 @@ export async function setupGameHost(
     void envelope
     const fresh = await readFreshSnapshot() ?? fallback
     if (result.status === 'reached')
-      return { endReason: 'reached', finalSnapshot: fresh, finalPosition: fresh.position }
-    return { endReason: result.status === 'no_path' ? 'unreachable' : result.status, finalSnapshot: fresh }
+      return { endReason: 'reached', finalSnapshot: fresh, finalPosition: fresh.position, ...(vehicleAttempt ? { vehicleAttempt } : {}) }
+    return {
+      endReason: result.status === 'no_path' ? 'unreachable' : result.status,
+      finalSnapshot: fresh,
+      ...(vehicleAttempt ? { vehicleAttempt } : {}),
+    }
   }
 
   /**
@@ -3425,8 +3517,17 @@ export async function setupGameHost(
       // keepDistance; the controller owns the state and the budget.
       const travelMode = follow.travelMode === 'auto' ? 'auto' as const : 'ground' as const
       const airSpacing = follow.airSpacing ?? { min: DEFAULT_AIR_SPACING_BAND.min, max: DEFAULT_AIR_SPACING_BAND.max }
+      // LR-1: the escort wiring is resolved once per command, so the gate and
+      // the closure window share one decision source for the whole follow.
+      const escort = escortModeOf()
+      if (escort.blockedBy)
+        log.warn(`air-follow: ${escort.blockedBy}; the escort strategy stays off`)
       const airController = travelMode === 'auto'
-        ? createAirFollowController({ travelMode, spacing: airSpacing })
+        ? createAirFollowController({
+            travelMode,
+            spacing: airSpacing,
+            ...(escort.mode !== 'off' ? { escort: { mode: 'on' as const } } : {}),
+          })
         : undefined
       /** Newest full target observation, kept for the air state machine. */
       let lastObservation: TargetObservation | undefined
@@ -3589,19 +3690,47 @@ export async function setupGameHost(
               self,
               heading: Math.atan2(-(target.x - self.x), target.z - self.z) * 180 / Math.PI,
               deadline,
+              // LR-1 D2: the gate refuses a chase that cannot close inside the
+              // spendable supply, on the newest full observation.
+              ...(escort.mode !== 'off' && lastObservation
+                ? { escort: { observation: lastObservation, reserve: DEFAULT_AIR_FOLLOW_BUDGET.reserveFireworks } }
+                : {}),
             })
             if (!assessment.ok) {
               if (env.AIRI_TERRAIN_DEBUG)
                 log.warn(`air-follow: launch assessment refused: ${assessment.reason}`)
+              // The escort gate's supply refusal is not the controller's
+              // resource verdict: it means "do not even try", so the follow
+              // ends on that reason instead of reporting low_supply.
               airController.noteLaunchRefused(assessment.reason)
+              if (assessment.reason === 'cannot_catch_up' && escort.mode !== 'off') {
+                endReason = 'cannot_catch_up'
+                break
+              }
             }
             else {
               const flightPlanner = flightPlannerOf()
+              // B0 item 2: the coarse corridor plans over live terrain, so it
+              // needs the binding the flight belongs to. An unbound dimension
+              // keeps the planner's direct goal instead of a corridor read of
+              // a world this command cannot name.
+              const corridorWorld = worldIdentity?.dimension
+                ? { worldId: worldIdentity.worldId, dimension: worldIdentity.dimension, mapVersion: 'live' }
+                : undefined
               const airResult = await runAirTrackMove({
                 port: createTerrainPort(controlIdentity),
                 readTarget: () => readTargetObservationByUuid(targetUuid!),
                 band: airSpacing,
                 ...(flightPlanner ? { flightPlanner } : {}),
+                ...(corridorWorld ? { world: corridorWorld } : {}),
+                ...(escort.mode !== 'off' ? { escort: escort.mode } : {}),
+                ...(escort.mode !== 'off' ? { readTargetAgeMs: () => Date.now() - (lastObservation?.receivedAt ?? Date.now()) } : {}),
+                // LR-2: the escort may ask the player to hold heading and slow
+                // down. The text is composed and rate-limited inside the driver;
+                // this only carries it to the game's chat.
+                ...(escort.mode !== 'off'
+                  ? { suggest: async (text: string) => { await callGameTool('send_chat', { message: text }) } }
+                  : {}),
                 deadline,
                 shouldStop,
                 stillOwnsControl,

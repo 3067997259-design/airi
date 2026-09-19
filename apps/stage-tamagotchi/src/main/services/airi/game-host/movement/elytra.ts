@@ -30,9 +30,12 @@ import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
 
 import { evaluatePatch } from '../flight/landing-site'
+import { createLiveCorridorPort } from '../flight/live-corridor'
 import { planLiveFlightControl } from '../flight/live-port'
+import { LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
 import { classifyTouchdown } from '../flight/touchdown'
 import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
+import { launchFromGround } from './launch'
 
 const FLIGHT_POLL_MS = 200
 /** Preferred altitude above the goal while cruising (MC-3c D2). */
@@ -51,6 +54,22 @@ const FLARE_PITCH = -6
 const LANDING_ASSIST_FALL_SPEED = -0.6
 /** Nose-up angle for climbing over terrain ahead. */
 const CLIMB_PITCH = -30
+/**
+ * Steepest nose-down angle used to spend a large height surplus.
+ *
+ * The calibrated profile still glides at this angle (E-01 measured −1.66
+ * blocks/tick of vertical speed at pitch −89), and the approach and flare below
+ * pull the nose back up long before the ground.
+ */
+const DIVE_PITCH = 60
+/**
+ * Height kept above the low route's band.
+ *
+ * The band is the middle of a proven air slot, so a few blocks of margin cover
+ * the glider's own sink between two corrections without pushing it into the
+ * ceiling the slot was measured under.
+ */
+const LOW_ROUTE_BAND_MARGIN = 2
 /** Terrain this close ahead forces a climb, never a level glide. */
 const TERRAIN_GUARD_DISTANCE = 12
 /** The final flare starts only this close to the aim point. */
@@ -88,11 +107,21 @@ const STUCK_MIN_MOVE = 0.5
 const LANDING_WALK_LIMIT = 24
 const LANDING_WALK_TIMEOUT_MS = 15_000
 /**
- * Chest armor index inside the player inventory. The bridge's `swapSlots`
- * takes inventory indices and maps them to menu slots internally
- * (`InventoryHandlers.toMenuSlot`: 36-39 armor, helmet..boots).
+ * Chest armor index inside the player inventory.
+ *
+ * NOTICE:
+ * Why 38 and not 37: `Inventory` stores armor in the order boots, leggings,
+ * chestplate, helmet at indices 36..39, so the chestplate is 38. The bridge's
+ * `InventoryHandlers.toMenuSlot` maps 36..39 onto menu 5..8 while documenting
+ * them as "helmet..boots", so a chestplate written as 37 lands on the leggings
+ * slot and the swap does nothing — a live `swapSlots(5, 36)` answered `swapped`
+ * while the chest slot never changed.
+ * Source: D:/mcpfabric InventoryHandlers.toMenuSlot and the `Inventory` field
+ * order; verified against a live inventory read on 2026-09-18.
+ * Removal condition: when the bridge documents inventory indices by their real
+ * field order, or exposes an armor-slot API instead of raw indices.
  */
-const CHEST_ARMOR_SLOT = 37
+const CHEST_ARMOR_SLOT = 38
 /** Bound on the forward landing scan; the mover never aims farther ahead. */
 const LANDING_SCAN_MAX = 24
 /** First forward offset the landing scan tries; the nearest patch wins. */
@@ -137,50 +166,97 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
 
   // 2. Rockets: the mover needs one selected stack to thrust with.
   let fireworkSlot = await selectBySuffix(port, 'firework_rocket')
-  if (fireworkSlot === undefined)
-    return { status: 'unavailable', detail: 'no firework rockets in the inventory' }
   let fireworks = await countBySuffix(port, 'firework_rocket')
+  if (fireworkSlot === undefined && fireworks === 0)
+    return { status: 'unavailable', detail: 'no firework rockets in the inventory' }
+  // `fireworkSlot` stays undefined when the only rocket sits in the offhand: the
+  // launch macro can fire that hand, but the cruise thrust selects a hotbar slot,
+  // so the flight takes off and reports `low_supply` instead of refusing here.
 
-  // 3. Takeoff: run off the edge, then deploy the glider while falling.
+  // 3. Takeoff. The bridge's per-tick macro runs first when it exists (OV-D16):
+  // it lifts off flat ground, which the edge run cannot, and it owns the two
+  // single-tick steps (the deploy press after a released jump key, and the boost
+  // from the airborne state) that a 200 ms poll cannot hit. The edge run stays
+  // as the fallback, so a cliff takeoff does not regress.
   let state = await port.getState()
   await port.look(yawTo(state.position, goal), 0)
-  let deployed = false
-  await port.setInput({ forward: true, sprint: true })
-  try {
-    const takeoffDeadline = now() + TAKEOFF_TIMEOUT_MS
-    while (state.onGround) {
-      if (shouldStop()) {
-        await stopIfOwner(port, ownsControl)
-        return { status: 'cancelled' }
-      }
-      if (now() > takeoffDeadline) {
-        await stopIfOwner(port, ownsControl)
-        return { status: 'stuck', detail: 'no takeoff edge reached' }
-      }
-      await sleep(FLIGHT_POLL_MS)
-      state = await port.getState()
-    }
-
-    deployed = state.fallFlying === true
-    for (let attempt = 0; attempt < 3 && !deployed && !state.onGround; attempt++) {
-      await port.jumpOnce()
-      const deployDeadline = now() + DEPLOY_TIMEOUT_MS
-      while (!deployed && now() < deployDeadline && !state.onGround) {
+  const macro = await launchFromGround({
+    port,
+    goal,
+    fireworks,
+    shouldStop,
+    stillOwnsControl: ownsControl,
+    now,
+    sleep,
+    ...(debug ? { debug } : {}),
+  })
+  if (macro?.outcome === 'cancelled')
+    return { status: 'cancelled' }
+  // The macro's verdict is not the only source of truth: read once after it, so
+  // the fallback run and the cruise work from the state the bot holds now.
+  state = await port.getState()
+  let deployed = macro?.deployed === true || state.fallFlying === true
+  if (!deployed) {
+    // Every path that touches input releases it (review R7).
+    await port.setInput({ forward: true, sprint: true })
+    try {
+      const takeoffDeadline = now() + TAKEOFF_TIMEOUT_MS
+      while (state.onGround) {
+        if (shouldStop()) {
+          await stopIfOwner(port, ownsControl)
+          return { status: 'cancelled' }
+        }
+        if (now() > takeoffDeadline) {
+          await stopIfOwner(port, ownsControl)
+          return { status: 'stuck', detail: macro?.detail ?? 'no takeoff edge reached' }
+        }
         await sleep(FLIGHT_POLL_MS)
         state = await port.getState()
-        deployed = state.fallFlying === true
+      }
+
+      deployed = state.fallFlying === true
+      /**
+       * Release the run keys before the deploy press.
+       *
+       * ROOT CAUSE (live, 2026-09-18):
+       *
+       * Holding a key is not a new press. While the takeoff sprint kept
+       * `forward + sprint` held, every `jumpOnce()` was a no-op for the glider:
+       * a live run off the ridge at (-384, 161, 19) fell 24 blocks with
+       * `fallFlying: false` the whole way and died (`airitest fell from a high
+       * place`), and the receipt reported the takeoff as unavailable. The same
+       * failure cost four attempts during the E-01 calibration, where the working
+       * sequence was "release every key, then press jump once".
+       *
+       * The release must come first and the horizontal speed survives it: in E-01
+       * the glider deployed on the first press after the release and recorded a
+       * 30-second glide.
+       */
+      if (!deployed)
+        await stopIfOwner(port, ownsControl)
+      for (let attempt = 0; attempt < 3 && !deployed && !state.onGround; attempt++) {
+        await port.jumpOnce()
+        const deployDeadline = now() + DEPLOY_TIMEOUT_MS
+        while (!deployed && now() < deployDeadline && !state.onGround) {
+          await sleep(FLIGHT_POLL_MS)
+          state = await port.getState()
+          deployed = state.fallFlying === true
+        }
       }
     }
-  }
-  finally {
-    // The takeoff inputs must be released on every path: a state read error
-    // used to leave forward+sprint held (review R7).
-    await stopIfOwner(port, ownsControl)
+    finally {
+      // The takeoff inputs must be released on every path: a state read error
+      // used to leave forward+sprint held (review R7).
+      await stopIfOwner(port, ownsControl)
+    }
   }
   if (!deployed) {
-    return { status: 'unavailable', detail: 'elytra did not deploy' }
+    return { status: 'unavailable', detail: macro?.detail ?? 'elytra did not deploy' }
   }
-  debug?.('elytra deployed')
+  // OV-D17: the cruise takes over from the state the handoff left behind, read
+  // fresh, so a stale pre-launch position cannot seed the cruise band.
+  state = await port.getState()
+  debug?.(`elytra deployed via ${macro ? macro.outcome : 'edge-run'}${macro?.detail ? ` (${macro.detail})` : ''}`)
 
   // 4. Cruise and land. A worn suit turns the flight into an early landing;
   // the mover never cruises on an elytra that may break mid-air.
@@ -190,8 +266,37 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let lastFireworkAt = 0
   /** CD-E B0: rollout planner for the cruise phase; absent keeps the heuristics. */
   const planner = options.flightPlanner?.enabled === true ? options.flightPlanner : undefined
+  /**
+   * CD-E2 corridor for the cruise phase (B0 item 2 remainder).
+   *
+   * The rollout planner is the tactical layer: it chooses a primitive for the
+   * next 12 ticks. It has no way to pick a lane, so a wall taller than the
+   * glider can climb leaves it nothing to do but raise the cruise band and
+   * eventually land. A live trip proved that on 2026-09-18: the mover saw the
+   * wall 48 blocks out (`SCAN_TO`), raised the cruise band to 194, fired a
+   * rocket, could not climb 35 blocks of wall, then aimed its safety landing at
+   * the wall's own face (`landing target -392.0,146,26.0`) and died on impact
+   * (`experienced kinetic energy`).
+   *
+   * The corridor supplies the missing decision: a coarse route the cruise leg
+   * aims along, computed over a bounded read and re-planned on a slow cadence.
+   * It exists only while the planner switch is on and the trip knows its world
+   * binding; either missing keeps the pre-corridor direct goal.
+   */
+  const corridor = planner && options.world
+    ? createLiveCorridorPort({ port: options.port, planner, ...options.world, ...(options.deps?.now ? { now: options.deps.now } : {}) })
+    : undefined
   /** Monotonic poll counter the planner observation falls back to without a source tick. */
   let pollIndex = 0
+  /**
+   * E-07 low route: the waypoint and band the cruise is following right now.
+   *
+   * Gated on the same switch as the other decision layers so a bridge with the
+   * planner off keeps the pre-B0 behaviour byte for byte.
+   */
+  const lowRouteEnabled = planner !== undefined
+  let lowRoute: { waypoint: Vec3, bandY: number } | undefined
+  let lowRouteAt = Number.NEGATIVE_INFINITY
   let lastDurabilityAt = now()
   let approachDeadline = 0
   let minApproachGap = Infinity
@@ -360,7 +465,52 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       }
 
       pollIndex += 1
-      const target = phase === 'cruise' ? goal : landingPoint
+      /**
+       * E-07 long-route leg: a low route along the terrain, re-planned on a slow
+       * cadence.
+       *
+       * ROOT CAUSE (live, 2026-09-18): without it the cruise band is
+       * `goal.y + 30`, so a 380-block trip through a canyon flew 30 blocks above
+       * the *goal's* altitude, hit the canyon wall and lost 7-15 health per
+       * attempt (one death). The near-field corridor cannot answer that question:
+       * its window is 32 blocks and the glider covers 30 blocks a second.
+       */
+      if (lowRouteEnabled && phase === 'cruise') {
+        const routeStale = lowRoute === undefined || now() - lowRouteAt >= LOW_ROUTE_TTL_MS
+        const routeReached = lowRoute !== undefined
+          && horizontalDistance(state.position, lowRoute.waypoint) <= LOW_ROUTE_WAYPOINT_REACH
+        if (routeStale || routeReached) {
+          const plan = await planLowRoute({ port, self: state.position, goal })
+          lowRouteAt = now()
+          if (plan.status === 'planned' && plan.waypoint) {
+            lowRoute = { waypoint: plan.waypoint, bandY: plan.bandY ?? plan.waypoint.y }
+            debug?.(`elytra low-route waypoint ${plan.waypoint.x.toFixed(0)},${plan.waypoint.y.toFixed(0)},${plan.waypoint.z.toFixed(0)} band=${(plan.bandY ?? plan.waypoint.y).toFixed(0)} reached=${plan.reached}`)
+          }
+          else {
+            lowRoute = undefined
+            debug?.(`elytra low-route ${plan.status} at ${plan.reached}; flying the direct goal`)
+          }
+        }
+      }
+      let target = phase === 'cruise' ? (lowRoute?.waypoint ?? goal) : landingPoint
+      // The band follows the route's altitude, not a fixed offset above the goal.
+      if (phase === 'cruise' && lowRoute)
+        cruiseY = Math.max(lowRoute.bandY + LOW_ROUTE_BAND_MARGIN, Math.min(cruiseY, state.position.y))
+      // CD-E2: on the cruise leg the coarse corridor owns the near-field route
+      // hint. A route point replaces the direct goal so the rollout plans around
+      // terrain it can see; any refusal (unknown window, no route, failed read)
+      // keeps the direct goal, because unknown space is not a route.
+      if (corridor && phase === 'cruise') {
+        const routeAim = await corridor.step(state.position, goal)
+        if (routeAim) {
+          target = routeAim
+          debug?.(`elytra corridor aim ${routeAim.x.toFixed(1)},${routeAim.y.toFixed(1)},${routeAim.z.toFixed(1)}`)
+        }
+        else if (corridor.status() !== 'planned') {
+          const reason = corridor.refusal?.()
+          debug?.(`elytra corridor ${corridor.status()}${reason ? ` (${reason})` : ''}; aiming direct`)
+        }
+      }
       let yaw = yawTo(state.position, target)
       const gap = horizontalDistance(state.position, target)
       // Landings still scan: flying into a hillside is worse than an early
@@ -369,7 +519,20 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       const scan = (phase !== 'cruise' && gap <= FLARE_DISTANCE)
         ? { cruiseY, obstacleDistance: undefined }
         : await scanTerrainAhead(port, state, target, cruiseY, debug)
-      cruiseY = scan.cruiseY
+      /**
+       * A fresh low route owns the band, and the ahead-scan owns the emergency.
+       *
+       * ROOT CAUSE (live, 2026-09-18): the scan raises the band by 35 whenever any
+       * block sits in the corridor at the flight's altitude. Approaching a cave
+       * whose mouth is cut into a badlands cliff, that made the trip climb *over*
+       * the cliff instead of entering: the run ended 2.6 blocks from the goal but
+       * 20 blocks above it, standing on the cave's glass roof, after circling the
+       * goal at y≈90-115 with 50 blocks of height it could not lose. The low
+       * route had already measured a flyable slot through the cave, so the scan
+       * must not overrule it; a block immediately ahead still does.
+       */
+      const lowRouteFresh = phase === 'cruise' && lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+      cruiseY = lowRouteFresh ? cruiseY : scan.cruiseY
       const obstacleDistance = scan.obstacleDistance
       const emergency = obstacleDistance !== undefined && obstacleDistance <= TERRAIN_GUARD_DISTANCE
 
@@ -395,7 +558,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
           // Climb over anything close ahead; the scan may only see terrain at
           // the last safe distance, so the nose-up must be decisive.
           const climbing = state.position.y < cruiseY - 4 || emergency
-          pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, 35)
+          // A large surplus is dived away, not waited away: the elytra trades
+          // height for speed, and the old 35-degree ceiling made the mover arrive
+          // over a goal under a roof with 20-50 blocks it could not lose (live
+          // 2026-09-18, the cave fixture). Bounded at DIVE_PITCH.
+          const surplus = state.position.y - cruiseY
+          const diveCeiling = surplus > 12 ? DIVE_PITCH : 35
+          pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, diveCeiling)
           wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
         }
       }
@@ -430,18 +599,15 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       await port.look(yaw, pitch)
       debug?.(`elytra fly y=${state.position.y.toFixed(1)} h=${(state.position.y - goal.y).toFixed(1)} d=${gap.toFixed(1)} vy=${(state.motion?.y ?? 0).toFixed(2)} pitch=${pitch.toFixed(1)} fw=${fireworks}${phase !== 'cruise' ? `:${reason}` : ''}`)
 
-      if (fireworks > 0 && wantThrust && now() - lastFireworkAt > FIREWORK_INTERVAL_MS) {
+      if (fireworks > 0 && fireworkSlot !== undefined && wantThrust && now() - lastFireworkAt > FIREWORK_INTERVAL_MS) {
         await port.selectHotbar(fireworkSlot)
         await port.useItem()
         lastFireworkAt = now()
         fireworks = await countBySuffix(port, 'firework_rocket')
         // A used-up stack would keep thrusting into an empty slot; move to the
         // next stack while rockets remain, otherwise `low_supply` ends the flight.
-        if (fireworks > 0 && await countInSlot(port, fireworkSlot) === 0) {
-          const next = await selectBySuffix(port, 'firework_rocket')
-          if (next !== undefined)
-            fireworkSlot = next
-        }
+        if (fireworks > 0 && await countInSlot(port, fireworkSlot) === 0)
+          fireworkSlot = await selectBySuffix(port, 'firework_rocket')
         debug?.('elytra thrust fired')
       }
 
@@ -744,6 +910,10 @@ async function equipElytra(
     return { ok: true, lowDurability: false }
 
   if (backup) {
+    if (await wearFromHotbar(port, backup, worn, debug))
+      return { ok: true, lowDurability: false }
+    // Last resort for a bridge that can write the armor slot directly; a bridge
+    // that cannot answers `swapped` and changes nothing (see wearFromHotbar).
     await port.swapSlots(backup.slot, CHEST_ARMOR_SLOT)
     return { ok: true, lowDurability: false }
   }
@@ -760,6 +930,45 @@ async function equipElytra(
   }
 
   return { ok: false, detail: 'no elytra in the inventory' }
+}
+
+/**
+ * Wears a carried elytra by hand, and proves it happened.
+ *
+ * NOTICE:
+ * Why not `swapSlots(backup, CHEST_ARMOR_SLOT)`: `InventoryHandlers.toMenuSlot`
+ * maps inventory indices 36..39 onto menu slots 5..8 documented as
+ * "helmet..boots", while `Inventory` stores armor as feet, legs, chest, head —
+ * the mapping is reversed, so an armor write lands on another slot. Live
+ * 2026-09-18: all four indices (36/37/38/39) left the chest untouched while the
+ * call answered `swapped`, so a worn suit stayed on and the flight then failed
+ * with `not_deployed` (a 431/432 elytra is not fly-enabled).
+ * Fix: move the spare into an empty hotbar slot, hold it and use it — vanilla
+ * swaps it onto the body. Verified live the same day.
+ * Removal condition: when the bridge maps armor indices by their real order.
+ */
+async function wearFromHotbar(
+  port: MovementControlPort,
+  backup: { slot: number, damage?: number },
+  worn: { damage?: number } | undefined,
+  debug?: (message: string) => void,
+): Promise<boolean> {
+  const slots = await port.getInventory()
+  const empty = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    .find(index => !slots.some(slot => slot.hotbar && slot.slot === index))
+  if (empty === undefined) {
+    debug?.('no empty hotbar slot to wear the spare elytra from')
+    return false
+  }
+  await port.swapSlots(backup.slot, empty)
+  await port.selectHotbar(empty)
+  await port.useItem()
+  const after = await port.getEquipment?.().catch(() => undefined)
+  const chest = after?.chest
+  if (!chest?.id.includes('elytra'))
+    return false
+  // The suit on the body must be a different one than the suit that was there.
+  return (chest.damage ?? 0) !== (worn?.damage ?? -1)
 }
 
 /**

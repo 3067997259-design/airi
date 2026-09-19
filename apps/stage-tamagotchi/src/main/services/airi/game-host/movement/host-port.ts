@@ -11,7 +11,7 @@ import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } fro
  * dimension is rejected, and an unreadable read fails loudly instead of
  * becoming zero coordinates, `onGround: true`, or an empty world.
  */
-import type { JumpTask, JumpTaskStatus } from './port'
+import type { ElytraLaunchStatus, ElytraLaunchTask, JumpTask, JumpTaskStatus } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { CollisionBox } from './types'
 import type { VehicleReadResponse } from './vehicle-observation'
@@ -101,6 +101,42 @@ function jumpStatusOf(record: Record<string, unknown> | undefined): JumpTaskStat
     ...(typeof record?.onGround === 'boolean' ? { onGround: record.onGround } : {}),
     ...(Number.isFinite(distance) ? { distance } : {}),
     ...(typeof record?.takeoffPassed === 'boolean' ? { takeoffPassed: record.takeoffPassed } : {}),
+  }
+}
+
+/**
+ * Inventory index the bridge uses for the offhand.
+ *
+ * `InventoryHandlers.toMenuSlot` documents the whole convention: 0-8 hotbar,
+ * 9-35 main, 36-39 armor, 40 offhand, and it rejects anything else, so 40 is the
+ * only number that names the offhand on the wire. The host uses it to report an
+ * offhand stack in an inventory read and to swap it into the hotbar.
+ */
+const OFFHAND_SLOT = 40
+
+/** Maps one elytra launch status read; a missing state is `idle`, never launched. */
+function launchStatusOf(record: Record<string, unknown> | undefined): ElytraLaunchStatus {
+  const state = typeof record?.state === 'string' ? record.state : 'idle'
+  const position = record?.position && typeof record.position === 'object' && !Array.isArray(record.position)
+    ? record.position as Record<string, unknown>
+    : undefined
+  const x = Number(position?.x)
+  const y = Number(position?.y)
+  const z = Number(position?.z)
+  const verticalSpeed = Number(record?.verticalSpeed)
+  const climb = Number(record?.climb)
+  return {
+    state: state as ElytraLaunchStatus['state'],
+    endReason: typeof record?.endReason === 'string' ? record.endReason : 'unknown',
+    ticks: Number(record?.ticks) || 0,
+    ...(typeof record?.phase === 'string' ? { phase: record.phase } : {}),
+    ...(typeof record?.airborne === 'boolean' ? { airborne: record.airborne } : {}),
+    ...(typeof record?.deployed === 'boolean' ? { deployed: record.deployed } : {}),
+    ...(typeof record?.onGround === 'boolean' ? { onGround: record.onGround } : {}),
+    ...(Number.isFinite(verticalSpeed) ? { verticalSpeed } : {}),
+    ...(Number.isFinite(climb) ? { climb } : {}),
+    ...(Number.isFinite(Number(record?.fireworksUsed)) ? { fireworksUsed: Number(record?.fireworksUsed) } : {}),
+    ...(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { position: { x, y, z } } : {}),
   }
 }
 
@@ -336,23 +372,32 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
     getInventory: async () => {
       const record = await callTool('get_inventory', {})
       const slots: Array<{ slot: number, id: string, count: number, hotbar: boolean }> = []
+      const push = (key: 'hotbar' | 'main' | 'offhand', item: Record<string, unknown>, slot: number) => {
+        if (typeof item.id !== 'string' || item.id.length === 0)
+          return
+        const damage = Number(item.damage)
+        const maxDamage = Number(item.maxDamage)
+        slots.push({
+          slot,
+          id: item.id,
+          count: Number(item.count) || 0,
+          hotbar: key === 'hotbar',
+          ...(Number.isFinite(damage) ? { damage } : {}),
+          ...(Number.isFinite(maxDamage) ? { maxDamage } : {}),
+        })
+      }
       for (const key of ['hotbar', 'main'] as const) {
         const list = Array.isArray(record?.[key]) ? record[key] as Array<Record<string, unknown>> : []
-        for (const item of list) {
-          if (typeof item.id !== 'string' || item.id.length === 0)
-            continue
-          const damage = Number(item.damage)
-          const maxDamage = Number(item.maxDamage)
-          slots.push({
-            slot: Number(item.slot) || 0,
-            id: item.id,
-            count: Number(item.count) || 0,
-            hotbar: key === 'hotbar',
-            ...(Number.isFinite(damage) ? { damage } : {}),
-            ...(Number.isFinite(maxDamage) ? { maxDamage } : {}),
-          })
-        }
+        for (const item of list)
+          push(key, item, Number(item.slot) || 0)
       }
+      // The offhand is a real slot the movers use: the elytra launch macro puts
+      // one rocket there, and the vanilla gliding boost only accepts that hand.
+      // Leaving it out of this read made a bot that carried 52 rockets report
+      // `no firework rockets in the inventory` (live, 2026-09-18).
+      const offhand = record?.offhand
+      if (offhand && typeof offhand === 'object' && !Array.isArray(offhand))
+        push('offhand', offhand as Record<string, unknown>, OFFHAND_SLOT)
       return slots
     },
     look: async (yaw, pitch) => {
@@ -473,6 +518,23 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
           ),
           jumpStatus: async (): Promise<JumpTaskStatus> => jumpStatusOf(await callTool('jump_plan_status', {})),
           cancelJump: async (): Promise<JumpTaskStatus> => jumpStatusOf(await callTool('jump_plan_cancel', {})),
+        }
+      : {}),
+    // OV-5: the launch macro is attached only when the bridge exposes all three
+    // of its tools. A bridge with the start tool alone could launch but never
+    // report or abort it, and a run that cannot observe its own takeoff would
+    // have to guess whether the glider opened.
+    ...(hasTool('elytra_launch') && hasTool('elytra_launch_status') && hasTool('elytra_launch_cancel')
+      ? {
+          startLaunch: async (task: ElytraLaunchTask): Promise<ElytraLaunchStatus> => launchStatusOf(
+            await callTool('elytra_launch', {
+              ...(task.goal ? { goalX: task.goal.x, goalY: task.goal.y, goalZ: task.goal.z } : {}),
+              deadlineMs: task.deadlineMs,
+              withFireworks: task.withFireworks,
+            }),
+          ),
+          launchStatus: async (): Promise<ElytraLaunchStatus> => launchStatusOf(await callTool('elytra_launch_status', {})),
+          cancelLaunch: async (): Promise<ElytraLaunchStatus> => launchStatusOf(await callTool('elytra_launch_cancel', {})),
         }
       : {}),
     // The optional vehicle surface is attached only when its tool exists, so a

@@ -1,4 +1,5 @@
 import type { FlightIntent, FlightObservation, LandingSite } from './contracts'
+import type { LaunchColumnProbe } from './lifecycle'
 
 import { describe, expect, it } from 'vitest'
 
@@ -94,13 +95,42 @@ describe('reduceLifecycle', () => {
 
 describe('selectLaunchPoint', () => {
   const requirements = DEFAULT_LAUNCH_REQUIREMENTS
+  /** Level ground: one surface height, open sky above it. */
+  const level = (y: number) => ({
+    surfaceAt: (): LaunchColumnProbe => ({ kind: 'surface', y }),
+    clearAt: (): boolean => true,
+  })
+  /** A pad that ends at `z >= 1` over real air, with open sky above. */
+  const cliff = {
+    surfaceAt: (_x: number, z: number): LaunchColumnProbe => (z >= 1 ? { kind: 'void' } : { kind: 'surface', y: 64 }),
+    clearAt: (): boolean => true,
+  }
 
-  it('refuses plain flat ground with no viable launch', () => {
+  it('accepts level ground under open sky as a flat launch', () => {
+    // CONTRACT CHANGE (OV-5): level ground used to be refused outright, because
+    // the only takeoff was a run off an edge. The bridge's launch macro lifts
+    // off in place with a rocket, so a proven ceiling is now the requirement.
     const plan = selectLaunchPoint({
       from: { x: 0, y: 66, z: 0 },
       heading: 0,
-      surfaceAt: () => 64,
-      clearAt: () => true,
+      ...level(64),
+      requirements,
+    })
+    expect(plan.ok).toBe(true)
+    if (plan.ok) {
+      expect(plan.candidate.kind).toBe('flat')
+      expect(plan.candidate.drop).toBe(0)
+      expect(plan.candidate.clearance).toBeGreaterThanOrEqual(requirements.flatCeiling)
+    }
+  })
+
+  it('refuses level ground under a ceiling that is too low to boost through', () => {
+    const plan = selectLaunchPoint({
+      from: { x: 0, y: 66, z: 0 },
+      heading: 0,
+      surfaceAt: () => ({ kind: 'surface', y: 64 }),
+      // A roof two blocks up: a jump fits, the climb after the deploy does not.
+      clearAt: (_x, y) => y <= 66,
       requirements,
     })
     expect(plan).toEqual({ ok: false, reason: 'launch_unavailable' })
@@ -110,34 +140,48 @@ describe('selectLaunchPoint', () => {
     const plan = selectLaunchPoint({
       from: { x: 0, y: 66, z: 0 },
       heading: 0,
-      surfaceAt: (_x, z) => (z >= 1 ? undefined : 64),
-      clearAt: () => true,
+      ...cliff,
       requirements,
     })
     expect(plan.ok).toBe(true)
-    if (plan.ok)
+    if (plan.ok) {
+      expect(plan.candidate.kind).toBe('edge')
       expect(plan.candidate.drop).toBeGreaterThanOrEqual(requirements.minDrop)
+    }
   })
 
   it('refuses a cliff whose launch column has no clearance', () => {
     const plan = selectLaunchPoint({
       from: { x: 0, y: 66, z: 0 },
       heading: 0,
-      surfaceAt: (_x, z) => (z >= 1 ? undefined : 64),
+      ...cliff,
       clearAt: () => false,
       requirements,
     })
     expect(plan).toEqual({ ok: false, reason: 'launch_unavailable' })
   })
 
-  it('refuses a cliff whose drop cannot cover the deploy fall', () => {
+  it('never picks an edge whose drop cannot cover the deploy fall', () => {
     // deployTicks 20 needs ~16 blocks of free fall, but the cliff only offers
-    // the minimum 12-block drop.
+    // the minimum 12-block drop, so the edge is out. The same shelf still
+    // supports a flat launch under open sky, which is the honest answer.
     const plan = selectLaunchPoint({
       from: { x: 0, y: 66, z: 0 },
       heading: 0,
-      surfaceAt: (_x, z) => (z >= 1 ? undefined : 64),
-      clearAt: () => true,
+      ...cliff,
+      requirements: { ...requirements, deployTicks: 20 },
+    })
+    expect(plan.ok).toBe(true)
+    if (plan.ok)
+      expect(plan.candidate.kind).toBe('flat')
+  })
+
+  it('refuses a takeoff whose drop cannot cover the deploy fall under a low ceiling', () => {
+    const plan = selectLaunchPoint({
+      from: { x: 0, y: 66, z: 0 },
+      heading: 0,
+      ...cliff,
+      clearAt: (_x, y) => y <= 66,
       requirements: { ...requirements, deployTicks: 20 },
     })
     expect(plan).toEqual({ ok: false, reason: 'launch_unavailable' })
@@ -147,12 +191,65 @@ describe('selectLaunchPoint', () => {
     const plan = selectLaunchPoint({
       from: { x: 0, y: 66, z: 0 },
       heading: 0,
-      surfaceAt: (_x, z) => (z >= 1 ? undefined : 64),
-      clearAt: () => true,
+      ...cliff,
       corridorFrom: () => false,
       requirements,
     })
     expect(plan).toEqual({ ok: false, reason: 'launch_unavailable' })
+  })
+
+  it('never reads an unknown runway end as a cliff', () => {
+    // ROOT CAUSE: the scan treated `surfaceAt === undefined` as "air beyond the
+    // runway", so an unloaded or unread column satisfied the minimum drop and
+    // every fog edge looked like a launch site (OV-D16). The flat takeoff, which
+    // needs no forward ground, is the only candidate left.
+    const plan = selectLaunchPoint({
+      from: { x: 0, y: 66, z: 0 },
+      heading: 0,
+      surfaceAt: (_x, z) => (z >= 1 ? { kind: 'unknown' } : { kind: 'surface', y: 64 }),
+      clearAt: () => true,
+      requirements,
+    })
+    expect(plan.ok).toBe(true)
+    if (plan.ok)
+      expect(plan.candidate.kind).toBe('flat')
+  })
+
+  it('reports unreadable terrain instead of claiming no launch exists', () => {
+    const plan = selectLaunchPoint({
+      from: { x: 0, y: 66, z: 0 },
+      heading: 0,
+      surfaceAt: () => ({ kind: 'unknown' }),
+      clearAt: () => undefined,
+      requirements,
+      searchRadius: 1,
+    })
+    expect(plan.ok).toBe(false)
+    if (!plan.ok) {
+      expect(plan.reason).toBe('launch_terrain_unknown')
+      expect(plan.unknownColumns).toBeGreaterThan(0)
+    }
+  })
+
+  it('lets the caller ask for the cliff when the rocket supply is empty', () => {
+    // Both takeoffs exist here: z=4 is air (a drop four blocks forward) while
+    // z=5 and beyond are level ground. A caller with no rockets must not be
+    // handed the flat launch, whose only lift is the rocket.
+    const mixed = {
+      from: { x: 0.5, y: 66, z: 0.5 },
+      heading: 0,
+      surfaceAt: (_x: number, z: number): LaunchColumnProbe => (z === 4 ? { kind: 'void' } : { kind: 'surface', y: 64 }),
+      clearAt: (): boolean => true,
+      requirements,
+    }
+    const flatPreferred = selectLaunchPoint(mixed)
+    const edgePreferred = selectLaunchPoint({ ...mixed, prefer: 'edge' })
+    expect(flatPreferred.ok).toBe(true)
+    expect(edgePreferred.ok).toBe(true)
+    if (flatPreferred.ok)
+      expect(flatPreferred.candidate.kind).toBe('flat')
+    if (edgePreferred.ok)
+      expect(edgePreferred.candidate.kind).toBe('edge')
   })
 })
 

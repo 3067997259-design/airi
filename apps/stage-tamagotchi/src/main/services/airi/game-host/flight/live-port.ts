@@ -19,9 +19,11 @@ import type { FlightPlannerSwitch } from './profile'
 import { classifyBlock } from '../movement/block-view'
 import { collisionBoxesOf } from '../movement/boxes'
 import { planRollout } from './rollout'
+// One owner for the boost lifetime: a local copy is how the read drifted from
+// the model before the E-01 boost measurement (evidence §6.2).
+import { ROCKET_BOOST_TICKS } from './simulation'
 
-/** Firework boost lifetime in ticks (`FireworkRocketEntity#tick`). */
-export const ROCKET_BOOST_TICKS = 10
+export { ROCKET_BOOST_TICKS }
 const MS_PER_TICK = 50
 
 /**

@@ -219,9 +219,9 @@ describe('assessAirLaunch', () => {
   })
 })
 
-describe('escort insertion point (LR-0)', () => {
-  it('holds the ground follow while the escort gate says hold', () => {
-    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', gate: () => 'hold' } })
+describe('escort insertion point (LR-1)', () => {
+  it('waits in the escort phase while the strategy is still assessing', () => {
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', approve: () => 'assess' } })
     let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
     directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
     directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
@@ -229,20 +229,31 @@ describe('escort insertion point (LR-0)', () => {
     expect(directive.phase).toBe('escort')
   })
 
-  it('proceeds to assess-launch once the gate allows', () => {
-    let holding = true
-    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', gate: () => (holding ? 'hold' : 'launch') } })
+  it('proceeds to assess-launch once the strategy permits a chase', () => {
+    let verdict: 'assess' | 'launch' | 'hold' = 'assess'
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', approve: () => verdict } })
     let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
     directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
     directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
     expect(directive.action).toBe('escort-hold')
-    holding = false
+    verdict = 'launch'
     directive = controller.step(obs(), { tick: 4, at: 150, fine: true, self })
     expect(directive.action).toBe('assess-launch')
   })
 
+  it('keeps the ground follow when the strategy refuses the chase', () => {
+    // A refusal is not a hold: the follow keeps walking instead of parking in
+    // the escort phase, so the ground leg still makes progress (design D2/D8).
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'on', approve: () => 'hold' } })
+    let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
+    directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
+    directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })
+    expect(directive.action).toBe('ground-follow')
+    expect(directive.phase).toBe('ground-follow')
+  })
+
   it('keeps the original flow when escort is off', () => {
-    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'off', gate: () => 'hold' } })
+    const controller = createAirFollowController({ travelMode: 'auto', escort: { mode: 'off', approve: () => 'hold' } })
     let directive = controller.step(obs(), { tick: 1, at: 0, fine: true, self })
     directive = controller.step(obs(), { tick: 2, at: 50, fine: true, self })
     directive = controller.step(obs(), { tick: 3, at: 100, fine: true, self })

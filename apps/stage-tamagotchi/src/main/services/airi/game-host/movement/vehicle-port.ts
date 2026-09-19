@@ -43,6 +43,14 @@ export interface VehicleMoveOptions {
    */
   flightPlanner?: FlightPlannerSwitch
   /**
+   * World binding for the elytra coarse-corridor read.
+   *
+   * The corridor plans over live terrain, so it needs the dimension and world
+   * the trip belongs to. Without a binding the elytra cruise keeps the direct
+   * goal, because a route cannot be planned in a world the command cannot name.
+   */
+  world?: { worldId: string, dimension: string, mapVersion: string }
+  /**
    * Whether this session still owns the player's input (CD-0 D8).
    *
    * A late `finally` from an old command must not release input a newer command

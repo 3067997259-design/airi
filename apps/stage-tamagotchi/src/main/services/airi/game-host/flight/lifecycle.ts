@@ -132,6 +132,14 @@ export interface LaunchRequirements {
    * reach the ground before the elytra can deploy.
    */
   deployTicks: number
+  /**
+   * Air blocks required above the stand point for a flat launch.
+   *
+   * Larger than `minClearance` because the two takeoffs need different things: a
+   * jump and a deploy only need head-room, while the flat launch's only lift is
+   * a rocket that keeps gaining height until the cruise levels the climb off.
+   */
+  flatCeiling: number
 }
 
 /** Vanilla player gravity used to size the deploy fall. */
@@ -142,26 +150,57 @@ export const DEFAULT_LAUNCH_REQUIREMENTS: LaunchRequirements = {
   minDrop: 12,
   minClearance: 3,
   deployTicks: 10,
+  flatCeiling: 8,
 }
 
+/**
+ * One column probe from the launch scan.
+ *
+ * The three cases stay separate (OV-D16). `unknown` covers a column that is not
+ * loaded or that the caller could not read, and only `void` proves there is
+ * nothing left to stand on. Reading `unknown` as a cliff made every unread
+ * column satisfy the minimum drop.
+ */
+export type LaunchColumnProbe
+  = | { kind: 'surface', y: number }
+    | { kind: 'void' }
+    | { kind: 'unknown' }
+
+/** How the takeoff leaves the ground. */
+export type LaunchKind = 'flat' | 'edge'
+
 export interface LaunchCandidate {
-  /** Launch edge the player runs off. */
+  /** Stand point the launch starts from, at the block centre. */
   position: Vec3
   yaw: number
-  /** Height from the launch edge to the surface beyond the runway. */
+  /**
+   * Measured drop past the runway, in blocks.
+   *
+   * A flat launch has no drop: the rocket carries it, not gravity. An edge over
+   * real air keeps the scan's floor value, because a cliff's height cannot be
+   * measured from above.
+   */
   drop: number
   runway: number
+  kind: LaunchKind
+  /** Air blocks above the stand point that the scan actually proved. */
+  clearance: number
 }
 
 export type LaunchPlan
   = | { ok: true, candidate: LaunchCandidate }
-    | { ok: false, reason: 'launch_unavailable' }
+    /**
+     * `launch_terrain_unknown`: at least one probe the scan needed was
+     * unreadable, so "no launch here" is not proven. The caller can widen the
+     * read or fall back to a takeoff that needs no ground knowledge.
+     */
+    | { ok: false, reason: 'launch_unavailable' | 'launch_terrain_unknown', unknownColumns?: number }
 
 export interface LaunchSearchInput {
   from: Vec3
   heading: number
-  /** Surface top y of a column, or undefined when unknown or open air. */
-  surfaceAt: (x: number, z: number) => number | undefined
+  /** Surface top y of a column, or why the scan could not decide. */
+  surfaceAt: (x: number, z: number) => LaunchColumnProbe
   /** Air above the launch column at `y`, or undefined when unknown. */
   clearAt: (x: number, y: number, z: number) => boolean | undefined
   requirements?: LaunchRequirements
@@ -169,71 +208,133 @@ export interface LaunchSearchInput {
   corridorFrom?: (edge: Vec3, yaw: number) => boolean
   /** How far around the observer to search, in blocks. */
   searchRadius?: number
+  /**
+   * Which takeoff to prefer when both exist.
+   *
+   * `flat` (the default) does not presume a cliff beats level ground: a flat
+   * launch needs no run and no drop, so it works from where the bot stands. A
+   * caller with no rockets passes `edge`, because the flat launch's only lift is
+   * the rocket (OV-D16).
+   */
+  prefer?: LaunchKind
 }
 
 /**
- * Finds a launch edge by ground reachability, forward clearance and drop.
+ * Finds a takeoff site by ground reachability, forward clearance and drop.
  *
- * Plain flat ground with no viable launch returns `launch_unavailable`; the
- * mover must not build a tower or throw itself off a ledge (design §6).
+ * Two takeoffs qualify. A **flat** launch starts on the stand point itself and
+ * needs only a proven ceiling, because the rocket supplies the lift. An **edge**
+ * launch needs a runway, clearance, and a drop past it that also covers the
+ * deploy fall. When level ground and a cliff are both usable, the caller's
+ * `prefer` decides; neither is presumed better.
+ *
+ * Unreadable columns never qualify a candidate: an unknown runway end leaves the
+ * flat takeoff available and never the edge, and an unknown ceiling disqualifies
+ * the flat takeoff.
  *
  * @example
- * selectLaunchPoint({ from, heading: 0, surfaceAt: () => 64, clearAt: () => true }).ok
- * // => false on flat ground
+ * selectLaunchPoint({ from, heading: 0, surfaceAt: () => ({ kind: 'surface', y: 64 }), clearAt: () => true })
+ * // => { ok: true, candidate: { kind: 'flat', ... } }
  */
 export function selectLaunchPoint(input: LaunchSearchInput): LaunchPlan {
   const requirements = input.requirements ?? DEFAULT_LAUNCH_REQUIREMENTS
   const radius = input.searchRadius ?? 8
+  const prefer = input.prefer ?? 'flat'
   const yawRad = input.heading * Math.PI / 180
   const dirX = -Math.sin(yawRad)
   const dirZ = Math.cos(yawRad)
+  // The drop must also cover the free fall while the glider opens.
+  const edgeDropNeeded = Math.max(requirements.minDrop, 0.5 * DEPLOY_FALL_GRAVITY * requirements.deployTicks * requirements.deployTicks)
+  const probeLimit = Math.max(requirements.minClearance, requirements.flatCeiling)
   let best: LaunchCandidate | undefined
+  let unknownColumns = 0
+
+  /**
+   * Counts the air the scan proved above `surface`, stopping at the first gap.
+   *
+   * An unreadable block ends the count: the blocks above it are unproven too, so
+   * a read that stops early can never satisfy the ceiling requirement.
+   */
+  const clearanceAt = (x: number, surface: number, z: number): { blocks: number, unreadable: boolean } => {
+    for (let step = 1; step <= probeLimit; step++) {
+      const air = input.clearAt(x, surface + step, z)
+      if (air === undefined)
+        return { blocks: step - 1, unreadable: true }
+      if (!air)
+        return { blocks: step - 1, unreadable: false }
+    }
+    return { blocks: probeLimit, unreadable: false }
+  }
+
+  /** Ranks two usable candidates, preferring the caller's takeoff kind. */
+  const betterThan = (candidate: LaunchCandidate, current: LaunchCandidate): boolean => {
+    if (candidate.kind !== current.kind)
+      return candidate.kind === prefer
+    // Within one kind the larger proven value wins: the taller cliff, or the pad
+    // with more air above it.
+    return candidate.kind === 'flat'
+      ? candidate.clearance > current.clearance
+      : candidate.drop > current.drop
+  }
 
   for (let offset = 0; offset <= radius; offset++) {
     for (const lateral of [0, -1, 1]) {
       const x = Math.floor(input.from.x + dirX * offset - dirZ * lateral)
       const z = Math.floor(input.from.z + dirZ * offset + dirX * lateral)
-      const surface = input.surfaceAt(x, z)
-      if (surface === undefined)
+      const column = input.surfaceAt(x, z)
+      if (column.kind === 'unknown') {
+        unknownColumns++
         continue
-      const clearanceOk = input.clearAt(x, surface + 1, z) === true
-        && input.clearAt(x, surface + 2, z) === true
-        && input.clearAt(x, surface + 3, z) === true
-      if (!clearanceOk)
+      }
+      if (column.kind === 'void')
         continue
+      const surface = column.y
+      const clearance = clearanceAt(x, surface, z)
+      if (clearance.unreadable)
+        unknownColumns++
+      const stand = { x: x + 0.5, y: surface + 1, z: z + 0.5 }
       const runwayEnd = input.surfaceAt(Math.floor(x + dirX * requirements.minRunway), Math.floor(z + dirZ * requirements.minRunway))
-      let drop: number
-      if (runwayEnd === undefined) {
-        // Air beyond the runway is a cliff; it qualifies with the minimum drop
-        // instead of an invented larger number.
-        drop = requirements.minDrop
+      /**
+       * The drop the runway ends over, or undefined when it is not a drop.
+       *
+       * An unread runway end proves nothing, so it is not a drop. Real air is a
+       * cliff whose height is only known from below, so it counts as the
+       * requirement's floor and never as an invented larger number.
+       */
+      let forwardDrop: number | undefined
+      if (runwayEnd.kind === 'unknown') {
+        unknownColumns++
+      }
+      else if (runwayEnd.kind === 'void') {
+        forwardDrop = requirements.minDrop
       }
       else {
-        // Flat ground keeps the same surface at the runway end: no drop.
-        drop = surface - runwayEnd
-        if (drop < requirements.minDrop)
-          continue
+        forwardDrop = surface - runwayEnd.y
       }
-      // The drop must also cover the free fall while the glider opens.
-      const deployFall = 0.5 * DEPLOY_FALL_GRAVITY * requirements.deployTicks * requirements.deployTicks
-      if (drop < Math.max(requirements.minDrop, deployFall))
-        continue
-      const edge = { x: x + 0.5, y: surface + 1, z: z + 0.5 }
-      if (input.corridorFrom && !input.corridorFrom(edge, input.heading))
-        continue
-      const candidate: LaunchCandidate = {
-        position: edge,
-        yaw: input.heading,
-        drop: runwayEnd === undefined ? requirements.minDrop : surface - runwayEnd,
-        runway: requirements.minRunway,
+      let candidate: LaunchCandidate | undefined
+      if (forwardDrop !== undefined && forwardDrop >= edgeDropNeeded && clearance.blocks >= requirements.minClearance) {
+        candidate = { position: stand, yaw: input.heading, drop: forwardDrop, runway: requirements.minRunway, kind: 'edge', clearance: clearance.blocks }
       }
-      if (!best || candidate.drop > best.drop)
+      else if (clearance.blocks >= requirements.flatCeiling) {
+        // No drop the takeoff can use, because the ground ahead holds the level,
+        // rises, or was never read. The flat launch needs no forward ground: the
+        // rocket supplies the lift, so the proven ceiling is the whole condition.
+        candidate = { position: stand, yaw: input.heading, drop: 0, runway: requirements.minRunway, kind: 'flat', clearance: clearance.blocks }
+      }
+      if (!candidate)
+        continue
+      if (input.corridorFrom && !input.corridorFrom(candidate.position, input.heading))
+        continue
+      if (!best || betterThan(candidate, best))
         best = candidate
     }
   }
 
-  if (!best)
+  if (!best) {
+    if (unknownColumns > 0)
+      return { ok: false, reason: 'launch_terrain_unknown', unknownColumns }
     return { ok: false, reason: 'launch_unavailable' }
+  }
   return { ok: true, candidate: best }
 }
 

@@ -22,6 +22,17 @@ export interface GameHostFlightConfig {
   planner: 'off' | 'on'
   /** True only after the E-01 residual calibration is registered PASS. */
   calibrated?: boolean
+  /**
+   * LR-1 escort strategy (escort design D1).
+   *
+   * `off` (default) keeps the pre-escort air follow. `on` adds the D2
+   * feasibility gate before a takeoff and the D4 closure window during the
+   * chase. `suggest` is reserved for LR-2's cooperative-suggestion channel and
+   * currently behaves like `off` in flight. Any value other than `off` also
+   * requires `planner: 'on'` with `calibrated: true`; otherwise the host logs
+   * the request and keeps the strategy off.
+   */
+  escort?: 'off' | 'suggest' | 'on'
 }
 
 export interface GameHostMovementConfig {
@@ -370,6 +381,12 @@ export interface GameDomainResult {
     profileId?: string
     solutionRevision?: number
     observationAgeMs?: number
+    /**
+     * CD-B2/F-24: speed of the target observation the prediction used, in
+     * blocks per second. A riding target reports its vehicle's speed, because a
+     * passenger's own velocity stays zero while the vehicle moves.
+     */
+    observedSpeed?: number
     predictedFlightTicks?: number
     closestDistance?: number
     arc?: 'low' | 'high'

@@ -1,4 +1,4 @@
-import type { BlockFace, BlockView, EquipmentView, InventorySlot, MovementControlPort, MovementInput, MovementState, RidingInfo } from './port'
+import type { BlockFace, BlockView, ElytraLaunchStatus, ElytraLaunchTask, EquipmentView, InventorySlot, MovementControlPort, MovementInput, MovementState, RidingInfo } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { Vec3 } from './types'
 
@@ -8,7 +8,14 @@ import { runElytraMove } from './elytra'
 import { runVehicleMove } from './vehicle'
 
 const FAST = { sleep: async () => {}, now: () => Date.now() }
-const CHEST_SLOT = 37
+/**
+ * Chest armor index in the player inventory.
+ *
+ * 38, not 37: `Inventory` stores armor as boots, leggings, chestplate, helmet at
+ * 36..39, and the compiled 1.21.1 `EquipmentSlot` constants confirm the list
+ * order (FEET 0, LEGS 1, CHEST 2, HEAD 3).
+ */
+const CHEST_SLOT = 38
 
 interface FakeOptions {
   inventory?: InventorySlot[]
@@ -27,6 +34,22 @@ interface FakeOptions {
   path?: Vec3[]
   /** Elytra wear added to the chest slot on each poll, so the refresh can fire. */
   durabilityPerPoll?: number
+  /**
+   * Makes a jump a no-op while a movement key is held.
+   *
+   * Mirrors the live rule that cost a real run: the takeoff sprint held
+   * `forward + sprint` through the whole fall, so every deploy press did
+   * nothing and the bot died on the ground below.
+   */
+  deployRequiresReleasedInput?: boolean
+  /**
+   * Adds the bridge's per-tick launch macro to this fake (OV-5).
+   *
+   * Absent means the bridge has no launch tools, which is the edge-run fallback
+   * every other test in this file exercises. `launched` opens the glider from
+   * where the bot stands, with no run and no forward input at all.
+   */
+  launchScript?: 'launched' | 'not_deployed'
 }
 
 class ElytraFakePort implements MovementControlPort {
@@ -44,6 +67,16 @@ class ElytraFakePort implements MovementControlPort {
   inputs: MovementInput = {}
   inventory: InventorySlot[]
   polls = 0
+  /** Per-tick launch macro, present only when the fake bridge has one (OV-5). */
+  startLaunch?: (task: ElytraLaunchTask) => Promise<ElytraLaunchStatus>
+  launchStatus?: () => Promise<ElytraLaunchStatus>
+  cancelLaunch?: () => Promise<ElytraLaunchStatus>
+  launchCalls = 0
+  launchStatusCalls = 0
+  cancelLaunchCalls = 0
+  /** True once the mover held forward, which is the edge run and nothing else. */
+  sawForwardRun = false
+  private launchPolls = 0
   private pathIndex = 0
   private landPending = false
   private hasTakenOff = false
@@ -56,6 +89,28 @@ class ElytraFakePort implements MovementControlPort {
       { slot: 12, id: 'minecraft:elytra', count: 1, hotbar: false },
     ]
     this.chest = options.chest
+    if (options.launchScript) {
+      const script = options.launchScript
+      this.startLaunch = async () => {
+        this.launchCalls++
+        return { state: 'running', endReason: 'running', ticks: 0, phase: 'prepare' }
+      }
+      this.launchStatus = async () => {
+        this.launchStatusCalls++
+        this.launchPolls++
+        if (script === 'not_deployed')
+          return { state: 'failed', endReason: 'not_deployed', ticks: 20, phase: 'deploy', deployed: false }
+        // The macro jumps, releases and deploys on its own ticks; the host only
+        // reads the result, so the glider is already open here.
+        this.onGround = false
+        this.fallFlying = true
+        return { state: 'done', endReason: 'launched', ticks: 12, phase: 'handoff', deployed: true, airborne: true, climb: 4, fireworksUsed: 1 }
+      }
+      this.cancelLaunch = async () => {
+        this.cancelLaunchCalls++
+        return { state: 'cancelled', endReason: 'cancelled', ticks: this.launchPolls, deployed: this.fallFlying }
+      }
+    }
   }
 
   async getState(): Promise<MovementState> {
@@ -80,7 +135,12 @@ class ElytraFakePort implements MovementControlPort {
       }
     }
     else if (!this.onGround && !this.fallFlying && this.jumps > 0) {
-      this.fallFlying = true
+      // Real rule (live, 2026-09-18): a jump opens the glider only when no
+      // movement key is held. Holding a key is not a new press, so a deploy
+      // attempted while the takeoff sprint still holds `forward` is a no-op.
+      const holdingMovement = this.inputs.forward === true || this.inputs.sprint === true
+      if (!this.options.deployRequiresReleasedInput || !holdingMovement)
+        this.fallFlying = true
     }
     if (this.fallFlying && this.options.path) {
       const next = this.options.path[this.pathIndex++]
@@ -206,6 +266,8 @@ class ElytraFakePort implements MovementControlPort {
   }
 
   async setInput(input: MovementInput): Promise<void> {
+    if (input.forward === true)
+      this.sawForwardRun = true
     this.inputs = { ...this.inputs, ...input }
   }
 
@@ -224,6 +286,28 @@ class ElytraFakePort implements MovementControlPort {
   async useBlock(): Promise<void> {}
 
   async useItem(): Promise<void> {
+    // Vanilla: using an elytra while not gliding wears it, swapping whatever was
+    // on the body back into the hand. This is the path the mover uses instead of
+    // writing the armor slot (live 2026-09-18).
+    const held = this.inventory.find(slot => slot.slot === this.currentHotbar)
+    if (held?.id.includes('elytra')) {
+      const previous = this.chest
+      this.chest = {
+        id: held.id,
+        ...(held.damage !== undefined ? { damage: held.damage } : {}),
+        ...(held.maxDamage !== undefined ? { maxDamage: held.maxDamage } : {}),
+      }
+      if (previous) {
+        held.id = previous.id
+        held.damage = previous.damage
+        held.maxDamage = previous.maxDamage
+      }
+      else {
+        held.id = ''
+        held.count = 0
+      }
+      return
+    }
     this.fireworkUses++
     const selected = this.inventory.find(slot => slot.slot === this.currentHotbar)
     if (selected && selected.count > 0)
@@ -237,15 +321,33 @@ class ElytraFakePort implements MovementControlPort {
 
   async swapSlots(slotA: number, slotB: number): Promise<void> {
     this.swaps.push([slotA, slotB])
-    if (slotB === CHEST_SLOT) {
-      const item = this.inventory.find(slot => slot.slot === slotA)
-      if (item) {
-        this.chest = {
-          id: item.id,
-          ...(item.damage !== undefined ? { damage: item.damage } : {}),
-          ...(item.maxDamage !== undefined ? { maxDamage: item.maxDamage } : {}),
-        }
-      }
+    // ROOT CAUSE the fake models (live, 2026-09-18): the bridge's
+    // `InventoryHandlers.toMenuSlot` maps inventory indices 36..39 onto menu
+    // slots 5..8 documented as "helmet..boots", while `Inventory` stores armor as
+    // feet, legs, chest, head. Every armor write therefore lands on another slot:
+    // 36/37/38/39 all left the chest untouched while the call answered `swapped`.
+    // A host that depends on that write fails here too, which is the point.
+    if (slotB >= 36 && slotB <= 39)
+      return
+    const from = this.inventory.find(slot => slot.slot === slotA)
+    const to = this.inventory.find(slot => slot.slot === slotB)
+    if (!from)
+      return
+    const moved = { ...from }
+    if (to) {
+      from.id = to.id
+      from.count = to.count
+      from.damage = to.damage
+      from.maxDamage = to.maxDamage
+      to.id = moved.id
+      to.count = moved.count
+      to.damage = moved.damage
+      to.maxDamage = moved.maxDamage
+    }
+    else {
+      this.inventory.push({ ...moved, slot: slotB, hotbar: slotB <= 8 })
+      from.id = ''
+      from.count = 0
     }
   }
 
@@ -272,9 +374,50 @@ describe('runElytraMove', () => {
     const port = new ElytraFakePort({ goal, speed: 0.1 })
     const result = await runElytraMove({ port, goal, deps: FAST })
     expect(result.status).toBe('reached')
-    expect(port.swaps).toContainEqual([12, CHEST_SLOT])
+    // The suit is worn by hand now, not by an armor write the bridge cannot do.
+    expect(port.chest?.id).toBe('minecraft:elytra')
+    expect(port.swaps.some(([, to]) => to === CHEST_SLOT)).toBe(false)
     expect(port.selectedSlots).toContain(4)
     expect(port.fireworkUses).toBeGreaterThanOrEqual(1)
+  })
+
+  it('wears a spare suit by hand when the armor write cannot reach the chest', async () => {
+    // ROOT CAUSE (live, 2026-09-18): the chest held a 431/432 elytra, which is
+    // not fly-enabled, and the fresh spare could not be moved onto the body by
+    // `swap_slots`. The flight then failed with `not_deployed` after the mover
+    // reported the suit as replaced.
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({
+      goal,
+      speed: 0.1,
+      launchScript: 'launched',
+      chest: { id: 'minecraft:elytra', damage: 400, maxDamage: 432 },
+      inventory: [
+        { slot: 4, id: 'minecraft:firework_rocket', count: 8, hotbar: true },
+        { slot: 12, id: 'minecraft:elytra', count: 1, hotbar: false },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(port.chest?.damage).toBeUndefined()
+    expect(port.swaps.some(([, to]) => to === CHEST_SLOT)).toBe(false)
+    expect(result.status).not.toBe('unavailable')
+  })
+
+  it('releases the takeoff keys before pressing jump to deploy', async () => {
+    // ROOT CAUSE (live, 2026-09-18):
+    //
+    // The takeoff sprint held `forward + sprint` through the fall, and a held
+    // key is not a new press, so `jumpOnce()` never opened the glider. A real
+    // run off the ridge at (-384, 161, 19) fell 24 blocks with
+    // `fallFlying: false` and died (`airitest fell from a high place`).
+    //
+    // The mover now releases the run keys before the first deploy press. This
+    // fake enforces the same rule, so it fails if the release is removed.
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal, speed: 0.1, deployRequiresReleasedInput: true })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('reached')
+    expect(port.jumps).toBeGreaterThanOrEqual(1)
   })
 
   it('fails with unavailable when no elytra exists', async () => {
@@ -299,6 +442,48 @@ describe('runElytraMove', () => {
     })
     const result = await runElytraMove({ port, goal, deps: FAST })
     expect(result.status).toBe('low_supply')
+  })
+
+  it('takes off with the bridge launch macro and never runs off an edge', async () => {
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal, speed: 0.1, launchScript: 'launched' })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('reached')
+    // OV-D16: the flat-ground path is the macro, submitted once. The edge run is
+    // what holds forward; a macro takeoff must never reach it.
+    expect(port.launchCalls).toBe(1)
+    expect(port.sawForwardRun).toBe(false)
+    expect(port.jumps).toBe(0)
+  })
+
+  it('falls back to the edge run when the macro cannot open the glider', async () => {
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({ goal, speed: 0.1, launchScript: 'not_deployed' })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(result.status).toBe('reached')
+    expect(port.launchCalls).toBe(1)
+    expect(port.sawForwardRun).toBe(true)
+    expect(port.jumps).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still launches when the only rocket sits in the offhand', async () => {
+    // ROOT CAUSE (live, 2026-09-18): the launch macro parks its rocket in the
+    // offhand, and the takeoff used to refuse when no *hotbar* stack could be
+    // selected. The macro can fire either hand, so an offhand stack is ammo; only
+    // the cruise thrust needs a hotbar slot, and it reports low_supply instead.
+    const goal = { x: 200, y: 64, z: 0 }
+    const port = new ElytraFakePort({
+      goal,
+      speed: 0.1,
+      launchScript: 'launched',
+      inventory: [
+        { slot: 45, id: 'minecraft:firework_rocket', count: 8, hotbar: false },
+        { slot: 12, id: 'minecraft:elytra', count: 1, hotbar: false },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, deps: FAST })
+    expect(port.launchCalls).toBe(1)
+    expect(result.status).not.toBe('unavailable')
   })
 
   it('lands instead of dropping control when cancelled in flight', async () => {
