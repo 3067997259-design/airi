@@ -1,0 +1,30 @@
+
+Test run finished after 493 ms
+[         2 containers found      ]
+[         0 containers skipped    ]
+[         2 containers started    ]
+[         0 containers aborted    ]
+[         2 containers successful ]
+[         0 containers failed     ]
+[         1 tests found           ]
+[         0 tests skipped         ]
+[         1 tests started         ]
+[         0 tests aborted         ]
+[         0 tests successful      ]
+[         1 tests failed          ]
+
+
+Failures (1):
+  JUnit Jupiter:FlightSequenceTest:rejectedLandingInsideTheGoalDoesNotBecomeCompletion()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightSequenceTest', methodName = 'rejectedLandingInsideTheGoalDoesNotBecomeCompletion', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: expected: not equal but was: <CHANNEL_COMPLETE>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertNotEquals.failEqual(AssertNotEquals.java:277)
+       org.junit.jupiter.api.AssertNotEquals.assertNotEquals(AssertNotEquals.java:263)
+       org.junit.jupiter.api.AssertNotEquals.assertNotEquals(AssertNotEquals.java:258)
+       org.junit.jupiter.api.Assertions.assertNotEquals(Assertions.java:2819)
+       dev.mcpfabric.client.flight.FlightSequenceTest.rejectedLandingInsideTheGoalDoesNotBecomeCompletion(FlightSequenceTest.java:15)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)

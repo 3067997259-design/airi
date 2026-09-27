@@ -11,7 +11,7 @@ import type { ObservationEnvelope, TerrainReadRequest, TerrainReadResponse } fro
  * dimension is rejected, and an unreadable read fails loudly instead of
  * becoming zero coordinates, `onGround: true`, or an empty world.
  */
-import type { ElytraLaunchStatus, ElytraLaunchTask, JumpTask, JumpTaskStatus } from './port'
+import type { ElytraLaunchStatus, ElytraLaunchTask, FlightChannelRevokeReceipt, FlightChannelSample, FlightChannelStatus, FlightChannelSubmitReceipt, FlightChannelSubmitRequest, FlightLandingSiteReceipt, FlightLandingSiteRequest, JumpTask, JumpTaskStatus } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { CollisionBox } from './types'
 import type { VehicleReadResponse } from './vehicle-observation'
@@ -137,6 +137,166 @@ function launchStatusOf(record: Record<string, unknown> | undefined): ElytraLaun
     ...(Number.isFinite(climb) ? { climb } : {}),
     ...(Number.isFinite(Number(record?.fireworksUsed)) ? { fireworksUsed: Number(record?.fireworksUsed) } : {}),
     ...(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { position: { x, y, z } } : {}),
+  }
+}
+
+/** Reads `{ x, y, z }` from either a nested object or the record itself. */
+function vec3Of(record: Record<string, unknown> | undefined, key?: string): { x: number, y: number, z: number } {
+  const source = key
+    ? (record?.[key] && typeof record[key] === 'object' && !Array.isArray(record[key])
+        ? record[key] as Record<string, unknown>
+        : undefined)
+    : record
+  return {
+    x: Number(source?.x) || 0,
+    y: Number(source?.y) || 0,
+    z: Number(source?.z) || 0,
+  }
+}
+
+/**
+ * Maps one trajectory ring sample; a short record still carries its tick.
+ *
+ * The client sends `position` and `velocity` as nested objects, so both shapes
+ * are read here. Flattening to the port's scalar fields is the transport's job.
+ */
+function flightSampleOf(record: Record<string, unknown> | undefined): FlightChannelSample {
+  const position = vec3Of(record, 'position')
+  const velocity = vec3Of(record, 'velocity')
+  return {
+    tick: Number(record?.tick) || 0,
+    x: position.x,
+    y: position.y,
+    z: position.z,
+    vx: velocity.x,
+    vy: velocity.y,
+    vz: velocity.z,
+    yaw: Number(record?.yaw) || 0,
+    pitch: Number(record?.pitch) || 0,
+    gliding: record?.gliding === true,
+    onGround: record?.onGround === true,
+    boostAttached: record?.boostAttached === true,
+    rocketFiredThisTick: record?.rocketFiredThisTick === true,
+    inputOwner: typeof record?.inputOwner === 'string' ? record.inputOwner : 'none',
+    ...(Number.isFinite(Number(record?.health)) ? { health: Number(record?.health) } : {}),
+    ...(typeof record?.inWater === 'boolean' ? { inWater: record.inWater } : {}),
+    ...(Number.isFinite(Number(record?.rocketsInHands)) ? { rocketsInHands: Number(record?.rocketsInHands) } : {}),
+    ...(Number.isFinite(Number(record?.rocketsInInventory)) ? { rocketsInInventory: Number(record?.rocketsInInventory) } : {}),
+    ...(typeof record?.sessionId === 'string' ? { sessionId: record.sessionId } : {}),
+    ...(Number.isFinite(Number(record?.revision)) ? { revision: Number(record?.revision) } : {}),
+    ...(typeof record?.holding === 'boolean' ? { holding: record.holding } : {}),
+    ...(Number.isFinite(Number(record?.boostRemainingEstimate)) ? { boostRemainingEstimate: Number(record?.boostRemainingEstimate) } : {}),
+    ...(typeof record?.boostEntityIds === 'string' ? { boostEntityIds: record.boostEntityIds } : {}),
+    ...(Number.isFinite(Number(record?.boostCount)) ? { boostCount: Number(record?.boostCount) } : {}),
+    ...(Number.isFinite(Number(record?.targetX)) ? { targetX: Number(record?.targetX) } : {}),
+    ...(Number.isFinite(Number(record?.targetY)) ? { targetY: Number(record?.targetY) } : {}),
+    ...(Number.isFinite(Number(record?.targetZ)) ? { targetZ: Number(record?.targetZ) } : {}),
+    ...(Number.isFinite(Number(record?.cursor)) ? { cursor: Number(record?.cursor) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndTicks)) ? { predictedEndTicks: Number(record?.predictedEndTicks) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndCursor)) ? { predictedEndCursor: Number(record?.predictedEndCursor) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndX)) ? { predictedEndX: Number(record?.predictedEndX) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndY)) ? { predictedEndY: Number(record?.predictedEndY) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndZ)) ? { predictedEndZ: Number(record?.predictedEndZ) } : {}),
+    ...(typeof record?.predictedEndReason === 'string' ? { predictedEndReason: record.predictedEndReason } : {}),
+    ...(typeof record?.preview === 'string' ? { preview: record.preview } : {}),
+    ...(typeof record?.terminalAction === 'string' ? { terminalAction: record.terminalAction } : {}),
+    ...(typeof record?.rejectKind === 'string' && record.rejectKind !== '' ? { rejectKind: record.rejectKind } : {}),
+    ...(Number.isFinite(Number(record?.rejectTick)) ? { rejectTick: Number(record?.rejectTick) } : {}),
+    ...(Number.isFinite(Number(record?.rejectX)) ? { rejectX: Number(record?.rejectX) } : {}),
+    ...(Number.isFinite(Number(record?.rejectY)) ? { rejectY: Number(record?.rejectY) } : {}),
+    ...(Number.isFinite(Number(record?.rejectZ)) ? { rejectZ: Number(record?.rejectZ) } : {}),
+    ...(typeof record?.rejectBlock === 'string' && record.rejectBlock !== '' ? { rejectBlock: record.rejectBlock } : {}),
+    ...(typeof record?.rejectShape === 'string' && record.rejectShape !== '' ? { rejectShape: record.rejectShape } : {}),
+    ...(Number.isFinite(Number(record?.rejectCollisions)) ? { rejectCollisions: Number(record?.rejectCollisions) } : {}),
+    ...(Number.isFinite(Number(record?.rejectFloor)) ? { rejectFloor: Number(record?.rejectFloor) } : {}),
+    ...(Number.isFinite(Number(record?.rejectSpeed)) ? { rejectSpeed: Number(record?.rejectSpeed) } : {}),
+    ...(Number.isFinite(Number(record?.rejectTerminal)) ? { rejectTerminal: Number(record?.rejectTerminal) } : {}),
+    ...(typeof record?.pendingSessionId === 'string' && record.pendingSessionId !== '' ? { pendingSessionId: record.pendingSessionId } : {}),
+    ...(Number.isFinite(Number(record?.wallMs)) ? { wallMs: Number(record?.wallMs) } : {}),
+    ...(Number.isFinite(Number(record?.nanoMs)) ? { nanoMs: Number(record?.nanoMs) } : {}),
+    ...(typeof record?.controlPhase === 'string' ? { controlPhase: record.controlPhase } : {}),
+    ...(typeof record?.routeOutcome === 'string' ? { routeOutcome: record.routeOutcome } : {}),
+    ...(typeof record?.build === 'string' && record.build !== '' ? { build: record.build } : {}),
+    ...(record?.recoveryFrameVerified === true ? { recoveryFrameVerified: true } : {}),
+    ...(Number.isFinite(Number(record?.progress)) ? { progress: Number(record?.progress) } : {}),
+    ...(Number.isFinite(Number(record?.predictedEndProgress)) ? { predictedEndProgress: Number(record?.predictedEndProgress) } : {}),
+    ...(typeof record?.chosenPolicy === 'string' && record.chosenPolicy !== '' ? { chosenPolicy: record.chosenPolicy } : {}),
+    ...(Number.isFinite(Number(record?.evaluated)) ? { evaluated: Number(record?.evaluated) } : {}),
+    ...(Number.isFinite(Number(record?.feasible)) ? { feasible: Number(record?.feasible) } : {}),
+    ...(record?.budgetExhausted === true ? { budgetExhausted: true } : {}),
+    ...(typeof record?.searchCompleted === 'boolean' ? { searchCompleted: record.searchCompleted } : {}),
+    ...(Number.isFinite(Number(record?.physicsSteps)) ? { physicsSteps: Number(record?.physicsSteps) } : {}),
+    ...(Number.isFinite(Number(record?.blockQueries)) ? { blockQueries: Number(record?.blockQueries) } : {}),
+    ...(Number.isFinite(Number(record?.cacheHits)) ? { cacheHits: Number(record?.cacheHits) } : {}),
+    ...(Number.isFinite(Number(record?.simMs)) ? { simMs: Number(record?.simMs) } : {}),
+    ...(typeof record?.cooldownActive === 'boolean' ? { cooldownActive: record.cooldownActive } : {}),
+    ...(typeof record?.transitionReason === 'string' && record.transitionReason !== '' ? { transitionReason: record.transitionReason } : {}),
+    ...(Number.isFinite(Number(record?.safeCandidates)) ? { safeCandidates: Number(record?.safeCandidates) } : {}),
+    ...(Number.isFinite(Number(record?.safeVerified)) ? { safeVerified: Number(record?.safeVerified) } : {}),
+    ...(record?.safeEmergency === true ? { safeEmergency: true } : {}),
+    ...(Number.isFinite(Number(record?.safeContactTicks)) ? { safeContactTicks: Number(record?.safeContactTicks) } : {}),
+  }
+}
+
+/** Maps one flight status read; an absent state is `none`, never applying. */
+function flightStatusOf(record: Record<string, unknown> | undefined): FlightChannelStatus {
+  const samples = Array.isArray(record?.trajectory) ? record.trajectory as Array<Record<string, unknown>> : []
+  const entryReach = Number(record?.entryReach)
+  const terminalReach = Number(record?.terminalReach)
+  const trajectoryLost = Number(record?.trajectoryLost)
+  return {
+    // The client enum ships uppercase (ACCEPTED / RUNNING / TERMINATED); the
+    // port contract is lowercase, so normalize at the boundary. ROOT CAUSE
+    // (R3 live 2026-09-20): the raw passthrough never matched the runner's
+    // `terminated` check, so no client end reason (channel_complete,
+    // no_viable_trajectory, touchdown) ever reached the host.
+    state: typeof record?.state === 'string' ? record.state.toLowerCase() : 'none',
+    ...(typeof record?.endReason === 'string' ? { endReason: record.endReason } : {}),
+    ...(typeof record?.endDetail === 'string' ? { endDetail: record.endDetail } : {}),
+    ...(typeof record?.applyingStarted === 'boolean' ? { applyingStarted: record.applyingStarted } : {}),
+    ...(record?.handoverCapable === true ? { handoverCapable: true } : {}),
+    ...(typeof record?.pendingSessionId === 'string' ? { pendingSessionId: record.pendingSessionId } : {}),
+    ...(Number.isFinite(Number(record?.handoverCount)) ? { handoverCount: Number(record?.handoverCount) } : {}),
+    ...(record?.holding === true ? { holding: true } : {}),
+    ...(typeof record?.build === 'string' && record.build !== '' ? { build: record.build } : {}),
+    ...(record?.recoveryFrameVerified === true ? { recoveryFrameVerified: true } : {}),
+    ...(typeof record?.sessionId === 'string' ? { sessionId: record.sessionId } : {}),
+    ...(typeof record?.phase === 'string' ? { phase: record.phase } : {}),
+    ...(typeof record?.routeOutcome === 'string' ? { routeOutcome: record.routeOutcome } : {}),
+    ...(typeof record?.build === 'string' && record.build !== '' ? { build: record.build } : {}),
+    ...(record?.recoveryFrameVerified === true ? { recoveryFrameVerified: true } : {}),
+    ...(typeof record?.recoveryReason === 'string' && record.recoveryReason !== '' ? { recoveryReason: record.recoveryReason } : {}),
+    ...(record?.recovering === true ? { recovering: true } : {}),
+    ...(Number.isFinite(entryReach) ? { entryReach } : {}),
+    ...(Number.isFinite(terminalReach) ? { terminalReach } : {}),
+    trajectory: samples.map(flightSampleOf),
+    ...(Number.isFinite(trajectoryLost) ? { trajectoryLost } : {}),
+  }
+}
+
+function flightSubmitReceiptOf(record: Record<string, unknown> | undefined): FlightChannelSubmitReceipt {
+  const expectedGeneration = Number(record?.expectedGeneration)
+  const pathPoints = Number(record?.pathPoints)
+  const entryReach = Number(record?.entryReach)
+  const terminalReach = Number(record?.terminalReach)
+  return {
+    accepted: record?.accepted === true,
+    ...(typeof record?.reason === 'string' ? { reason: record.reason } : {}),
+    ...(Number.isFinite(expectedGeneration) ? { expectedGeneration } : {}),
+    ...(typeof record?.activeSessionId === 'string' ? { activeSessionId: record.activeSessionId } : {}),
+    ...(typeof record?.startedApplying === 'boolean' ? { startedApplying: record.startedApplying } : {}),
+    ...(Number.isFinite(pathPoints) ? { pathPoints } : {}),
+    ...(Number.isFinite(entryReach) ? { entryReach } : {}),
+    ...(Number.isFinite(terminalReach) ? { terminalReach } : {}),
+  }
+}
+
+function flightRevokeReceiptOf(record: Record<string, unknown> | undefined): FlightChannelRevokeReceipt {
+  return {
+    revoked: record?.revoked === true,
+    ...(typeof record?.wasActive === 'boolean' ? { wasActive: record.wasActive } : {}),
+    ...(typeof record?.endReason === 'string' ? { endReason: record.endReason } : {}),
+    ...(typeof record?.reason === 'string' ? { reason: record.reason } : {}),
   }
 }
 
@@ -535,6 +695,56 @@ export function createMcpMovementPort(callTool: ToolCaller, context: MovementPor
           ),
           launchStatus: async (): Promise<ElytraLaunchStatus> => launchStatusOf(await callTool('elytra_launch_status', {})),
           cancelLaunch: async (): Promise<ElytraLaunchStatus> => launchStatusOf(await callTool('elytra_launch_cancel', {})),
+        }
+      : {}),
+    // R3: the client flight channel is attached only when all three of its
+    // tools exist. A bridge with submit alone could start a channel it could
+    // never observe or abort, and the mover would have to guess the outcome.
+    ...(hasTool('flight_submit') && hasTool('flight_status') && hasTool('flight_revoke')
+      ? {
+          flightSubmit: async (request: FlightChannelSubmitRequest): Promise<FlightChannelSubmitReceipt> => flightSubmitReceiptOf(await callTool('flight_submit', {
+            sessionId: request.sessionId,
+            ...(request.generation !== undefined ? { generation: request.generation } : {}),
+            ...(request.revision !== undefined ? { revision: request.revision } : {}),
+            ...(request.deadlineMs !== undefined ? { deadlineMs: request.deadlineMs } : {}),
+            ...(request.dimension ? { dimension: request.dimension } : {}),
+            ...(request.controlSessionId ? { controlSessionId: request.controlSessionId } : {}),
+            channel: {
+              path: request.channel.path.map(point => ({ x: point.x, y: point.y, z: point.z })),
+              ...(request.channel.entryReach !== undefined ? { entryReach: request.channel.entryReach } : {}),
+              ...(request.channel.kind !== undefined ? { kind: request.channel.kind } : {}),
+              ...(request.channel.terminalReach !== undefined ? { terminalReach: request.channel.terminalReach } : {}),
+              ...(request.channel.terminalPlanning !== undefined ? { terminalPlanning: request.channel.terminalPlanning } : {}),
+            },
+          })),
+          flightStatus: async (sinceTick?: number): Promise<FlightChannelStatus> =>
+            flightStatusOf(await callTool('flight_status', sinceTick !== undefined ? { sinceTick } : {})),
+          flightRevoke: async (sessionId: string): Promise<FlightChannelRevokeReceipt> =>
+            flightRevokeReceiptOf(await callTool('flight_revoke', { sessionId })),
+          ...(hasTool('flight_landing_site')
+            ? {
+                flightLandingSite: async (request: FlightLandingSiteRequest): Promise<FlightLandingSiteReceipt> => {
+                  const record = await callTool('flight_landing_site', {
+                    sessionId: request.sessionId,
+                    ...(request.controlSessionId ? { controlSessionId: request.controlSessionId } : {}),
+                    x: request.x,
+                    y: request.y,
+                    z: request.z,
+                    contactY: request.contactY,
+                    ...(request.dimension ? { dimension: request.dimension } : {}),
+                  })
+                  return {
+                    accepted: record?.accepted === true,
+                    ...(typeof record?.reason === 'string' ? { reason: record.reason } : {}),
+                    ...(typeof record?.phase === 'string' ? { phase: record.phase } : {}),
+                    ...(Number.isFinite(Number(record?.siteX)) ? { siteX: Number(record?.siteX) } : {}),
+                    ...(Number.isFinite(Number(record?.siteY)) ? { siteY: Number(record?.siteY) } : {}),
+                    ...(Number.isFinite(Number(record?.siteZ)) ? { siteZ: Number(record?.siteZ) } : {}),
+                    ...(Number.isFinite(Number(record?.contactY)) ? { contactY: Number(record?.contactY) } : {}),
+                  }
+                },
+              }
+            : {}),
         }
       : {}),
     // The optional vehicle surface is attached only when its tool exists, so a

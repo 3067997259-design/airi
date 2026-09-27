@@ -6,6 +6,7 @@
  * definition (mc-0b-spec "命令信封" / "终态回执").
  */
 import type { AirFollowReceipt } from './movement/air-follow'
+import type { FlightCrossSection } from './movement/port'
 
 /** CD-F: per-follow evidence the receipt carries (air-follow design §6). */
 export type GameFollowReceipt = AirFollowReceipt
@@ -230,6 +231,13 @@ export interface GameCommandParams {
     vehicleUuid?: string
     /** CD-V1: explicit permission to tame a wild horse. */
     allowTame?: boolean
+    /**
+     * Openings the elytra route must actually fly through, in order (ab-30
+     * plan §1). Diagnostics pass them explicitly; the production planner is
+     * meant to extract them from terrain, and until then this field is how a
+     * must-pass gate is expressed end to end.
+     */
+    mustPass?: FlightCrossSection[]
   }
   collect?: { blockId: string, itemId?: string, maxCount: number, radius: number, allowPrerequisites?: boolean }
   say?: { text: string }

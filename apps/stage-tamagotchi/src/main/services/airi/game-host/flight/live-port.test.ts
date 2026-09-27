@@ -39,7 +39,7 @@ describe('fireworkStateSince', () => {
 })
 
 describe('planLiveFlightControl', () => {
-  const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false }
+  const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true }
 
   function stateOf(position: { x: number, y: number, z: number }) {
     return {

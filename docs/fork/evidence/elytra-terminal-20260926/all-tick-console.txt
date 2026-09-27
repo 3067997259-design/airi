@@ -1,0 +1,90 @@
+[
+  {
+    run: 'terminal-01',
+    build: '0.2.80+1.21.1',
+    local: false,
+    ticks: 149,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-02',
+    build: '0.2.80+1.21.1',
+    local: false,
+    ticks: 167,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-03',
+    build: '0.2.80+1.21.1',
+    local: false,
+    ticks: 172,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-04',
+    build: '0.2.81+1.21.1',
+    local: false,
+    ticks: 135,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-05',
+    build: '0.2.81+1.21.1',
+    local: false,
+    ticks: 159,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-06',
+    build: '0.2.82+1.21.1',
+    local: false,
+    ticks: 174,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-07',
+    build: '0.2.82+1.21.1',
+    local: false,
+    ticks: 147,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'terminal-08',
+    build: '0.2.82+1.21.1',
+    local: false,
+    ticks: 136,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  }
+]

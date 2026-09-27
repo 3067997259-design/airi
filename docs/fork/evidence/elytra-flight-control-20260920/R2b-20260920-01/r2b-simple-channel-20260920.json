@@ -1,0 +1,557 @@
+[
+  {
+    "scenario": "setup",
+    "position": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "onGround": true
+  },
+  {
+    "scenario": "submit",
+    "sessionId": "r2b-1789870911632",
+    "accepted": true,
+    "startedApplying": false,
+    "echo": {
+      "path": [
+        {
+          "x": -1000,
+          "y": 76,
+          "z": 30
+        },
+        {
+          "x": -950,
+          "y": 72,
+          "z": -60
+        },
+        {
+          "x": -900,
+          "y": 70,
+          "z": -150
+        }
+      ],
+      "entryReach": 12
+    },
+    "pathPoints": 3
+  },
+  {
+    "poll": 1,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 460,
+    "trajectoryLost": 0,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 2,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 502,
+    "trajectoryLost": 0,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 3,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 543,
+    "trajectoryLost": 0,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 4,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 585,
+    "trajectoryLost": 0,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 5,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 26,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 6,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 67,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 7,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 109,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 8,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 150,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 9,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 191,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 10,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 232,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 11,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 273,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 12,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 314,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 13,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 356,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 14,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 397,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 15,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 438,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 16,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 479,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 17,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 520,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 18,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 561,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 19,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 602,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 20,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 643,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 21,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 685,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 22,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 726,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 23,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 767,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 24,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 808,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 25,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 849,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 26,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 890,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 27,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 932,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 28,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 973,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 29,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 1014,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "poll": 30,
+    "state": "ACCEPTED",
+    "endReason": "",
+    "applyingStarted": false,
+    "selfPosition": {
+      "x": -1007,
+      "y": 74,
+      "z": 79
+    },
+    "distanceToGoal": 252.8,
+    "newSamples": 600,
+    "trajectoryLost": 1056,
+    "boostSamples": 0,
+    "fireSamples": 0
+  },
+  {
+    "verdictInputs": {
+      "firstHalfAvg": 252.8,
+      "lastHalfAvg": 252.8,
+      "trend": "not-approaching",
+      "distSeries": [
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8,
+        252.8
+      ]
+    }
+  }
+]

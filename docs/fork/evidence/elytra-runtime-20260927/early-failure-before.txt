@@ -1,0 +1,29 @@
+
+Test run finished after 2156 ms
+[         2 containers found      ]
+[         0 containers skipped    ]
+[         2 containers started    ]
+[         0 containers aborted    ]
+[         2 containers successful ]
+[         0 containers failed     ]
+[         1 tests found           ]
+[         0 tests skipped         ]
+[         1 tests started         ]
+[         0 tests aborted         ]
+[         0 tests successful      ]
+[         1 tests failed          ]
+
+
+Failures (1):
+  JUnit Jupiter:FlightPlanningTest:failedWorkerReleasesItsPrefixBeforeTheAdoptionTick()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightPlanningTest', methodName = 'failedWorkerReleasesItsPrefixBeforeTheAdoptionTick', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: reserved:1/12 branches=1 rejectedExpiry=-1 result=none ==> expected: <true> but was: <false>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+       org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+       org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+       dev.mcpfabric.client.flight.FlightPlanningTest.failedWorkerReleasesItsPrefixBeforeTheAdoptionTick(FlightPlanningTest.java:25)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)

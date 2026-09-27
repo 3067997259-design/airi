@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" tests="5" skipped="0" failures="4" errors="0" timestamp="2026-09-22T01:11:16.540Z" hostname="XING-ER" time="0.329">
+  <properties/>
+  <testcase name="ab28TurnsTowardTheBearingAcrossTheAngleSeam()" classname="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" time="0.065">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;-120.0&gt; but was: &lt;-70.0&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;-120.0&gt; but was: &lt;-70.0&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:118)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:113)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:860)
+	at dev.mcpfabric.client.flight.FlightSteeringRegressionTest.ab28TurnsTowardTheBearingAcrossTheAngleSeam(FlightSteeringRegressionTest.java:28)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="aPassedTerminalStillNeedsItsArrivalVolume()" classname="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" time="0.164"/>
+  <testcase name="submittingAnAlreadyLimitedFrameDoesNotReverseItsTurn()" classname="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" time="0.007">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;-159.0&gt; but was: &lt;151.0&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;-159.0&gt; but was: &lt;151.0&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:118)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:113)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:860)
+	at dev.mcpfabric.client.flight.FlightSteeringRegressionTest.submittingAnAlreadyLimitedFrameDoesNotReverseItsTurn(FlightSteeringRegressionTest.java:38)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="ab27AltitudeErrorDoesNotMakeThePilotChaseAPassedEntry()" classname="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" time="0.025">
+    <failure message="org.opentest4j.AssertionFailedError: eval=40 ok=37 sim=18ms reject[c=0,f=0,s=3,ta=0] first=speed@t20(-1001.6,71.3,21.0)block= shape= ==&gt; expected: &lt;2&gt; but was: &lt;1&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: eval=40 ok=37 sim=18ms reject[c=0,f=0,s=3,ta=0] first=speed@t20(-1001.6,71.3,21.0)block= shape= ==&gt; expected: &lt;2&gt; but was: &lt;1&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:150)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:563)
+	at dev.mcpfabric.client.flight.FlightSteeringRegressionTest.ab27AltitudeErrorDoesNotMakeThePilotChaseAPassedEntry(FlightSteeringRegressionTest.java:63)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <testcase name="yawNormalizationDoesNotChangeThePhysicalCommand()" classname="dev.mcpfabric.client.flight.FlightSteeringRegressionTest" time="0.007">
+    <failure message="org.opentest4j.AssertionFailedError: expected: &lt;-179.0&gt; but was: &lt;154.0&gt;" type="org.opentest4j.AssertionFailedError">org.opentest4j.AssertionFailedError: expected: &lt;-179.0&gt; but was: &lt;154.0&gt;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:118)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:113)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:860)
+	at dev.mcpfabric.client.flight.FlightSteeringRegressionTest.yawNormalizationDoesNotChangeThePhysicalCommand(FlightSteeringRegressionTest.java:46)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+</failure>
+  </testcase>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

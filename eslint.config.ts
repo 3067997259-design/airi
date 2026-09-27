@@ -41,6 +41,16 @@ export default defineConfig({
     // The E-01 calibration harness is a standalone Node program and its audit
     // test prints the residual report; both are evidence, not repository code.
     'docs/fork/evidence/e01-flight-calibration-20260918/**',
+    // Launch and early-channel acceptance captures: the JSON was read back
+    // during the run and the verify scripts are standalone Node programs.
+    // Their bytes are the evidence, so this config does not reformat them.
+    'docs/fork/evidence/ov5-elytra-launch-20260918/**',
+    'docs/fork/evidence/elytra-flight-control-20260920/R2a-20260920-01/**',
+    'docs/fork/evidence/elytra-flight-control-20260920/R2b-20260920-01/**',
+    // The coverage-analysis snapshot is a captured world dump (150k cells)
+    // meant for offline planner replays, not linted source. Its bytes are the
+    // evidence, so this config does not reformat it.
+    'docs/fork/evidence/elytra-flight-control-20260920/**/*.snapshot.json',
     '.agents/**',
     '.github/**',
     '.zcode/**', // Local agent session state, not repository code

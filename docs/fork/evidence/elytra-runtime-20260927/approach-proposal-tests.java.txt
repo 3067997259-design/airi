@@ -1,0 +1,24 @@
+package dev.mcpfabric.client.flight;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+class FlightApproachTest {
+	@Test void glideCannotWinByStoppingItsPredictionBeforeTheUpcomingRidge() {
+		// ROOT CAUSE: glide priority compared a 20-tick glide with a full
+		// rocket burn. The short glide missed a ridge that required early lift.
+		var p = new FlightSession.Params();
+		p.stopAtEnd = true; p.terminalPlanning = true; p.terminalReach = 1; p.simBudgetMs = 1000;
+		FlightSession.BlockQuery world = (x,y,z) -> y < 60 || (z >= 25 && z < 28 && y < 75) ? "stone" : "air";
+		var route = List.of(new FlightSession.Waypoint(0,70,0),new FlightSession.Waypoint(0,76,30),
+				new FlightSession.Waypoint(0,66.5,60));
+		var session = new FlightSession(route,world,System.currentTimeMillis()+60000,p,0);
+		try {
+			var decision = session.tick(0,70,0,0,0,1,0,0,64,0,0,false);
+			assertTrue(decision.applicable);
+			assertTrue(decision.predictedEndTicks >= FlightRocket.maximumTicks(1));
+			assertTrue(decision.pitch < 0);
+		} finally { session.closePlanning(); }
+	}
+}

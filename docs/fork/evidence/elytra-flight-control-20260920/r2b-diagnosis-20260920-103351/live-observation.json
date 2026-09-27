@@ -1,0 +1,234 @@
+{
+  "observedAt": "2026-09-20T02:38:12.210Z",
+  "mode": "read-only; no control calls",
+  "results": {
+    "flight_observe": {
+      "tick": 20164,
+      "phase": "end-client-tick",
+      "dimension": "minecraft:overworld",
+      "position": {
+        "x": -1007,
+        "y": 74,
+        "z": 79
+      },
+      "velocity": {
+        "x": 0,
+        "y": -0.0784000015258789,
+        "z": 0
+      },
+      "yaw": -179.97144,
+      "pitch": 2.2000034,
+      "gliding": false,
+      "onGround": true,
+      "health": 5.6914954,
+      "food": 17,
+      "collisionBox": {
+        "minX": -1007.3000000119209,
+        "minY": 74,
+        "minZ": 78.69999998807907,
+        "maxX": -1006.6999999880791,
+        "maxY": 75.79999995231628,
+        "maxZ": 79.30000001192093
+      },
+      "equipment": {
+        "mainHand": "minecraft:firework_rocket",
+        "offHand": "",
+        "chest": "minecraft:elytra"
+      },
+      "boost": {
+        "attached": false,
+        "remainingTicks": 0,
+        "remainingSource": "launch-bookkeeping-35t"
+      },
+      "launch": {
+        "state": "cancelled",
+        "endReason": "bridge_timeout",
+        "phase": "idle",
+        "ticks": 0,
+        "airborne": false,
+        "deployed": false,
+        "jumpReleased": false,
+        "deployPressed": false,
+        "boostPressed": false,
+        "boostSeen": false,
+        "fireworksUsed": 0,
+        "withFireworks": true,
+        "startY": 0,
+        "minY": 0,
+        "maxY": 0,
+        "climb": 0,
+        "gliding": false,
+        "onGround": true,
+        "verticalSpeed": -0.0784000015258789,
+        "position": {
+          "x": -1007,
+          "y": 74,
+          "z": 79
+        }
+      },
+      "session": {
+        "id": "r2b-1789870911632",
+        "state": "ACCEPTED",
+        "applyingStarted": false
+      }
+    },
+    "get_equipment": {
+      "mainHand": {
+        "id": "minecraft:firework_rocket",
+        "count": 16,
+        "name": "烟花火箭"
+      },
+      "offHand": {
+        "empty": true
+      },
+      "helmet": {
+        "empty": true
+      },
+      "chest": {
+        "id": "minecraft:elytra",
+        "count": 1,
+        "name": "鞘翅"
+      },
+      "legs": {
+        "empty": true
+      },
+      "boots": {
+        "empty": true
+      }
+    },
+    "get_inventory": {
+      "selectedSlot": 5,
+      "hotbar": [
+        {
+          "id": "minecraft:firework_star",
+          "count": 64,
+          "name": "烟火之星",
+          "slot": 0
+        },
+        {
+          "id": "minecraft:arrow",
+          "count": 64,
+          "name": "箭",
+          "slot": 1
+        },
+        {
+          "id": "minecraft:arrow",
+          "count": 64,
+          "name": "箭",
+          "slot": 2
+        },
+        {
+          "id": "minecraft:arrow",
+          "count": 64,
+          "name": "箭",
+          "slot": 3
+        },
+        {
+          "id": "minecraft:arrow",
+          "count": 64,
+          "name": "箭",
+          "slot": 4
+        },
+        {
+          "id": "minecraft:firework_rocket",
+          "count": 16,
+          "name": "烟花火箭",
+          "slot": 5
+        },
+        {
+          "id": "minecraft:elytra",
+          "count": 1,
+          "name": "鞘翅",
+          "damage": 431,
+          "maxDamage": 432,
+          "slot": 6
+        },
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 0,
+          "maxDamage": 384,
+          "slot": 8
+        }
+      ],
+      "main": [
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 0,
+          "maxDamage": 384,
+          "slot": 9
+        },
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 0,
+          "maxDamage": 384,
+          "slot": 10
+        },
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 0,
+          "maxDamage": 384,
+          "slot": 11
+        },
+        {
+          "id": "minecraft:paper",
+          "count": 64,
+          "name": "纸",
+          "slot": 12
+        },
+        {
+          "id": "minecraft:cobblestone",
+          "count": 8,
+          "name": "圆石",
+          "slot": 13
+        },
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 11,
+          "maxDamage": 384,
+          "slot": 15
+        },
+        {
+          "id": "minecraft:bow",
+          "count": 1,
+          "name": "弓",
+          "damage": 0,
+          "maxDamage": 384,
+          "slot": 16
+        },
+        {
+          "id": "minecraft:stone_pickaxe",
+          "count": 1,
+          "name": "石镐",
+          "damage": 4,
+          "maxDamage": 131,
+          "slot": 27
+        }
+      ],
+      "armor": [
+        {
+          "id": "minecraft:elytra",
+          "count": 1,
+          "name": "鞘翅",
+          "slot": "chest"
+        }
+      ],
+      "offhand": {
+        "empty": true
+      }
+    }
+  },
+  "buildJar": {
+    "path": "D:/mcpfabric/versions/1.21.1/build/libs/mcpfabric-0.2.34+1.21.1.jar",
+    "sha256": "c55fff783953f208edabb283ec3fe46c31e14e38b39af883ec2d57cbb788d02f"
+  }
+}

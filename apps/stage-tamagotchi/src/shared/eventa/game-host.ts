@@ -20,6 +20,16 @@ import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
  */
 export interface GameHostFlightConfig {
   planner: 'off' | 'on'
+  /**
+   * Per-poll rollout replacement of the cruise heuristics (B0). Default `on`
+   * while `planner: 'on'`. Live calibration 2026-09-19 split it from the
+   * planner switch: the goal-anchored low route and the heuristic cruise with
+   * a leading band proved correct on the canyon venue, while the rollout's
+   * relative altitude window (y-4..y+12) resists dive candidates and its
+   * cruise leg needs E-02 calibration — `rollout: 'off'` runs the route
+   * layers with the heuristic pitch law.
+   */
+  rollout?: 'on' | 'off'
   /** True only after the E-01 residual calibration is registered PASS. */
   calibrated?: boolean
   /**

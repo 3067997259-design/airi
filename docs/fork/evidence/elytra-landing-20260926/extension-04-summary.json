@@ -1,0 +1,125 @@
+{
+  "tag": "extension-04",
+  "build": "0.2.78+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [
+        {
+          "tick": 3214,
+          "position": {
+            "x": -974.214701409002,
+            "y": 73.39621455927052,
+            "z": -83.48617154990222
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "lower-wool",
+      "events": [
+        {
+          "tick": 3223,
+          "position": {
+            "x": -969.6617633489832,
+            "y": 73.64172283286699,
+            "z": -97.8406857468268
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-approach",
+      "events": [
+        {
+          "tick": 3236,
+          "position": {
+            "x": -959.3924314596402,
+            "y": 72.91397114454543,
+            "z": -115
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-entry",
+      "events": [
+        {
+          "tick": 3243,
+          "position": {
+            "x": -951.1676295665898,
+            "y": 71.5416902716515,
+            "z": -123
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-exit",
+      "events": [
+        {
+          "tick": 3272,
+          "position": {
+            "x": -921.1111100683934,
+            "y": 70.56825321511273,
+            "z": -158.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "second-roof-exit",
+      "events": [
+        {
+          "tick": 3320,
+          "position": {
+            "x": -869.7337560461834,
+            "y": 70.6201362623441,
+            "z": -216.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "last-roof-exit",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "cave-approach",
+      "events": [],
+      "passed": false
+    }
+  ],
+  "continuous": false,
+  "damage": 6.9812259999999995,
+  "minHealth": 13.018774,
+  "samples": 160,
+  "controlledTicks": 148,
+  "budgetExhausted": 0,
+  "settled": 0,
+  "stopReason": "control_released",
+  "endReason": "damage",
+  "endDetail": "",
+  "localPass": false,
+  "endingVerified": false,
+  "fullCoursePass": false
+}

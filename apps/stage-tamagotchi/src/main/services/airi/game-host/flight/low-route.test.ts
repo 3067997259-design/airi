@@ -4,7 +4,76 @@ import type { Vec3 } from '../movement/types'
 
 import { describe, expect, it } from 'vitest'
 
-import { candidatesOfSegment, LOW_ROUTE_MAX_CELLS, LOW_ROUTE_MIN_CLEARANCE, planLowRoute, slotInColumn, walkLowRoute } from './low-route'
+import { candidatesOfSegment, crossingOfSection, extractCrossSection, insideSection, LOW_ROUTE_MAX_CELLS, LOW_ROUTE_MIN_CLEARANCE, parseCrossSections, planLowRoute, shrinkCrossSection, slotInColumn, walkLowRoute } from './low-route'
+
+describe('crossSection', () => {
+  it('interpolates the crossing point and reports whether it is inside', () => {
+    const path: Vec3[] = [{ x: 0, y: 70, z: 0 }, { x: 4, y: 74, z: 0 }]
+    const section = { axis: 'x' as const, at: 2, lateralMin: -1, lateralMax: 1, yMin: 69, yMax: 75 }
+    const crossing = crossingOfSection(path, section)!
+    expect(crossing.x).toBeCloseTo(2)
+    expect(crossing.y).toBeCloseTo(72)
+    expect(crossing.inside).toBe(true)
+    expect(crossingOfSection(path, { ...section, yMin: 73, yMax: 75 })!.inside).toBe(false)
+  })
+
+  it('reports no crossing when the path never reaches the plane', () => {
+    const path: Vec3[] = [{ x: 0, y: 70, z: 0 }, { x: 1, y: 70, z: 0 }]
+    expect(crossingOfSection(path, { axis: 'x', at: 2, lateralMin: -1, lateralMax: 1, yMin: 69, yMax: 71 })).toBeUndefined()
+  })
+
+  it('shrinks a section on every side', () => {
+    const shrunk = shrinkCrossSection({ axis: 'z', at: 60, lateralMin: -4, lateralMax: 4, yMin: 65, yMax: 73 }, 1.5)
+    expect(shrunk.lateralMin).toBeCloseTo(-2.5)
+    expect(shrunk.lateralMax).toBeCloseTo(2.5)
+    expect(shrunk.yMin).toBeCloseTo(66.5)
+    expect(shrunk.yMax).toBeCloseTo(71.5)
+    expect(insideSection({ x: 0, y: 70, z: 60 }, shrunk)).toBe(true)
+    expect(insideSection({ x: 0, y: 73, z: 60 }, shrunk)).toBe(false)
+  })
+
+  it('extracts the widest opening from terrain and shrinks it', () => {
+    // A 7-wide (z 57..63), 6-tall (y 66..71) hole in an otherwise solid wall
+    // at x=0, with a narrower 2-tall band inside it.
+    const cells = new Map<string, string>()
+    for (let z = 55; z <= 65; z++) {
+      for (let y = 63; y <= 74; y++) {
+        const open = Math.abs(z - 60) <= 3 && y >= 66 && y <= 71
+        cells.set(`0,${y},${z}`, open ? 'minecraft:air' : 'minecraft:stone')
+      }
+    }
+    const section = extractCrossSection({ cells, axis: 'x', at: 0, lateralFrom: 55, lateralTo: 65, yFrom: 63, yTo: 74, margin: 0.5 })!
+    expect(section.axis).toBe('x')
+    // The hole is z 57..63, y 66..71; after the 0.5 shrink the section stays
+    // inside it and still contains its centre.
+    expect(section.yMin).toBeGreaterThanOrEqual(66)
+    expect(section.yMax).toBeLessThanOrEqual(71)
+    expect(section.lateralMin).toBeGreaterThanOrEqual(57)
+    expect(section.lateralMax).toBeLessThanOrEqual(63)
+    expect(section.lateralMax - section.lateralMin).toBeGreaterThanOrEqual(5)
+    expect(insideSection({ x: 0, y: 68, z: 60 }, section)).toBe(true)
+    // Unread columns are not openings: a query reaching past the read region
+    // must not widen the section into unknown space.
+    const far = extractCrossSection({ cells, axis: 'x', at: 0, lateralFrom: 40, lateralTo: 90, yFrom: 63, yTo: 74, margin: 0.5 })!
+    expect(far.lateralMin).toBeGreaterThanOrEqual(55)
+    expect(far.lateralMax).toBeLessThanOrEqual(65)
+  })
+
+  it('returns undefined when the opening is smaller than the margin', () => {
+    const cells = new Map<string, string>()
+    cells.set('0,70,60', 'minecraft:air')
+    expect(extractCrossSection({ cells, axis: 'x', at: 0, lateralFrom: 0, lateralTo: 0, yFrom: 70, yTo: 70, margin: 1 })).toBeUndefined()
+  })
+
+  it('parses diagnostic specs and drops invalid entries', () => {
+    expect(parseCrossSections('z:60:-6:6:63:74;x:-1004:60:64:68:72')).toEqual([
+      { axis: 'z', at: 60, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 },
+      { axis: 'x', at: -1004, lateralMin: 60, lateralMax: 64, yMin: 68, yMax: 72 },
+    ])
+    expect(parseCrossSections('nope;z:60:6:-6:63:74;z:60:-6:6:74:63;')).toEqual([])
+    expect(parseCrossSections(undefined)).toEqual([])
+  })
+})
 
 /** One column of blocks between `bottom` and `top`, with `solid` deciding each y. */
 function column(x: number, z: number, bottom: number, top: number, solid: (y: number) => boolean): SnapshotEntry[] {
@@ -109,7 +178,7 @@ describe('candidatesOfSegment', () => {
 
 describe('planLowRoute', () => {
   /** A port that serves a synthetic valley: ground at 62, a ceiling from 75. */
-  function fakePort(options: { ceilingFrom?: number, wallAt?: number, fail?: boolean }) {
+  function fakePort(options: { ceilingFrom?: number, wallAt?: number, gap?: { y0: number, y1: number }, fail?: boolean }) {
     const reads: Array<{ from: Vec3, to: Vec3 }> = []
     const port = {
       async getBlocksRegion(from: Vec3, to: Vec3): Promise<SnapshotEntry[]> {
@@ -121,6 +190,7 @@ describe('planLowRoute', () => {
           for (let z = from.z; z <= to.z; z++) {
             for (let y = from.y; y <= to.y; y++) {
               const wall = options.wallAt !== undefined && z >= options.wallAt
+                && (options.gap === undefined || !(y >= options.gap.y0) || !(y <= options.gap.y1))
               // A slab, not a solid sky: 6 layers, so the air below it is a slot.
               const ceiling = options.ceilingFrom !== undefined && y >= options.ceilingFrom && y <= options.ceilingFrom + 5
               const solid = y <= 62 || wall || ceiling
@@ -145,6 +215,16 @@ describe('planLowRoute', () => {
     expect(plan.reached).toBeGreaterThan(0)
     expect(plan.bandY).toBeLessThan(75 - LOW_ROUTE_MIN_CLEARANCE + 1)
     expect(plan.waypoint!.z).toBeGreaterThan(0)
+  })
+
+  it('verifies a channel whose inflated body ends below the ceiling voxel', async () => {
+    // ROOT CAUSE:
+    // Inclusive ceil(bodyTop) sampled the untouched ceiling at 66. The
+    // route at feet 63.5 ends at 65.45 including its safety inflation.
+    const { port } = fakePort({ ceilingFrom: 66 })
+    const plan = await planLowRoute({ port, self: { x: 0, y: 63.5, z: 0 }, goal: { x: 0, y: 63.5, z: 20 } })
+    expect(plan.status).toBe('planned')
+    expect(plan.channelPath!.length).toBeGreaterThan(1)
   })
 
   it('stops the route at a wall that has no slot', async () => {
@@ -191,7 +271,149 @@ describe('planLowRoute', () => {
     const { port } = fakePort({ ceilingFrom: 200 })
     const plan = await planLowRoute({ port, self: { x: 0, y: 130, z: 0 }, goal: { x: 0, y: 65, z: 380 }, roofY: 85 })
     expect(plan.status).toBe('planned')
-    expect(plan.bandY).toBeLessThanOrEqual(84)
+    expect(plan.bandY).toBeLessThanOrEqual(67)
+  })
+
+  it('crosses a must-pass section under the slab instead of routing over it', async () => {
+    // ab-30 plan §1: an open-sky candidate must not preempt a covered one.
+    // The whole slot (y 63..74) is the opening, so any under-slab route
+    // through z=20 is a valid crossing.
+    const { port } = fakePort({ ceilingFrom: 75 })
+    const section = { axis: 'z' as const, at: 20, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 }
+    const plan = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal, mustPass: [section] })
+    expect(plan.status).toBe('planned')
+    const crossing = crossingOfSection(plan.channelPath!, section)
+    expect(crossing).toBeDefined()
+    expect(crossing!.inside).toBe(true)
+    expect(crossing!.y).toBeLessThan(75)
+  })
+
+  it('refuses with no_section_path when the section cannot be reached', async () => {
+    const { port } = fakePort({ wallAt: 40 })
+    const section = { axis: 'z' as const, at: 60, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 }
+    const blocked = await planLowRoute({ port, self, goal, mustPass: [section] })
+    expect(blocked.status).toBe('blocked')
+    expect(blocked.reason).toMatch(/^no_section_path/)
+    // Control: the same wall without the constraint still yields a local plan.
+    const control = await planLowRoute({ port, self, goal })
+    expect(control.status).toBe('planned')
+  })
+
+  it('decomposes a must-pass leg and marks frontier handovers as through', async () => {
+    // ab-30 plan §2: the client must be able to tell a handover point from the
+    // trip's end, and the leg must say what is inside the opening and what
+    // continues after it.
+    const { port } = fakePort({ ceilingFrom: 75 })
+    const entry = { axis: 'z' as const, at: 8, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 }
+    const exit = { axis: 'z' as const, at: 16, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 }
+    const plan = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal, mustPass: [entry, exit], speed: 1.6 })
+    expect(plan.status).toBe('planned')
+    expect(plan.waypointKind).toBe('through')
+    expect(plan.leg!.entry).toEqual(entry)
+    expect(plan.leg!.exit).toEqual(exit)
+    expect(plan.leg!.approach.length).toBeGreaterThan(0)
+    expect(plan.leg!.interior.length).toBeGreaterThan(0)
+    expect(plan.leg!.suffix.length).toBeGreaterThan(0)
+    // The interior lies between the two planes.
+    for (const point of plan.leg!.interior)
+      expect(point.z).toBeGreaterThanOrEqual(8 - 1)
+    for (const point of plan.leg!.suffix)
+      expect(point.z).toBeGreaterThanOrEqual(16 - 1)
+    // A covered goal is a stop, not a handover.
+    const close = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal: { x: 0, y: 64, z: 40 } })
+    expect(close.status).toBe('planned')
+    expect(close.waypointKind).toBe('stop')
+  })
+
+  it('refuses to enter a section whose exit has no visible continuation', async () => {
+    // ab-30 plan §2: a route that stops right after the opening leaves the next
+    // replan nothing to hand over to, so the client holds or climbs inside it.
+    // The requirement is speed-derived: the same section and route pass at
+    // cruise speed and are refused when the glider is much faster.
+    const { port } = fakePort({ ceilingFrom: 75 })
+    const early = { axis: 'z' as const, at: 20, lateralMin: -6, lateralMax: 6, yMin: 63, yMax: 74 }
+    const cruise = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal, mustPass: [early], speed: 1.6 })
+    expect(cruise.status).toBe('planned')
+    const fast = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal, mustPass: [early], speed: 200 })
+    expect(fast.status).toBe('blocked')
+    expect(fast.reason).toBe('section_suffix_short')
+  })
+
+  it('accepts the client roofY argument and still plans', async () => {
+    // The client has always passed `roofY`; the field was missing from the
+    // input type, so the spread-based call silently dropped it. This test locks
+    // that the argument is part of the contract; applying it to the window is
+    // deferred to the ab-30 plan §2 design (the cap experiment refused).
+    const { port } = fakePort({ ceilingFrom: 200 })
+    const plan = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal: { x: 0, y: 64, z: 380 }, roofY: 75 })
+    expect(plan.status).toBe('planned')
+    expect(plan.bandY).toBeGreaterThan(0)
+  })
+
+  it('emits a thinned channel path that only removes raw path points', async () => {
+    // Recovered regression (the file was lost to a PowerShell rewrite). The
+    // channel path is what the client flies: thinning must only drop points
+    // from the verified raw path, keep both endpoints, and never invent a
+    // shortcut point of its own.
+    const { port } = fakePort({ ceilingFrom: 200 })
+    const plan = await planLowRoute({ port, self: { x: 0, y: 74, z: 0 }, goal })
+    expect(plan.status).toBe('planned')
+    const channel = plan.channelPath!
+    expect(channel.length).toBeGreaterThan(1)
+    expect(channel[0]).toMatchObject({ x: plan.path![0]!.x, y: plan.path![0]!.y, z: plan.path![0]!.z })
+    expect(channel.at(-1)).toMatchObject({ x: plan.path!.at(-1)!.x, y: plan.path!.at(-1)!.y, z: plan.path!.at(-1)!.z })
+    for (const point of channel) {
+      expect(plan.path!.some(raw => raw.x === point.x && raw.y === point.y && raw.z === point.z)).toBe(true)
+    }
+    // Thinning exists to cut the point count, not to re-route: it must be a
+    // subsequence of the raw path here (a two-point raw path stays two points).
+    // NOTICE: the corner-cut property (a thinned chord must not leave verified
+    // air) needs a fixture whose route bends around a wall; the current fake
+    // port cannot express that geometry yet, so it is tracked in the ab-30
+    // plan §1 follow-ups instead of being asserted here.
+  })
+
+  it('routes around a sphere the flight proved unflyable', async () => {
+    const { port } = fakePort({ ceilingFrom: 200 })
+    const plain = await planLowRoute({ port, self: { x: 0, y: 70, z: 0 }, goal })
+    expect(plain.status).toBe('planned')
+    // Invalidate a sphere in front of the glider: a valid detour can reach
+    // farther than the old route, but no returned segment may enter it.
+    const excluded = await planLowRoute({
+      port,
+      self: { x: 0, y: 70, z: 0 },
+      goal,
+      exclude: [{ position: { x: 0, y: 70, z: 40 }, radius: 30 }],
+    })
+    expect(['blocked', 'planned']).toContain(excluded.status)
+    if (excluded.status === 'planned') {
+      const path = excluded.channelPath!
+      for (let index = 1; index < path.length; index++) {
+        const from = path[index - 1]!
+        const to = path[index]!
+        const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z) / 0.25))
+        for (let step = 0; step <= steps; step++) {
+          const t = step / steps
+          expect(Math.hypot(
+            Math.floor(from.x + (to.x - from.x) * t),
+            Math.floor(from.y + (to.y - from.y) * t) - 70,
+            Math.floor(from.z + (to.z - from.z) * t) - 40,
+          )).toBeGreaterThan(30)
+        }
+      }
+    }
+  })
+
+  it('follows the corridor bearing for its read window when one is given', async () => {
+    // The E-02 canyon bends away from the goal bearing; the corridor bearing
+    // keeps the window on the glider's own direction instead of the goal line.
+    const straight = fakePort({ ceilingFrom: 200 })
+    await planLowRoute({ port: straight.port, self: { x: 0, y: 70, z: 0 }, goal })
+    const bent = fakePort({ ceilingFrom: 200 })
+    await planLowRoute({ port: bent.port, self: { x: 0, y: 70, z: 0 }, goal, bearing: { x: 1, z: 0 } })
+    const extent = (reads: Array<{ from: Vec3, to: Vec3 }>): number =>
+      Math.max(...reads.map(read => read.to.x)) - Math.min(...reads.map(read => read.from.x))
+    expect(extent(bent.reads)).toBeGreaterThan(extent(straight.reads))
   })
 })
 

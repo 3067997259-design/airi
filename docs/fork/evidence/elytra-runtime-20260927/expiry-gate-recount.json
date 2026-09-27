@@ -1,0 +1,126 @@
+[
+  {
+    "run": "expiry-1-01",
+    "build": "0.2.91+1.21.1",
+    "originalBudget": 2,
+    "correctedBudget": 2,
+    "budgetTicks": [
+      {
+        "tick": 1405,
+        "owner": "flight-session",
+        "phase": "TRACK",
+        "simMs": 20
+      },
+      {
+        "tick": 1477,
+        "owner": "flight-session",
+        "phase": "TRACK",
+        "simMs": 16
+      }
+    ],
+    "passedGates": 6,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 32.801731440545524,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-2-01",
+    "build": "0.2.91+1.21.1",
+    "originalBudget": 2,
+    "correctedBudget": 2,
+    "budgetTicks": [
+      {
+        "tick": 2873,
+        "owner": "flight-session",
+        "phase": "TRACK",
+        "simMs": 13
+      },
+      {
+        "tick": 3009,
+        "owner": "flight-session",
+        "phase": "TRACK",
+        "simMs": 25
+      }
+    ],
+    "passedGates": 6,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 44.483293140338915,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-3-01",
+    "build": "0.2.91+1.21.1",
+    "originalBudget": 0,
+    "correctedBudget": 0,
+    "budgetTicks": [],
+    "passedGates": 5,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 45.035070600929906,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-1-02",
+    "build": "0.2.91+1.21.1",
+    "originalBudget": 0,
+    "correctedBudget": 0,
+    "budgetTicks": [],
+    "passedGates": 6,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 40.572442398591235,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-1-03",
+    "build": "0.2.92+1.21.1",
+    "originalBudget": 1,
+    "correctedBudget": 1,
+    "budgetTicks": [
+      {
+        "tick": 668,
+        "owner": "flight-session",
+        "phase": "TRACK",
+        "simMs": 17
+      }
+    ],
+    "passedGates": 6,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 50.58839829315865,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-1-04",
+    "build": "0.2.92+1.21.1",
+    "originalBudget": 0,
+    "correctedBudget": 1,
+    "budgetTicks": [
+      {
+        "tick": 2118,
+        "owner": "flight-undecided",
+        "phase": "TRACK",
+        "simMs": 15
+      }
+    ],
+    "passedGates": 5,
+    "damage": 0,
+    "settled": 0,
+    "targetError": 39.12673410947223,
+    "strictLocalPass": false
+  },
+  {
+    "run": "expiry-1-05",
+    "build": "0.2.92+1.21.1",
+    "originalBudget": 0,
+    "correctedBudget": 0,
+    "budgetTicks": [],
+    "passedGates": 8,
+    "damage": 0,
+    "settled": 21,
+    "targetError": 0.8939117444746157,
+    "strictLocalPass": true
+  }
+]

@@ -1,0 +1,43 @@
+tick	x	y	z	yaw	pitch	vx	vy	vz	boost	fire	cursor	note
+0	-853.200	69.247	-254.647	-124.05	-12.00	0.767	-0.057	-0.587	0	false	10	+0:PULL_UP:glide
+1	-852.438	69.202	-255.224	0.00	0.00	0.762	-0.045	-0.576	0	false	11	no_viable_trajectory eval=40 ok=2 sim=4ms reject[c=36,f=0,s=0,ta=4] first=terminal_missed@t19(-841.6,69.1,-266.1)block= shape= entry=11/18 target=-847.5,68.5,-259.5 at=-852.4,69.2,-255.2 pitch=-12.0
+DIAG +0 AIM fire=0 terminal terminal_action@0 xyz=-841.45,66.94236718373408,-266.26411681116116 block=minecraft:coal_ore arrived=true arrival=-841.7400757327417,67.10640065351525,-265.7269548559273 speed=0.9115963034051292
+DIAG +0 AIM fire=1 terminal terminal_action@1 xyz=-841.45,66.31543923452105,-266.4029550072875 block=minecraft:coal_ore arrived=true arrival=-842.8968946275229,66.877487588634,-264.79871307754377 speed=1.6387105700421347
+DIAG +0 AIM_PULL fire=0 screen terminal_missed@17 xyz=-841.5133954324093,67.40402557431294,-266.19481690117215 block= 
+DIAG +0 AIM_PULL fire=1 screen collision@10 xyz=-841.7105074647607,67.35845934269533,-266.55 block=minecraft:stone 
+DIAG +0 LEVEL fire=0 screen collision@16 xyz=-841.45,67.43232137466575,-266.29841203568975 block=minecraft:stone 
+DIAG +0 LEVEL fire=1 screen collision@10 xyz=-841.6955649442576,68.94291915033371,-266.55 block=minecraft:stone 
+DIAG +0 PULL_UP fire=0 screen terminal_missed@19 xyz=-841.572030839339,69.14906830248687,-266.1032351510677 block= 
+DIAG +0 PULL_UP fire=1 screen collision@4 xyz=-848.1089979641702,70.05,-258.9662519809836 block=minecraft:light_gray_terracotta 
+DIAG -15 AIM fire=0 screen collision@16 xyz=-842.3331659622887,67.01629010240353,-266.55 block=minecraft:stone 
+DIAG -15 AIM fire=1 screen collision@1 xyz=-851.7036198312007,69.16707277240414,-256.55 block=minecraft:white_terracotta 
+DIAG -15 AIM_PULL fire=0 screen collision@16 xyz=-842.3136451905015,67.46039804275144,-266.55 block=minecraft:stone 
+DIAG -15 AIM_PULL fire=1 screen collision@1 xyz=-851.7042400500956,69.21777033155723,-256.55 block=minecraft:white_terracotta 
+DIAG -15 LEVEL fire=0 screen collision@16 xyz=-842.325461548292,67.48766786475704,-266.55 block=minecraft:stone 
+DIAG -15 LEVEL fire=1 screen collision@1 xyz=-851.7036198312007,69.16735889118314,-256.55 block=minecraft:white_terracotta 
+DIAG -15 PULL_UP fire=0 screen collision@18 xyz=-842.2544571645433,69.11887158591203,-266.55 block=minecraft:stone 
+DIAG -15 PULL_UP fire=1 screen collision@1 xyz=-851.7062732928271,69.33477004255346,-256.55 block=minecraft:white_terracotta 
+DIAG +15 AIM fire=0 screen collision@15 xyz=-840.8500593018622,67.18470241025945,-264.55 block=minecraft:stone 
+DIAG +15 AIM fire=1 screen collision@5 xyz=-845.45,68.22233637255756,-258.7871532664671 block=minecraft:light_gray_terracotta 
+DIAG +15 AIM_PULL fire=0 screen collision@16 xyz=-840.880990442688,67.61789019696673,-264.55 block=minecraft:stone 
+DIAG +15 AIM_PULL fire=1 screen collision@5 xyz=-846.45,69.24114431942873,-258.8263928071809 block=minecraft:white_terracotta 
+DIAG +15 LEVEL fire=0 screen collision@16 xyz=-840.8461119663064,67.53667837196518,-264.55 block=minecraft:stone 
+DIAG +15 LEVEL fire=1 screen collision@5 xyz=-846.45,69.10507093302365,-258.80454903366655 block=minecraft:white_terracotta 
+DIAG +15 PULL_UP fire=0 screen collision@8 xyz=-846.45,69.09848771236184,-259.32740624853 block=minecraft:white_terracotta 
+DIAG +15 PULL_UP fire=1 screen collision@4 xyz=-847.45,70.0700987294648,-258.18263774275715 block=minecraft:light_gray_terracotta 
+DIAG -30 AIM fire=0 screen collision@15 xyz=-844.0839608330369,67.24505902798,-266.55 block=minecraft:stone 
+DIAG -30 AIM fire=1 screen collision@1 xyz=-851.7081775204284,69.16707277240414,-256.55 block=minecraft:white_terracotta 
+DIAG -30 AIM_PULL fire=0 screen collision@16 xyz=-844.0776706982012,67.6627958755058,-266.55 block=minecraft:stone 
+DIAG -30 AIM_PULL fire=1 screen collision@1 xyz=-851.7087463082853,69.21769163593495,-256.55 block=minecraft:white_terracotta 
+DIAG -30 LEVEL fire=0 screen collision@15 xyz=-844.0829652890156,67.57740181680978,-266.55 block=minecraft:stone 
+DIAG -30 LEVEL fire=1 screen collision@1 xyz=-851.7081775204284,69.16735889118314,-256.55 block=minecraft:white_terracotta 
+DIAG -30 PULL_UP fire=0 screen collision@6 xyz=-848.7534824585055,69.08598860772268,-259.55 block=minecraft:white_terracotta 
+DIAG -30 PULL_UP fire=1 screen collision@1 xyz=-851.710610946376,69.33462436774302,-256.55 block=minecraft:white_terracotta 
+DIAG +30 AIM fire=0 screen collision@7 xyz=-846.45,68.49342256279957,-258.41275589273044 block=minecraft:yellow_terracotta 
+DIAG +30 AIM fire=1 screen collision@4 xyz=-846.45,68.67439505368209,-257.45708788476907 block=minecraft:yellow_terracotta 
+DIAG +30 AIM_PULL fire=0 screen collision@7 xyz=-846.45,68.67871160335389,-258.3898210091432 block=minecraft:yellow_terracotta 
+DIAG +30 AIM_PULL fire=1 screen collision@4 xyz=-847.45,69.33320061026457,-257.05104797944574 block=minecraft:white_terracotta 
+DIAG +30 LEVEL fire=0 screen collision@7 xyz=-846.45,68.54437593558653,-258.41241468293686 block=minecraft:yellow_terracotta 
+DIAG +30 LEVEL fire=1 screen collision@4 xyz=-847.45,69.13198379648969,-257.0482300816505 block=minecraft:white_terracotta 
+DIAG +30 PULL_UP fire=0 screen collision@7 xyz=-846.45,69.09004105322809,-258.6436251903422 block=minecraft:white_terracotta 
+DIAG +30 PULL_UP fire=1 screen collision@4 xyz=-847.45,69.97837508927313,-257.05894521526403 block=minecraft:white_terracotta 

@@ -1,11 +1,11 @@
-import type { BlockFace, BlockView, ElytraLaunchStatus, ElytraLaunchTask, EquipmentView, InventorySlot, MovementControlPort, MovementInput, MovementState, RidingInfo } from './port'
+import type { BlockFace, BlockView, ElytraLaunchStatus, ElytraLaunchTask, EquipmentView, FlightChannelRevokeReceipt, FlightChannelStatus, FlightChannelSubmitReceipt, FlightChannelSubmitRequest, InventorySlot, MovementControlPort, MovementInput, MovementState, RidingInfo } from './port'
 import type { SnapshotEntry } from './snapshot'
 import type { Vec3 } from './types'
 
 import { describe, expect, it } from 'vitest'
 
 import { FLIGHT_PROFILE_1_21_1 } from '../flight/profile'
-import { runElytraMove } from './elytra'
+import { evaluateApproachEntry, runElytraMove } from './elytra'
 import { runVehicleMove } from './vehicle'
 
 const FAST = { sleep: async () => {}, now: () => Date.now() }
@@ -617,7 +617,7 @@ describe('runElytraMove', () => {
     expect(result.status).toBe('unavailable')
   })
 
-  it('picks a nearby landing target instead of the goal when rockets run low', async () => {
+  it('descends in place instead of flying to the goal when rockets run low', async () => {
     const goal = { x: 200, y: 64, z: 0 }
     const port = new ElytraFakePort({
       goal,
@@ -631,7 +631,9 @@ describe('runElytraMove', () => {
     expect(result.status).toBe('low_supply')
     const target = messages.find(message => message.startsWith('elytra landing target'))!
     expect(target).toBeDefined()
-    expect(target).toContain('(unverified)')
+    // No verified site: the bounded ending descends where she is; flying to an
+    // unverified point ahead is what killed runs (R4 cave-diag-05).
+    expect(target).toContain('descending in place')
     expect(target).not.toContain('200.0')
   })
 
@@ -668,7 +670,7 @@ describe('runElytraMove', () => {
     })
     const messages: string[] = []
     await runElytraMove({ port, goal, deps: FAST, debug: message => messages.push(message) })
-    expect(messages.some(message => message.includes('(unverified)'))).toBe(true)
+    expect(messages.some(message => message.includes('descending in place'))).toBe(true)
     expect(messages.some(message => message.includes('10.0,99'))).toBe(false)
   })
 
@@ -784,29 +786,36 @@ describe('runElytraMove', () => {
     expect(result.status).toBe('reached')
   })
 
-  it('allows one go-around, then lands nearby instead of looping', async () => {
+  it('does not go around when no verified site exists', async () => {
+    // R4 approach-diag-03: an unverified aim plus a go-around ended in a death.
+    // Without a site the mover descends with the bounded safety landing. A
+    // deterministic clock lets the safety deadline pass without real waiting.
     const goal = { x: 40, y: 96, z: 0 }
+    const clock = { value: 1_000_000 }
     const port = new ElytraFakePort({
       goal,
       path: [
         { x: 5, y: 100, z: 0 },
-        { x: 15, y: 100, z: 0 },
-        { x: 25, y: 100, z: 0 },
-        { x: 38, y: 100, z: 0 },
+        { x: 20, y: 100, z: 0 },
+        { x: 35, y: 100, z: 0 },
         { x: 45, y: 100, z: 0 },
         { x: 55, y: 100, z: 0 },
-        { x: 60, y: 100, z: 0 },
-        { x: 45, y: 100, z: 0 },
-        { x: 35, y: 100, z: 0 },
-        { x: 25, y: 100, z: 0 },
-        { x: 15, y: 100, z: 0 },
-        { x: 10, y: 100, z: 0 },
       ],
     })
     const messages: string[] = []
-    const result = await runElytraMove({ port, goal, deps: FAST, debug: message => messages.push(message) })
-    expect(messages.filter(message => message.includes('go-around'))).toHaveLength(1)
-    expect(result.status).toBe('stuck')
+    const result = await runElytraMove({
+      port,
+      goal,
+      deps: {
+        sleep: async () => {
+          clock.value += 50
+        },
+        now: () => clock.value,
+      },
+      debug: message => messages.push(message),
+    })
+    expect(messages.filter(message => message.includes('go-around'))).toHaveLength(0)
+    expect(result.status).toBeTruthy()
   })
 
   it('does not count a landing on the roof over the goal as arrival', async () => {
@@ -843,7 +852,7 @@ describe('runElytraMove', () => {
     const result = await runElytraMove({
       port,
       goal,
-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
       deps: FAST,
     })
     expect(result.lowRoute).toBeDefined()
@@ -865,5 +874,570 @@ describe('runElytraMove', () => {
     const result = await runElytraMove({ port, goal, deps: FAST })
     expect(result.status).toBe('reached')
     expect(result.lowRoute).toBeUndefined()
+  })
+})
+
+describe('evaluateApproachEntry', () => {
+  const goal = { x: 0, y: 64, z: 60 }
+
+  it('names each missing approach condition', () => {
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 70, z: 0 },
+      yaw: 0,
+      horizontalSpeed: 0.8,
+      goal: { x: 0, y: 64, z: 200 },
+      aim: { x: 0, y: 64, z: 200 },
+    })).toEqual({ enter: false, reason: 'too-far' })
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 90, z: 0 },
+      yaw: 0,
+      horizontalSpeed: 0.8,
+      goal,
+      aim: goal,
+      roofY: 80,
+    })).toEqual({ enter: false, reason: 'above-roof' })
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 70, z: 0 },
+      yaw: 180,
+      horizontalSpeed: 0.8,
+      goal,
+      aim: goal,
+    })).toEqual({ enter: false, reason: 'not-aligned' })
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 70, z: 0 },
+      yaw: 0,
+      horizontalSpeed: 1.4,
+      goal,
+      aim: goal,
+    })).toEqual({ enter: false, reason: 'too-fast' })
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 66, z: 0 },
+      yaw: 0,
+      horizontalSpeed: 0.8,
+      goal,
+      aim: goal,
+    })).toEqual({ enter: false, reason: 'cannot-reach' })
+  })
+
+  it('enters when aligned, under the roof and able to glide', () => {
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 70, z: 0 },
+      yaw: 0,
+      horizontalSpeed: 0.8,
+      goal,
+      aim: goal,
+      roofY: 75,
+    })).toEqual({ enter: true })
+  })
+
+  it('lets the short final bypass alignment and speed', () => {
+    expect(evaluateApproachEntry({
+      position: { x: 0, y: 66, z: 40 },
+      yaw: 180,
+      horizontalSpeed: 1.5,
+      goal,
+      aim: goal,
+    })).toEqual({ enter: true })
+  })
+})
+
+interface ChannelStep {
+  phase: 'accepted' | 'applying' | 'ended'
+  endReason?: string
+  sample?: Vec3
+  /** Land the client at the goal before the reply (a finished client flight). */
+  land?: boolean
+  /** Land at a specific position instead of the goal. */
+  landAt?: Vec3
+  /** Generate a moving sample on a circle (loitering) instead of a fixed one. */
+  circle?: { cx: number, y: number, cz: number, radius: number }
+  /** The client finished its path and holds, waiting for the next leg. */
+  holding?: boolean
+  /** Adopt the pending handover route on this step (session id switches). */
+  adopt?: boolean
+}
+
+/**
+ * Channel-capable fake (R3): hosts the client side of the exchange. The host
+ * plans the route, submits it, and reads the scripted steps below.
+ */
+class ChannelFakePort extends ElytraFakePort {
+  submitted: FlightChannelSubmitRequest[] = []
+  revoked: string[] = []
+  /** Advertise the handover protocol (R4 review item 3). */
+  handoverCapable = false
+  private readonly channelSteps: ChannelStep[]
+  private channelStep = 0
+  private readonly channelGoal: Vec3
+  private sessionId = 'fake-1'
+  private pendingSessionId: string | undefined
+  private handoverCount = 0
+
+  constructor(options: FakeOptions & { channelSteps: ChannelStep[] }) {
+    super(options)
+    this.channelSteps = options.channelSteps
+    this.channelGoal = options.goal
+  }
+
+  flightSubmit = async (request: FlightChannelSubmitRequest): Promise<FlightChannelSubmitReceipt> => {
+    this.submitted.push(request)
+    // A capable client accepts a route while one is active as a pending
+    // handover instead of refusing with `session_active`.
+    if (this.handoverCapable)
+      this.pendingSessionId = request.sessionId
+    return {
+      accepted: true,
+      pathPoints: request.channel.path.length,
+      ...(request.channel.entryReach !== undefined ? { entryReach: request.channel.entryReach } : {}),
+    }
+  }
+
+  flightStatus = async (_sinceTick?: number): Promise<FlightChannelStatus> => {
+    const step = this.channelSteps[Math.min(this.channelStep, this.channelSteps.length - 1)]!
+    this.channelStep += 1
+    // The fake client flies while the channel runs; only a `land`/`landAt`
+    // step puts it on the ground, matching the host's own state observer.
+    if (step.land || step.landAt) {
+      this.position = step.landAt ? { ...step.landAt } : { ...this.channelGoal }
+      this.fallFlying = false
+      this.onGround = true
+    }
+    else {
+      this.fallFlying = true
+      this.onGround = false
+    }
+    if (step.adopt && this.pendingSessionId) {
+      this.sessionId = this.pendingSessionId
+      this.pendingSessionId = undefined
+      this.handoverCount += 1
+    }
+    const sample = step.circle
+      ? {
+          x: step.circle.cx + Math.cos(this.channelStep * 0.5) * step.circle.radius,
+          y: step.circle.y,
+          z: step.circle.cz + Math.sin(this.channelStep * 0.5) * step.circle.radius,
+        }
+      : step.sample ?? { ...this.position }
+    return {
+      state: step.phase === 'ended' ? 'terminated' : step.phase === 'applying' ? 'running' : 'accepted',
+      ...(step.endReason ? { endReason: step.endReason } : {}),
+      applyingStarted: step.phase !== 'accepted',
+      sessionId: this.sessionId,
+      ...(this.handoverCapable ? { handoverCapable: true } : {}),
+      ...(this.pendingSessionId ? { pendingSessionId: this.pendingSessionId } : {}),
+      ...(this.handoverCount > 0 ? { handoverCount: this.handoverCount } : {}),
+      ...(step.holding ? { holding: true } : {}),
+      trajectory: [{
+        tick: this.channelStep,
+        x: sample.x,
+        y: sample.y,
+        z: sample.z,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        yaw: 0,
+        pitch: 0,
+        gliding: true,
+        onGround: false,
+        boostAttached: false,
+        rocketFiredThisTick: false,
+        inputOwner: 'flight-session',
+      }],
+    }
+  }
+
+  flightRevoke = async (sessionId: string): Promise<FlightChannelRevokeReceipt> => {
+    this.revoked.push(sessionId)
+    return { revoked: true, wasActive: true }
+  }
+
+  /**
+   * A `circle` step keeps the fake airborne on the circle: the base fake would
+   * otherwise fly itself to the goal and land, which is not a loiter.
+   */
+  async getState(): Promise<MovementState> {
+    const step = this.channelSteps[Math.min(this.channelStep, this.channelSteps.length - 1)]
+    if (step?.circle) {
+      return {
+        position: {
+          x: step.circle.cx + Math.cos(this.channelStep * 0.5) * step.circle.radius,
+          y: step.circle.y,
+          z: step.circle.cz + Math.sin(this.channelStep * 0.5) * step.circle.radius,
+        },
+        yaw: 0,
+        inWater: false,
+        onGround: false,
+        motion: { x: 0.5, y: 0, z: 0.5 },
+        fallFlying: true,
+        health: 20,
+      }
+    }
+    return await super.getState()
+  }
+}
+
+// Each case plans one or more real routes through `planLowRoute`, whose space
+// search is CPU-bound; the default 5 s test budget is too small when the live
+// test stack shares the machine.
+describe('runElytraMove channel mode (R3)', { timeout: 60_000 }, () => {
+  const goal = { x: 200, y: 64, z: 0 }
+  const ground: SnapshotEntry[] = []
+  for (let x = 0; x <= 210; x++) {
+    for (let z = -20; z <= 20; z++)
+      ground.push({ x, y: 60, z, id: 'minecraft:stone' })
+  }
+  const chest: EquipmentView = { id: 'minecraft:elytra', damage: 0, maxDamage: 432 }
+  // A deterministic clock that only advances on `sleep`: real planning time
+  // must not advance the stall window or the deadlines inside a test, while
+  // the bounded landing walk still has a deadline to hit.
+  const clock = { value: 1_000_000 }
+  const channelClock = {
+    sleep: async () => {
+      clock.value += 50
+    },
+    now: () => clock.value,
+  }
+  const channelOptions = {
+    flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
+    world: { worldId: 'world-1', dimension: 'minecraft:overworld', mapVersion: 'map-1' },
+    deps: channelClock,
+  }
+
+  it('submits the planned route and completes without host control writes', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'accepted', sample: { x: 0, y: 100, z: 0 } },
+        { phase: 'applying', sample: { x: 8, y: 90, z: 0 } },
+        { phase: 'applying', sample: { x: 16, y: 85, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(port.submitted).toHaveLength(1)
+    expect(port.submitted[0]?.channel.path.length).toBeGreaterThanOrEqual(2)
+    expect(port.submitted[0]?.channel.entryReach).toBe(8)
+    expect(result.channel?.submissions).toBe(1)
+    expect(result.channel?.endReason).toBe('channel_complete')
+    expect(result.status).toBe('reached')
+    // Single writer (design §7): the host wrote no look or useItem in channel mode.
+    expect(port.lookPitches).toEqual([])
+    expect(port.fireworkUses).toBe(0)
+    expect(port.revoked).toEqual([])
+  })
+
+  it('refuses the flight when no verified route can be planned', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [{ phase: 'applying' }],
+    })
+    // An unreadable world is `read_failed`, not an empty one: the mover must
+    // refuse instead of flying the direct line (R3 design §3.3).
+    port.getBlocksRegion = async () => {
+      throw new Error('bridge read failed')
+    }
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(result.status).toBe('unavailable')
+    expect(result.failure).toBe('route_unavailable')
+    expect(port.submitted).toEqual([])
+    expect(port.lookPitches).toEqual([])
+  })
+
+  it('revokes, excludes the failure point and resubmits after a client rejection', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 20, y: 85, z: 0 } },
+        { phase: 'ended', endReason: 'no_viable_trajectory', sample: { x: 20, y: 85, z: 0 } },
+        { phase: 'applying', sample: { x: 40, y: 80, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    const trail: string[] = []
+    const result = await runElytraMove({ port, goal, ...channelOptions, debug: message => trail.push(message) })
+
+    expect(port.submitted).toHaveLength(2)
+    expect(port.submitted[1]?.revision).toBe(2)
+    expect(port.submitted[1]?.sessionId).not.toBe(port.submitted[0]?.sessionId)
+    const replannedFrom = port.submitted[1]?.channel.path[0]
+    expect(replannedFrom).toBeDefined()
+    if (replannedFrom)
+      expect(Math.hypot(replannedFrom.x - 20, replannedFrom.z - 0)).toBeLessThan(40)
+    // The rejection itself forces one re-plan; the synthetic completion may add
+    // a local-frontier attempt, so the receipt counts attempts, not successes.
+    expect(result.channel?.replans, trail.join(' | ')).toBeGreaterThanOrEqual(1)
+    expect(result.status).toBe('reached')
+  })
+
+  it('continues a local frontier route instead of landing at the frontier', async () => {
+    // The goal chunk is never read, so R1 returns a local route to the covered
+    // frontier. A frontier completion is not arrival: the host must re-plan
+    // from the reached position and resubmit while the budget allows (R3 live
+    // 2026-09-20: the client completed 85 blocks out and the host landed there).
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'ended', endReason: 'channel_complete', sample: { x: 36, y: 70, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', sample: { x: 36, y: 70, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', sample: { x: 36, y: 70, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    const base = port.getBlocksRegion.bind(port)
+    port.getBlocksRegion = async (from, to) => (await base(from, to)).filter(entry => entry.x <= 40)
+
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(port.submitted).toHaveLength(4)
+    // Frontier continuations are normal progress and have their own counter;
+    // they must not consume the failure replan budget (R4 review item 2).
+    expect(result.channel?.continuations).toBe(3)
+    expect(result.channel?.replans).toBe(0)
+    const firstTerminal = port.submitted[0]?.channel.path.at(-1)
+    expect(firstTerminal?.x).toBeLessThan(100)
+  })
+
+  it('hands the next leg over early to a capable client', async () => {
+    // R4 review items 2-3: the next leg is planned while the current one flies
+    // and submitted as a pending handover; the client adopts it at a tick
+    // boundary, so no unowned glide exists between legs.
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 10, y: 70, z: 0 } },
+        { phase: 'applying', sample: { x: 20, y: 70, z: 0 } },
+        { phase: 'applying', sample: { x: 30, y: 70, z: 0 }, adopt: true },
+        { phase: 'applying', sample: { x: 40, y: 70, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    port.handoverCapable = true
+    const base = port.getBlocksRegion.bind(port)
+    port.getBlocksRegion = async (from, to) => (await base(from, to)).filter(entry => entry.x <= 40)
+
+    const trail: string[] = []
+    const result = await runElytraMove({ port, goal, ...channelOptions, debug: message => trail.push(message) })
+
+    expect(result.status).toBe('reached')
+    const legs = result.channel?.legs ?? []
+    expect(legs.length).toBeGreaterThanOrEqual(2)
+    // The first leg was superseded by the adopted handover, not completed.
+    expect(legs[0]?.endedReason).toBe('handover')
+    expect(legs[1]?.kind).toBe('frontier')
+    expect(result.channel?.continuations).toBeGreaterThanOrEqual(1)
+    expect(trail.some(message => message.includes('submitting early'))).toBe(true)
+    expect(trail.some(message => message.includes('handover adopted by the client'))).toBe(true)
+  })
+
+  it('continues the flight when the client holds after its path', async () => {
+    // R4 review item 4: a capable client does not release input at the path
+    // end; it holds and the host submits the next leg into that hold.
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 0, y: 70, z: 0 }, holding: true },
+        { phase: 'applying', sample: { x: 2, y: 70, z: 0 }, adopt: true },
+        { phase: 'applying', sample: { x: 30, y: 70, z: 0 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    port.handoverCapable = true
+    const base = port.getBlocksRegion.bind(port)
+    port.getBlocksRegion = async (from, to) => (await base(from, to)).filter(entry => entry.x <= 40)
+
+    const trail: string[] = []
+    const result = await runElytraMove({ port, goal, ...channelOptions, debug: message => trail.push(message) })
+
+    expect(result.status).toBe('reached')
+    expect(trail.some(message => message.includes('client holds after the path'))).toBe(true)
+    expect(result.channel?.continuations).toBeGreaterThanOrEqual(1)
+  })
+
+  it('lands through the safety ending when a held handover never arrives', async () => {
+    // The client holds; the host cannot plan the next leg; the client's
+    // bounded hold ends with `handover_timeout` and the host must land instead
+    // of returning route_unavailable while airborne (R4 review item 5).
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 20, y: 85, z: 0 }, holding: true },
+        { phase: 'ended', endReason: 'handover_timeout', sample: { x: 20, y: 84, z: 0 } },
+        { phase: 'ended', endReason: 'handover_timeout', landAt: { x: 22, y: 70, z: 0 } },
+      ],
+    })
+    port.handoverCapable = true
+    // The next leg cannot be planned: the read fails once the flight is live
+    // (the initial plan and the roof probe need the readable world).
+    const base = port.getBlocksRegion.bind(port)
+    port.getBlocksRegion = async (from, to) => {
+      if (port.submitted.length > 0)
+        throw new Error('bridge read failed during the hold')
+      return await base(from, to)
+    }
+
+    const trail: string[] = []
+    const result = await runElytraMove({ port, goal, ...channelOptions, debug: message => trail.push(message) })
+
+    expect(result.channel?.failure, trail.join(' | ')).toBe('handover_timeout')
+    expect(result.status).not.toBe('unavailable')
+    expect(result.failure).not.toBe('route_unavailable')
+  })
+
+  it('flies the final approach through the client channel when a site is near the goal', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 180, y: 70, z: 0 } },
+        // The completion that triggers the final approach lands far from the
+        // goal: landing at the goal itself would make the profile a single
+        // hop and the test would no longer exercise the descent builder.
+        { phase: 'ended', endReason: 'channel_complete', landAt: { x: 200, y: 70, z: -40 } },
+        { phase: 'ended', endReason: 'channel_complete', landAt: { x: 200, y: 70, z: -40 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(port.submitted.length).toBeGreaterThanOrEqual(2)
+    // The last leg is a descending profile of several waypoints, not a direct
+    // two-point hop the client cannot descend inside one entry reach.
+    const approach = port.submitted.find(entry => entry.channel.entryReach === 4)
+    expect(approach?.channel.path.length, JSON.stringify(port.submitted.map(entry => ({ reach: entry.channel.entryReach, path: entry.channel.path })))).toBeGreaterThanOrEqual(3)
+    expect(result.channel?.submissions).toBeGreaterThanOrEqual(2)
+    expect(result.status).toBe('reached')
+  })
+
+  it('falls back to the host landing when the client refuses the final approach', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 180, y: 70, z: 0 } },
+        // The approach-triggering completion lands far from the goal, so the
+        // refusal happens against the real descent profile.
+        { phase: 'ended', endReason: 'channel_complete', landAt: { x: 200, y: 70, z: -40 } },
+        { phase: 'ended', endReason: 'channel_complete', landAt: { x: 200, y: 70, z: -40 } },
+        { phase: 'ended', endReason: 'no_viable_trajectory', sample: { x: 196, y: 66, z: -20 } },
+        { phase: 'ended', endReason: 'no_viable_trajectory', sample: { x: 196, y: 66, z: -20 } },
+        { phase: 'ended', endReason: 'channel_complete', land: true },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(port.submitted.length).toBeGreaterThanOrEqual(3)
+    const approaches = port.submitted.filter(entry => entry.channel.entryReach === 4)
+    expect(approaches).toHaveLength(2)
+    // The retry is the direct two-point leg.
+    expect(approaches[1]!.channel.path).toHaveLength(2)
+    expect(result.channel?.endReason).toBe('no_viable_trajectory')
+    expect(result.status).toBeTruthy()
+  })
+
+  it('stops replanning after the same spot is rejected twice', async () => {
+    // R4 cave-diag-03: the same waypoint was rejected three times and the
+    // host burned the whole budget plus two minutes. The second rejection at
+    // the same spot ends with the bounded host landing.
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 20, y: 85, z: 0 } },
+        { phase: 'ended', endReason: 'no_viable_trajectory', sample: { x: 20, y: 85, z: 0 } },
+        { phase: 'applying', sample: { x: 20, y: 85, z: 0 } },
+        { phase: 'ended', endReason: 'no_viable_trajectory', sample: { x: 20, y: 85, z: 0 } },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions })
+
+    expect(port.submitted).toHaveLength(2)
+    expect(result.channel?.endReason).toBe('no_viable_trajectory')
+    expect(result.status).toBeTruthy()
+  })
+
+  it('detects loitering and replans when movement never reduces the goal distance', async () => {
+    // R4 cave-diag-04: the client circled a two-block radius for 165 s and the
+    // movement stall never fired because every sample "moved". Progress is the
+    // goal distance decreasing, not raw movement.
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', circle: { cx: 20, y: 85, cz: 0, radius: 2 } },
+      ],
+    })
+    const trail: string[] = []
+    const result = await runElytraMove({ port, goal, ...channelOptions, debug: message => trail.push(message) })
+
+    expect(port.submitted.length, trail.join(' | ')).toBeGreaterThanOrEqual(2)
+    expect(trail.some(message => message.includes('loitering'))).toBe(true)
+    expect(result.status).toBeTruthy()
+  })
+
+  it('revokes on cancellation and lands as a cancelled flight', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 30, y: 90, z: 0 } },
+        { phase: 'applying', sample: { x: 60, y: 85, z: 0 } },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions, shouldStop: () => true })
+
+    expect(port.revoked).toHaveLength(1)
+    expect(result.status).toBe('cancelled')
+    expect(result.channel?.endReason).toBe('host_cancelled')
+  })
+
+  it('ends as an unverified stop when input ownership moves away', async () => {
+    const port = new ChannelFakePort({
+      goal,
+      speed: 0.1,
+      blocks: ground,
+      chest,
+      channelSteps: [
+        { phase: 'applying', sample: { x: 30, y: 90, z: 0 } },
+        { phase: 'applying', sample: { x: 60, y: 85, z: 0 } },
+      ],
+    })
+    const result = await runElytraMove({ port, goal, ...channelOptions, stillOwnsControl: () => false })
+
+    expect(port.revoked).toHaveLength(1)
+    expect(result.status).toBe('unknown')
+    expect(result.failure).toBe('unverified_stop')
   })
 })

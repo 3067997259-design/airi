@@ -1,0 +1,104 @@
+[
+  {
+    "tick": 1451,
+    "controlPhase": "TRACK",
+    "position": {
+      "x": -984.5,
+      "y": 64.32800305993158,
+      "z": -48.5
+    },
+    "velocity": {
+      "x": -0.04082936644554138,
+      "y": 0.5012690273445799,
+      "z": -0.6950603246688842
+    },
+    "yaw": -168.36646,
+    "pitch": -27,
+    "gliding": true,
+    "onGround": false,
+    "boostAttached": true,
+    "boostRemainingEstimate": 26,
+    "rocketFlightDuration": 1,
+    "boostFlightDuration": 1,
+    "boostCount": 1,
+    "boostEntityIds": "5691",
+    "rocketFiredThisTick": false,
+    "inputOwner": "flight-session",
+    "health": 20,
+    "sessionId": "timing-1-01-1790481888137",
+    "revision": 1,
+    "holding": false,
+    "inWater": false,
+    "rocketsInHands": 127,
+    "rocketsInInventory": 2128,
+    "targetX": -985.5,
+    "targetY": 73.5,
+    "targetZ": -65.5,
+    "cursor": 0,
+    "predictedEndTicks": 20,
+    "predictedEndCursor": 17,
+    "predictedEndX": -976.9768966641509,
+    "predictedEndY": 72.70187067317315,
+    "predictedEndZ": -76.08054322605429,
+    "predictedEndReason": "horizon",
+    "preview": "-984.52,64.83,-49.18;-984.15,66.07,-51.52;-983.63,66.98,-54.47",
+    "terminalAction": "none",
+    "rejectKind": "",
+    "rejectTick": -1,
+    "rejectX": 0,
+    "rejectY": 0,
+    "rejectZ": 0,
+    "rejectBlock": "",
+    "rejectShape": "",
+    "rejectCollisions": 0,
+    "rejectFloor": 0,
+    "rejectSpeed": 0,
+    "rejectTerminal": 0,
+    "pendingSessionId": "",
+    "wallMs": 1790481888672,
+    "nanoMs": 9108916444400,
+    "routeOutcome": "RUNNING",
+    "progress": -19.34232477931814,
+    "predictedEndProgress": 14.24148497130782,
+    "chosenPolicy": "+15:PULL_UP:glide",
+    "planningState": "idle result=none",
+    "evaluated": 20,
+    "feasible": 20,
+    "budgetExhausted": true,
+    "searchCompleted": true,
+    "physicsSteps": 400,
+    "blockQueries": 3200,
+    "cacheHits": 24290,
+    "simMs": 22,
+    "preparationUs": 1816,
+    "candidatesUs": 5209,
+    "selectionUs": 1360,
+    "reservationUs": 7,
+    "cooldownActive": false,
+    "transitionReason": "",
+    "safeCandidates": 0,
+    "safeVerified": 0,
+    "safeEmergency": false,
+    "safeContactTicks": -1
+  }
+]
+preparationUs [
+  1875, 1816, 864,
+   740,  631, 631,
+   631,  627
+]
+candidatesUs [
+  7739, 7635, 7436,
+  5832, 5209, 4744,
+  4692, 4094
+]
+selectionUs [
+  1360, 201, 73,
+    65,  52, 51,
+    51,  50
+]
+reservationUs [
+  8564, 506, 340,
+    99,  96,  62,
+    61,  59
+]

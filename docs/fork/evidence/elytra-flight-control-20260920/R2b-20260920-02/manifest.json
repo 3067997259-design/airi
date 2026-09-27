@@ -1,0 +1,61 @@
+{
+  "batch": "R2b-20260920-02",
+  "date": "2026-09-20",
+  "mode": "offline fix batch; no bot operation, no deployment, no commits",
+  "diagnosis": "../r2b-diagnosis-20260920-103351/diagnosis.md",
+  "repos": {
+    "airi": {
+      "path": "D:/airi",
+      "head": "f0dc80208fa7150389ee4a5fefe456d925428c72",
+      "worktree": "docs-only changes in this batch; R0/R1 TS changes remain uncommitted from earlier batches"
+    },
+    "mcpfabric": {
+      "path": "D:/mcpfabric",
+      "head": "274ce412a7be5767d33cbab1f45a24404736478d",
+      "worktree": "R2a/R2b and fix changes uncommitted; no commits this batch"
+    }
+  },
+  "build": {
+    "jar": "D:/mcpfabric/versions/1.21.1/build/libs/mcpfabric-0.2.35+1.21.1.jar",
+    "sha256": "AAEB0280B3B0083B5EF5FD5F3CA10F16F9D577737131C870093F416E26DFBA0D",
+    "modVersion": "0.2.35",
+    "previousDeployed": {
+      "jar": "mcpfabric-0.2.34+1.21.1.jar",
+      "sha256": "c55fff783953f208edabb283ec3fe46c31e14e38b39af883ec2d57cbb788d02f",
+      "state": "backed up as mcpfabric-0.2.34+1.21.1.jar.bak-r2b before the live run"
+    },
+    "jvm": "21.0.8",
+    "command": "$env:JAVA_HOME='C:/Program Files/Java/jdk-21'; .\\gradlew.bat :1.21.1:build"
+  },
+  "deployment": {
+    "modsDir": "D:/未完成TimeLimit/残灯花火/杂七杂八的东西/.minecraft/versions/AIRI-bot/mods",
+    "deployedJar": "mcpfabric-0.2.35+1.21.1.jar",
+    "clientPid": 31092,
+    "mcpInstancePidAfterRestart": 14204,
+    "launcher": "docs/fork/evidence/movement-corridor-acceptance-20260915/launch-client.mjs",
+    "order": "client first, then the 25600 MCP instance"
+  },
+  "probes": {
+    "replay-fixed.java": {
+      "result": "exit 0; 5/5 PASS",
+      "log": "replay-fixed.log"
+    }
+  },
+  "verifyScript": {
+    "path": "verify.mjs",
+    "state": "PASS on 2026-09-20 (live-verdict-20260920-02.json); first run FAIL (live-verdict-20260920-01.json) recorded",
+    "channelSource": "hand-written diagnostic path from probe-surface.mjs; R2B_CHANNEL_JSON switches to an R1-verified channel"
+  },
+  "artifacts": [
+    "fix.md",
+    "checks.md",
+    "replay-fixed.java",
+    "replay-fixed.log",
+    "probe-surface.mjs",
+    "verify.mjs",
+    "live-verdict-20260920-01.json",
+    "live-verdict-20260920-02.json",
+    "manifest.json",
+    "verdict.md"
+  ]
+}

@@ -180,6 +180,8 @@ export interface FlightPlannerSwitch {
   enabled: boolean
   profile: FlightProfile
   calibrated: boolean
+  /** False when the config asked for the route layers without the per-poll rollout replacement. */
+  rolloutOn: boolean
 }
 
 /**
@@ -196,7 +198,7 @@ export interface FlightPlannerSwitch {
  * // => undefined
  */
 export function resolveFlightPlannerSwitch(
-  flight: { planner?: 'off' | 'on', calibrated?: boolean } | undefined,
+  flight: { planner?: 'off' | 'on', rollout?: 'on' | 'off', calibrated?: boolean } | undefined,
   minecraftVersion: string,
 ): FlightPlannerSwitch | undefined {
   if (flight?.planner !== 'on')
@@ -204,5 +206,10 @@ export function resolveFlightPlannerSwitch(
   const resolution = resolveFlightProfile(minecraftVersion)
   if (!resolution.ok)
     return undefined
-  return { enabled: true, profile: resolution.profile, calibrated: flight.calibrated === true }
+  return {
+    enabled: true,
+    profile: resolution.profile,
+    calibrated: flight.calibrated === true,
+    rolloutOn: flight.rollout !== 'off',
+  }
 }

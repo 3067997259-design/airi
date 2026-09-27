@@ -1,0 +1,18 @@
+{
+  "D:\\mcpfabric\\versions\\1.21.1\\build\\libs\\mcpfabric-0.2.101+1.21.1.jar": "ac55eacb01c2940b795db50b82c799f6e9d0d758c89810e7c606f73f1bdf42b7",
+  "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightSession.java": "fb0a041f64a49e9eb7b0cebf07bff8e8791cc56f545e7516698791744f60e94a",
+  "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightPlanning.java": "04d352f777fec850e051877bff7702a9b309a68a886f579660a1a567c08a5628",
+  "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightController.java": "ff321c4bc4658a96f6b485cfb26cac37e1d175e8227bb670d2f0cfa86bdfa237",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightPlanningTest.java": "5dbc5d551caa1e32150c2c69c645c91977cfbd3e94250b36c839096b26657007",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightSequenceTest.java": "e6d97636124e23095f5c75fac77c4501354874257e1d7433ba625ff8aeefe046",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightWarmupTest.java": "346f3bd5ac5f3237e2c92cbf3d78b2f0a09e59919bf1fec08971780a17c2e20f",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\geometric-route.json": "cea7c99521d7414f7b22b07804cb74d0bd92517b827ed6f86c661de01d37ea78",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fly-terminal.mjs": "9a722719abafb296b88f9638af0d687127be24bc0745771c2d8be7a7191c7dbb",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-query-tests.txt": "94f7cb527de005918647e8e4f93a072d437e454b79ddface6efeb4b8b4162ecf",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-1-01.jsonl": "6d1123c138600c580daf024e267e4f77207632bf3063aff0c211ce78324d04a2",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-1-02.jsonl": "4ca7c3572b3d9ec3dd09980124546641057ed0478c772ac435a8d08e406a04ad",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-1-03.jsonl": "225d728e123d500d9feb4118b05eae34c8a041d383accad2b5434175ebaa9eb2",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-audit.txt": "c076dbb00123a3ee35130b70956b652b7e6678bc98cd34e206b38a5b09714129",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fast-final-diagnostics.json": "fce10c83020a07f4a56eab1570edea6a24e0705a8ffbb1f70e9d0fb6538f882e",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\terminal-reservation-report.md": "0ef03ac5867a3d8aede656f4dd823b8fe737a96808202673c26ce136bbf2fb68"
+}

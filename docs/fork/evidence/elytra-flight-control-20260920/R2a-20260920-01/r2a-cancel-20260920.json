@@ -1,0 +1,9 @@
+{
+  "scenario": "E-launch-cancel",
+  "startPhase": "prepare",
+  "cancelState": "done",
+  "cancelEndReason": "launched",
+  "sessionAfterLaunch": "TERMINATED",
+  "sessionEndReason": "revoked",
+  "trajectoryLost": 2473
+}

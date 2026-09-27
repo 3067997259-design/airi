@@ -1,0 +1,51 @@
+{
+  "at": "2026-09-27T02:52:16.319Z",
+  "result": [
+    {
+      "position": {
+        "x": -868,
+        "y": 69,
+        "z": -233
+      },
+      "response": {
+        "dimension": "minecraft:overworld",
+        "volume": 1,
+        "count": 1,
+        "truncated": false,
+        "exactShapes": true,
+        "blocks": [
+          {
+            "x": -868,
+            "y": 69,
+            "z": -233,
+            "id": "minecraft:dead_bush",
+            "collision": []
+          }
+        ]
+      }
+    },
+    {
+      "position": {
+        "x": -851,
+        "y": 68,
+        "z": -260
+      },
+      "response": {
+        "dimension": "minecraft:overworld",
+        "volume": 1,
+        "count": 1,
+        "truncated": false,
+        "exactShapes": true,
+        "blocks": [
+          {
+            "x": -851,
+            "y": 68,
+            "z": -260,
+            "id": "minecraft:wall_torch",
+            "collision": []
+          }
+        ]
+      }
+    }
+  ]
+}

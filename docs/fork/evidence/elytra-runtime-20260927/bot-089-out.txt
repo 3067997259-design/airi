@@ -1,0 +1,1 @@
+client_pid=27024 libraries=79

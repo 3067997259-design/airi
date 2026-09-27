@@ -1,0 +1,773 @@
+[
+  {
+    "tag": "fast-1-01",
+    "summary": {
+      "tag": "fast-1-01",
+      "build": "0.2.101+1.21.1",
+      "crossings": [
+        {
+          "name": "upper-wool",
+          "events": [
+            {
+              "tick": 1377,
+              "position": {
+                "x": -973.8425450505518,
+                "y": 73.41704446921625,
+                "z": -83.07679955560704
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "events": [
+            {
+              "tick": 1387,
+              "position": {
+                "x": -970.0132838348337,
+                "y": 73.33030206124882,
+                "z": -97.97738815799087
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "events": [
+            {
+              "tick": 1401,
+              "position": {
+                "x": -955.9260506856078,
+                "y": 71.95566144446303,
+                "z": -115
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "events": [
+            {
+              "tick": 1407,
+              "position": {
+                "x": -949.4867903633512,
+                "y": 69.96513582972655,
+                "z": -123
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "events": [
+            {
+              "tick": 1436,
+              "position": {
+                "x": -917.6031365602001,
+                "y": 70.46590430968693,
+                "z": -158.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "events": [
+            {
+              "tick": 1482,
+              "position": {
+                "x": -872.2038955737645,
+                "y": 70.5304256665278,
+                "z": -216.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "events": [
+            {
+              "tick": 1508,
+              "position": {
+                "x": -862.1215800196421,
+                "y": 69.91152243124944,
+                "z": -246.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "events": [
+            {
+              "tick": 1527,
+              "position": {
+                "x": -847.1350411625046,
+                "y": 66.98956751588874,
+                "z": -258.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "continuous": true,
+      "damage": 0,
+      "minHealth": 20,
+      "samples": 232,
+      "controlledTicks": 200,
+      "budgetExhausted": 0,
+      "settled": 21,
+      "stopReason": "settled_ground",
+      "endReason": "touchdown",
+      "endDetail": "",
+      "localPass": true,
+      "endingVerified": true,
+      "fullCoursePass": true,
+      "terminalError": 0.9612198579984398,
+      "targetLanding": true
+    },
+    "firstControlled": {
+      "tick": 1352,
+      "controlPhase": "TRACK",
+      "position": {
+        "x": -984.5,
+        "y": 64.39672544462525,
+        "z": -48.5
+      },
+      "velocity": {
+        "x": -0.04082936644554138,
+        "y": 0.5125181785256304,
+        "z": -0.6950603246688842
+      },
+      "yaw": -168.36646,
+      "pitch": -27,
+      "gliding": true,
+      "onGround": false,
+      "boostAttached": true,
+      "boostRemainingEstimate": 26,
+      "rocketFlightDuration": 1,
+      "boostFlightDuration": 1,
+      "boostCount": 1,
+      "boostEntityIds": "8242",
+      "rocketFiredThisTick": false,
+      "inputOwner": "flight-session",
+      "health": 20,
+      "sessionId": "fast-1-01-1790487155524",
+      "revision": 1,
+      "holding": false,
+      "inWater": false,
+      "rocketsInHands": 127,
+      "rocketsInInventory": 2128,
+      "targetX": -985.5,
+      "targetY": 73.5,
+      "targetZ": -65.5,
+      "cursor": 0,
+      "predictedEndTicks": 20,
+      "predictedEndCursor": 17,
+      "predictedEndX": -976.9768966641509,
+      "predictedEndY": 72.79220906009927,
+      "predictedEndZ": -76.08054322605429,
+      "predictedEndReason": "horizon",
+      "preview": "-984.52,64.91,-49.18;-984.15,66.15,-51.52;-983.63,67.07,-54.47",
+      "terminalAction": "none",
+      "rejectKind": "",
+      "rejectTick": -1,
+      "rejectX": 0,
+      "rejectY": 0,
+      "rejectZ": 0,
+      "rejectBlock": "",
+      "rejectShape": "",
+      "rejectCollisions": 0,
+      "rejectFloor": 0,
+      "rejectSpeed": 0,
+      "rejectTerminal": 0,
+      "pendingSessionId": "",
+      "wallMs": 1790487156008,
+      "nanoMs": 14376253522200,
+      "routeOutcome": "RUNNING",
+      "progress": -19.30983189027117,
+      "predictedEndProgress": 14.251980144119774,
+      "chosenPolicy": "+15:PULL_UP:glide",
+      "planningState": "idle result=none",
+      "evaluated": 20,
+      "feasible": 20,
+      "budgetExhausted": false,
+      "searchCompleted": true,
+      "physicsSteps": 400,
+      "blockQueries": 3193,
+      "cacheHits": 24192,
+      "simMs": 11,
+      "preparationUs": 27,
+      "orderingUs": 52,
+      "candidatesUs": 11056,
+      "selectionUs": 50,
+      "reservationUs": 1,
+      "cooldownActive": false,
+      "transitionReason": "",
+      "safeCandidates": 0,
+      "safeVerified": 0,
+      "safeEmergency": false,
+      "safeContactTicks": -1
+    },
+    "maxBoostCount": 1,
+    "shortReservationTicks": 0,
+    "planningEvents": [
+      {
+        "tick": 1483,
+        "state": "searching:1 due=153 branches=1 rejectedExpiry=-1 result=none",
+        "position": {
+          "x": -871.1118895646557,
+          "y": 70.83512102466393,
+          "z": -218.95553797545543
+        }
+      },
+      {
+        "tick": 1495,
+        "state": "delivered result=planned:650:50ms",
+        "position": {
+          "x": -867.8663893394878,
+          "y": 71.4642805613975,
+          "z": -234.64644592844084
+        }
+      }
+    ]
+  },
+  {
+    "tag": "fast-1-02",
+    "summary": {
+      "tag": "fast-1-02",
+      "build": "0.2.101+1.21.1",
+      "crossings": [
+        {
+          "name": "upper-wool",
+          "events": [
+            {
+              "tick": 1843,
+              "position": {
+                "x": -973.6558760333744,
+                "y": 73.31240236303523,
+                "z": -82.87146363671185
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "events": [
+            {
+              "tick": 1853,
+              "position": {
+                "x": -970.1989823322403,
+                "y": 73.32474310815009,
+                "z": -98.0496042403157
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "events": [
+            {
+              "tick": 1866,
+              "position": {
+                "x": -957.8142602117877,
+                "y": 72.56653663320803,
+                "z": -115
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "events": [
+            {
+              "tick": 1872,
+              "position": {
+                "x": -951.6070042482435,
+                "y": 69.68482818798024,
+                "z": -123
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "events": [
+            {
+              "tick": 1900,
+              "position": {
+                "x": -922.803613905398,
+                "y": 69.34866261239745,
+                "z": -158.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "events": [
+            {
+              "tick": 1949,
+              "position": {
+                "x": -871.1426656865714,
+                "y": 71.3482931371947,
+                "z": -216.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "events": [
+            {
+              "tick": 1972,
+              "position": {
+                "x": -861.5391655567893,
+                "y": 70.49363947030662,
+                "z": -246.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "events": [
+            {
+              "tick": 1987,
+              "position": {
+                "x": -847.6144867441058,
+                "y": 67.76105354171438,
+                "z": -258.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "continuous": true,
+      "damage": 0,
+      "minHealth": 20,
+      "samples": 207,
+      "controlledTicks": 196,
+      "budgetExhausted": 0,
+      "settled": 0,
+      "stopReason": "route_failed",
+      "endReason": "no_viable_trajectory",
+      "endDetail": "landing_unconfirmed sequence=rejected:landing_changed",
+      "localPass": true,
+      "endingVerified": false,
+      "fullCoursePass": false,
+      "terminalError": 1.037579473565599,
+      "targetLanding": false
+    },
+    "firstControlled": {
+      "tick": 1818,
+      "controlPhase": "TRACK",
+      "position": {
+        "x": -984.5,
+        "y": 64.37184561225213,
+        "z": -48.5
+      },
+      "velocity": {
+        "x": -0.04082936644554138,
+        "y": 0.5084456045459584,
+        "z": -0.6950603246688842
+      },
+      "yaw": -168.36646,
+      "pitch": -27,
+      "gliding": true,
+      "onGround": false,
+      "boostAttached": true,
+      "boostRemainingEstimate": 26,
+      "rocketFlightDuration": 1,
+      "boostFlightDuration": 1,
+      "boostCount": 1,
+      "boostEntityIds": "8368",
+      "rocketFiredThisTick": false,
+      "inputOwner": "flight-session",
+      "health": 20,
+      "sessionId": "fast-1-02-1790487178784",
+      "revision": 1,
+      "holding": false,
+      "inWater": false,
+      "rocketsInHands": 127,
+      "rocketsInInventory": 2128,
+      "targetX": -985.5,
+      "targetY": 73.5,
+      "targetZ": -65.5,
+      "cursor": 0,
+      "predictedEndTicks": 20,
+      "predictedEndCursor": 17,
+      "predictedEndX": -976.9768966641509,
+      "predictedEndY": 72.7595035023163,
+      "predictedEndZ": -76.08054322605429,
+      "predictedEndReason": "horizon",
+      "preview": "-984.52,64.88,-49.18;-984.15,66.12,-51.52;-983.63,67.04,-54.47",
+      "terminalAction": "none",
+      "rejectKind": "",
+      "rejectTick": -1,
+      "rejectX": 0,
+      "rejectY": 0,
+      "rejectZ": 0,
+      "rejectBlock": "",
+      "rejectShape": "",
+      "rejectCollisions": 0,
+      "rejectFloor": 0,
+      "rejectSpeed": 0,
+      "rejectTerminal": 0,
+      "pendingSessionId": "",
+      "wallMs": 1790487179291,
+      "nanoMs": 14399535728200,
+      "routeOutcome": "RUNNING",
+      "progress": -19.321573500275818,
+      "predictedEndProgress": 14.248324021053387,
+      "chosenPolicy": "+15:PULL_UP:glide",
+      "planningState": "idle result=none",
+      "evaluated": 20,
+      "feasible": 20,
+      "budgetExhausted": false,
+      "searchCompleted": true,
+      "physicsSteps": 400,
+      "blockQueries": 3195,
+      "cacheHits": 24287,
+      "simMs": 1,
+      "preparationUs": 8,
+      "orderingUs": 11,
+      "candidatesUs": 1454,
+      "selectionUs": 37,
+      "reservationUs": 2,
+      "cooldownActive": false,
+      "transitionReason": "",
+      "safeCandidates": 0,
+      "safeVerified": 0,
+      "safeEmergency": false,
+      "safeContactTicks": -1
+    },
+    "maxBoostCount": 1,
+    "shortReservationTicks": 0,
+    "planningEvents": [
+      {
+        "tick": 1950,
+        "state": "searching:1 due=154 branches=1 rejectedExpiry=-1 result=none",
+        "position": {
+          "x": -871.208812465727,
+          "y": 71.72337584744008,
+          "z": -218.90293865802897
+        }
+      },
+      {
+        "tick": 1962,
+        "state": "delivered result=planned:513:22ms",
+        "position": {
+          "x": -868.0559928198243,
+          "y": 71.91684614809301,
+          "z": -235.88582337229664
+        }
+      }
+    ]
+  },
+  {
+    "tag": "fast-1-03",
+    "summary": {
+      "tag": "fast-1-03",
+      "build": "0.2.101+1.21.1",
+      "crossings": [
+        {
+          "name": "upper-wool",
+          "events": [
+            {
+              "tick": 2284,
+              "position": {
+                "x": -973.2288980971069,
+                "y": 73.22063425266585,
+                "z": -82.40178790681766
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "events": [
+            {
+              "tick": 2294,
+              "position": {
+                "x": -969.9963905098084,
+                "y": 74.09001604965958,
+                "z": -97.97081853159216
+              },
+              "inside": false,
+              "controlled": true
+            }
+          ],
+          "passed": false
+        },
+        {
+          "name": "slab-approach",
+          "events": [
+            {
+              "tick": 2307,
+              "position": {
+                "x": -956.0939085844635,
+                "y": 71.57441929877626,
+                "z": -115
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "events": [
+            {
+              "tick": 2313,
+              "position": {
+                "x": -949.102944892707,
+                "y": 70.36847657570249,
+                "z": -123
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "events": [
+            {
+              "tick": 2342,
+              "position": {
+                "x": -919.094458746671,
+                "y": 69.9046047360411,
+                "z": -158.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "events": [
+            {
+              "tick": 2388,
+              "position": {
+                "x": -871.659800196488,
+                "y": 71.10443799198711,
+                "z": -216.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "events": [
+            {
+              "tick": 2411,
+              "position": {
+                "x": -861.7849250330828,
+                "y": 71.15725056444505,
+                "z": -246.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "events": [
+            {
+              "tick": 2426,
+              "position": {
+                "x": -849.1245001918929,
+                "y": 67.89349644387084,
+                "z": -258.5
+              },
+              "inside": true,
+              "controlled": true
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "continuous": false,
+      "damage": 0,
+      "minHealth": 20,
+      "samples": 224,
+      "controlledTicks": 193,
+      "budgetExhausted": 0,
+      "settled": 20,
+      "stopReason": "settled_ground",
+      "endReason": "touchdown",
+      "endDetail": "",
+      "localPass": false,
+      "endingVerified": true,
+      "fullCoursePass": false,
+      "terminalError": 0.969582609452487,
+      "targetLanding": true
+    },
+    "firstControlled": {
+      "tick": 2258,
+      "controlPhase": "TRACK",
+      "position": {
+        "x": -984.5,
+        "y": 64.41666335019318,
+        "z": -48.5
+      },
+      "velocity": {
+        "x": -0.04082936644554138,
+        "y": 0.5157818096549456,
+        "z": -0.6950603246688842
+      },
+      "yaw": -168.36646,
+      "pitch": -27,
+      "gliding": true,
+      "onGround": false,
+      "boostAttached": true,
+      "boostRemainingEstimate": 26,
+      "rocketFlightDuration": 1,
+      "boostFlightDuration": 1,
+      "boostCount": 1,
+      "boostEntityIds": "8492",
+      "rocketFiredThisTick": false,
+      "inputOwner": "flight-session",
+      "health": 20,
+      "sessionId": "fast-1-03-1790487200806",
+      "revision": 1,
+      "holding": false,
+      "inWater": false,
+      "rocketsInHands": 127,
+      "rocketsInInventory": 2128,
+      "targetX": -985.5,
+      "targetY": 73.5,
+      "targetZ": -65.5,
+      "cursor": 0,
+      "predictedEndTicks": 20,
+      "predictedEndCursor": 17,
+      "predictedEndX": -976.9768966641509,
+      "predictedEndY": 72.81841825286405,
+      "predictedEndZ": -76.08054322605429,
+      "predictedEndReason": "horizon",
+      "preview": "-984.52,64.93,-49.18;-984.15,66.18,-51.52;-983.63,67.09,-54.47",
+      "terminalAction": "none",
+      "rejectKind": "",
+      "rejectTick": -1,
+      "rejectX": 0,
+      "rejectY": 0,
+      "rejectZ": 0,
+      "rejectBlock": "",
+      "rejectShape": "",
+      "rejectCollisions": 0,
+      "rejectFloor": 0,
+      "rejectSpeed": 0,
+      "rejectTerminal": 0,
+      "pendingSessionId": "",
+      "wallMs": 1790487201297,
+      "nanoMs": 14421541309000,
+      "routeOutcome": "RUNNING",
+      "progress": -19.300440531079175,
+      "predictedEndProgress": 14.254792263581159,
+      "chosenPolicy": "+15:PULL_UP:glide",
+      "planningState": "idle result=none",
+      "evaluated": 20,
+      "feasible": 20,
+      "budgetExhausted": false,
+      "searchCompleted": true,
+      "physicsSteps": 400,
+      "blockQueries": 3191,
+      "cacheHits": 24018,
+      "simMs": 2,
+      "preparationUs": 33,
+      "orderingUs": 15,
+      "candidatesUs": 2271,
+      "selectionUs": 92,
+      "reservationUs": 20,
+      "cooldownActive": false,
+      "transitionReason": "",
+      "safeCandidates": 0,
+      "safeVerified": 0,
+      "safeEmergency": false,
+      "safeContactTicks": -1
+    },
+    "maxBoostCount": 1,
+    "shortReservationTicks": 0,
+    "planningEvents": [
+      {
+        "tick": 2389,
+        "state": "searching:1 due=153 branches=1 rejectedExpiry=-1 result=none",
+        "position": {
+          "x": -871.2579853853804,
+          "y": 71.53199165400657,
+          "z": -218.6082221625247
+        }
+      },
+      {
+        "tick": 2401,
+        "state": "delivered result=planned:665:32ms",
+        "position": {
+          "x": -867.4146528294576,
+          "y": 72.81375046781994,
+          "z": -235.96563994065815
+        }
+      }
+    ]
+  }
+]

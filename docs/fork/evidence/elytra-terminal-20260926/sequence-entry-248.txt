@@ -1,0 +1,1 @@
+found=false evaluated=76750 elapsedMs=264.8

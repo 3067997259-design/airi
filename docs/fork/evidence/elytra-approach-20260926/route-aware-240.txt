@@ -1,0 +1,1 @@
+found=false evaluated=111545 elapsedMs=405.9 nearest=24.835 arrivals=0 minArrivalSpeed=Infinity

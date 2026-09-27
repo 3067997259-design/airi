@@ -1,0 +1,41 @@
+
+Test run finished after 541 ms
+[         2 containers found      ]
+[         0 containers skipped    ]
+[         2 containers started    ]
+[         0 containers aborted    ]
+[         2 containers successful ]
+[         0 containers failed     ]
+[         2 tests found           ]
+[         0 tests skipped         ]
+[         2 tests started         ]
+[         0 tests aborted         ]
+[         0 tests successful      ]
+[         2 tests failed          ]
+
+
+Failures (2):
+  JUnit Jupiter:FlightSessionContinuationTest:levelRouteDoesNotRewardAnUnnecessaryLateralTurn()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightSessionContinuationTest', methodName = 'levelRouteDoesNotRewardAnUnnecessaryLateralTurn', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: -15:AIM:glide ==> expected: <true> but was: <false>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+       org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+       org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+       dev.mcpfabric.client.flight.FlightSessionContinuationTest.levelRouteDoesNotRewardAnUnnecessaryLateralTurn(FlightSessionContinuationTest.java:25)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+  JUnit Jupiter:FlightSessionContinuationTest:smallHorizontalGainDoesNotEraseVerticalTrackingError()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightSessionContinuationTest', methodName = 'smallHorizontalGainDoesNotEraseVerticalTrackingError', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: -30:AIM_PULL:glide ==> expected: <true> but was: <false>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+       org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+       org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+       dev.mcpfabric.client.flight.FlightSessionContinuationTest.smallHorizontalGainDoesNotEraseVerticalTrackingError(FlightSessionContinuationTest.java:35)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)

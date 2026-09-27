@@ -1,0 +1,62 @@
+{
+  "batch": "R3-20260920-01",
+  "date": "2026-09-20",
+  "mode": "host channel loop implementation + live verification; no commits",
+  "repos": {
+    "airi": {
+      "path": "D:/airi",
+      "head": "f0dc80208fa7150389ee4a5fefe456d925428c72",
+      "worktree": "R0/R1/R2/R3 host changes uncommitted"
+    },
+    "mcpfabric": {
+      "path": "D:/mcpfabric",
+      "head": "274ce412a7be5767d33cbab1f45a24404736478d",
+      "worktree": "R2a/R2b/R3 client changes uncommitted"
+    }
+  },
+  "builds": {
+    "clientJars": [
+      { "version": "0.2.35", "sha256": "AAEB0280B3B0083B5EF5FD5F3CA10F16F9D577737131C870093F416E26DFBA0D" },
+      { "version": "0.2.36", "sha256": "12EE45C6C8EA8F8757EDFEE022AC7B677CF2FEF52D1C009CA5F23C09715B6400" },
+      { "version": "0.2.37", "sha256": "EBDA931539EAF6F9A7CBA26C56B5BD1A40B42CA0B95B702E8926DDD5A8245775", "state": "deployed to the test client" }
+    ],
+    "jvm": "21.0.8",
+    "mcpServer": "dist rebuilt after the flight_submit description change",
+    "command": "$env:JAVA_HOME='C:/Program Files/Java/jdk-21'; .\\gradlew.bat :1.21.1:build"
+  },
+  "deployment": {
+    "modsDir": "D:/未完成TimeLimit/残灯花火/杂七杂八的东西/.minecraft/versions/AIRI-bot/mods",
+    "clientPid": 36800,
+    "mcpOrder": "client first, then the 25600 MCP instance"
+  },
+  "live": {
+    "harness": "src/main/services/airi/game-host/movement/e02-route.integration.test.ts",
+    "start": "-1007,74,79",
+    "goals": ["-955,66,-115 (river end)", "-997,67,-8 (short pad)"],
+    "runs": "river-channel-01..12.jsonl",
+    "outcomes": {
+      "channel_complete": ["river-channel-11.jsonl", "river-channel-12.jsonl"],
+      "refused": ["river-channel-01.jsonl", "river-channel-02.jsonl"],
+      "bounded_failures": ["river-channel-03..10.jsonl"]
+    },
+    "note": "run 11 received a 30 s resistance effect to isolate the channel loop from survival; the run 09 death and run 12 damage are recorded as client collision findings"
+  },
+  "artifacts": [
+    "verdict.md",
+    "checks.md",
+    "manifest.json",
+    "probe-flight.mjs",
+    "river-channel-01.jsonl",
+    "river-channel-02.jsonl",
+    "river-channel-03.jsonl",
+    "river-channel-04.jsonl",
+    "river-channel-05.jsonl",
+    "river-channel-06.jsonl",
+    "river-channel-07.jsonl",
+    "river-channel-08.jsonl",
+    "river-channel-09.jsonl",
+    "river-channel-10.jsonl",
+    "river-channel-11.jsonl",
+    "river-channel-12.jsonl"
+  ]
+}

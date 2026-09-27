@@ -1,0 +1,32 @@
+[
+  {
+    "tick": 951,
+    "pos": {
+      "x": -984.5,
+      "y": 64.31481061602055,
+      "z": -48.5
+    },
+    "sim": 20,
+    "pre": 1191,
+    "order": 2710,
+    "candidates": 5192,
+    "selection": 975,
+    "reservation": 4,
+    "planning": "idle result=none"
+  },
+  {
+    "tick": 956,
+    "pos": {
+      "x": -983.3673907430422,
+      "y": 67.72276122317125,
+      "z": -54.08502222232183
+    },
+    "sim": 12,
+    "pre": 15,
+    "order": 72,
+    "candidates": 11929,
+    "selection": 23,
+    "reservation": 1,
+    "planning": "idle result=none"
+  }
+]

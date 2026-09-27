@@ -1,0 +1,34 @@
+[
+  {
+    "Path": "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightController.java",
+    "Hash": "1D252721125608B03B3F72915DA7B4B06D06A8F10AF04C584CCE41B8E38C8B02"
+  },
+  {
+    "Path": "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightSession.java",
+    "Hash": "B7F8991914F75590ECC7CB8C94AB123A1BC2AE41D9099F432CBE89A3972614A1"
+  },
+  {
+    "Path": "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightOwnership.java",
+    "Hash": "8468B96082C732F2DC96C77C2B1E01F62A3E0A7903747B995E7A8C4405A907E8"
+  },
+  {
+    "Path": "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightRecovery.java",
+    "Hash": "9885C6A220230D206BB227FA9B8B32E0CF8D3E23B0CD53E43E4D048345DDED45"
+  },
+  {
+    "Path": "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightDynamics.java",
+    "Hash": "9D3EA18291DF7C3F1CDD842A4906B0A184F5DB4444D69AE4BBD2630B92405312"
+  },
+  {
+    "Path": "D:\\airi\\apps\\stage-tamagotchi\\src\\main\\services\\airi\\game-host\\movement\\e02-route.integration.test.ts",
+    "Hash": "D55214BF27F50E9B72C96B72A38366655C4D5748331A595F2A6DDEF99D5742DB"
+  },
+  {
+    "Path": "D:\\airi\\apps\\stage-tamagotchi\\src\\main\\services\\airi\\game-host\\movement\\ending-stats.ts",
+    "Hash": "1C3E7F0F06AB2D24D35DEE20BC12F9EEAD5155B5592EDA149B7F327730C51FEC"
+  },
+  {
+    "Path": "D:\\airi\\docs\\fork\\evidence\\elytra-flight-control-20260920\\R4-20260920-01\\cave-ab-24.jsonl",
+    "Hash": "B8A99DF62FE78DEACF6386879F312EF5571E31F5676885967AB46D69EC12A2B6"
+  }
+]

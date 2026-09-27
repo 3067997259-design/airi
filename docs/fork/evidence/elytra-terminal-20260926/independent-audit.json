@@ -1,0 +1,764 @@
+{
+  "results": [
+    {
+      "tag": "terminal-01",
+      "build": "0.2.80+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "second-roof-exit",
+      "prefixVerified": true,
+      "sha256": "c2ed591b41085dd1c75c39789e893ba567a0dd0144325db850e0881a5cdd9d44",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 499,
+          "position": {
+            "x": -974.0012893912425,
+            "y": 72.88175276735062,
+            "z": -83.25141833036673
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 508,
+          "position": {
+            "x": -969.7094333644951,
+            "y": 73.0360645963262,
+            "z": -97.85922408619255
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 520,
+          "position": {
+            "x": -959.1322086785825,
+            "y": 72.69910218684969,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 527,
+          "position": {
+            "x": -951.8741826595436,
+            "y": 71.72342306123436,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 558,
+          "position": {
+            "x": -917.8898561235206,
+            "y": 70.17770789979389,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 604,
+          "position": {
+            "x": -869.2998170413435,
+            "y": 70.80905071963254,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "passed": false
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 107,
+      "sweptPoints": 2340,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000005999999985,
+      "maxPitch": 8.0000002,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-02",
+      "build": "0.2.80+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "last-roof-exit",
+      "prefixVerified": true,
+      "sha256": "7d674efd54ecbd744e6dba673d08cf1f744176bf1f27a2a229e6fb50714d79a9",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1606,
+          "position": {
+            "x": -974.38091416682,
+            "y": 73.15455336835181,
+            "z": -83.66900558350207
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1615,
+          "position": {
+            "x": -969.8962926113659,
+            "y": 73.18644574996442,
+            "z": -97.93189157108672
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1629,
+          "position": {
+            "x": -954.6872991352508,
+            "y": 72.45361217845587,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1635,
+          "position": {
+            "x": -948.9911852752992,
+            "y": 72.03734451775387,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1664,
+          "position": {
+            "x": -920.6422061125501,
+            "y": 70.47155574694062,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 1712,
+          "position": {
+            "x": -869.3835950899739,
+            "y": 70.74282441401816,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 1734,
+          "position": {
+            "x": -862.9932552422163,
+            "y": 70.03554165927532,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 130,
+      "sweptPoints": 2766,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000006,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-03",
+      "build": "0.2.80+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "upper-wool",
+      "prefixVerified": true,
+      "sha256": "5fd6fa1b017b5cc0769a192833feb4913898a387069adcc27e940479cd498790",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 6762,
+          "position": {
+            "x": -974.8290061721315,
+            "y": 73.48631623315016,
+            "z": -84.1619067893446
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 6771,
+          "position": {
+            "x": -969.7565418345705,
+            "y": 74.30767530054528,
+            "z": -97.87754404677742
+          },
+          "passed": false
+        },
+        {
+          "name": "slab-approach",
+          "tick": 6785,
+          "position": {
+            "x": -956.111724102197,
+            "y": 72.26760273313923,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 6790,
+          "position": {
+            "x": -951.605162525132,
+            "y": 71.69949682335393,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 6820,
+          "position": {
+            "x": -919.1910665601197,
+            "y": 70.58960650985124,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 6868,
+          "position": {
+            "x": -869.8744357506843,
+            "y": 70.84960236199876,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 6894,
+          "position": {
+            "x": -862.7985486998795,
+            "y": 70.05464146031551,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 2,
+      "sweptPoints": 21,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 11.24266,
+      "maxPitch": 4.104386,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-04",
+      "build": "0.2.81+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "second-roof-exit",
+      "prefixVerified": true,
+      "sha256": "6cde5e523058d0835c06121a58861959c8c95672a2ef963acc245f8e5bf2a9a5",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 839,
+          "position": {
+            "x": -974.38091416682,
+            "y": 73.15455336835181,
+            "z": -83.66900558350207
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 848,
+          "position": {
+            "x": -970.1064764677593,
+            "y": 73.17260646138574,
+            "z": -98.01362973746195
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 861,
+          "position": {
+            "x": -958.5223304138384,
+            "y": 72.81606057300343,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 867,
+          "position": {
+            "x": -951.7002819205343,
+            "y": 71.92172990197683,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 897,
+          "position": {
+            "x": -917.9113278489109,
+            "y": 69.96436112293489,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 944,
+          "position": {
+            "x": -870.6886616095633,
+            "y": 70.75080735331579,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "passed": false
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 107,
+      "sweptPoints": 2339,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000004999999987,
+      "maxPitch": 8.0000004,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-05",
+      "build": "0.2.81+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "last-roof-exit",
+      "prefixVerified": true,
+      "sha256": "f3e5cf160669d7c12e70f28b458fe9f679a072d7dc5fa1e467d0adf67707fae1",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1608,
+          "position": {
+            "x": -974.38091416682,
+            "y": 73.15455336835181,
+            "z": -83.66900558350207
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1617,
+          "position": {
+            "x": -970.1446874606748,
+            "y": 73.20491462564142,
+            "z": -98.02848956804021
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1630,
+          "position": {
+            "x": -957.6311660486085,
+            "y": 72.68246009360799,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1638,
+          "position": {
+            "x": -947.3544712352633,
+            "y": 71.10388270600957,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1665,
+          "position": {
+            "x": -921.7580260799876,
+            "y": 70.21699820880708,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 1714,
+          "position": {
+            "x": -870.5705432364713,
+            "y": 71.26036510250287,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 1737,
+          "position": {
+            "x": -862.4904435263084,
+            "y": 71.54691182830915,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 131,
+      "sweptPoints": 2776,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000009999999975,
+      "maxPitch": 8.000000400000001,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-06",
+      "build": "0.2.82+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "last-roof-exit",
+      "prefixVerified": true,
+      "sha256": "f0e000469730f8ca09fac51f7289f5515088844ec220d902a841c5f8357c8a88",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1731,
+          "position": {
+            "x": -974.214701409002,
+            "y": 73.39621455927052,
+            "z": -83.48617154990222
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1740,
+          "position": {
+            "x": -969.6617633489832,
+            "y": 73.64172283286699,
+            "z": -97.8406857468268
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1753,
+          "position": {
+            "x": -959.4077699644356,
+            "y": 72.91557444258589,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1760,
+          "position": {
+            "x": -949.6634520183611,
+            "y": 71.48558620641576,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1790,
+          "position": {
+            "x": -918.9156499962771,
+            "y": 70.40995723391855,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 1837,
+          "position": {
+            "x": -869.2205676810182,
+            "y": 70.95226070880402,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 1863,
+          "position": {
+            "x": -862.9443646969731,
+            "y": 70.52526311352672,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 134,
+      "sweptPoints": 2796,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000004,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-07",
+      "build": "0.2.82+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "second-roof-exit",
+      "prefixVerified": true,
+      "sha256": "b44c3d2687d4ca2641d39c60f185aa23bbe1c47d66b9888f405a25b269bcdadc",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 2729,
+          "position": {
+            "x": -974.4549685718367,
+            "y": 73.24832479390972,
+            "z": -83.75046542902042
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 2738,
+          "position": {
+            "x": -970.2050728329893,
+            "y": 73.26436944146965,
+            "z": -98.05197276838473
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 2751,
+          "position": {
+            "x": -957.7901711666694,
+            "y": 72.67402283543566,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 2758,
+          "position": {
+            "x": -950.5528224819025,
+            "y": 71.57065155565029,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 2787,
+          "position": {
+            "x": -917.9103533637726,
+            "y": 70.21846593675333,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 2834,
+          "position": {
+            "x": -870.5933661615071,
+            "y": 69.83659809706731,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "passed": false
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 107,
+      "sweptPoints": 2349,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.000000499999999,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "terminal-08",
+      "build": "0.2.82+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "second-roof-exit",
+      "prefixVerified": true,
+      "sha256": "c7f268d4dd97aec9268e447a5578e1da541c61c8c3e228892d431acb71bb64b5",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 3447,
+          "position": {
+            "x": -974.3591127792616,
+            "y": 73.1565088980495,
+            "z": -83.64502405718775
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 3456,
+          "position": {
+            "x": -970.0857927264303,
+            "y": 73.93400261397349,
+            "z": -98.00558606027845
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 3470,
+          "position": {
+            "x": -955.0088426833739,
+            "y": 72.40268075914163,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 3476,
+          "position": {
+            "x": -947.8196661002378,
+            "y": 71.76473781746085,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 3505,
+          "position": {
+            "x": -918.4986632932514,
+            "y": 70.18503450786379,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 3552,
+          "position": {
+            "x": -870.7547701074227,
+            "y": 70.7074072017493,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "passed": false
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 107,
+      "sweptPoints": 2330,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000003,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      }
+    }
+  ]
+}

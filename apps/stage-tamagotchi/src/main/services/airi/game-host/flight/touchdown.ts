@@ -81,6 +81,12 @@ export function classifyTouchdown(
       return { kind: 'lost-flight', position }
     return { kind: 'unknown', reason: 'onGround was not reported' }
   }
+  // A missing motion is an incomplete read, never a settled touch-down: the
+  // old helper defaulted it to 0 and a landing proof built on that would
+  // accept samples it never measured (ab-23 repair plan, C4). Medium and
+  // glide facts above do not need it; the landing verdict does.
+  if (!sample.motion)
+    return { kind: 'unknown', reason: 'motion was not reported' }
 
   const maxHorizontal = options.maxHorizontalSpeed ?? TOUCHDOWN_MAX_HORIZONTAL_SPEED
   const maxVertical = options.maxVerticalSpeed ?? TOUCHDOWN_MAX_VERTICAL_SPEED

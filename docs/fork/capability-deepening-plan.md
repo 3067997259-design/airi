@@ -2,6 +2,8 @@
 
 日期：2026-09-14。状态：设计完成，尚未实施。本轮核对当前 AIRI 工作树和外置模组 0.2.14 源码。
 
+状态更新（2026-09-20）：前七篇专题代码已落地，红石专题宿主侧完成、Litematica 集成受阻；验收进度见[验收清单](./capability-deepening-acceptance-checklist.md)与[跨线执行顺序](./cross-line-execution-order.md)。下文的"本轮"记录保留为 2026-09-14 的历史快照。
+
 上游：[需求草稿](./capability-deepening-draft.md)、[执行计划 §10](./minecraft-player-capability-execution-plan.md)。本轮不操作真机，不实现长期目标，不开启自由游玩。MC-0a 版本测试继续暂缓。
 
 ## 1. 目标与交付

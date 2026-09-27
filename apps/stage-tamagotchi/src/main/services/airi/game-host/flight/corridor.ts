@@ -501,3 +501,343 @@ function dedupePoints(points: Vec3[]): Vec3[] {
   }
   return out
 }
+
+// --- Block-scale space route (R1, execution plan §5) ------------------------------------
+
+const keyOf3 = (x: number, y: number, z: number): string => `${x},${y},${z}`
+
+/**
+ * True when the block id is flyable air (empty or any *air suffix).
+ *
+ * Water, solids and unknown cells are not air. Unknown is represented by the
+ * cell's absence from the map, so the caller never hands this a fake id.
+ */
+function isAirId(id: string | undefined): boolean {
+  return id !== undefined && id.endsWith('air')
+}
+
+/** Pose half-width the client sweeps; the planner keeps a margin beyond it. */
+export const SPACE_BODY_HALF_WIDTH = 0.45
+/**
+ * Required body margin beyond the pose half-width, blocks. A cell whose
+ * horizontal neighbours fall inside `half + margin` is not passable, so a
+ * route keeps clear of walls instead of hugging them (R4 cave-diag-07: the
+ * route ran one cell from the bank, the body box clipped it, and the client
+ * rejected all 20 candidates in 0 ms).
+ */
+export const SPACE_BODY_MARGIN = 0.2
+
+/**
+ * True when the body box fits horizontally at a cell: the cell and every
+ * neighbour within the box's reach must be air at the body's height. The
+ * clearance cells above are included, so a low ceiling is rejected too.
+ */
+export function bodyFootprintClear(
+  cells: Map<string, string>,
+  x: number,
+  y: number,
+  z: number,
+  options?: { clearance?: number, margin?: number },
+): boolean {
+  const clearance = options?.clearance ?? 2
+  const margin = options?.margin ?? SPACE_BODY_MARGIN
+  const radius = Math.max(0, Math.ceil(SPACE_BODY_HALF_WIDTH + margin - 0.5))
+  for (let ex = x - radius; ex <= x + radius; ex++) {
+    for (let ez = z - radius; ez <= z + radius; ez++) {
+      for (let ey = y; ey < y + clearance; ey++) {
+        if (!isAirId(cells.get(keyOf3(ex, ey, ez))))
+          return false
+      }
+    }
+  }
+  return true
+}
+
+/**
+ * Per-step cost added for each wall on the body's shoulder ring. The route
+ * already keeps a one-cell footprint; the extra cost centers it in wide
+ * passages instead of running along one side (R4 cave-diag-07: the flight
+ * drifted 0.2 blocks and clipped the bank the route hugged).
+ */
+const SPACE_WALL_COST = 0.25
+/**
+ * Extra cost per block climbed. The glider trades speed for height or burns a
+ * rocket; a route that climbs early spends resources and can arrive without
+ * the ability to follow its own profile (R4 cave-diag-08: the A* found a steep
+ * climb over the east bank, the glider reached the bank at 70.8 and the client
+ * rejected every candidate).
+ */
+const SPACE_CLIMB_COST = 1.2
+
+function wallCost(cells: Map<string, string>, x: number, y: number, z: number): number {
+  let walls = 0
+  for (let ex = x - 2; ex <= x + 2; ex++) {
+    for (let ez = z - 2; ez <= z + 2; ez++) {
+      if (Math.abs(ex - x) <= 1 && Math.abs(ez - z) <= 1)
+        continue
+      for (let ey = y; ey < y + 2; ey++) {
+        if (!isAirId(cells.get(keyOf3(ex, ey, ez)))) {
+          walls += 1
+          break
+        }
+      }
+    }
+  }
+  return walls * SPACE_WALL_COST
+}
+
+/**
+ * A* over block-scale cells in already-read space (R1, execution plan §5).
+ *
+ * A node is a cell the agent's feet can occupy: the cell and `clearance - 1`
+ * cells above it are read and air. Edges span the 26-neighbourhood; every
+ * multi-axis edge verifies its corner cells, so a diagonal cannot cut through
+ * two solid blocks' shared corner. Unknown cells are not air and not
+ * passable — the route stays inside read space by construction.
+ *
+ * The search is bounded twice: an expansion (node) cap and a wall-clock cap.
+ * A capped search reports `no_route`-adjacent budget reasons instead of a
+ * pretended route.
+ */
+export interface SpaceRouteInput {
+  /**
+   * Every read cell of the search volume, keyed `x,y,z`, mapped to its block
+   * id. Air and solid ids are both required: the passability test must
+   * distinguish air from unknown, and unknown is a missing key.
+   */
+  cells: Map<string, string>
+  start: Vec3
+  goal: Vec3
+  /** Agent height in blocks; the elytra pose is 2. */
+  clearance?: number
+  nodeCap?: number
+  timeCapMs?: number
+}
+
+export type SpaceRoute
+  = | { ok: true, path: Vec3[], expanded: number }
+    | { ok: false, reason: 'start_blocked' | 'no_route' | 'node_cap' | 'time_cap', expanded: number }
+
+/**
+ * Recomputes the search's own edge cost for a finished path (step + wall +
+ * climb). Callers use it to compare routes to different frontier candidates
+ * with the same currency the search used (R4 review item 1).
+ */
+export function spaceRouteCost(cells: Map<string, string>, path: Vec3[]): number {
+  let cost = 0
+  for (let index = 1; index < path.length; index++) {
+    const previous = path[index - 1]!
+    const point = path[index]!
+    const dx = point.x - previous.x
+    const dy = point.y - previous.y
+    const dz = point.z - previous.z
+    cost += Math.hypot(dx, dy, dz)
+    cost += wallCost(cells, Math.floor(point.x), Math.floor(point.y), Math.floor(point.z))
+    cost += Math.max(0, dy) * SPACE_CLIMB_COST
+  }
+  return cost
+}
+
+export function planSpaceRoute(input: SpaceRouteInput): SpaceRoute {
+  const clearance = input.clearance ?? 2
+  const nodeCap = input.nodeCap ?? 120_000
+  const timeCapMs = input.timeCapMs ?? 2_000
+  const startedAt = Date.now()
+  const cells = input.cells
+
+  // Passability is computed lazily and memoized: the footprint check touches
+  // 10+ cells per node, and precomputing it for every read cell dominated the
+  // search on large volumes (a 300k-cell window spent the whole 2 s cap before
+  // expanding one node, R4 review). Only nodes the search actually asks about
+  // pay for the check.
+  const passableCache = new Map<string, boolean>()
+  const passable = (x: number, y: number, z: number): boolean => {
+    const key = keyOf3(x, y, z)
+    const cached = passableCache.get(key)
+    if (cached !== undefined)
+      return cached
+    const value = isAirId(cells.get(key)) && bodyFootprintClear(cells, x, y, z, { clearance })
+    passableCache.set(key, value)
+    return value
+  }
+
+  // The wall cost is a node property, not an edge property: memoize it so the
+  // 26-neighbour edge loop does not recompute the shoulder ring per edge.
+  const wallCostCache = new Map<string, number>()
+  const wallCostAt = (x: number, y: number, z: number): number => {
+    const key = keyOf3(x, y, z)
+    const cached = wallCostCache.get(key)
+    if (cached !== undefined)
+      return cached
+    const value = wallCost(cells, x, y, z)
+    wallCostCache.set(key, value)
+    return value
+  }
+
+  const startKey = keyOf3(Math.floor(input.start.x), Math.floor(input.start.y), Math.floor(input.start.z))
+  const goalKey = keyOf3(Math.floor(input.goal.x), Math.floor(input.goal.y), Math.floor(input.goal.z))
+  if (!passable(Math.floor(input.start.x), Math.floor(input.start.y), Math.floor(input.start.z)))
+    return { ok: false, reason: 'start_blocked', expanded: 0 }
+
+  // The goal cell itself may be inside a solid column (a pad's own block);
+  // the route target is the passable cell at the goal's position, else one of
+  // the cells just above it within reach.
+  let goalNode: string | undefined
+  if (passable(Math.floor(input.goal.x), Math.floor(input.goal.y), Math.floor(input.goal.z))) {
+    goalNode = goalKey
+  }
+  else {
+    for (let h = 1; h <= 2; h++) {
+      if (passable(Math.floor(input.goal.x), Math.floor(input.goal.y) + h, Math.floor(input.goal.z))) {
+        goalNode = keyOf3(Math.floor(input.goal.x), Math.floor(input.goal.y) + h, Math.floor(input.goal.z))
+        break
+      }
+    }
+  }
+  if (goalNode === undefined)
+    return { ok: false, reason: 'no_route', expanded: 0 }
+
+  const offsets: Array<[number, number, number]> = []
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx !== 0 || dy !== 0 || dz !== 0)
+          offsets.push([dx, dy, dz])
+      }
+    }
+  }
+
+  /** Minimal binary heap so the hot loop never sorts the whole open set. */
+  const heap: Array<{ key: string, f: number }> = []
+  const heapPush = (item: { key: string, f: number }): void => {
+    heap.push(item)
+    let i = heap.length - 1
+    while (i > 0) {
+      const parent = (i - 1) >> 1
+      if (heap[parent]!.f <= heap[i]!.f)
+        break
+      const tmp = heap[parent]!
+      heap[parent] = heap[i]!
+      heap[i] = tmp
+      i = parent
+    }
+  }
+  const heapPop = (): { key: string, f: number } | undefined => {
+    const top = heap[0]
+    const last = heap.pop()
+    if (top === undefined)
+      return undefined
+    if (heap.length > 0 && last) {
+      heap[0] = last
+      let i = 0
+      for (;;) {
+        const left = i * 2 + 1
+        const right = left + 1
+        let smallest = i
+        if (left < heap.length && heap[left]!.f < heap[smallest]!.f)
+          smallest = left
+        if (right < heap.length && heap[right]!.f < heap[smallest]!.f)
+          smallest = right
+        if (smallest === i)
+          break
+        const tmp = heap[smallest]!
+        heap[smallest] = heap[i]!
+        heap[i] = tmp
+        i = smallest
+      }
+    }
+    return top
+  }
+
+  const coordCache = new Map<string, [number, number, number]>()
+  const coordsOf = (key: string): [number, number, number] => {
+    const cached = coordCache.get(key)
+    if (cached)
+      return cached
+    const parts = key.split(',').map(Number) as [number, number, number]
+    coordCache.set(key, parts)
+    return parts
+  }
+
+  const heuristic = (a: string, b: string): number => {
+    const [ax, ay, az] = coordsOf(a)
+    const [bx, by, bz] = coordsOf(b)
+    return Math.hypot(bx - ax, by - ay, bz - az)
+  }
+
+  // Weighted A*: the factor trades a little path quality for a bounded open
+  // set. It is deliberately above the wall/climb cost scale so the extra
+  // terms do not turn the search into a breadth-first sweep (R4 cave-diag-11:
+  // the canyon plan hit the time cap at 1.2).
+  heapPush({ key: startKey, f: heuristic(startKey, goalKey) * 1.5 })
+  const gScore = new Map<string, number>([[startKey, 0]])
+  const cameFrom = new Map<string, string>()
+  const closed = new Set<string>()
+  let expanded = 0
+
+  for (;;) {
+    if (expanded >= nodeCap)
+      return { ok: false, reason: 'node_cap', expanded }
+    if (Date.now() - startedAt > timeCapMs)
+      return { ok: false, reason: 'time_cap', expanded }
+
+    const current = heapPop()
+    if (current === undefined) {
+      return { ok: false, reason: 'no_route', expanded }
+    }
+    if (closed.has(current.key))
+      continue
+    closed.add(current.key)
+    expanded += 1
+
+    if (current.key === goalNode) {
+      const path: Vec3[] = []
+      let node: string | undefined = current.key
+      while (node !== undefined) {
+        const [x, y, z] = coordsOf(node)
+        path.push({ x: x + 0.5, y: y + 0.5, z: z + 0.5 })
+        node = cameFrom.get(node)
+      }
+      path.reverse()
+      return { ok: true, path, expanded }
+    }
+
+    const [cx, cy, cz] = coordsOf(current.key)
+    for (const [dx, dy, dz] of offsets) {
+      // The glider cannot hover-climb: gaining height without horizontal
+      // progress is not a flyable step, only a rocket burn in place.
+      if (dy > 0 && dx === 0 && dz === 0)
+        continue
+      const nx = cx + dx
+      const ny = cy + dy
+      const nz = cz + dz
+      const nextKey = keyOf3(nx, ny, nz)
+      if (closed.has(nextKey) || !passable(nx, ny, nz))
+        continue
+      // Corner rule: a multi-axis move must also fit through the cells the
+      // motion sweeps on each single axis, or it cuts a shared corner.
+      const axes = (dx !== 0 ? 1 : 0) + (dy !== 0 ? 1 : 0) + (dz !== 0 ? 1 : 0)
+      if (axes > 1) {
+        const corners: Array<[number, number, number]> = []
+        if (dx !== 0)
+          corners.push([cx + dx, cy, cz])
+        if (dy !== 0)
+          corners.push([cx, cy + dy, cz])
+        if (dz !== 0)
+          corners.push([cx, cy, cz + dz])
+        const clear = corners.every(([ex, ey, ez]) => passable(ex, ey, ez))
+        if (!clear)
+          continue
+      }
+      const step = Math.hypot(dx, dy, dz)
+      const climb = Math.max(0, dy)
+      const tentative = gScore.get(current.key)! + step + wallCostAt(nx, ny, nz) + climb * SPACE_CLIMB_COST
+      const known = gScore.get(nextKey)
+      if (known !== undefined && tentative >= known)
+        continue
+      gScore.set(nextKey, tentative)
+      cameFrom.set(nextKey, current.key)
+      heapPush({ key: nextKey, f: tentative + heuristic(nextKey, goalNode!) * 1.5 })
+    }
+  }
+}

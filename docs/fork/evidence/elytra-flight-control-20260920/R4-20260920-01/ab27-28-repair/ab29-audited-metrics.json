@@ -1,0 +1,156 @@
+{
+  "sourceSha256": "8abc8be621dcfd700d309f7f2cf92d646582ea99a290a6c58c6710b29430c19c",
+  "routeEnd": {
+    "x": -958.5,
+    "y": 81.5,
+    "z": -67.5
+  },
+  "arms": [
+    {
+      "arm": "full",
+      "build": "0.2.69+1.21.1",
+      "maxYaw": 25,
+      "maxPitch": 8.0000005,
+      "crossingInterpolated": {
+        "x": -1000.3350857187152,
+        "y": 74.0219408430048,
+        "z": 20
+      },
+      "lastRoute": {
+        "tick": 6334,
+        "x": -973.2961120782177,
+        "y": 89.93182321236847,
+        "z": -47.83635712827449
+      },
+      "allUnownedAirborne": [
+        {
+          "tick": 6442,
+          "gliding": false,
+          "phase": "RECOVER",
+          "pitch": 0
+        }
+      ],
+      "originalGates": {
+        "controlledRouteCrossing": true,
+        "riverBandCrossing": true,
+        "searchCompleted": false,
+        "chosenTrajectoryVerified": true,
+        "recoveryTrajectoryVerified": true,
+        "budgetExhaustedTicks": 1,
+        "noAutoSubmitAfterFailure": true,
+        "submissionsAfterFailure": 0,
+        "settledBeforeDeadline": true,
+        "settledAtWallMs": 1790040959628,
+        "hardDeadlineMs": 1790041098160,
+        "flightDamageFree": true,
+        "endingDamageFree": true,
+        "minHealth": 20,
+        "routeCrossing": true,
+        "recoveryCrossing": false,
+        "noUncontrolledAirborne": false,
+        "uncontrolledAirborneTicks": 1
+      },
+      "damageEvents": []
+    },
+    {
+      "arm": "segmented",
+      "build": "0.2.69+1.21.1",
+      "maxYaw": 25,
+      "maxPitch": 8.0000005,
+      "crossingInterpolated": {
+        "x": -1003.7019728819803,
+        "y": 68.06936837280219,
+        "z": 20
+      },
+      "lastRoute": {
+        "tick": 6677,
+        "x": -1003.8441110894106,
+        "y": 72.29412432111255,
+        "z": -8.326082220493902
+      },
+      "allUnownedAirborne": [
+        {
+          "tick": 6600,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6601,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6602,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6603,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6604,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6605,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": -35
+        },
+        {
+          "tick": 6617,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": 53
+        },
+        {
+          "tick": 6618,
+          "gliding": true,
+          "phase": "TRACK",
+          "pitch": 53
+        },
+        {
+          "tick": 6711,
+          "gliding": false,
+          "phase": "RECOVER",
+          "pitch": 0
+        }
+      ],
+      "originalGates": {
+        "controlledRouteCrossing": true,
+        "riverBandCrossing": true,
+        "searchCompleted": true,
+        "chosenTrajectoryVerified": true,
+        "recoveryTrajectoryVerified": false,
+        "budgetExhaustedTicks": 0,
+        "noAutoSubmitAfterFailure": true,
+        "submissionsAfterFailure": 0,
+        "settledBeforeDeadline": true,
+        "settledAtWallMs": 1790040972874,
+        "hardDeadlineMs": 1790041115782,
+        "flightDamageFree": false,
+        "endingDamageFree": false,
+        "minHealth": 14.888184,
+        "routeCrossing": true,
+        "recoveryCrossing": false,
+        "noUncontrolledAirborne": false,
+        "uncontrolledAirborneTicks": 1
+      },
+      "damageEvents": [
+        {
+          "tick": 6688,
+          "from": 20,
+          "to": 14.888184
+        }
+      ]
+    }
+  ]
+}

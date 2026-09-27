@@ -1,0 +1,2 @@
+state=actual-06-refusal.tsv result=planned rollouts=74 ms=99 controls=30
+state=entry-240.tsv result=no_sequence rollouts=2048 ms=212 controls=0

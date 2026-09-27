@@ -1,0 +1,15 @@
+measured-2663 horizon=12 rockets=0 applicable=true policy=+0:AIM_PULL:glide end=12/horizon note=eval=20 ok=5 sim=46ms reject[c=10,f=5,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape=
+measured-2663 horizon=12 rockets=64 applicable=true policy=+0:AIM_PULL:glide end=12/horizon note=eval=40 ok=7 sim=20ms reject[c=28,f=5,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape=
+measured-2663 horizon=16 rockets=0 applicable=true policy=+0:PULL_UP:glide end=16/horizon note=eval=20 ok=3 sim=2ms reject[c=17,f=0,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape=
+prefix6 0.0:PULL_UP clear=true future=(-867.760,70.987,-230.963) hs=1.431 planner=planned rollouts=513 ms=160
+prefix8 0.0:PULL_UP clear=true future=(-868.044,71.176,-233.733) hs=1.380 planner=planned rollouts=1141 ms=159
+prefix12 0.0:PULL_UP clear=true future=(-868.000,71.688,-238.864) hs=1.217 planner=no_sequence rollouts=2048 ms=38
+prefix6 -15.0:PULL_UP clear=true future=(-868.205,70.975,-230.678) hs=1.365 planner=planned rollouts=1132 ms=98
+prefix8 -15.0:PULL_UP clear=true future=(-868.744,71.150,-233.271) hs=1.313 planner=no_sequence rollouts=2048 ms=158
+prefix12 -15.0:PULL_UP clear=true future=(-869.363,71.615,-238.159) hs=1.175 planner=no_sequence rollouts=2048 ms=38
+prefix6 -30.0:PULL_UP clear=true future=(-868.517,70.964,-230.314) hs=1.268 planner=no_sequence rollouts=2048 ms=185
+prefix8 -30.0:PULL_UP clear=true future=(-869.286,71.120,-232.637) hs=1.210 planner=no_sequence rollouts=2048 ms=161
+prefix12 -30.0:PULL_UP clear=true future=(-870.614,71.520,-237.028) hs=1.100 planner=no_sequence rollouts=2048 ms=36
+measured-2663 horizon=16 rockets=64 applicable=true policy=+0:PULL_UP:glide end=16/horizon note=eval=40 ok=5 sim=2ms reject[c=35,f=0,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape=
+measured-2663 horizon=20 rockets=0 applicable=false policy= end=0/none note=no_viable_trajectory eval=20 ok=0 sim=0ms reject[c=20,f=0,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape= entry=162/203 target=-869.5,69.5,-227.5 at=-867.9,70.8,-221.8 pitch=-0.4
+measured-2663 horizon=20 rockets=64 applicable=true policy=+0:AIM:fire end=32/horizon note=eval=40 ok=2 sim=3ms reject[c=38,f=0,s=0,ta=0] first=collision@t7(-868.2,70.2,-234.2)block=minecraft:red_sand shape=

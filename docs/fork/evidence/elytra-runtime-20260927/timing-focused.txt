@@ -1,0 +1,29 @@
+
+Test run finished after 1092 ms
+[         9 containers found      ]
+[         0 containers skipped    ]
+[         9 containers started    ]
+[         0 containers aborted    ]
+[         9 containers successful ]
+[         0 containers failed     ]
+[        49 tests found           ]
+[         0 tests skipped         ]
+[        49 tests started         ]
+[         0 tests aborted         ]
+[        48 tests successful      ]
+[         1 tests failed          ]
+
+
+Failures (1):
+  JUnit Jupiter:FlightSessionContinuationTest:firesWhenTheUnpoweredGlideWouldSinkBelowTheContinuationFloor()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightSessionContinuationTest', methodName = 'firesWhenTheUnpoweredGlideWouldSinkBelowTheContinuationFloor', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: the session must produce a decision ==> expected: <true> but was: <false>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+       org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+       org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+       dev.mcpfabric.client.flight.FlightSessionContinuationTest.firesWhenTheUnpoweredGlideWouldSinkBelowTheContinuationFloor(FlightSessionContinuationTest.java:43)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)

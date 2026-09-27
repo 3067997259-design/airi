@@ -1,0 +1,14 @@
+{
+  "D:\\mcpfabric\\versions\\1.21.1\\build\\libs\\mcpfabric-0.2.94+1.21.1.jar": "94942441f51dbf892e3c2dac26e6e445f2927f8e7f47d2cf1848673855302a36",
+  "D:\\mcpfabric\\src\\client\\java\\dev\\mcpfabric\\client\\flight\\FlightSession.java": "5c157f5adb40b9140b30aaac3db9f5f7fc71ada4b0e6112c9ea49f462950f212",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightApproachTest.java": "ceef1fa44638086574219490c694d9b2c287b24febc3000d11f962ad7f5020c7",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightSequenceTest.java": "f4a4e86c26c8e4d7e09673b318aec51b30e5efc01a4f7fa3b2dac518dd256465",
+  "D:\\mcpfabric\\src\\test\\java\\dev\\mcpfabric\\client\\flight\\FlightStopApproachTest.java": "08441f7a3e056a16dbfb3ecc8cdd34d79c68b18563e91bf5ac61c46d1bb0455c",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\geometric-route.json": "cea7c99521d7414f7b22b07804cb74d0bd92517b827ed6f86c661de01d37ea78",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fly-terminal.mjs": "9a722719abafb296b88f9638af0d687127be24bc0745771c2d8be7a7191c7dbb",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\descent-focused-verified.txt": "d3770adf8c0cb48aeca499717ab6ef2906536c31b92a27d75104ed1405ff5cf2",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\descent-1-01.jsonl": "85017089688e782dc375c8ee124906cbaf61281fb904dc1e96731d805f1d1df6",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\descent-1-02.jsonl": "4532a7efe39c117698f76143b850ac2d673c0ffee14fd6b1ea49812e3e18db83",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\descent-1-03.jsonl": "50c988efa86893e52bc71ba1c2f975393adb63e11d55f26ce81b1e9c13bbf634",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\descent-audit.txt": "2372b0da7c5f0e8f918f4821c0c4de3a3c88de92e99464481203c309b2509c0d"
+}

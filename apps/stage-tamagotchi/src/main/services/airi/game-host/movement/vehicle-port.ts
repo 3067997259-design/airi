@@ -6,7 +6,7 @@
  * optional vehicle-observation surface.
  */
 import type { FlightPlannerSwitch } from '../flight/profile'
-import type { MovementControlPort } from './port'
+import type { FlightCrossSection, MovementControlPort } from './port'
 import type { Vec3 } from './types'
 import type { VehicleAcquireStrategy, VehicleFailureReason, VehicleKind, VehicleObservationPort, VehicleReceipt } from './vehicle-types'
 
@@ -35,16 +35,78 @@ export interface VehicleMoveResult {
     replans: number
     refusals: number
     /** Last refusal reason; present only when the layer refused at least once. */
-    lastRefusal?: 'blocked' | 'read_failed'
+    lastRefusal?: 'blocked' | 'read_failed' | 'search_budget'
+  }
+  /**
+   * R3 channel exchange receipt: how the client-driven cruise participated.
+   * Present only when the flight ran in channel mode.
+   */
+  channel?: {
+    /** Submit attempts, including every revision resubmit. */
+    submissions: number
+    /** Failure replans after client rejections or stale-prefix verification. */
+    replans: number
+    /**
+     * Normal frontier continuations: a local route reached its read frontier
+     * and the next leg continued the same flight. Kept apart from `replans`
+     * so a long route crossing several read windows does not exhaust the
+     * failure budget (R4 review 2026-09-20).
+     */
+    continuations?: number
+    /** The client's terminal end reason for the last channel, when one ended. */
+    endReason?: string
+    /**
+     * Host-side cause that forced the ending, when it was not the client's own
+     * end reason (for example `route_unavailable` after a refused replan).
+     */
+    failure?: string
+    /** Per-leg exchange records for evidence; oldest first. */
+    legs?: ChannelLegRecord[]
+    /**
+     * True when the mover returned with the glider still airborne. "Returned"
+     * and "safely grounded" are separate facts (R4 review 2026-09-20).
+     */
+    airborneAtReturn?: boolean
   }
   /** Full end-of-trip receipt; the movers fill this so the host can record it. */
   receipt?: VehicleReceipt
+}
+
+/** One planned-and-submitted channel leg, kept for post-run evidence. */
+export interface ChannelLegRecord {
+  revision: number
+  kind: 'initial' | 'frontier' | 'retry' | 'approach'
+  /** Where this leg's route was planned from. */
+  plannedFrom: Vec3
+  planStatus: string
+  /** Wall-clock planning cost; a prefetched leg overlaps the previous leg. */
+  planMs: number
+  /** R1 raw path before channel downsampling; absent for approach legs. */
+  rawPath?: Vec3[]
+  /** The path actually submitted (channel spacing, terminal point kept). */
+  sentPath: Vec3[]
+  submittedAtMs: number
+  accepted: boolean
+  /** Client refusal reason when the submit was not accepted. */
+  refusal?: string
+  /** Client end reason for this leg, once it ended. */
+  endedReason?: string
+  endedAtMs?: number
+  /** Client position when the leg ended. */
+  positionAtEnd?: Vec3
 }
 
 export interface VehicleMoveOptions {
   port: VehicleControlPort
   goal: Vec3
   tolerance?: number
+  /**
+   * Openings the elytra route must actually fly through, in order (ab-30 plan
+   * §1). Absent keeps the current planning byte-identically: the planner then
+   * ranks open-sky frontier candidates first and never refuses with
+   * `no_section_path`.
+   */
+  mustPass?: FlightCrossSection[]
   shouldStop?: () => boolean
   /**
    * CD-E B0 rollout-planner switch for the elytra cruise phase.

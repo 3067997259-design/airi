@@ -1,0 +1,29 @@
+
+Test run finished after 423 ms
+[         5 containers found      ]
+[         0 containers skipped    ]
+[         5 containers started    ]
+[         0 containers aborted    ]
+[         5 containers successful ]
+[         0 containers failed     ]
+[        30 tests found           ]
+[         0 tests skipped         ]
+[        30 tests started         ]
+[         0 tests aborted         ]
+[        29 tests successful      ]
+[         1 tests failed          ]
+
+
+Failures (1):
+  JUnit Jupiter:FlightSequenceTest:arrivalTimeMayExtendOnlyAfterCheckingTheExtraInputs()
+    MethodSource [className = 'dev.mcpfabric.client.flight.FlightSequenceTest', methodName = 'arrivalTimeMayExtendOnlyAfterCheckingTheExtraInputs', methodParameterTypes = '']
+    => org.opentest4j.AssertionFailedError: no_viable_trajectory eval=20 ok=0 sim=171ms reject[c=0,f=0,s=20,ta=0] first=arrival_speed@t20(0.1,67.4,0.2)block= shape= sequence=rejected:suffix_unverified entry=1/2 target=0.0,66.5,0.0 at=0.0,68.2,0.0 pitch=0.0 ==> expected: <true> but was: <false>
+       org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+       org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+       org.junit.jupiter.api.AssertTrue.failNotTrue(AssertTrue.java:63)
+       org.junit.jupiter.api.AssertTrue.assertTrue(AssertTrue.java:36)
+       org.junit.jupiter.api.Assertions.assertTrue(Assertions.java:214)
+       dev.mcpfabric.client.flight.FlightSequenceTest.arrivalTimeMayExtendOnlyAfterCheckingTheExtraInputs(FlightSequenceTest.java:138)
+       java.base/java.lang.reflect.Method.invoke(Method.java:580)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+       java.base/java.util.ArrayList.forEach(ArrayList.java:1596)

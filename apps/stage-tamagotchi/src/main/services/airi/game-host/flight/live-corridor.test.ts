@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { corridorReachesGoal, createLiveCorridorPort, LIVE_CORRIDOR_DOWN, LIVE_CORRIDOR_RADIUS, LIVE_CORRIDOR_REPLAN_MS, LIVE_CORRIDOR_UP, planLiveCorridor } from './live-corridor'
 import { FLIGHT_PROFILE_1_21_1 } from './profile'
 
-const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false }
+const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true }
 
 /** Floor level of the scripted world; everything above it is air. */
 const FLOOR_Y = 80

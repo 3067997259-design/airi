@@ -1,6 +1,6 @@
 # 远距伴飞：预算门控、协同减速与走廊接线
 
-日期：2026-09-16。状态：设计，尚未实施。
+日期：2026-09-16。修订：2026-09-18（接线与代码落地）。状态：已实施（代码完成；LR-2/3/4 真机 NOT-RUN）。批次状态见 §3。
 
 依赖：[能力深化总方案](./capability-deepening-plan.md) 的 CD-0、CD-L、CD-E、CD-F；[鞘翅三维导航](./elytra-navigation-design.md)；[空中跟随与地空切换](./air-follow-design.md)。模式参考：弹道的移动目标预判（`ballistics/intercept.ts` 的到达时间求解思路）。
 

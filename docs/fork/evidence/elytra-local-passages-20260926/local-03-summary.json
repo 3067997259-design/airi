@@ -1,0 +1,99 @@
+{
+  "tag": "local-03",
+  "build": "0.2.73+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [
+        {
+          "tick": 685,
+          "position": {
+            "x": -974.3809224253621,
+            "y": 73.1546644161131,
+            "z": -83.66901466789824
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "lower-wool",
+      "events": [
+        {
+          "tick": 694,
+          "position": {
+            "x": -969.8962210467996,
+            "y": 73.18658108817054,
+            "z": -97.93186374042206
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-approach",
+      "events": [
+        {
+          "tick": 708,
+          "position": {
+            "x": -955.2818214267417,
+            "y": 72.4753109283242,
+            "z": -115
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-entry",
+      "events": [
+        {
+          "tick": 714,
+          "position": {
+            "x": -949.2284206170618,
+            "y": 72.22741204963924,
+            "z": -123
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-exit",
+      "events": [
+        {
+          "tick": 744,
+          "position": {
+            "x": -916.9553495356911,
+            "y": 70.22311427471918,
+            "z": -158.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "continuous": true,
+  "damage": 13.2700157,
+  "minHealth": 7.7299843,
+  "samples": 153,
+  "controlledTicks": 86,
+  "budgetExhausted": 0,
+  "settled": 25,
+  "stopReason": "settled_ground",
+  "endReason": "channel_complete",
+  "endDetail": "channel_complete",
+  "localPass": false,
+  "endingVerified": true,
+  "fullCoursePass": false
+}

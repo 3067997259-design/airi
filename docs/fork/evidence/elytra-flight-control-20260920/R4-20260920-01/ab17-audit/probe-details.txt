@@ -1,0 +1,8 @@
+ARRIVAL full tick=19220 predictedTicks=1 xyz=-958.977430,88.309995,-65.866529 speed=1.673874 vy=-0.501034 dist=7.019416
+OVERLAP tick=19464 estimate=12 fire=true error_one_boost=0.15703458 error_two_boosts=0.00003009
+OVERLAP tick=19465 estimate=11 fire=false error_one_boost=0.10342630 error_two_boosts=0.00002351
+OVERLAP tick=19466 estimate=10 fire=false error_one_boost=0.01056139 error_two_boosts=0.00006899
+OVERLAP tick=19467 estimate=9 fire=false error_one_boost=0.00674327 error_two_boosts=0.00010644
+OVERLAP tick=19468 estimate=8 fire=false error_one_boost=0.00680324 error_two_boosts=0.00009247
+OVERLAP tick=19469 estimate=7 fire=false error_one_boost=0.28458763 error_two_boosts=0.00004153
+ARRIVAL segmented tick=19478 predictedTicks=1 xyz=-962.040153,86.115300,-62.320948 speed=1.501027 vy=-0.843743 dist=7.788213

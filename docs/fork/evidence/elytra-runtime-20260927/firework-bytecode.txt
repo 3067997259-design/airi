@@ -1,0 +1,911 @@
+Compiled from "FireworkRocketEntity.java"
+public class net.minecraft.world.entity.projectile.FireworkRocketEntity extends net.minecraft.world.entity.projectile.Projectile implements net.minecraft.world.entity.projectile.ItemSupplier {
+  private static final net.minecraft.network.syncher.EntityDataAccessor<net.minecraft.world.item.ItemStack> DATA_ID_FIREWORKS_ITEM;
+
+  private static final net.minecraft.network.syncher.EntityDataAccessor<java.util.OptionalInt> DATA_ATTACHED_TO_TARGET;
+
+  private static final net.minecraft.network.syncher.EntityDataAccessor<java.lang.Boolean> DATA_SHOT_AT_ANGLE;
+
+  private int life;
+
+  private int lifetime;
+
+  private net.minecraft.world.entity.LivingEntity attachedToEntity;
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.entity.EntityType<? extends net.minecraft.world.entity.projectile.FireworkRocketEntity>, net.minecraft.world.level.Level);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: invokespecial #60                 // Method net/minecraft/world/entity/projectile/Projectile."<init>":(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V
+       6: return
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.level.Level, double, double, double, net.minecraft.world.item.ItemStack);
+    Code:
+       0: aload_0
+       1: getstatic     #75                 // Field net/minecraft/world/entity/EntityType.FIREWORK_ROCKET:Lnet/minecraft/world/entity/EntityType;
+       4: aload_1
+       5: invokespecial #60                 // Method net/minecraft/world/entity/projectile/Projectile."<init>":(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V
+       8: aload_0
+       9: iconst_0
+      10: putfield      #77                 // Field life:I
+      13: aload_0
+      14: dload_2
+      15: dload         4
+      17: dload         6
+      19: invokevirtual #81                 // Method setPos:(DDD)V
+      22: aload_0
+      23: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      26: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      29: aload         8
+      31: invokevirtual #93                 // Method net/minecraft/world/item/ItemStack.copy:()Lnet/minecraft/world/item/ItemStack;
+      34: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+      37: iconst_1
+      38: istore        9
+      40: aload         8
+      42: getstatic     #103                // Field net/minecraft/core/component/DataComponents.FIREWORKS:Lnet/minecraft/core/component/DataComponentType;
+      45: invokevirtual #107                // Method net/minecraft/world/item/ItemStack.get:(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;
+      48: checkcast     #109                // class net/minecraft/world/item/component/Fireworks
+      51: astore        10
+      53: aload         10
+      55: ifnull        68
+      58: iload         9
+      60: aload         10
+      62: invokevirtual #113                // Method net/minecraft/world/item/component/Fireworks.flightDuration:()I
+      65: iadd
+      66: istore        9
+      68: aload_0
+      69: aload_0
+      70: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+      73: dconst_0
+      74: ldc2_w        #118                // double 0.002297d
+      77: invokeinterface #125,  5          // InterfaceMethod net/minecraft/util/RandomSource.triangle:(DD)D
+      82: ldc2_w        #126                // double 0.05d
+      85: aload_0
+      86: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+      89: dconst_0
+      90: ldc2_w        #118                // double 0.002297d
+      93: invokeinterface #125,  5          // InterfaceMethod net/minecraft/util/RandomSource.triangle:(DD)D
+      98: invokevirtual #130                // Method setDeltaMovement:(DDD)V
+     101: aload_0
+     102: bipush        10
+     104: iload         9
+     106: imul
+     107: aload_0
+     108: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+     111: bipush        6
+     113: invokeinterface #134,  2          // InterfaceMethod net/minecraft/util/RandomSource.nextInt:(I)I
+     118: iadd
+     119: aload_0
+     120: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+     123: bipush        7
+     125: invokeinterface #134,  2          // InterfaceMethod net/minecraft/util/RandomSource.nextInt:(I)I
+     130: iadd
+     131: putfield      #136                // Field lifetime:I
+     134: return
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.level.Level, net.minecraft.world.entity.Entity, double, double, double, net.minecraft.world.item.ItemStack);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dload_3
+       3: dload         5
+       5: dload         7
+       7: aload         9
+       9: invokespecial #145                // Method "<init>":(Lnet/minecraft/world/level/Level;DDDLnet/minecraft/world/item/ItemStack;)V
+      12: aload_0
+      13: aload_2
+      14: invokevirtual #149                // Method setOwner:(Lnet/minecraft/world/entity/Entity;)V
+      17: return
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.level.Level, net.minecraft.world.item.ItemStack, net.minecraft.world.entity.LivingEntity);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_3
+       3: aload_3
+       4: invokevirtual #158                // Method net/minecraft/world/entity/LivingEntity.getX:()D
+       7: aload_3
+       8: invokevirtual #161                // Method net/minecraft/world/entity/LivingEntity.getY:()D
+      11: aload_3
+      12: invokevirtual #164                // Method net/minecraft/world/entity/LivingEntity.getZ:()D
+      15: aload_2
+      16: invokespecial #166                // Method "<init>":(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/world/item/ItemStack;)V
+      19: aload_0
+      20: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      23: getstatic     #168                // Field DATA_ATTACHED_TO_TARGET:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      26: aload_3
+      27: invokevirtual #171                // Method net/minecraft/world/entity/LivingEntity.getId:()I
+      30: invokestatic  #177                // Method java/util/OptionalInt.of:(I)Ljava/util/OptionalInt;
+      33: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+      36: aload_0
+      37: aload_3
+      38: putfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      41: return
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.level.Level, net.minecraft.world.item.ItemStack, double, double, double, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: dload_3
+       3: dload         5
+       5: dload         7
+       7: aload_2
+       8: invokespecial #145                // Method "<init>":(Lnet/minecraft/world/level/Level;DDDLnet/minecraft/world/item/ItemStack;)V
+      11: aload_0
+      12: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      15: getstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      18: iload         9
+      20: invokestatic  #189                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      23: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+      26: return
+
+  public net.minecraft.world.entity.projectile.FireworkRocketEntity(net.minecraft.world.level.Level, net.minecraft.world.item.ItemStack, net.minecraft.world.entity.Entity, double, double, double, boolean);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: aload_2
+       3: dload         4
+       5: dload         6
+       7: dload         8
+       9: iload         10
+      11: invokespecial #193                // Method "<init>":(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;DDDZ)V
+      14: aload_0
+      15: aload_3
+      16: invokevirtual #149                // Method setOwner:(Lnet/minecraft/world/entity/Entity;)V
+      19: return
+
+  protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData$Builder);
+    Code:
+       0: aload_1
+       1: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+       4: invokestatic  #199                // Method getDefaultItem:()Lnet/minecraft/world/item/ItemStack;
+       7: invokevirtual #203                // Method net/minecraft/network/syncher/SynchedEntityData$Builder.define:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)Lnet/minecraft/network/syncher/SynchedEntityData$Builder;
+      10: pop
+      11: aload_1
+      12: getstatic     #168                // Field DATA_ATTACHED_TO_TARGET:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      15: invokestatic  #207                // Method java/util/OptionalInt.empty:()Ljava/util/OptionalInt;
+      18: invokevirtual #203                // Method net/minecraft/network/syncher/SynchedEntityData$Builder.define:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)Lnet/minecraft/network/syncher/SynchedEntityData$Builder;
+      21: pop
+      22: aload_1
+      23: getstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      26: iconst_0
+      27: invokestatic  #189                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+      30: invokevirtual #203                // Method net/minecraft/network/syncher/SynchedEntityData$Builder.define:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)Lnet/minecraft/network/syncher/SynchedEntityData$Builder;
+      33: pop
+      34: return
+
+  public boolean shouldRenderAtSqrDistance(double);
+    Code:
+       0: dload_1
+       1: ldc2_w        #211                // double 4096.0d
+       4: dcmpg
+       5: ifge          19
+       8: aload_0
+       9: invokevirtual #216                // Method isAttachedToEntity:()Z
+      12: ifne          19
+      15: iconst_1
+      16: goto          20
+      19: iconst_0
+      20: ireturn
+
+  public boolean shouldRender(double, double, double);
+    Code:
+       0: aload_0
+       1: dload_1
+       2: dload_3
+       3: dload         5
+       5: invokespecial #220                // Method net/minecraft/world/entity/projectile/Projectile.shouldRender:(DDD)Z
+       8: ifeq          22
+      11: aload_0
+      12: invokevirtual #216                // Method isAttachedToEntity:()Z
+      15: ifne          22
+      18: iconst_1
+      19: goto          23
+      22: iconst_0
+      23: ireturn
+
+  public void tick();
+    Code:
+       0: aload_0
+       1: invokespecial #224                // Method net/minecraft/world/entity/projectile/Projectile.tick:()V
+       4: aload_0
+       5: invokevirtual #216                // Method isAttachedToEntity:()Z
+       8: ifeq          248
+      11: aload_0
+      12: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      15: ifnonnull     40
+      18: aload_0
+      19: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      22: getstatic     #168                // Field DATA_ATTACHED_TO_TARGET:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      25: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      28: checkcast     #173                // class java/util/OptionalInt
+      31: aload_0
+      32: invokedynamic #244,  0            // InvokeDynamic #0:accept:(Lnet/minecraft/world/entity/projectile/FireworkRocketEntity;)Ljava/util/function/IntConsumer;
+      37: invokevirtual #248                // Method java/util/OptionalInt.ifPresent:(Ljava/util/function/IntConsumer;)V
+      40: aload_0
+      41: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      44: ifnull        310
+      47: aload_0
+      48: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      51: invokevirtual #251                // Method net/minecraft/world/entity/LivingEntity.isFallFlying:()Z
+      54: ifeq          190
+      57: aload_0
+      58: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      61: invokevirtual #255                // Method net/minecraft/world/entity/LivingEntity.getLookAngle:()Lnet/minecraft/world/phys/Vec3;
+      64: astore_2
+      65: ldc2_w        #256                // double 1.5d
+      68: dstore_3
+      69: ldc2_w        #258                // double 0.1d
+      72: dstore        5
+      74: aload_0
+      75: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      78: invokevirtual #262                // Method net/minecraft/world/entity/LivingEntity.getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+      81: astore        7
+      83: aload_0
+      84: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      87: aload         7
+      89: aload_2
+      90: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+      93: ldc2_w        #258                // double 0.1d
+      96: dmul
+      97: aload_2
+      98: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+     101: ldc2_w        #256                // double 1.5d
+     104: dmul
+     105: aload         7
+     107: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+     110: dsub
+     111: ldc2_w        #268                // double 0.5d
+     114: dmul
+     115: dadd
+     116: aload_2
+     117: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+     120: ldc2_w        #258                // double 0.1d
+     123: dmul
+     124: aload_2
+     125: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+     128: ldc2_w        #256                // double 1.5d
+     131: dmul
+     132: aload         7
+     134: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+     137: dsub
+     138: ldc2_w        #268                // double 0.5d
+     141: dmul
+     142: dadd
+     143: aload_2
+     144: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+     147: ldc2_w        #258                // double 0.1d
+     150: dmul
+     151: aload_2
+     152: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+     155: ldc2_w        #256                // double 1.5d
+     158: dmul
+     159: aload         7
+     161: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+     164: dsub
+     165: ldc2_w        #268                // double 0.5d
+     168: dmul
+     169: dadd
+     170: invokevirtual #279                // Method net/minecraft/world/phys/Vec3.add:(DDD)Lnet/minecraft/world/phys/Vec3;
+     173: invokevirtual #282                // Method net/minecraft/world/entity/LivingEntity.setDeltaMovement:(Lnet/minecraft/world/phys/Vec3;)V
+     176: aload_0
+     177: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     180: getstatic     #287                // Field net/minecraft/world/item/Items.FIREWORK_ROCKET:Lnet/minecraft/world/item/Item;
+     183: invokevirtual #291                // Method net/minecraft/world/entity/LivingEntity.getHandHoldingItemAngle:(Lnet/minecraft/world/item/Item;)Lnet/minecraft/world/phys/Vec3;
+     186: astore_1
+     187: goto          194
+     190: getstatic     #295                // Field net/minecraft/world/phys/Vec3.ZERO:Lnet/minecraft/world/phys/Vec3;
+     193: astore_1
+     194: aload_0
+     195: aload_0
+     196: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     199: invokevirtual #158                // Method net/minecraft/world/entity/LivingEntity.getX:()D
+     202: aload_1
+     203: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+     206: dadd
+     207: aload_0
+     208: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     211: invokevirtual #161                // Method net/minecraft/world/entity/LivingEntity.getY:()D
+     214: aload_1
+     215: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+     218: dadd
+     219: aload_0
+     220: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     223: invokevirtual #164                // Method net/minecraft/world/entity/LivingEntity.getZ:()D
+     226: aload_1
+     227: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+     230: dadd
+     231: invokevirtual #81                 // Method setPos:(DDD)V
+     234: aload_0
+     235: aload_0
+     236: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     239: invokevirtual #262                // Method net/minecraft/world/entity/LivingEntity.getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+     242: invokevirtual #296                // Method setDeltaMovement:(Lnet/minecraft/world/phys/Vec3;)V
+     245: goto          310
+     248: aload_0
+     249: invokevirtual #299                // Method isShotAtAngle:()Z
+     252: ifne          292
+     255: aload_0
+     256: getfield      #302                // Field horizontalCollision:Z
+     259: ifeq          266
+     262: dconst_1
+     263: goto          269
+     266: ldc2_w        #303                // double 1.15d
+     269: dstore_1
+     270: aload_0
+     271: aload_0
+     272: invokevirtual #305                // Method getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+     275: dload_1
+     276: dconst_1
+     277: dload_1
+     278: invokevirtual #308                // Method net/minecraft/world/phys/Vec3.multiply:(DDD)Lnet/minecraft/world/phys/Vec3;
+     281: dconst_0
+     282: ldc2_w        #309                // double 0.04d
+     285: dconst_0
+     286: invokevirtual #279                // Method net/minecraft/world/phys/Vec3.add:(DDD)Lnet/minecraft/world/phys/Vec3;
+     289: invokevirtual #296                // Method setDeltaMovement:(Lnet/minecraft/world/phys/Vec3;)V
+     292: aload_0
+     293: invokevirtual #305                // Method getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+     296: astore_1
+     297: aload_0
+     298: getstatic     #316                // Field net/minecraft/world/entity/MoverType.SELF:Lnet/minecraft/world/entity/MoverType;
+     301: aload_1
+     302: invokevirtual #320                // Method move:(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V
+     305: aload_0
+     306: aload_1
+     307: invokevirtual #296                // Method setDeltaMovement:(Lnet/minecraft/world/phys/Vec3;)V
+     310: aload_0
+     311: aload_0
+     312: invokedynamic #332,  0            // InvokeDynamic #1:test:(Lnet/minecraft/world/entity/projectile/FireworkRocketEntity;)Ljava/util/function/Predicate;
+     317: invokestatic  #338                // Method net/minecraft/world/entity/projectile/ProjectileUtil.getHitResultOnMoveVector:(Lnet/minecraft/world/entity/Entity;Ljava/util/function/Predicate;)Lnet/minecraft/world/phys/HitResult;
+     320: astore_1
+     321: aload_0
+     322: getfield      #341                // Field noPhysics:Z
+     325: ifne          339
+     328: aload_0
+     329: aload_1
+     330: invokevirtual #345                // Method hitTargetOrDeflectSelf:(Lnet/minecraft/world/phys/HitResult;)Lnet/minecraft/world/entity/projectile/ProjectileDeflection;
+     333: pop
+     334: aload_0
+     335: iconst_1
+     336: putfield      #348                // Field hasImpulse:Z
+     339: aload_0
+     340: invokevirtual #351                // Method updateRotation:()V
+     343: aload_0
+     344: getfield      #77                 // Field life:I
+     347: ifne          387
+     350: aload_0
+     351: invokevirtual #354                // Method isSilent:()Z
+     354: ifne          387
+     357: aload_0
+     358: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+     361: aconst_null
+     362: aload_0
+     363: invokevirtual #358                // Method getX:()D
+     366: aload_0
+     367: invokevirtual #359                // Method getY:()D
+     370: aload_0
+     371: invokevirtual #360                // Method getZ:()D
+     374: getstatic     #366                // Field net/minecraft/sounds/SoundEvents.FIREWORK_ROCKET_LAUNCH:Lnet/minecraft/sounds/SoundEvent;
+     377: getstatic     #372                // Field net/minecraft/sounds/SoundSource.AMBIENT:Lnet/minecraft/sounds/SoundSource;
+     380: ldc_w         #373                // float 3.0f
+     383: fconst_1
+     384: invokevirtual #379                // Method net/minecraft/world/level/Level.playSound:(Lnet/minecraft/world/entity/player/Player;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V
+     387: aload_0
+     388: dup
+     389: getfield      #77                 // Field life:I
+     392: iconst_1
+     393: iadd
+     394: putfield      #77                 // Field life:I
+     397: aload_0
+     398: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+     401: getfield      #382                // Field net/minecraft/world/level/Level.isClientSide:Z
+     404: ifeq          477
+     407: aload_0
+     408: getfield      #77                 // Field life:I
+     411: iconst_2
+     412: irem
+     413: iconst_2
+     414: if_icmpge     477
+     417: aload_0
+     418: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+     421: getstatic     #388                // Field net/minecraft/core/particles/ParticleTypes.FIREWORK:Lnet/minecraft/core/particles/SimpleParticleType;
+     424: aload_0
+     425: invokevirtual #358                // Method getX:()D
+     428: aload_0
+     429: invokevirtual #359                // Method getY:()D
+     432: aload_0
+     433: invokevirtual #360                // Method getZ:()D
+     436: aload_0
+     437: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+     440: invokeinterface #391,  1          // InterfaceMethod net/minecraft/util/RandomSource.nextGaussian:()D
+     445: ldc2_w        #126                // double 0.05d
+     448: dmul
+     449: aload_0
+     450: invokevirtual #305                // Method getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+     453: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+     456: dneg
+     457: ldc2_w        #268                // double 0.5d
+     460: dmul
+     461: aload_0
+     462: getfield      #117                // Field random:Lnet/minecraft/util/RandomSource;
+     465: invokeinterface #391,  1          // InterfaceMethod net/minecraft/util/RandomSource.nextGaussian:()D
+     470: ldc2_w        #126                // double 0.05d
+     473: dmul
+     474: invokevirtual #395                // Method net/minecraft/world/level/Level.addParticle:(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V
+     477: aload_0
+     478: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+     481: getfield      #382                // Field net/minecraft/world/level/Level.isClientSide:Z
+     484: ifne          502
+     487: aload_0
+     488: getfield      #77                 // Field life:I
+     491: aload_0
+     492: getfield      #136                // Field lifetime:I
+     495: if_icmple     502
+     498: aload_0
+     499: invokevirtual #398                // Method explode:()V
+     502: return
+
+  private void explode();
+    Code:
+       0: aload_0
+       1: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+       4: aload_0
+       5: bipush        17
+       7: invokevirtual #407                // Method net/minecraft/world/level/Level.broadcastEntityEvent:(Lnet/minecraft/world/entity/Entity;B)V
+      10: aload_0
+      11: getstatic     #413                // Field net/minecraft/world/level/gameevent/GameEvent.EXPLODE:Lnet/minecraft/core/Holder$Reference;
+      14: aload_0
+      15: invokevirtual #417                // Method getOwner:()Lnet/minecraft/world/entity/Entity;
+      18: invokevirtual #421                // Method gameEvent:(Lnet/minecraft/core/Holder;Lnet/minecraft/world/entity/Entity;)V
+      21: aload_0
+      22: invokevirtual #424                // Method dealExplosionDamage:()V
+      25: aload_0
+      26: invokevirtual #427                // Method discard:()V
+      29: return
+
+  protected void onHitEntity(net.minecraft.world.phys.EntityHitResult);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #432                // Method net/minecraft/world/entity/projectile/Projectile.onHitEntity:(Lnet/minecraft/world/phys/EntityHitResult;)V
+       5: aload_0
+       6: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+       9: getfield      #382                // Field net/minecraft/world/level/Level.isClientSide:Z
+      12: ifeq          16
+      15: return
+      16: aload_0
+      17: invokevirtual #398                // Method explode:()V
+      20: return
+
+  protected void onHitBlock(net.minecraft.world.phys.BlockHitResult);
+    Code:
+       0: new           #438                // class net/minecraft/core/BlockPos
+       3: dup
+       4: aload_1
+       5: invokevirtual #444                // Method net/minecraft/world/phys/BlockHitResult.getBlockPos:()Lnet/minecraft/core/BlockPos;
+       8: invokespecial #447                // Method net/minecraft/core/BlockPos."<init>":(Lnet/minecraft/core/Vec3i;)V
+      11: astore_2
+      12: aload_0
+      13: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      16: aload_2
+      17: invokevirtual #451                // Method net/minecraft/world/level/Level.getBlockState:(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;
+      20: aload_0
+      21: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      24: aload_2
+      25: aload_0
+      26: invokevirtual #457                // Method net/minecraft/world/level/block/state/BlockState.entityInside:(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/Entity;)V
+      29: aload_0
+      30: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      33: invokevirtual #459                // Method net/minecraft/world/level/Level.isClientSide:()Z
+      36: ifne          50
+      39: aload_0
+      40: invokevirtual #462                // Method hasExplosion:()Z
+      43: ifeq          50
+      46: aload_0
+      47: invokevirtual #398                // Method explode:()V
+      50: aload_0
+      51: aload_1
+      52: invokespecial #464                // Method net/minecraft/world/entity/projectile/Projectile.onHitBlock:(Lnet/minecraft/world/phys/BlockHitResult;)V
+      55: return
+
+  private boolean hasExplosion();
+    Code:
+       0: aload_0
+       1: invokevirtual #471                // Method getExplosions:()Ljava/util/List;
+       4: invokeinterface #476,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+       9: ifne          16
+      12: iconst_1
+      13: goto          17
+      16: iconst_0
+      17: ireturn
+
+  private void dealExplosionDamage();
+    Code:
+       0: fconst_0
+       1: fstore_1
+       2: aload_0
+       3: invokevirtual #471                // Method getExplosions:()Ljava/util/List;
+       6: astore_2
+       7: aload_2
+       8: invokeinterface #476,  1          // InterfaceMethod java/util/List.isEmpty:()Z
+      13: ifne          30
+      16: ldc_w         #477                // float 5.0f
+      19: aload_2
+      20: invokeinterface #480,  1          // InterfaceMethod java/util/List.size:()I
+      25: iconst_2
+      26: imul
+      27: i2f
+      28: fadd
+      29: fstore_1
+      30: fload_1
+      31: fconst_0
+      32: fcmpl
+      33: ifle          310
+      36: aload_0
+      37: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      40: ifnull        76
+      43: aload_0
+      44: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      47: aload_0
+      48: invokevirtual #484                // Method damageSources:()Lnet/minecraft/world/damagesource/DamageSources;
+      51: aload_0
+      52: aload_0
+      53: invokevirtual #417                // Method getOwner:()Lnet/minecraft/world/entity/Entity;
+      56: invokevirtual #489                // Method net/minecraft/world/damagesource/DamageSources.fireworks:(Lnet/minecraft/world/entity/projectile/FireworkRocketEntity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
+      59: ldc_w         #477                // float 5.0f
+      62: aload_2
+      63: invokeinterface #480,  1          // InterfaceMethod java/util/List.size:()I
+      68: iconst_2
+      69: imul
+      70: i2f
+      71: fadd
+      72: invokevirtual #493                // Method net/minecraft/world/entity/LivingEntity.hurt:(Lnet/minecraft/world/damagesource/DamageSource;F)Z
+      75: pop
+      76: ldc2_w        #494                // double 5.0d
+      79: dstore_3
+      80: aload_0
+      81: invokevirtual #498                // Method position:()Lnet/minecraft/world/phys/Vec3;
+      84: astore        5
+      86: aload_0
+      87: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      90: ldc           #154                // class net/minecraft/world/entity/LivingEntity
+      92: aload_0
+      93: invokevirtual #502                // Method getBoundingBox:()Lnet/minecraft/world/phys/AABB;
+      96: ldc2_w        #494                // double 5.0d
+      99: invokevirtual #508                // Method net/minecraft/world/phys/AABB.inflate:(D)Lnet/minecraft/world/phys/AABB;
+     102: invokevirtual #512                // Method net/minecraft/world/level/Level.getEntitiesOfClass:(Ljava/lang/Class;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;
+     105: astore        6
+     107: aload         6
+     109: invokeinterface #516,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;
+     114: astore        7
+     116: aload         7
+     118: invokeinterface #521,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+     123: ifeq          310
+     126: aload         7
+     128: invokeinterface #525,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+     133: checkcast     #154                // class net/minecraft/world/entity/LivingEntity
+     136: astore        8
+     138: aload         8
+     140: aload_0
+     141: getfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+     144: if_acmpne     150
+     147: goto          116
+     150: aload_0
+     151: aload         8
+     153: invokevirtual #529                // Method distanceToSqr:(Lnet/minecraft/world/entity/Entity;)D
+     156: ldc2_w        #530                // double 25.0d
+     159: dcmpl
+     160: ifle          166
+     163: goto          116
+     166: iconst_0
+     167: istore        9
+     169: iconst_0
+     170: istore        10
+     172: iload         10
+     174: iconst_2
+     175: if_icmpge     259
+     178: new           #264                // class net/minecraft/world/phys/Vec3
+     181: dup
+     182: aload         8
+     184: invokevirtual #158                // Method net/minecraft/world/entity/LivingEntity.getX:()D
+     187: aload         8
+     189: ldc2_w        #268                // double 0.5d
+     192: iload         10
+     194: i2d
+     195: dmul
+     196: invokevirtual #534                // Method net/minecraft/world/entity/LivingEntity.getY:(D)D
+     199: aload         8
+     201: invokevirtual #164                // Method net/minecraft/world/entity/LivingEntity.getZ:()D
+     204: invokespecial #536                // Method net/minecraft/world/phys/Vec3."<init>":(DDD)V
+     207: astore        11
+     209: aload_0
+     210: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+     213: new           #21                 // class net/minecraft/world/level/ClipContext
+     216: dup
+     217: aload         5
+     219: aload         11
+     221: getstatic     #540                // Field net/minecraft/world/level/ClipContext$Block.COLLIDER:Lnet/minecraft/world/level/ClipContext$Block;
+     224: getstatic     #544                // Field net/minecraft/world/level/ClipContext$Fluid.NONE:Lnet/minecraft/world/level/ClipContext$Fluid;
+     227: aload_0
+     228: invokespecial #547                // Method net/minecraft/world/level/ClipContext."<init>":(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/level/ClipContext$Block;Lnet/minecraft/world/level/ClipContext$Fluid;Lnet/minecraft/world/entity/Entity;)V
+     231: invokevirtual #551                // Method net/minecraft/world/level/Level.clip:(Lnet/minecraft/world/level/ClipContext;)Lnet/minecraft/world/phys/BlockHitResult;
+     234: astore        12
+     236: aload         12
+     238: invokevirtual #555                // Method net/minecraft/world/phys/HitResult.getType:()Lnet/minecraft/world/phys/HitResult$Type;
+     241: getstatic     #559                // Field net/minecraft/world/phys/HitResult$Type.MISS:Lnet/minecraft/world/phys/HitResult$Type;
+     244: if_acmpne     253
+     247: iconst_1
+     248: istore        9
+     250: goto          259
+     253: iinc          10, 1
+     256: goto          172
+     259: iload         9
+     261: ifeq          307
+     264: fload_1
+     265: ldc2_w        #494                // double 5.0d
+     268: aload_0
+     269: aload         8
+     271: invokevirtual #563                // Method distanceTo:(Lnet/minecraft/world/entity/Entity;)F
+     274: f2d
+     275: dsub
+     276: ldc2_w        #494                // double 5.0d
+     279: ddiv
+     280: invokestatic  #568                // Method java/lang/Math.sqrt:(D)D
+     283: d2f
+     284: fmul
+     285: fstore        10
+     287: aload         8
+     289: aload_0
+     290: invokevirtual #484                // Method damageSources:()Lnet/minecraft/world/damagesource/DamageSources;
+     293: aload_0
+     294: aload_0
+     295: invokevirtual #417                // Method getOwner:()Lnet/minecraft/world/entity/Entity;
+     298: invokevirtual #489                // Method net/minecraft/world/damagesource/DamageSources.fireworks:(Lnet/minecraft/world/entity/projectile/FireworkRocketEntity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
+     301: fload         10
+     303: invokevirtual #493                // Method net/minecraft/world/entity/LivingEntity.hurt:(Lnet/minecraft/world/damagesource/DamageSource;F)Z
+     306: pop
+     307: goto          116
+     310: return
+
+  private boolean isAttachedToEntity();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+       4: getstatic     #168                // Field DATA_ATTACHED_TO_TARGET:Lnet/minecraft/network/syncher/EntityDataAccessor;
+       7: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      10: checkcast     #173                // class java/util/OptionalInt
+      13: invokevirtual #578                // Method java/util/OptionalInt.isPresent:()Z
+      16: ireturn
+
+  public boolean isShotAtAngle();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+       4: getstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+       7: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      10: checkcast     #185                // class java/lang/Boolean
+      13: invokevirtual #581                // Method java/lang/Boolean.booleanValue:()Z
+      16: ireturn
+
+  public void handleEntityEvent(byte);
+    Code:
+       0: iload_1
+       1: bipush        17
+       3: if_icmpne     56
+       6: aload_0
+       7: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      10: getfield      #382                // Field net/minecraft/world/level/Level.isClientSide:Z
+      13: ifeq          56
+      16: aload_0
+      17: invokevirtual #305                // Method getDeltaMovement:()Lnet/minecraft/world/phys/Vec3;
+      20: astore_2
+      21: aload_0
+      22: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+      25: aload_0
+      26: invokevirtual #358                // Method getX:()D
+      29: aload_0
+      30: invokevirtual #359                // Method getY:()D
+      33: aload_0
+      34: invokevirtual #360                // Method getZ:()D
+      37: aload_2
+      38: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+      41: aload_2
+      42: getfield      #272                // Field net/minecraft/world/phys/Vec3.y:D
+      45: aload_2
+      46: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+      49: aload_0
+      50: invokevirtual #471                // Method getExplosions:()Ljava/util/List;
+      53: invokevirtual #588                // Method net/minecraft/world/level/Level.createFireworks:(DDDDDDLjava/util/List;)V
+      56: aload_0
+      57: iload_1
+      58: invokespecial #590                // Method net/minecraft/world/entity/projectile/Projectile.handleEntityEvent:(B)V
+      61: return
+
+  public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #596                // Method net/minecraft/world/entity/projectile/Projectile.addAdditionalSaveData:(Lnet/minecraft/nbt/CompoundTag;)V
+       5: aload_1
+       6: ldc_w         #598                // String Life
+       9: aload_0
+      10: getfield      #77                 // Field life:I
+      13: invokevirtual #604                // Method net/minecraft/nbt/CompoundTag.putInt:(Ljava/lang/String;I)V
+      16: aload_1
+      17: ldc_w         #606                // String LifeTime
+      20: aload_0
+      21: getfield      #136                // Field lifetime:I
+      24: invokevirtual #604                // Method net/minecraft/nbt/CompoundTag.putInt:(Ljava/lang/String;I)V
+      27: aload_1
+      28: ldc_w         #608                // String FireworksItem
+      31: aload_0
+      32: invokevirtual #611                // Method getItem:()Lnet/minecraft/world/item/ItemStack;
+      35: aload_0
+      36: invokevirtual #615                // Method registryAccess:()Lnet/minecraft/core/RegistryAccess;
+      39: invokevirtual #619                // Method net/minecraft/world/item/ItemStack.save:(Lnet/minecraft/core/HolderLookup$Provider;)Lnet/minecraft/nbt/Tag;
+      42: invokevirtual #623                // Method net/minecraft/nbt/CompoundTag.put:(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;
+      45: pop
+      46: aload_1
+      47: ldc_w         #625                // String ShotAtAngle
+      50: aload_0
+      51: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      54: getstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      57: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      60: checkcast     #185                // class java/lang/Boolean
+      63: invokevirtual #581                // Method java/lang/Boolean.booleanValue:()Z
+      66: invokevirtual #629                // Method net/minecraft/nbt/CompoundTag.putBoolean:(Ljava/lang/String;Z)V
+      69: return
+
+  public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag);
+    Code:
+       0: aload_0
+       1: aload_1
+       2: invokespecial #633                // Method net/minecraft/world/entity/projectile/Projectile.readAdditionalSaveData:(Lnet/minecraft/nbt/CompoundTag;)V
+       5: aload_0
+       6: aload_1
+       7: ldc_w         #598                // String Life
+      10: invokevirtual #637                // Method net/minecraft/nbt/CompoundTag.getInt:(Ljava/lang/String;)I
+      13: putfield      #77                 // Field life:I
+      16: aload_0
+      17: aload_1
+      18: ldc_w         #606                // String LifeTime
+      21: invokevirtual #637                // Method net/minecraft/nbt/CompoundTag.getInt:(Ljava/lang/String;)I
+      24: putfield      #136                // Field lifetime:I
+      27: aload_1
+      28: ldc_w         #608                // String FireworksItem
+      31: bipush        10
+      33: invokevirtual #641                // Method net/minecraft/nbt/CompoundTag.contains:(Ljava/lang/String;I)Z
+      36: ifeq          77
+      39: aload_0
+      40: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      43: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      46: aload_0
+      47: invokevirtual #615                // Method registryAccess:()Lnet/minecraft/core/RegistryAccess;
+      50: aload_1
+      51: ldc_w         #608                // String FireworksItem
+      54: invokevirtual #645                // Method net/minecraft/nbt/CompoundTag.getCompound:(Ljava/lang/String;)Lnet/minecraft/nbt/CompoundTag;
+      57: invokestatic  #649                // Method net/minecraft/world/item/ItemStack.parse:(Lnet/minecraft/core/HolderLookup$Provider;Lnet/minecraft/nbt/Tag;)Ljava/util/Optional;
+      60: invokedynamic #655,  0            // InvokeDynamic #2:get:()Ljava/util/function/Supplier;
+      65: invokevirtual #661                // Method java/util/Optional.orElseGet:(Ljava/util/function/Supplier;)Ljava/lang/Object;
+      68: checkcast     #89                 // class net/minecraft/world/item/ItemStack
+      71: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+      74: goto          90
+      77: aload_0
+      78: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+      81: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      84: invokestatic  #199                // Method getDefaultItem:()Lnet/minecraft/world/item/ItemStack;
+      87: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+      90: aload_1
+      91: ldc_w         #625                // String ShotAtAngle
+      94: invokevirtual #664                // Method net/minecraft/nbt/CompoundTag.contains:(Ljava/lang/String;)Z
+      97: ifeq          120
+     100: aload_0
+     101: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+     104: getstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+     107: aload_1
+     108: ldc_w         #625                // String ShotAtAngle
+     111: invokevirtual #667                // Method net/minecraft/nbt/CompoundTag.getBoolean:(Ljava/lang/String;)Z
+     114: invokestatic  #189                // Method java/lang/Boolean.valueOf:(Z)Ljava/lang/Boolean;
+     117: invokevirtual #97                 // Method net/minecraft/network/syncher/SynchedEntityData.set:(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;)V
+     120: return
+
+  private java.util.List<net.minecraft.world.item.component.FireworkExplosion> getExplosions();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+       4: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+       7: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      10: checkcast     #89                 // class net/minecraft/world/item/ItemStack
+      13: astore_1
+      14: aload_1
+      15: getstatic     #103                // Field net/minecraft/core/component/DataComponents.FIREWORKS:Lnet/minecraft/core/component/DataComponentType;
+      18: invokevirtual #107                // Method net/minecraft/world/item/ItemStack.get:(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;
+      21: checkcast     #109                // class net/minecraft/world/item/component/Fireworks
+      24: astore_2
+      25: aload_2
+      26: ifnull        36
+      29: aload_2
+      30: invokevirtual #671                // Method net/minecraft/world/item/component/Fireworks.explosions:()Ljava/util/List;
+      33: goto          39
+      36: invokestatic  #673                // InterfaceMethod java/util/List.of:()Ljava/util/List;
+      39: areturn
+
+  public net.minecraft.world.item.ItemStack getItem();
+    Code:
+       0: aload_0
+       1: getfield      #85                 // Field entityData:Lnet/minecraft/network/syncher/SynchedEntityData;
+       4: getstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+       7: invokevirtual #227                // Method net/minecraft/network/syncher/SynchedEntityData.get:(Lnet/minecraft/network/syncher/EntityDataAccessor;)Ljava/lang/Object;
+      10: checkcast     #89                 // class net/minecraft/world/item/ItemStack
+      13: areturn
+
+  public boolean isAttackable();
+    Code:
+       0: iconst_0
+       1: ireturn
+
+  private static net.minecraft.world.item.ItemStack getDefaultItem();
+    Code:
+       0: new           #89                 // class net/minecraft/world/item/ItemStack
+       3: dup
+       4: getstatic     #287                // Field net/minecraft/world/item/Items.FIREWORK_ROCKET:Lnet/minecraft/world/item/Item;
+       7: invokespecial #677                // Method net/minecraft/world/item/ItemStack."<init>":(Lnet/minecraft/world/level/ItemLike;)V
+      10: areturn
+
+  public it.unimi.dsi.fastutil.doubles.DoubleDoubleImmutablePair calculateHorizontalHurtKnockbackDirection(net.minecraft.world.entity.LivingEntity, net.minecraft.world.damagesource.DamageSource);
+    Code:
+       0: aload_1
+       1: invokevirtual #681                // Method net/minecraft/world/entity/LivingEntity.position:()Lnet/minecraft/world/phys/Vec3;
+       4: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+       7: aload_0
+       8: invokevirtual #498                // Method position:()Lnet/minecraft/world/phys/Vec3;
+      11: getfield      #267                // Field net/minecraft/world/phys/Vec3.x:D
+      14: dsub
+      15: dstore_3
+      16: aload_1
+      17: invokevirtual #681                // Method net/minecraft/world/entity/LivingEntity.position:()Lnet/minecraft/world/phys/Vec3;
+      20: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+      23: aload_0
+      24: invokevirtual #498                // Method position:()Lnet/minecraft/world/phys/Vec3;
+      27: getfield      #275                // Field net/minecraft/world/phys/Vec3.z:D
+      30: dsub
+      31: dstore        5
+      33: dload_3
+      34: dload         5
+      36: invokestatic  #686                // Method it/unimi/dsi/fastutil/doubles/DoubleDoubleImmutablePair.of:(DD)Lit/unimi/dsi/fastutil/doubles/DoubleDoubleImmutablePair;
+      39: areturn
+
+  private void method_18072(int);
+    Code:
+       0: aload_0
+       1: invokevirtual #357                // Method level:()Lnet/minecraft/world/level/Level;
+       4: iload_1
+       5: invokevirtual #691                // Method net/minecraft/world/level/Level.getEntity:(I)Lnet/minecraft/world/entity/Entity;
+       8: astore_2
+       9: aload_2
+      10: instanceof    #154                // class net/minecraft/world/entity/LivingEntity
+      13: ifeq          24
+      16: aload_0
+      17: aload_2
+      18: checkcast     #154                // class net/minecraft/world/entity/LivingEntity
+      21: putfield      #179                // Field attachedToEntity:Lnet/minecraft/world/entity/LivingEntity;
+      24: return
+
+  static {};
+    Code:
+       0: ldc           #2                  // class net/minecraft/world/entity/projectile/FireworkRocketEntity
+       2: getstatic     #698                // Field net/minecraft/network/syncher/EntityDataSerializers.ITEM_STACK:Lnet/minecraft/network/syncher/EntityDataSerializer;
+       5: invokestatic  #702                // Method net/minecraft/network/syncher/SynchedEntityData.defineId:(Ljava/lang/Class;Lnet/minecraft/network/syncher/EntityDataSerializer;)Lnet/minecraft/network/syncher/EntityDataAccessor;
+       8: putstatic     #87                 // Field DATA_ID_FIREWORKS_ITEM:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      11: ldc           #2                  // class net/minecraft/world/entity/projectile/FireworkRocketEntity
+      13: getstatic     #705                // Field net/minecraft/network/syncher/EntityDataSerializers.OPTIONAL_UNSIGNED_INT:Lnet/minecraft/network/syncher/EntityDataSerializer;
+      16: invokestatic  #702                // Method net/minecraft/network/syncher/SynchedEntityData.defineId:(Ljava/lang/Class;Lnet/minecraft/network/syncher/EntityDataSerializer;)Lnet/minecraft/network/syncher/EntityDataAccessor;
+      19: putstatic     #168                // Field DATA_ATTACHED_TO_TARGET:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      22: ldc           #2                  // class net/minecraft/world/entity/projectile/FireworkRocketEntity
+      24: getstatic     #708                // Field net/minecraft/network/syncher/EntityDataSerializers.BOOLEAN:Lnet/minecraft/network/syncher/EntityDataSerializer;
+      27: invokestatic  #702                // Method net/minecraft/network/syncher/SynchedEntityData.defineId:(Ljava/lang/Class;Lnet/minecraft/network/syncher/EntityDataSerializer;)Lnet/minecraft/network/syncher/EntityDataAccessor;
+      30: putstatic     #183                // Field DATA_SHOT_AT_ANGLE:Lnet/minecraft/network/syncher/EntityDataAccessor;
+      33: return
+}

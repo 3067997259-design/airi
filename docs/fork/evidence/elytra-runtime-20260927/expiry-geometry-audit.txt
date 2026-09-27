@@ -1,0 +1,79 @@
+[
+  {
+    run: 'expiry-1-01',
+    build: '0.2.91+1.21.1',
+    local: false,
+    ticks: 146,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-2-01',
+    build: '0.2.91+1.21.1',
+    local: false,
+    ticks: 150,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-3-01',
+    build: '0.2.91+1.21.1',
+    local: false,
+    ticks: 148,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-1-02',
+    build: '0.2.91+1.21.1',
+    local: false,
+    ticks: 142,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-1-03',
+    build: '0.2.92+1.21.1',
+    local: false,
+    ticks: 134,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-1-04',
+    build: '0.2.92+1.21.1',
+    local: false,
+    ticks: 143,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'expiry-1-05',
+    build: '0.2.92+1.21.1',
+    local: true,
+    ticks: 198,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  }
+]

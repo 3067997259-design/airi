@@ -1,0 +1,133 @@
+0 -929.170 70.685 -150.452 -15:LEVEL:glide snapshot:1281/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=17 sim=47ms reject[c=3,f=0,s=0,ta=0] first=collision@t6(-920.5,72.7,-156.0)block=minecraft:glowstone shape=
+1 -928.145 70.716 -151.708 -15:LEVEL:glide snapshot:2116/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=17 sim=6ms reject[c=3,f=0,s=0,ta=0] first=collision@t5(-920.5,72.2,-156.2)block=minecraft:glowstone shape=
+2 -927.013 70.712 -152.896 -15:LEVEL:glide snapshot:3995/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=18 sim=5ms reject[c=2,f=0,s=0,ta=0] first=collision@t5(-919.9,72.1,-156.4)block=minecraft:glowstone shape=
+3 -925.813 70.692 -154.033 -15:LEVEL:glide snapshot:6043/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=19 sim=9ms reject[c=1,f=0,s=0,ta=0] first=collision@t5(-917.3,72.1,-156.9)block=minecraft:glowstone shape=
+4 -924.579 70.666 -155.146 -15:AIM:glide snapshot:7852/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=4ms reject[c=0,f=0,s=0,ta=0]
+5 -923.360 70.636 -156.283 -15:LEVEL:glide snapshot:9900/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=3ms reject[c=0,f=0,s=0,ta=0]
+6 -922.147 70.500 -157.434 +0:AIM:glide snapshot:11948/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=3ms reject[c=0,f=0,s=0,ta=0]
+7 -920.906 70.422 -158.554 +0:AIM:glide snapshot:13996/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=19 sim=2ms reject[c=1,f=0,s=0,ta=0] first=collision@t11(-910.6,69.6,-174.6)block=minecraft:orange_terracotta shape=
+8 -919.535 70.264 -159.497 +0:AIM:glide snapshot:16044/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=18 sim=2ms reject[c=2,f=0,s=0,ta=0] first=collision@t10(-910.9,69.3,-174.6)block=minecraft:orange_terracotta shape=
+9 -918.113 70.065 -160.378 +0:AIM:glide snapshot:18092/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=4ms reject[c=0,f=0,s=0,ta=0]
+10 -916.702 69.880 -161.296 +0:AIM:glide snapshot:20140/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=2ms reject[c=0,f=0,s=0,ta=0]
+11 -915.323 69.720 -162.267 +15:LEVEL:glide snapshot:22188/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+12 -913.958 69.589 -163.255 +15:LEVEL:fire snapshot:24236/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=40 sim=2ms reject[c=0,f=0,s=0,ta=0]
+13 -912.541 69.514 -164.146 +15:LEVEL:glide snapshot:26284/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+14 -911.223 69.463 -165.168 +0:LEVEL:glide snapshot:28332/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+15 -910.036 69.423 -166.319 +15:AIM_PULL:glide snapshot:30380/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+16 -909.113 69.416 -167.654 +30:LEVEL:glide snapshot:32428/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+17 -908.114 69.508 -168.941 -15:LEVEL:glide snapshot:34476/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=2ms reject[c=0,f=0,s=0,ta=0]
+18 -906.977 69.534 -170.101 +0:LEVEL:glide snapshot:36524/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+19 -906.024 69.528 -171.424 +0:LEVEL:glide snapshot:38572/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+20 -905.154 69.507 -172.822 +15:LEVEL:glide snapshot:40620/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+21 -904.262 69.481 -174.214 +0:AIM_PULL:glide snapshot:42668/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+22 -903.211 69.479 -175.473 +15:AIM_PULL:glide snapshot:44716/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=2ms reject[c=0,f=0,s=0,ta=0]
+23 -902.190 69.616 -176.739 -15:AIM_PULL:glide snapshot:46764/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+24 -901.089 69.876 -177.900 +0:AIM:glide snapshot:48476/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=3ms reject[c=0,f=0,s=0,ta=0]
+25 -900.167 70.152 -179.205 +0:AIM:glide snapshot:50524/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+26 -899.170 70.309 -180.493 +0:AIM:glide snapshot:52572/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+27 -898.113 70.293 -181.754 -15:LEVEL:glide snapshot:54620/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+28 -897.044 70.180 -183.020 -15:LEVEL:glide snapshot:56668/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+29 -896.111 70.113 -184.394 -30:LEVEL:glide snapshot:58716/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=20 sim=1ms reject[c=0,f=0,s=0,ta=0]
+30 -895.258 70.066 -185.821 -30:LEVEL:glide snapshot:60764/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=18 sim=1ms reject[c=2,f=0,s=0,ta=0] first=collision@t19(-870.5,69.4,-205.4)block=minecraft:red_sand shape=
+31 -894.576 70.027 -187.333 -15:LEVEL:glide snapshot:62812/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=15 sim=1ms reject[c=5,f=0,s=0,ta=0] first=collision@t19(-870.5,69.3,-208.0)block=minecraft:red_sand shape=
+32 -893.869 69.992 -188.831 -30:LEVEL:glide snapshot:64860/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=12 sim=1ms reject[c=8,f=0,s=0,ta=0] first=collision@t19(-871.2,69.3,-210.6)block=minecraft:red_sand shape=
+33 -892.945 69.959 -190.192 -30:LEVEL:glide snapshot:66908/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=11 sim=1ms reject[c=9,f=0,s=0,ta=0] first=collision@t18(-871.2,69.3,-210.6)block=minecraft:red_sand shape=
+34 -892.022 69.927 -191.571 -15:AIM_PULL:glide snapshot:68956/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=11 sim=1ms reject[c=9,f=0,s=0,ta=0] first=collision@t17(-871.2,69.3,-210.6)block=minecraft:red_sand shape=
+35 -891.076 69.924 -192.923 -30:LEVEL:glide snapshot:71004/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=11 sim=1ms reject[c=9,f=0,s=0,ta=0] first=collision@t16(-871.2,69.5,-210.6)block=minecraft:red_sand shape=
+36 -889.971 70.018 -194.128 -15:LEVEL:glide snapshot:73052/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=11 sim=1ms reject[c=9,f=0,s=0,ta=0] first=collision@t15(-871.2,69.5,-210.6)block=minecraft:red_sand shape=
+37 -888.872 70.045 -195.351 -15:AIM_PULL:glide snapshot:75100/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=11 sim=1ms reject[c=9,f=0,s=0,ta=0] first=collision@t14(-871.1,69.5,-210.6)block=minecraft:red_sand shape=
+38 -887.631 70.065 -196.419 -30:AIM:glide snapshot:77148/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=10 sim=1ms reject[c=10,f=0,s=0,ta=0] first=collision@t13(-871.1,69.8,-210.6)block=minecraft:red_sand shape=
+39 -886.345 70.162 -197.434 -30:LEVEL:glide snapshot:79196/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=8 sim=1ms reject[c=10,f=2,s=0,ta=0] first=collision@t12(-870.9,69.7,-210.6)block=minecraft:red_sand shape=
+40 -885.166 70.181 -198.581 -30:LEVEL:glide snapshot:81244/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=7 sim=0ms reject[c=12,f=1,s=0,ta=0] first=collision@t11(-870.7,69.7,-210.6)block=minecraft:red_sand shape=
+41 -884.038 70.171 -199.793 -30:AIM:glide snapshot:83292/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=7 sim=1ms reject[c=12,f=1,s=0,ta=0] first=collision@t10(-870.5,69.7,-210.6)block=minecraft:red_sand shape=
+42 -882.934 70.149 -201.035 -30:LEVEL:glide snapshot:85340/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=6 sim=1ms reject[c=14,f=0,s=0,ta=0] first=collision@t9(-870.5,69.6,-210.3)block=minecraft:orange_terracotta shape=
+43 -881.872 70.051 -202.323 -30:LEVEL:glide snapshot:87388/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=5 sim=1ms reject[c=15,f=0,s=0,ta=0] first=collision@t8(-870.5,69.6,-210.4)block=minecraft:orange_terracotta shape=
+44 -880.808 69.990 -203.615 -30:LEVEL:glide snapshot:89436/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=5 sim=1ms reject[c=15,f=0,s=0,ta=0] first=collision@t7(-870.5,69.6,-210.2)block=minecraft:orange_terracotta shape=
+45 -879.718 69.945 -204.886 -30:LEVEL:glide snapshot:91484/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=6 sim=0ms reject[c=14,f=0,s=0,ta=0] first=collision@t6(-871.1,69.6,-210.6)block=minecraft:red_sand shape=
+46 -878.591 69.908 -206.123 -30:LEVEL:glide snapshot:93532/105625 result=none seq=none applicable=true budget=false note=eval=20 ok=6 sim=0ms reject[c=14,f=0,s=0,ta=0] first=collision@t5(-871.5,69.6,-211.9)block=minecraft:red_sand shape=
+47 -877.424 69.874 -207.320 -30:LEVEL:glide snapshot:95580/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=7 sim=4ms reject[c=33,f=0,s=0,ta=0] first=collision@t8(-868.5,69.2,-218.4)block=minecraft:grass_block shape=
+48 -876.283 69.841 -208.526 -30:AIM:glide snapshot:97628/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=2ms reject[c=33,f=1,s=0,ta=0] first=floor@t20(-871.6,67.7,-234.1)block= shape=
+49 -875.246 69.795 -209.767 -30:LEVEL:glide snapshot:99676/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=2ms reject[c=33,f=1,s=0,ta=0] first=floor@t20(-871.6,68.5,-234.7)block= shape=
+50 -874.312 69.736 -211.039 -30:AIM:glide snapshot:101724/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=2ms reject[c=33,f=1,s=0,ta=0] first=floor@t20(-872.0,67.4,-236.6)block= shape=
+51 -873.488 69.666 -212.335 -15:AIM_PULL:glide snapshot:103772/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=5 sim=1ms reject[c=32,f=3,s=0,ta=0] first=collision@t7(-868.5,68.9,-222.2)block=minecraft:grass_block shape=
+52 -872.725 69.606 -213.642 -15:PULL_UP:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=1ms reject[c=33,f=1,s=0,ta=0] first=collision@t6(-868.5,69.0,-222.6)block=minecraft:grass_block shape=
+53 -872.010 69.572 -214.948 +0:AIM_PULL:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=8 sim=1ms reject[c=30,f=2,s=0,ta=0] first=collision@t6(-868.4,69.2,-223.4)block=minecraft:grass_block shape=
+54 -871.314 69.559 -216.240 +0:AIM_PULL:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=8 sim=1ms reject[c=30,f=2,s=0,ta=0] first=collision@t7(-867.9,69.2,-225.5)block=minecraft:red_sand shape=
+55 -870.656 69.564 -217.524 +0:AIM_PULL:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=8 sim=1ms reject[c=30,f=2,s=0,ta=0] first=collision@t8(-867.6,69.2,-227.9)block=minecraft:red_sand shape=
+56 -870.045 69.585 -218.800 +0:PULL_UP:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=8 sim=1ms reject[c=31,f=1,s=0,ta=0] first=collision@t9(-867.6,69.2,-230.1)block=minecraft:red_sand shape=
+57 -869.489 69.620 -220.067 +0:AIM_PULL:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=7 sim=1ms reject[c=32,f=1,s=0,ta=0] first=collision@t9(-867.6,69.2,-231.6)block=minecraft:dead_bush shape=
+58 -868.994 69.666 -221.322 +0:PULL_UP:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=3ms reject[c=34,f=0,s=0,ta=0] first=collision@t19(-866.8,70.8,-241.6)block=minecraft:orange_terracotta shape=
+59 -868.563 69.723 -222.564 +0:AIM_PULL:glide snapshot:105625/105625 result=none seq=none applicable=true budget=false note=eval=40 ok=7 sim=3ms reject[c=33,f=0,s=0,ta=0] first=collision@t7(-867.6,69.6,-231.6)block=minecraft:dead_bush shape=
+60 -868.198 69.787 -223.792 +0:PULL_UP:glide searching:1 due=68 result=none seq=none applicable=true budget=false note=eval=40 ok=6 sim=2ms reject[c=33,f=0,s=0,ta=1] first=collision@t6(-867.6,69.7,-231.6)block=minecraft:dead_bush shape=
+61 -867.912 69.861 -224.996 planning_prefix reserved:1/8 result=none seq=none applicable=true budget=false note=reserved:1/8 result=none
+62 -867.704 69.943 -226.172 planning_prefix reserved:2/8 result=none seq=none applicable=true budget=false note=reserved:2/8 result=none
+63 -867.570 70.032 -227.316 planning_prefix reserved:3/8 result=none seq=none applicable=true budget=false note=reserved:3/8 result=none
+64 -867.496 70.128 -228.431 planning_prefix reserved:4/8 result=none seq=none applicable=true budget=false note=reserved:4/8 result=none
+65 -867.475 70.229 -229.517 planning_prefix reserved:5/8 result=none seq=none applicable=true budget=false note=reserved:5/8 result=none
+66 -867.489 70.334 -230.578 planning_prefix reserved:6/8 result=none seq=none applicable=true budget=false note=reserved:6/8 result=none
+67 -867.532 70.442 -231.615 planning_prefix reserved:7/8 result=none seq=none applicable=true budget=false note=reserved:7/8 result=none
+68 -867.600 70.553 -232.630 +30:LEVEL:glide delivered result=no_sequence:2048:16ms seq=none applicable=true budget=false note=eval=40 ok=10 sim=5ms reject[c=30,f=0,s=0,ta=0] first=collision@t13(-865.6,72.0,-243.6)block=minecraft:orange_terracotta shape=
+69 -867.650 70.651 -233.632 +15:LEVEL:glide delivered result=no_sequence:2048:16ms seq=none applicable=true budget=false note=eval=40 ok=10 sim=2ms reject[c=30,f=0,s=0,ta=0] first=collision@t8(-866.6,70.7,-241.6)block=minecraft:orange_terracotta shape=
+70 -867.643 70.727 -234.609 +0:LEVEL:glide searching:2 due=78 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=eval=40 ok=13 sim=3ms reject[c=27,f=0,s=0,ta=0] first=collision@t7(-866.8,70.7,-241.6)block=minecraft:orange_terracotta shape=
+71 -867.604 70.783 -235.570 planning_prefix reserved:1/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:1/8 result=no_sequence:2048:16ms
+72 -867.524 70.817 -236.511 planning_prefix reserved:2/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:2/8 result=no_sequence:2048:16ms
+73 -867.401 70.831 -237.427 planning_prefix reserved:3/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:3/8 result=no_sequence:2048:16ms
+74 -867.236 70.826 -238.316 planning_prefix reserved:4/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:4/8 result=no_sequence:2048:16ms
+75 -867.026 70.804 -239.176 planning_prefix reserved:5/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:5/8 result=no_sequence:2048:16ms
+76 -866.774 70.767 -240.006 planning_prefix reserved:6/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:6/8 result=no_sequence:2048:16ms
+77 -866.479 70.716 -240.804 planning_prefix reserved:7/8 result=no_sequence:2048:16ms seq=none applicable=true budget=false note=reserved:7/8 result=no_sequence:2048:16ms
+78 -866.144 70.654 -241.568 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=57
+79 -865.786 70.581 -242.317 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=56
+80 -865.403 70.493 -243.048 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=55
+81 -864.996 70.394 -243.762 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=54
+82 -864.564 70.284 -244.458 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=53
+83 -864.118 70.160 -245.147 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=52
+84 -863.657 70.016 -245.826 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=51
+85 -863.181 69.856 -246.500 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=50
+86 -862.695 69.680 -247.170 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=49
+87 -862.173 69.499 -247.812 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=48
+88 -861.621 69.319 -248.430 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=47
+89 -861.041 69.142 -249.026 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=46
+90 -860.438 68.975 -249.606 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=45
+91 -859.821 68.810 -250.181 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=44
+92 -859.194 68.649 -250.756 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=43
+93 -858.559 68.493 -251.331 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=42
+94 -857.916 68.337 -251.909 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=41
+95 -857.248 68.187 -252.452 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=40
+96 -856.556 68.045 -252.951 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=39
+97 -855.848 67.913 -253.423 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=38
+98 -855.128 67.791 -253.873 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=37
+99 -854.410 67.666 -254.333 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=36
+100 -853.694 67.536 -254.803 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=35
+101 -852.981 67.402 -255.285 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=34
+102 -852.263 67.265 -255.768 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=33
+103 -851.556 67.126 -256.273 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=32
+104 -850.860 66.996 -256.793 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=31
+105 -850.184 66.874 -257.335 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=30
+106 -849.528 66.762 -257.896 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=29
+107 -848.872 66.669 -258.449 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=28
+108 -848.224 66.602 -258.992 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=27
+109 -847.587 66.564 -259.521 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=26
+110 -846.965 66.552 -260.037 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=25
+111 -846.347 66.558 -260.526 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=24
+112 -845.733 66.572 -260.992 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=23
+113 -845.141 66.583 -261.462 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=22
+114 -844.595 66.593 -261.949 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=21
+115 -844.118 66.609 -262.448 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=20
+116 -843.724 66.633 -262.941 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=19
+117 -843.417 66.663 -263.408 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=18
+118 -843.188 66.694 -263.829 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=17
+119 -843.023 66.720 -264.192 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=16
+120 -842.901 66.736 -264.492 sequence:tracking delivered result=planned:655:95ms seq=tracking applicable=true budget=false note=sequence:tracking verifiedTicks=15
+121 -842.803 66.740 -264.732 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+122 -842.726 66.728 -264.921 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+123 -842.666 66.702 -265.069 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+124 -842.619 66.663 -265.183 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+125 -842.584 66.612 -265.269 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+126 -842.559 66.550 -265.331 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+127 -842.541 66.477 -265.374 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+128 -842.531 66.396 -265.400 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+129 -842.525 66.306 -265.413 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+130 -842.525 66.209 -265.414 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+131 -842.528 66.105 -265.406 sequence:landing delivered result=planned:655:95ms seq=landing applicable=true budget=false note=sequence:landing verifiedTicks=14
+MODEL_CONTACT -842.5358417651486 65.99448032208775 -265.38674311704324

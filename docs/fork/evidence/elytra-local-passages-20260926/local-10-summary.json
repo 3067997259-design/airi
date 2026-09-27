@@ -1,0 +1,99 @@
+{
+  "tag": "local-10",
+  "build": "0.2.75+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [
+        {
+          "tick": 7415,
+          "position": {
+            "x": -973.8189729540452,
+            "y": 73.04096376730557,
+            "z": -83.05087024944976
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "lower-wool",
+      "events": [
+        {
+          "tick": 7424,
+          "position": {
+            "x": -969.8282922656169,
+            "y": 72.84841628201636,
+            "z": -97.90544699218437
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-approach",
+      "events": [
+        {
+          "tick": 7437,
+          "position": {
+            "x": -957.7990867736645,
+            "y": 72.5602778859082,
+            "z": -115
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-entry",
+      "events": [
+        {
+          "tick": 7444,
+          "position": {
+            "x": -950.2792981665378,
+            "y": 71.58117996111461,
+            "z": -123
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-exit",
+      "events": [
+        {
+          "tick": 7475,
+          "position": {
+            "x": -915.1739538614565,
+            "y": 70.77642867204723,
+            "z": -158.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "continuous": true,
+  "damage": 0,
+  "minHealth": 20,
+  "samples": 99,
+  "controlledTicks": 89,
+  "budgetExhausted": 0,
+  "settled": 0,
+  "stopReason": "local_measurement_complete",
+  "endReason": "",
+  "endDetail": "",
+  "localPass": true,
+  "endingVerified": false,
+  "fullCoursePass": false
+}

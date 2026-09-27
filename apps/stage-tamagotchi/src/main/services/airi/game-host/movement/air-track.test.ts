@@ -263,7 +263,7 @@ describe('runAirTrackMove', () => {
     let reads = 0
     const result = await runAirTrackMove({
       port,
-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
       readTarget: async () => {
         reads += 1
         return reads > 10
@@ -283,7 +283,7 @@ describe('runAirTrackMove', () => {
     let reads = 0
     const result = await runAirTrackMove({
       port,
-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
       world: { worldId: 'world-1', dimension: 'minecraft:overworld', mapVersion: 'live' },
       readTarget: async () => {
         reads += 1
@@ -305,7 +305,7 @@ describe('runAirTrackMove', () => {
     let reads = 0
     const result = await runAirTrackMove({
       port,
-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
+      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
       world: { worldId: 'world-1', dimension: 'minecraft:overworld', mapVersion: 'live' },
       readTarget: async () => {
         reads += 1

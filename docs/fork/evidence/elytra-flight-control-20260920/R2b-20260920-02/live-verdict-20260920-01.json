@@ -1,0 +1,518 @@
+{
+  "batch": "20260920-live-01",
+  "channelSource": "hand-written-diagnostic",
+  "jarSha256": "AAEB0280B3B0083B5EF5FD5F3CA10F16F9D577737131C870093F416E26DFBA0D",
+  "records": [
+    {
+      "precheck": {
+        "health": 20,
+        "chest": "minecraft:elytra",
+        "chestElytra": true,
+        "chestDurability": "unreadable client-side",
+        "usableSpareElytra": false,
+        "rocketsInHotbar": 16,
+        "busy": false,
+        "launch": "idle",
+        "session": {
+          "state": "none",
+          "applyingStarted": false
+        }
+      }
+    },
+    {
+      "gate": "precondition-not-busy",
+      "ok": true,
+      "detail": {
+        "launch": "idle",
+        "session": "none"
+      }
+    },
+    {
+      "gate": "precondition-health",
+      "ok": true,
+      "detail": {
+        "health": 20
+      }
+    },
+    {
+      "gate": "precondition-elytra",
+      "ok": true,
+      "detail": {
+        "chest": {
+          "id": "minecraft:elytra",
+          "count": 1,
+          "name": "鞘翅"
+        }
+      }
+    },
+    {
+      "gate": "precondition-rockets",
+      "ok": true,
+      "detail": {
+        "rockets": 16
+      }
+    },
+    {
+      "submit": {
+        "sessionId": "r2b-fixed-1789875698892",
+        "accepted": true,
+        "startedApplying": false,
+        "echo": {
+          "path": [
+            {
+              "x": -1000,
+              "y": 76,
+              "z": 30
+            },
+            {
+              "x": -950,
+              "y": 72,
+              "z": -60
+            },
+            {
+              "x": -900,
+              "y": 70,
+              "z": -150
+            }
+          ],
+          "entryReach": 12,
+          "source": "hand-written-diagnostic"
+        },
+        "pathPoints": 3,
+        "entryReach": 12
+      },
+      "channelSource": "hand-written-diagnostic"
+    },
+    {
+      "gate": "submit-accepted",
+      "ok": true,
+      "detail": {
+        "sessionId": "r2b-fixed-1789875698892",
+        "accepted": true,
+        "startedApplying": false,
+        "echo": {
+          "path": [
+            {
+              "x": -1000,
+              "y": 76,
+              "z": 30
+            },
+            {
+              "x": -950,
+              "y": 72,
+              "z": -60
+            },
+            {
+              "x": -900,
+              "y": 70,
+              "z": -150
+            }
+          ],
+          "entryReach": 12,
+          "source": "hand-written-diagnostic"
+        },
+        "pathPoints": 3,
+        "entryReach": 12
+      }
+    },
+    {
+      "gate": "submit-session-id",
+      "ok": true,
+      "detail": {
+        "echo": "r2b-fixed-1789875698892"
+      }
+    },
+    {
+      "poll": 9322,
+      "session": {
+        "id": "r2b-fixed-1789875698892",
+        "state": "RUNNING",
+        "applyingStarted": true
+      },
+      "launch": "done",
+      "endReason": "",
+      "applyingStarted": true,
+      "entryReach": 12,
+      "selfPosition": {
+        "x": -1004.3,
+        "y": 77.5,
+        "z": 59.9
+      },
+      "distanceToGoal": 234.4,
+      "newSamples": 600,
+      "trajectoryLost": 8481,
+      "firedSamples": 1,
+      "ownerSamples": {
+        "none": 579,
+        "launch-macro": 9,
+        "flight-session": 12
+      }
+    },
+    {
+      "poll": 9346,
+      "session": {
+        "id": "r2b-fixed-1789875698892",
+        "state": "RUNNING",
+        "applyingStarted": true
+      },
+      "launch": "done",
+      "endReason": "",
+      "applyingStarted": true,
+      "entryReach": 12,
+      "selfPosition": {
+        "x": -998.9,
+        "y": 75.5,
+        "z": 23
+      },
+      "distanceToGoal": 199.3,
+      "newSamples": 24,
+      "trajectoryLost": 8505,
+      "firedSamples": 1,
+      "ownerSamples": {
+        "none": 579,
+        "launch-macro": 9,
+        "flight-session": 36
+      }
+    },
+    {
+      "poll": 9368,
+      "session": {
+        "id": "r2b-fixed-1789875698892",
+        "state": "RUNNING",
+        "applyingStarted": true
+      },
+      "launch": "done",
+      "endReason": "",
+      "applyingStarted": true,
+      "entryReach": 12,
+      "selfPosition": {
+        "x": -995.9,
+        "y": 74.6,
+        "z": -8
+      },
+      "distanceToGoal": 171.3,
+      "newSamples": 22,
+      "trajectoryLost": 8527,
+      "firedSamples": 1,
+      "ownerSamples": {
+        "none": 579,
+        "launch-macro": 9,
+        "flight-session": 58
+      }
+    },
+    {
+      "poll": 9389,
+      "session": {
+        "id": "r2b-fixed-1789875698892",
+        "state": "RUNNING",
+        "applyingStarted": true
+      },
+      "launch": "done",
+      "endReason": "",
+      "applyingStarted": true,
+      "entryReach": 12,
+      "selfPosition": {
+        "x": -990.5,
+        "y": 83,
+        "z": -27.5
+      },
+      "distanceToGoal": 152.3,
+      "newSamples": 21,
+      "trajectoryLost": 8548,
+      "firedSamples": 1,
+      "ownerSamples": {
+        "none": 579,
+        "launch-macro": 9,
+        "flight-session": 79
+      }
+    },
+    {
+      "poll": 9410,
+      "session": {
+        "id": "r2b-fixed-1789875698892",
+        "state": "TERMINATED",
+        "applyingStarted": true
+      },
+      "launch": "done",
+      "endReason": "no_viable_trajectory",
+      "applyingStarted": true,
+      "selfPosition": {
+        "x": -982.5,
+        "y": 78.7,
+        "z": -41.5
+      },
+      "distanceToGoal": 136.3,
+      "newSamples": 21,
+      "trajectoryLost": 8569,
+      "firedSamples": 1,
+      "ownerSamples": {
+        "none": 583,
+        "launch-macro": 9,
+        "flight-session": 96
+      }
+    },
+    {
+      "gate": "applying-started",
+      "ok": true,
+      "detail": {
+        "none": 583,
+        "launch-macro": 9,
+        "flight-session": 96
+      }
+    },
+    {
+      "gate": "driver-owned-input",
+      "ok": true,
+      "detail": {
+        "none": 583,
+        "launch-macro": 9,
+        "flight-session": 96
+      }
+    },
+    {
+      "gate": "rocket-fires-recorded",
+      "ok": true,
+      "detail": {
+        "firedSamples": 1
+      }
+    },
+    {
+      "gate": "stall-kept-flying",
+      "ok": false,
+      "detail": {
+        "stallChecked": false,
+        "stallSamples": 0,
+        "cursor": 9410
+      }
+    },
+    {
+      "gate": "ring-not-overwritten",
+      "ok": false,
+      "detail": {
+        "baselineLost": 8481,
+        "final": 8569
+      }
+    },
+    {
+      "gate": "session-terminated",
+      "ok": true,
+      "detail": {
+        "state": "TERMINATED",
+        "endReason": "no_viable_trajectory"
+      }
+    },
+    {
+      "gate": "approached-goal",
+      "ok": true,
+      "detail": {
+        "firstHalf": 216.85000000000002,
+        "lastHalf": 144.3
+      }
+    },
+    {
+      "gate": "channel-complete",
+      "ok": false,
+      "detail": {
+        "endReason": "no_viable_trajectory",
+        "completionDistance": 136.30885751071924,
+        "entryReach": 12
+      }
+    },
+    {
+      "cleanup": {
+        "revoke": {
+          "sessionId": "r2b-fixed-1789875698892",
+          "revoked": true,
+          "wasActive": false,
+          "endReason": "no_viable_trajectory"
+        },
+        "after": {
+          "state": "TERMINATED",
+          "endReason": "no_viable_trajectory",
+          "applyingStarted": true
+        }
+      }
+    },
+    {
+      "gate": "cleanup-released",
+      "ok": true,
+      "detail": {
+        "sessionId": "r2b-fixed-1789875698892",
+        "revoked": true,
+        "wasActive": false,
+        "endReason": "no_viable_trajectory"
+      }
+    },
+    {
+      "gate": "cleanup-no-drive",
+      "ok": true,
+      "detail": {
+        "state": "TERMINATED"
+      }
+    }
+  ],
+  "gates": [
+    {
+      "name": "precondition-not-busy",
+      "ok": true,
+      "detail": {
+        "launch": "idle",
+        "session": "none"
+      }
+    },
+    {
+      "name": "precondition-health",
+      "ok": true,
+      "detail": {
+        "health": 20
+      }
+    },
+    {
+      "name": "precondition-elytra",
+      "ok": true,
+      "detail": {
+        "chest": {
+          "id": "minecraft:elytra",
+          "count": 1,
+          "name": "鞘翅"
+        }
+      }
+    },
+    {
+      "name": "precondition-rockets",
+      "ok": true,
+      "detail": {
+        "rockets": 16
+      }
+    },
+    {
+      "name": "submit-accepted",
+      "ok": true,
+      "detail": {
+        "sessionId": "r2b-fixed-1789875698892",
+        "accepted": true,
+        "startedApplying": false,
+        "echo": {
+          "path": [
+            {
+              "x": -1000,
+              "y": 76,
+              "z": 30
+            },
+            {
+              "x": -950,
+              "y": 72,
+              "z": -60
+            },
+            {
+              "x": -900,
+              "y": 70,
+              "z": -150
+            }
+          ],
+          "entryReach": 12,
+          "source": "hand-written-diagnostic"
+        },
+        "pathPoints": 3,
+        "entryReach": 12
+      }
+    },
+    {
+      "name": "submit-session-id",
+      "ok": true,
+      "detail": {
+        "echo": "r2b-fixed-1789875698892"
+      }
+    },
+    {
+      "name": "applying-started",
+      "ok": true,
+      "detail": {
+        "none": 583,
+        "launch-macro": 9,
+        "flight-session": 96
+      }
+    },
+    {
+      "name": "driver-owned-input",
+      "ok": true,
+      "detail": {
+        "none": 583,
+        "launch-macro": 9,
+        "flight-session": 96
+      }
+    },
+    {
+      "name": "rocket-fires-recorded",
+      "ok": true,
+      "detail": {
+        "firedSamples": 1
+      }
+    },
+    {
+      "name": "stall-kept-flying",
+      "ok": false,
+      "detail": {
+        "stallChecked": false,
+        "stallSamples": 0,
+        "cursor": 9410
+      }
+    },
+    {
+      "name": "ring-not-overwritten",
+      "ok": false,
+      "detail": {
+        "baselineLost": 8481,
+        "final": 8569
+      }
+    },
+    {
+      "name": "session-terminated",
+      "ok": true,
+      "detail": {
+        "state": "TERMINATED",
+        "endReason": "no_viable_trajectory"
+      }
+    },
+    {
+      "name": "approached-goal",
+      "ok": true,
+      "detail": {
+        "firstHalf": 216.85000000000002,
+        "lastHalf": 144.3
+      }
+    },
+    {
+      "name": "channel-complete",
+      "ok": false,
+      "detail": {
+        "endReason": "no_viable_trajectory",
+        "completionDistance": 136.30885751071924,
+        "entryReach": 12
+      }
+    },
+    {
+      "name": "cleanup-released",
+      "ok": true,
+      "detail": {
+        "sessionId": "r2b-fixed-1789875698892",
+        "revoked": true,
+        "wasActive": false,
+        "endReason": "no_viable_trajectory"
+      }
+    },
+    {
+      "name": "cleanup-no-drive",
+      "ok": true,
+      "detail": {
+        "state": "TERMINATED"
+      }
+    }
+  ],
+  "pass": false,
+  "failed": [
+    "stall-kept-flying",
+    "ring-not-overwritten",
+    "channel-complete"
+  ]
+}

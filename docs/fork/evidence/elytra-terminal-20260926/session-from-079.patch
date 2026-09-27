@@ -1,0 +1,284 @@
+diff --git a/baseline/FlightSession.java b/D:/mcpfabric/src/client/java/dev/mcpfabric/client/flight/FlightSession.java
+index 06ea8d5..9bea05a 100644
+--- a/baseline/FlightSession.java
++++ b/D:/mcpfabric/src/client/java/dev/mcpfabric/client/flight/FlightSession.java
+@@ -48,6 +48,8 @@ public final class FlightSession {
+ 		public double inflate = 0.15;
+ 		/** 3D distance to the active entry that advances the index. */
+ 		public double entryReach = 6.0;
++		/** Final arrival radius; zero uses entryReach. Intermediate guidance keeps entryReach. */
++		public double terminalReach = 0.0;
+ 	/**
+ 	 * True when the submitted leg's end is a mid-route handover point: the
+ 	 * bounded wait after the path completes keeps the altitude instead of
+@@ -204,6 +206,11 @@ public final class FlightSession {
+ 		 */
+ 		String idAt(double x, double y, double z);
+ 
++		/** Loaded support friction; unknown physics cannot certify a landing. */
++		default double frictionAt(double x, double y, double z) {
++			return Double.NaN;
++		}
++
+ 		/**
+ 		 * Short tag of the cell's collision shape at the position
+ 		 * ({@code full}, {@code partial}, {@code empty} or {@code unknown}).
+@@ -532,12 +539,13 @@ public final class FlightSession {
+ 					int contactTick = -1;
+ 					boolean landingContact = false;
+ 					double impact = 0;
+-					for (int tick = 0; tick < ticks; tick++) {
++					int verifiedTicks = Math.max(ticks, useFire ? FlightDynamics.ROCKET_BOOST_TICKS : Math.max(0, rocketTicks));
++					for (int tick = 0; tick < verifiedTicks; tick++) {
+ 						physicsSteps += 1;
+ 						FlightDynamics.State next = FlightDynamics.step(state,
+ 								new FlightDynamics.Input(yaw, pitch, useFire && tick == 0));
+ 						if (!sweepSegmentClear(state, next)) {
+-							if (allowLanding && safeTouchdown(state, next)) {
++							if (allowLanding && safeTouchdown(state, next, yaw, pitch, verifiedTicks - tick)) {
+ 								landingContact = true;
+ 								state = next;
+ 								break;
+@@ -549,7 +557,9 @@ public final class FlightSession {
+ 						state = next;
+ 					}
+ 					if (contactTick >= 0) {
+-						if (contactTick > bestContact || (contactTick == bestContact && impact < bestImpact)) {
++						// An unverified fallback may steer, but must not commit an
++						// irreversible boost merely because it delays the collision.
++						if (!useFire && (contactTick > bestContact || (contactTick == bestContact && impact < bestImpact))) {
+ 							bestContact = contactTick;
+ 							bestImpact = impact;
+ 							emergency = new SafeFrame(yaw, pitch, useFire, 0, candidates, contactTick, true,
+@@ -567,7 +577,7 @@ public final class FlightSession {
+ 					if (!landingContact && ahead < FLARE_MARGIN && heightAbove > FLARE_MARGIN)
+ 						continue;
+ 					verified += 1;
+-					SafeFrame frame = new SafeFrame(yaw, pitch, useFire, verified, candidates, ticks, false,
++					SafeFrame frame = new SafeFrame(yaw, pitch, useFire, verified, candidates, verifiedTicks, false,
+ 							Math.abs(normalizeBearing(yaw - currentYaw)));
+ 					frame.landingContact = landingContact;
+ 					if (best == null || betterSafeFrame(frame, best, desiredYaw, desiredPitch, allowLanding))
+@@ -576,7 +586,7 @@ public final class FlightSession {
+ 			}
+ 		}
+ 		if (best != null) {
+-			SafeFrame result = new SafeFrame(best.yaw, best.pitch, best.fire, verified, candidates, ticks, false, best.offsetDegrees);
++			SafeFrame result = new SafeFrame(best.yaw, best.pitch, best.fire, verified, candidates, best.contactTicks, false, best.offsetDegrees);
+ 			result.landingContact = best.landingContact;
+ 			return result;
+ 		}
+@@ -606,8 +616,9 @@ public final class FlightSession {
+ 	}
+ 
+ 	/** Allows only a slow floor contact; the standing body and runout stay clear. */
+-	private boolean safeTouchdown(FlightDynamics.State from, FlightDynamics.State to) {
+-		if (to.vy >= 0 || to.vy < -0.45 || Math.hypot(to.vx, to.vz) > 1.6)
++	private boolean safeTouchdown(FlightDynamics.State from, FlightDynamics.State to,
++			float yaw, float pitch, int remainingTicks) {
++		if (to.rocketTicksRemaining > 0 || to.vy >= 0 || to.vy < -0.45 || Math.hypot(to.vx, to.vz) > 1.6)
+ 			return false;
+ 		double surface = surfaceBelow(to.x, to.z, from.y + 0.5);
+ 		if (from.y < surface || from.y > surface + 0.6 || to.y < surface - 0.3)
+@@ -615,24 +626,64 @@ public final class FlightSession {
+ 		// Floor inflation may touch before the feet do. Check both poses just
+ 		// above that plane to distinguish support contact from a wall/ceiling.
+ 		double raisedY = surface + params.inflate + 1.0E-5;
+-		if (!sweepSegmentClear(
+-				new FlightDynamics.State(from.x, Math.max(from.y, raisedY), from.z, 0, 0, 0, 0),
+-				new FlightDynamics.State(to.x, Math.max(to.y, raisedY), to.z, 0, 0, 0, 0)))
+-			return false;
+-		double half = params.poseHalfWidth + params.inflate;
+-		for (int step = 0; step <= 8; step++) {
+-			double px = to.x + to.vx * step * 0.5, pz = to.z + to.vz * step * 0.5;
+-			if (!boxClear(px, raisedY, pz))
++		for (int step = 0; step < remainingTicks; step++) {
++			if (to.vy >= 0 || to.vy < -0.45 || !landingSweepClear(from.x, Math.max(from.y, raisedY), from.z,
++					to.x, Math.max(to.y, raisedY), to.z) || !Double.isFinite(landingFriction(to.x, to.z, surface)))
+ 				return false;
+-			for (int bx = (int)Math.floor(px - half); bx < Math.ceil(px + half); bx++) {
+-				for (int bz = (int)Math.floor(pz - half); bz < Math.ceil(pz + half); bz++) {
+-					String support = cellAt(bx, surface - 1, bz);
+-					if (isAirLike(support) || FlightGeometry.isUnsafeSupport(support))
++			if (to.y <= surface) {
++				// Vanilla moves before applying support friction. Reserve another
++				// undamped tick for the server to clear the fall-flying flag.
++				double px = to.x, pz = to.z, vx = to.vx, vz = to.vz;
++				for (int groundTick = 0; groundTick < 24; groundTick++) {
++					double friction = landingFriction(px, pz, surface);
++					if (!Double.isFinite(friction))
+ 						return false;
++					// Substeps also check support: an airborne gap is not a runway.
++					int steps = Math.max(1, (int)Math.ceil(Math.hypot(vx, vz) / 0.2));
++					for (int part = 1; part <= steps; part++) {
++						double nx = px + vx * part / steps, nz = pz + vz * part / steps;
++						if (!Double.isFinite(landingFriction(nx, nz, surface))
++								|| !landingSweepClear(px, raisedY, pz, nx, raisedY, nz))
++							return false;
++					}
++					px += vx;
++					pz += vz;
++					if (groundTick > 0) {
++						vx *= friction * 0.91;
++						vz *= friction * 0.91;
++					}
++					if (Math.hypot(vx, vz) <= 0.05)
++						return true;
+ 				}
++				return false;
+ 			}
++			from = to;
++			physicsSteps += 1;
++			to = FlightDynamics.step(from, new FlightDynamics.Input(yaw, pitch, false));
+ 		}
+-		return true;
++		return false;
++	}
++
++	private boolean landingSweepClear(double x, double y, double z, double nx, double ny, double nz) {
++		return sweepSegmentClear(new FlightDynamics.State(x, y, z, 0, 0, 0, 0),
++				new FlightDynamics.State(nx, ny, nz, 0, 0, 0, 0));
++	}
++
++	/** Require support under the entire inflated body; use the slowest braking material. */
++	private double landingFriction(double x, double z, double surface) {
++		double half = params.poseHalfWidth + params.inflate;
++		double friction = 0;
++		for (int bx = (int)Math.floor(x - half); bx < Math.ceil(x + half); bx++) {
++			for (int bz = (int)Math.floor(z - half); bz < Math.ceil(z + half); bz++) {
++				if (FlightGeometry.isUnsafeSupport(cellAt(bx, surface - 1, bz)))
++					return Double.NaN;
++				double value = blocks.frictionAt(bx, surface - 1, bz);
++				if (!Double.isFinite(value) || value <= 0 || value >= 1)
++					return Double.NaN;
++				friction = Math.max(friction, value);
++			}
++		}
++		return friction;
+ 	}
+ 
+ 	/** The clearance ahead of a predicted end state along a heading. */
+@@ -758,6 +809,15 @@ public final class FlightSession {
+ 		return params.entryReach;
+ 	}
+ 
++	/** Final arrival radius after applying the channel's optional tighter bound. */
++	public double terminalReach() {
++		return params.terminalReach > 0 ? Math.min(params.terminalReach, params.entryReach) : params.entryReach;
++	}
++
++	private double arrivalReach(int cursor) {
++		return cursor == path.size() - 1 ? terminalReach() : params.entryReach;
++	}
++
+ 	/**
+ 	 * The waypoint the session steers to. {@code entryIndex} points at the
+ 	 * first waypoint not yet reached, so the first entry is never skipped
+@@ -1157,14 +1217,26 @@ public final class FlightSession {
+ 		// check is never cut short (ab-24 audit section 4: an unconditional
+ 		// horizon+6 wasted a fifth of every candidate's physics).
+ 		int maxTicks = params.horizonTicks + TERMINAL_LOOKAHEAD_TICKS;
++		int screeningTicks = params.horizonTicks;
++		double remaining = cumulative[path.size() - 1] - progressOf(entryIndex, state);
++		double boostedSpeed = FlightDynamics.ROCKET_TARGET_SPEED
++				+ FlightDynamics.ROCKET_BASE_ACCEL / FlightDynamics.ROCKET_PULL;
++		if (params.stopAtEnd && remaining <= Math.max(Math.hypot(vx, vz), boostedSpeed)
++				* (FlightDynamics.ROCKET_BOOST_TICKS + params.horizonTicks)) {
++			// Thrust cannot be cancelled. A stop approach must screen the
++			// complete powered interval, not hide its tail beyond 20 ticks.
++			// The same 12 ms budget still applies; incomplete work is undecided.
++			screeningTicks = Math.max(screeningTicks, fire ? FlightDynamics.ROCKET_BOOST_TICKS : rocketTicksRemaining);
++			maxTicks = screeningTicks + TERMINAL_LOOKAHEAD_TICKS;
++		}
+ 		for (int tick = 0; tick < maxTicks; tick++) {
+-			if (tick >= params.horizonTicks && !arrived)
++			if (tick >= screeningTicks && !arrived)
+ 				break;
+ 			// Missing a terminal arrival volume is not completion. Do not turn
+ 			// back across the route to chase it; let the controller recover.
+ 			if (cursor == path.size() - 1 && beyondHorizontalPlane(cursor, state.x, state.y, state.z)) {
+ 				Waypoint terminal = path.get(cursor);
+-				if (dist3(terminal.x() - state.x, terminal.y() - state.y, terminal.z() - state.z) > params.entryReach) {
++				if (dist3(terminal.x() - state.x, terminal.y() - state.y, terminal.z() - state.z) > terminalReach()) {
+ 					rejectTerminal += 1;
+ 					recordFirstReject("terminal_missed", tick, state.x, state.y, state.z, "");
+ 					return null;
+@@ -1230,7 +1302,7 @@ public final class FlightSession {
+ 				// plane-completed (ab-24 audit section 5).
+ 				while (cursor < path.size()) {
+ 					Waypoint entry = path.get(cursor);
+-					if (dist3(entry.x() - state.x, entry.y() - state.y, entry.z() - state.z) <= params.entryReach) {
++					if (dist3(entry.x() - state.x, entry.y() - state.y, entry.z() - state.z) <= arrivalReach(cursor)) {
+ 						cursor += 1;
+ 						continue;
+ 					}
+@@ -1273,18 +1345,23 @@ public final class FlightSession {
+ 		// hold — may fire and climb; the lookahead only screens collisions).
+ 		double checkedMinY = arrived ? arrivedMinY : minY;
+ 		double clearance = arrived ? ARRIVAL_SURFACE_CLEARANCE : CONTINUE_CLEARANCE;
++		// A slow, unpowered final approach may descend below the cruise
++		// energy reserve over solid support. This never allows body contact:
++		// the full trajectory has already passed both collision sweeps.
++		if (!arrived && permitsStopDescent(state, rocketPlanned))
++			clearance = ARRIVAL_SURFACE_CLEARANCE;
+ 		double floorY = Math.max(
+ 			arrived ? Double.NEGATIVE_INFINITY : routeLowerBound - CHANNEL_LOWER_SLACK,
+ 			surfaceBelow(state.x, state.z, state.y) + clearance);
+ 		double sinkLimit = Math.min(y, floorY) - CONTINUE_FLOOR_TOLERANCE;
+ 		if (checkedMinY < sinkLimit) {
+ 			rejectFloor += 1;
+-			recordFirstReject(arrived ? "arrival_floor" : "floor", params.horizonTicks, state.x, checkedMinY, state.z, "");
++			recordFirstReject(arrived ? "arrival_floor" : "floor", screeningTicks, state.x, checkedMinY, state.z, "");
+ 			return null;
+ 		}
+ 		if (Math.hypot(arrived ? arrivedVx : state.vx, arrived ? arrivedVz : state.vz) < CONTINUE_SPEED) {
+ 			rejectSpeed += 1;
+-			recordFirstReject(arrived ? "arrival_speed" : "speed", params.horizonTicks, state.x, state.y, state.z, "");
++			recordFirstReject(arrived ? "arrival_speed" : "speed", screeningTicks, state.x, state.y, state.z, "");
+ 			return null;
+ 		}
+ 		String terminalAction = arrived ? (holdGraceMs > 0 ? "unverified" : "land") : "none";
+@@ -1330,6 +1407,34 @@ public final class FlightSession {
+ 		return candidate;
+ 	}
+ 
++	/** A local descent envelope, distinct from actual touchdown authorization. */
++	private boolean permitsStopDescent(FlightDynamics.State end, boolean fired) {
++		if (!params.stopAtEnd || fired || end.rocketTicksRemaining > 0
++				|| Math.hypot(end.vx, end.vz) > 1.0 || end.vy > 0 || end.vy < -0.45)
++			return false;
++		Waypoint goal = path.get(path.size() - 1);
++		// At most two screening horizons at the approach speed ceiling.
++		if (Math.hypot(end.x - goal.x(), end.z - goal.z()) > params.horizonTicks * 2.0)
++			return false;
++		return supportedApproachFootprint(end.x, end.y, end.z, CONTINUE_CLEARANCE)
++				&& supportedApproachFootprint(goal.x(), goal.y(), goal.z(), 2.0)
++				&& boxClear(goal.x(), goal.y(), goal.z());
++	}
++
++	/** Every footprint column needs known safe support within the descent envelope. */
++	private boolean supportedApproachFootprint(double x, double y, double z, double maxHeight) {
++		double half = params.poseHalfWidth + params.inflate;
++		for (int bx = (int)Math.floor(x - half); bx < Math.ceil(x + half); bx++) {
++			for (int bz = (int)Math.floor(z - half); bz < Math.ceil(z + half); bz++) {
++				double surface = surfaceBelow(bx + .5, bz + .5, y);
++				if (y < surface + params.inflate || y - surface > maxHeight
++						|| FlightGeometry.isUnsafeSupport(cellAt(bx, surface - 1, bz)))
++					return false;
++			}
++		}
++		return true;
++	}
++
+ 	/** The local reference of the simulated progress: entry, or the hold target. */
+ 	private Waypoint referenceFor(int cursor, FlightDynamics.State state) {
+ 		if (cursor < path.size())
+@@ -2060,7 +2165,7 @@ public final class FlightSession {
+ 		// it was ever reached (R2b fix).
+ 		while (entryIndex < path.size()) {
+ 			Waypoint waypoint = path.get(entryIndex);
+-			if (dist3(waypoint.x() - x, waypoint.y() - y, waypoint.z() - z) <= params.entryReach) {
++			if (dist3(waypoint.x() - x, waypoint.y() - y, waypoint.z() - z) <= arrivalReach(entryIndex)) {
+ 				entryIndex += 1;
+ 				continue;
+ 			}

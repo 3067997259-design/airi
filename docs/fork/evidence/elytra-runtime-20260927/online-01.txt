@@ -1,0 +1,1 @@
+0 -893.618 70.238 -190.233  snapshot:491/60025 result=none seq=none applicable=false budget=true note=eval=0 ok=0 sim=24ms reject[c=0,f=0,s=0,ta=0] search_incomplete reason=time evaluated=0/40

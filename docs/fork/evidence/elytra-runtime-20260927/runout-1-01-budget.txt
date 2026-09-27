@@ -1,0 +1,17 @@
+[
+  {
+    "tick": 999,
+    "p": {
+      "x": -984.5,
+      "y": 64.32900804186441,
+      "z": -48.5
+    },
+    "sim": 30,
+    "pre": 1652,
+    "order": 2501,
+    "candidate": 13809,
+    "selection": 1096,
+    "reservation": 4,
+    "policy": "+15:PULL_UP:glide"
+  }
+]

@@ -1,0 +1,93 @@
+[
+  {
+    "scenario": "A-observe",
+    "first": {
+      "tick": 246,
+      "phase": "end-client-tick",
+      "dimension": "minecraft:overworld",
+      "boost": {
+        "attached": false,
+        "remainingTicks": 0,
+        "remainingSource": "launch-bookkeeping-35t"
+      },
+      "session": {
+        "state": "none",
+        "applyingStarted": false
+      }
+    },
+    "second": {
+      "tick": 246
+    },
+    "tickAdvanced": false
+  },
+  {
+    "scenario": "B1-accept",
+    "accepted": true,
+    "startedApplying": false,
+    "sessionId": "r2a-live-1789868231464"
+  },
+  {
+    "scenario": "B2-stale-generation",
+    "accepted": false,
+    "reason": "stale_generation",
+    "expectedGeneration": 1
+  },
+  {
+    "scenario": "B3-idempotent-resubmit",
+    "idempotent": true,
+    "accepted": true
+  },
+  {
+    "scenario": "B4-status",
+    "state": "ACCEPTED",
+    "applyingStarted": false,
+    "trajectoryLength": 10,
+    "trajectoryLost": 0
+  },
+  {
+    "scenario": "C-ignition-dedup",
+    "firstFired": true,
+    "firstHand": "main",
+    "rocketsBefore": 684,
+    "rocketsMid": 684,
+    "rocketsAfter": 684,
+    "secondFired": true,
+    "secondIsReplay": true,
+    "rocketDeltaFirst": 0,
+    "rocketDeltaSecond": 0
+  },
+  {
+    "scenario": "D1-launch-handover",
+    "launchPhase": "prepare",
+    "launchTicks": 0,
+    "fireworksUsed": 0,
+    "handedGliding": false,
+    "boostAfterLaunch": {
+      "attached": false,
+      "remainingTicks": 0,
+      "remainingSource": "launch-bookkeeping-35t"
+    },
+    "launchFacts": {
+      "deployed": true,
+      "boostSeen": true
+    }
+  },
+  {
+    "scenario": "D2-trajectory-ring",
+    "samples": 77,
+    "lost": 0,
+    "capacity": 600,
+    "ignitionMarkers": 1
+  },
+  {
+    "scenario": "D3-revoke",
+    "revoked": true,
+    "wasActive": true,
+    "endReason": "revoked"
+  },
+  {
+    "scenario": "D4-terminal",
+    "state": "TERMINATED",
+    "endReason": "revoked"
+  }
+]

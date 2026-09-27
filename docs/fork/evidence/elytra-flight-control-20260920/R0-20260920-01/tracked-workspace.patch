@@ -1,0 +1,439 @@
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-corridor.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-corridor.test.ts
+index 5b842e1fc..1b17dd2ef 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-corridor.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-corridor.test.ts
+@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
+ import { corridorReachesGoal, createLiveCorridorPort, LIVE_CORRIDOR_DOWN, LIVE_CORRIDOR_RADIUS, LIVE_CORRIDOR_REPLAN_MS, LIVE_CORRIDOR_UP, planLiveCorridor } from './live-corridor'
+ import { FLIGHT_PROFILE_1_21_1 } from './profile'
+ 
+-const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false }
++const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true }
+ 
+ /** Floor level of the scripted world; everything above it is air. */
+ const FLOOR_Y = 80
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-port.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-port.test.ts
+index 1b00d504e..ef7754b79 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-port.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/live-port.test.ts
+@@ -39,7 +39,7 @@ describe('fireworkStateSince', () => {
+ })
+ 
+ describe('planLiveFlightControl', () => {
+-  const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false }
++  const planner = { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true }
+ 
+   function stateOf(position: { x: number, y: number, z: number }) {
+     return {
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.test.ts
+index 1008568c7..9067eb16a 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.test.ts
+@@ -183,15 +183,16 @@ describe('planLowRoute', () => {
+     expect(plan.bandY).toBeLessThan(70)
+   })
+ 
+-  it('caps the scan under a roof over the goal', async () => {
+-    // Live 2026-09-19 (E-02 canyon): the endpoint sits in a roofed cave at
+-    // y=65 under glass at y=85. The roofY cap enters every column from below
+-    // the roof, so even a glider at y=130 plans a band it can hold under the
+-    // roof instead of overflying the glass.
++  it('plans at the goal altitude even from far above it (goal-anchored, no roof needed)', async () => {
++    // Live 2026-09-19 (E-02 canyon): the endpoint sits at y=65 while the
++    // glider climbs to y=130+. The goal-anchored scan enters every column at
++    // goal.y + 1 regardless of her altitude, so the plan holds the goal's
++    // band; the roof probe is NOT needed for the route layer (the goal chunk
++    // is usually unloaded at launch, which used to gate the anchoring off).
+     const { port } = fakePort({ ceilingFrom: 200 })
+-    const plan = await planLowRoute({ port, self: { x: 0, y: 130, z: 0 }, goal: { x: 0, y: 65, z: 380 }, roofY: 85 })
++    const plan = await planLowRoute({ port, self: { x: 0, y: 130, z: 0 }, goal: { x: 0, y: 65, z: 380 } })
+     expect(plan.status).toBe('planned')
+-    expect(plan.bandY).toBeLessThanOrEqual(84)
++    expect(plan.bandY).toBeLessThanOrEqual(67)
+   })
+ })
+ 
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.ts
+index c5138b6e0..4156d86d0 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/low-route.ts
+@@ -349,8 +349,6 @@ export async function planLowRoute(input: {
+   port: MovementControlPort
+   self: Vec3
+   goal: Vec3
+-  /** Lowest solid roof over the goal when it sits under one; caps the scan. */
+-  roofY?: number
+   span?: number
+   step?: number
+   halfWidth?: number
+@@ -375,20 +373,23 @@ export async function planLowRoute(input: {
+   const dirZ = Math.cos(yawRad)
+   const centerY = Math.floor(input.self.y)
+   /**
+-   * A goal under a roof anchors the whole strategic scan to the goal's own
+-   * altitude (user insight, 2026-09-19): every column is entered at
+-   * goal.y + 1, not the glider's altitude, so the scan finds the air pocket
+-   * that CONTAINS the goal's level — the cave interior, the river channel,
+-   * or whichever slot the goal itself sits in. This eliminates the "which
+-   * sub-roof pocket?" ambiguity entirely: the goal's altitude disambiguates.
++   * The whole strategic scan is anchored to the goal's own altitude (user
++   * insight, 2026-09-19): every column is entered at goal.y + 1, never the
++   * glider's altitude, so the scan finds the air pocket that CONTAINS the
++   * goal's level — the cave interior, the river channel, or whichever slot
++   * the goal itself sits in. The goal's altitude disambiguates which pocket
++   * is the route.
+    *
+-   * Replaces the earlier roofY cap (min(centerY, roofY-1)) and the
+-   * preferSubRoofSlot mechanism; both tried to guess the right pocket from
+-   * the glider's perspective and picked wrong ones (ceiling tops,
+-   * underground caves).
++   * 2026-09-19 later finding: the anchoring MUST NOT be gated on the roof
++   * probe. The goal chunk is usually unloaded at launch (the server-side read
++   * only covers chunks within a player's view distance), so a roofY-gated
++   * anchor fell back to the glider's altitude and planned high bands (91,
++   * 108) over the canyon while the river channel waited at 64. The goal's
++   * altitude comes from the command and is always known; the roof probe is
++   * only for the arrival check, which retries near the goal.
+    */
+-  const scanY = input.roofY !== undefined ? Math.floor(input.goal.y) + 1 : centerY
+-  const startBandY = input.roofY !== undefined ? Math.floor(input.goal.y) + 2 : centerY
++  const scanY = Math.floor(input.goal.y) + 1
++  const startBandY = Math.floor(input.goal.y) + 2
+   const topY = centerY + rise
+   /**
+    * The vertical window follows the read's own footprint.
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/profile.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/profile.ts
+index 29aef5cd4..881d2af05 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/profile.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/flight/profile.ts
+@@ -180,6 +180,8 @@ export interface FlightPlannerSwitch {
+   enabled: boolean
+   profile: FlightProfile
+   calibrated: boolean
++  /** False when the config asked for the route layers without the per-poll rollout replacement. */
++  rolloutOn: boolean
+ }
+ 
+ /**
+@@ -196,7 +198,7 @@ export interface FlightPlannerSwitch {
+  * // => undefined
+  */
+ export function resolveFlightPlannerSwitch(
+-  flight: { planner?: 'off' | 'on', calibrated?: boolean } | undefined,
++  flight: { planner?: 'off' | 'on', rollout?: 'on' | 'off', calibrated?: boolean } | undefined,
+   minecraftVersion: string,
+ ): FlightPlannerSwitch | undefined {
+   if (flight?.planner !== 'on')
+@@ -204,5 +206,10 @@ export function resolveFlightPlannerSwitch(
+   const resolution = resolveFlightProfile(minecraftVersion)
+   if (!resolution.ok)
+     return undefined
+-  return { enabled: true, profile: resolution.profile, calibrated: flight.calibrated === true }
++  return {
++    enabled: true,
++    profile: resolution.profile,
++    calibrated: flight.calibrated === true,
++    rolloutOn: flight.rollout !== 'off',
++  }
+ }
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/air-track.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/air-track.test.ts
+index 891e98d6c..1c40c856b 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/air-track.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/air-track.test.ts
+@@ -263,7 +263,7 @@ describe('runAirTrackMove', () => {
+     let reads = 0
+     const result = await runAirTrackMove({
+       port,
+-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
++      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
+       readTarget: async () => {
+         reads += 1
+         return reads > 10
+@@ -283,7 +283,7 @@ describe('runAirTrackMove', () => {
+     let reads = 0
+     const result = await runAirTrackMove({
+       port,
+-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
++      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
+       world: { worldId: 'world-1', dimension: 'minecraft:overworld', mapVersion: 'live' },
+       readTarget: async () => {
+         reads += 1
+@@ -305,7 +305,7 @@ describe('runAirTrackMove', () => {
+     let reads = 0
+     const result = await runAirTrackMove({
+       port,
+-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
++      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
+       world: { worldId: 'world-1', dimension: 'minecraft:overworld', mapVersion: 'live' },
+       readTarget: async () => {
+         reads += 1
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/e02-route.integration.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/e02-route.integration.test.ts
+index 3b98d4841..5474751bf 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/e02-route.integration.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/e02-route.integration.test.ts
+@@ -148,6 +148,7 @@ describe.runIf(Boolean(liveUrl))('river canyon route (E-02 live)', () => {
+       const flightPlanner = resolveFlightPlannerSwitch(
+         {
+           planner: (process.env.E02_PLANNER ?? 'on') as 'off' | 'on',
++          rollout: (process.env.E02_ROLLOUT ?? 'on') as 'on' | 'off',
+           calibrated: process.env.E02_CALIBRATED !== 'false',
+         },
+         FLIGHT_PROFILE_VERSION,
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts
+index ddd9a7559..edf10a0c4 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts
+@@ -843,7 +843,7 @@ describe('runElytraMove', () => {
+     const result = await runElytraMove({
+       port,
+       goal,
+-      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false },
++      flightPlanner: { enabled: true, profile: FLIGHT_PROFILE_1_21_1, calibrated: false, rolloutOn: true },
+       deps: FAST,
+     })
+     expect(result.lowRoute).toBeDefined()
+diff --git a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.ts b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.ts
+index dc77242b7..fa57bb73f 100644
+--- a/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.ts
++++ b/apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.ts
+@@ -34,7 +34,7 @@ import { errorMessageFrom } from '@moeru/std'
+ import { evaluatePatch, lowestRoofAboveGoal } from '../flight/landing-site'
+ import { createLiveCorridorPort } from '../flight/live-corridor'
+ import { planLiveFlightControl } from '../flight/live-port'
+-import { LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
++import { LOW_ROUTE_DESCENT_STEP, LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
+ import { classifyTouchdown } from '../flight/touchdown'
+ import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
+ import { launchFromGround } from './launch'
+@@ -262,12 +262,43 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+ 
+   // 4. Cruise and land. A worn suit turns the flight into an early landing;
+   // the mover never cruises on an elytra that may break mid-air.
++  /** Lowest solid block over the goal, probed once; landing above it is not arrival. */
++  let goalRoofY: number | undefined
++  let goalRoofProbed = false
++  // The goal's roof is probed before the cruise band is built: the band
++  // initialisation consumes it, and the low-route scan enters every column
++  // below it (E-02 canyon gap 1 — she used to overfly the cave glass). An
++  // unloaded chunk leaves the roof unknown; the pre-finish and resolveLanding
++  // call sites retry once her own presence has loaded the column.
++  {
++    const probe = await probeGoalRoof(port, goal, debug)
++    if (probe.covered) {
++      goalRoofY = probe.roofY
++      goalRoofProbed = true
++    }
++  }
++
+   let reason: LandingReason = equip.lowDurability ? 'safety' : 'goal'
+   let phase: FlightPhase = equip.lowDurability ? 'safety-landing' : 'cruise'
+-  let cruiseY = Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
++  /**
++   * The cruise band starts at the goal-anchored route band when the planner
++   * is on: that band (goal.y + 2) is known a priori from the command and is
++   * what every low-route replan will anchor to, so the pitch law descends
++   * from the very first poll. ROOT CAUSE (live, 2026-09-19): starting at
++   * goal.y + 30 made her climb toward 95 while the route waited at 66, and
++   * the ratchet (stale-window scans, corridor aims) kept her at 150+. Without
++   * the planner the classic +30 offset stays (open-terrain heuristic trips).
++   * The roof cap below still applies when the probe has covered the column.
++   */
++  const plannerOn = options.flightPlanner?.enabled === true
++  let cruiseY = plannerOn
++    ? Math.min(goal.y + 2, goalRoofY ?? Number.POSITIVE_INFINITY)
++    : goalRoofY !== undefined
++      ? Math.min(goal.y + CRUISE_BAND_ABOVE, goalRoofY)
++      : Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
+   let lastFireworkAt = 0
+   /** CD-E B0: rollout planner for the cruise phase; absent keeps the heuristics. */
+-  const planner = options.flightPlanner?.enabled === true ? options.flightPlanner : undefined
++  const planner = plannerOn === true ? options.flightPlanner : undefined
+   /**
+    * CD-E2 corridor for the cruise phase (B0 item 2 remainder).
+    *
+@@ -316,24 +347,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+   let landingResolved = false
+   /** True when no verified support area existed; an unverified point is not a site. */
+   let noReachableLanding = false
+-  /** Lowest solid block over the goal, probed once; landing above it is not arrival. */
+-  let goalRoofY: number | undefined
+-  let goalRoofProbed = false
+   /** E-02 venue gap 2: how the long-route layer participated, typed into the result. */
+   let lowRouteUsed = false
++  /** Band of the last successful plan; held through temporary refusals. */
++  let lastRouteBand: number | undefined
+   let lowRouteReplans = 0
+   let lowRouteRefusals = 0
+   let lowRouteLastRefusal: 'blocked' | 'read_failed' | undefined
+-  // The goal's roof caps the strategic route from the first plan: probe once
+-  // before the cruise so every low-route scan enters the columns below it
+-  // (E-02 canyon gap 1, success half — she used to overfly the cave glass).
+-  {
+-    const probe = await probeGoalRoof(port, goal, debug)
+-    if (probe.covered) {
+-      goalRoofY = probe.roofY
+-      goalRoofProbed = true
+-    }
+-  }
+ 
+   /**
+    * Resolves the landing aim once. A verified site steers the glider; when no
+@@ -516,11 +536,12 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+         const routeReached = lowRoute !== undefined
+           && horizontalDistance(state.position, lowRoute.waypoint) <= LOW_ROUTE_WAYPOINT_REACH
+         if (routeStale || routeReached) {
+-          const plan = await planLowRoute({ port, self: state.position, goal, ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}) })
++          const plan = await planLowRoute({ port, self: state.position, goal })
+           lowRouteAt = now()
+           if (plan.status === 'planned' && plan.waypoint) {
+             lowRoute = { waypoint: plan.waypoint, bandY: plan.bandY ?? plan.waypoint.y }
+             lowRouteUsed = true
++            lastRouteBand = lowRoute.bandY
+             lowRouteReplans += 1
+             debug?.(`elytra low-route waypoint ${plan.waypoint.x.toFixed(0)},${plan.waypoint.y.toFixed(0)},${plan.waypoint.z.toFixed(0)} band=${(plan.bandY ?? plan.waypoint.y).toFixed(0)} reached=${plan.reached}`)
+           }
+@@ -537,40 +558,38 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+         }
+       }
+       let target = phase === 'cruise' ? (lowRoute?.waypoint ?? goal) : landingPoint
+-      // The band follows the route's altitude, not a fixed offset above the goal.
+-      if (phase === 'cruise' && lowRoute)
+-        cruiseY = Math.max(lowRoute.bandY + LOW_ROUTE_BAND_MARGIN, Math.min(cruiseY, state.position.y))
++      // The route band LEADS the descent instead of ratcheting to her
++      // altitude. ROOT CAUSE (live, 2026-09-19): the old construction
++      // max(bandY + margin, min(cruiseY, y)) glued the band to her current
++      // altitude, so the route's low band (66) could never pull her down —
++      // she stayed at whatever height the launch and stale-window scans had
++      // ratcheted her to (75 → 110 → 139) and arrived at the goal 80 blocks
++      // too high. The band is now the route's own altitude; the pitch law
++      // converts the gap into a nose-down angle, and the descent-step cap
++      // bounds how fast the band itself may drop.
++      if (phase === 'cruise' && lowRoute) {
++        const routeBand = lowRoute.bandY + LOW_ROUTE_BAND_MARGIN
++        cruiseY = Math.max(routeBand, cruiseY - LOW_ROUTE_DESCENT_STEP)
++      }
+       // A goal under a roof caps the cruise band: the approach must enter the
+       // cave mouth, and the band cannot sit above the roof while the glider
+       // still needs to descend under it (live 2026-09-19: without the cap the
+       // band followed the canyon wall upward and she overflew east 300 blocks).
+       if (phase === 'cruise' && goalRoofY !== undefined && reason === 'goal')
+         cruiseY = Math.min(cruiseY, goalRoofY)
+-      // CD-E2: on the cruise leg the coarse corridor owns the near-field route
+-      // hint. A route point replaces the direct goal so the rollout plans around
+-      // terrain it can see; any refusal (unknown window, no route, failed read)
+-      // keeps the direct goal, because unknown space is not a route.
+-      if (corridor && phase === 'cruise') {
+-        // The corridor answers the NEAR field: its target is the fresh
+-        // long-route waypoint when one exists (usually inside the window), so
+-        // it never guesses clamped exits for a goal hundreds of blocks out.
+-        // Live 2026-09-19: aiming at the far goal picked west-corner window
+-        // exits and spiralled two canyon runs off-course.
+-        const corridorTarget = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+-          ? lowRoute.waypoint
+-          : goal
+-        const routeAim = await corridor.step(state.position, corridorTarget)
++      // CD-E2: the coarse corridor owns the near-field route hint, but ONLY
++      // while the long-route layer has no fresh plan. ROOT CAUSE (live,
++      // 2026-09-19): with a fresh route the corridor's internal grid still
++      // planned vertical detours (aims at y=137, 165 over a band-66 route) and
++      // the rollout chased them up to y=174; the goal-anchored route owns the
++      // whole path when it exists. A corridor aim also never commands a climb:
++      // it is a lateral avoidance layer and the route band owns altitude.
++      const routeFresh = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
++      if (corridor && phase === 'cruise' && !routeFresh) {
++        const routeAim = await corridor.step(state.position, goal)
+         if (routeAim) {
+-          // The corridor is a LATERAL avoidance layer; the low-route band owns
+-          // altitude. Live 2026-09-19: an unclamped corridor aim at y=163 made
+-          // the rollout chase the corridor's own upward detour to y=166, where
+-          // stale chunk reads turned into unknown cells and the grid routed
+-          // west around them. The corridor may command descent, never climb.
+-          const aimY = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+-            ? Math.min(routeAim.y, state.position.y)
+-            : routeAim.y
+-          target = { x: routeAim.x, y: aimY, z: routeAim.z }
+-          debug?.(`elytra corridor aim ${routeAim.x.toFixed(1)},${aimY.toFixed(1)},${routeAim.z.toFixed(1)}`)
++          target = { x: routeAim.x, y: Math.min(routeAim.y, state.position.y), z: routeAim.z }
++          debug?.(`elytra corridor aim ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)}`)
+         }
+         else if (corridor.status() !== 'planned') {
+           const reason = corridor.refusal?.()
+@@ -598,7 +617,19 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+        * must not overrule it; a block immediately ahead still does.
+        */
+       const lowRouteFresh = phase === 'cruise' && lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+-      cruiseY = lowRouteFresh ? cruiseY : scan.cruiseY
++      // Band sources, in order: a fresh route leads the descent; without one,
++      // a mission that HAS flown a route holds its last known band — a
++      // temporary plan refusal must not rocket her into the canyon ceiling
++      // (live 2026-09-19: the TTL replan refused once, the scan raised the
++      // band, and she climbed into the wall at t=6s, twice). The scan's raise
++      // only applies to flights that never had a route (open-terrain
++      // heuristic trips).
++      if (lowRouteFresh)
++        cruiseY = cruiseY
++      else if (lowRouteUsed && lastRouteBand !== undefined)
++        cruiseY = Math.max(lastRouteBand, cruiseY - LOW_ROUTE_DESCENT_STEP)
++      else
++        cruiseY = scan.cruiseY
+       const obstacleDistance = scan.obstacleDistance
+       const emergency = obstacleDistance !== undefined && obstacleDistance <= TERRAIN_GUARD_DISTANCE
+ 
+@@ -610,7 +641,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+         // go-around, flare and safety keep the audited heuristics until
+         // E-02/E-03 wire their lifecycle counterparts.
+         let applied: LiveFlightControl | undefined
+-        if (planner) {
++        if (planner && planner.rolloutOn) {
+           applied = await planLiveFlightControl({ planner, port, state, poll: pollIndex, fireworks, health: state.health ?? 20, goal: target, lastRocketAt: lastFireworkAt === 0 ? undefined : lastFireworkAt, now })
+           if (!applied)
+             debug?.('elytra rollout fell back to heuristics')
+@@ -621,9 +652,16 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+           wantThrust = applied.useRocket
+         }
+         else {
+-          // Climb over anything close ahead; the scan may only see terrain at
+-          // the last safe distance, so the nose-up must be decisive.
+-          const climbing = state.position.y < cruiseY - 4 || emergency
++          // Climb over anything close ahead — but only while the flight has
++          // no route contract. ROOT CAUSE (live, 2026-09-19, the extended
++          // ceiling fixture): the scan reads the obsidian ceiling at her
++          // altitude as "obstacle ahead" and the emergency response climbs
++          // OVER it, while the goal-anchored route has already verified air
++          // at band 66 through that same ceiling — she must fly UNDER. Once
++          // the mission has a route, vertical decisions belong to the route
++          // band; the scan keeps its obstacleDistance for the landing path.
++          const climbing = state.position.y < cruiseY - 4
++            || (emergency && !lowRouteUsed)
+           // A large surplus is dived away, not waited away: the elytra trades
+           // height for speed, and the old 35-degree ceiling made the mover arrive
+           // over a goal under a roof with 20-50 blocks it could not lose (live
+@@ -631,7 +669,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
+           const surplus = state.position.y - cruiseY
+           const diveCeiling = surplus > 12 ? DIVE_PITCH : 35
+           pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, diveCeiling)
+-          wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
++          wantThrust = (climbing && !lowRouteUsed) || horizontalSpeed(state) < MIN_CRUISE_SPEED
+         }
+       }
+       else if (phase === 'go-around') {
+diff --git a/apps/stage-tamagotchi/src/shared/eventa/game-host.ts b/apps/stage-tamagotchi/src/shared/eventa/game-host.ts
+index 97483f72c..a85c52c65 100644
+--- a/apps/stage-tamagotchi/src/shared/eventa/game-host.ts
++++ b/apps/stage-tamagotchi/src/shared/eventa/game-host.ts
+@@ -20,6 +20,16 @@ import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
+  */
+ export interface GameHostFlightConfig {
+   planner: 'off' | 'on'
++  /**
++   * Per-poll rollout replacement of the cruise heuristics (B0). Default `on`
++   * while `planner: 'on'`. Live calibration 2026-09-19 split it from the
++   * planner switch: the goal-anchored low route and the heuristic cruise with
++   * a leading band proved correct on the canyon venue, while the rollout's
++   * relative altitude window (y-4..y+12) resists dive candidates and its
++   * cruise leg needs E-02 calibration — `rollout: 'off'` runs the route
++   * layers with the heuristic pitch law.
++   */
++  rollout?: 'on' | 'off'
+   /** True only after the E-01 residual calibration is registered PASS. */
+   calibrated?: boolean
+   /**

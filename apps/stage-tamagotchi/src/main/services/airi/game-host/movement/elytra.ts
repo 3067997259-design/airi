@@ -25,16 +25,18 @@
  */
 import type { LandingSite } from '../flight/landing-site'
 import type { LiveFlightControl } from '../flight/live-port'
-import type { MovementControlPort, MovementState } from './port'
+import type { FlightChannelSample, MovementControlPort, MovementState } from './port'
 import type { Vec3 } from './types'
 import type { VehicleMoveOptions, VehicleMoveResult } from './vehicle'
+import type { ChannelLegRecord } from './vehicle-port'
 
 import { errorMessageFrom } from '@moeru/std'
 
+import { createFlightChannelRunner } from '../flight/channel'
 import { evaluatePatch, lowestRoofAboveGoal } from '../flight/landing-site'
 import { createLiveCorridorPort } from '../flight/live-corridor'
 import { planLiveFlightControl } from '../flight/live-port'
-import { LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
+import { LOW_ROUTE_DESCENT_STEP, LOW_ROUTE_HOLD_MS, LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
 import { classifyTouchdown } from '../flight/touchdown'
 import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
 import { launchFromGround } from './launch'
@@ -76,6 +78,19 @@ const LOW_ROUTE_BAND_MARGIN = 2
 const TERRAIN_GUARD_DISTANCE = 12
 /** The final flare starts only this close to the aim point. */
 const FLARE_DISTANCE = 16
+/**
+ * Approach-entry gate (R4). The 80-block radius is only a candidate trigger:
+ * entry also needs alignment with the aim, a speed the flare can bleed, a
+ * position under the roof that caps the goal, and enough height to glide the
+ * remaining distance. Each refusal names its condition so the receipt and the
+ * trail say why the cruise kept flying.
+ */
+/** Heading error over which the entry is refused; she turns first. */
+const APPROACH_ALIGN_DEG = 60
+/** Horizontal speed over which the flare cannot settle, blocks/tick. */
+const APPROACH_MAX_SPEED = 1.1
+/** Short-final distance where alignment and speed no longer gate the entry. */
+const APPROACH_SHORT_FINAL = FLARE_DISTANCE * 2
 /** Terrain scan window along the heading, in blocks. */
 const SCAN_FROM = 8
 const SCAN_TO = 48
@@ -145,6 +160,90 @@ const WORN_ELYTRA_RATIO = 0.75
 /** Worn this far without a backup, the mover refuses to take off at all. */
 const BROKEN_ELYTRA_RATIO = 0.9
 
+/**
+ * Channel-mode constants (R3). The client drives per tick; the host only
+ * exchanges channels and reads receipts, so its cadence is receipt-paced, not
+ * control-paced.
+ */
+/** Wall-clock ms between two channel status polls. */
+const CHANNEL_POLL_MS = 500
+/** Waypoint advance radius sent with the channel path, in blocks. */
+const CHANNEL_ENTRY_REACH = 8
+/** Replans (revisions) one flight may spend before it must land. */
+const CHANNEL_MAX_REVISIONS = 3
+/**
+ * Normal frontier continuations one flight may spend. A long route crossing
+ * several read windows is progress, not failure, so it must not consume the
+ * failure budget above (R4 review 2026-09-20).
+ */
+const CHANNEL_MAX_CONTINUATIONS = 12
+/**
+ * Distance to the local frontier that starts planning the next leg, in blocks.
+ * The plan then overlaps the current leg instead of running after it, which is
+ * where the 44-tick unowned glide came from (R4 review 2026-09-20).
+ */
+const CHANNEL_PREFETCH_DISTANCE = 64
+/**
+ * Distance to the frontier that submits the prefetched leg as a handover, in
+ * blocks. The client adopts it at a tick boundary, so this window only bounds
+ * how long the client's own hold (if any) has to cover.
+ */
+const CHANNEL_HANDOVER_DISTANCE = 32
+/**
+ * Wall-clock cap for one channel-leg plan. The space search carries body
+ * clearance, wall and climb costs; the open-air 2 s default starved it on the
+ * canyon and reported `blocked: time_cap` (R4 cave-diag-11).
+ */
+const CHANNEL_PLAN_TIME_CAP_MS = 4_000
+/** Consecutive status-read failures before the exchange is declared broken. */
+const CHANNEL_POLL_ERROR_BUDGET = 5
+/** No positional progress this long while applying ends the channel. */
+const CHANNEL_STALL_MS = 10_000
+/** Movement under this distance counts as no progress, in blocks. */
+const CHANNEL_STALL_MOVE = 0.5
+/**
+ * No reduction of the distance to the goal this long counts as loitering.
+ *
+ * The movement stall above only catches a frozen bot; cave-diag-04 circled a
+ * two-block radius for 165 s with every sample "moving", so the host never
+ * noticed. Route progress is the distance to the goal decreasing; a legitimate
+ * detour may increase it for a while, so the window is generous.
+ */
+const CHANNEL_PROGRESS_WINDOW_MS = 30_000
+/** Distance improvement that counts as progress, blocks. */
+const CHANNEL_PROGRESS_EPSILON = 2
+/** Radius of the exclusion stamped where the client rejected the route, in blocks. */
+const CHANNEL_INVALIDATE_RADIUS = 24
+/** Remaining-route re-verification runs after this much route progress, in blocks. */
+const CHANNEL_PREFIX_VERIFY_BLOCKS = 48
+/** First-waypoint divergence between plans that invalidates the prefix, in blocks. */
+const CHANNEL_PREFIX_DIVERGENCE = 24
+/**
+ * How far off the submitted route the glider may be before a prefix
+ * verification is skipped. The launch boost can leave her 50 blocks above her
+ * own first waypoint; a fresh plan from up there routes differently, and that
+ * is not evidence the prefix diverged (R4 cave-diag-14).
+ */
+const CHANNEL_PREFIX_VERIFY_MAX_OFFSET = 24
+/** Final approach through the client channel (R4): the client flies the last leg. */
+const CHANNEL_APPROACH_MAX_DISTANCE = 80
+/** Waypoint radius for the final approach; the client hands over just above the pad. */
+const CHANNEL_APPROACH_ENTRY_REACH = 4
+/**
+ * The approach aim sits this far above the verified contact height. Aiming at
+ * the surface itself makes the client's glide sink below the pad edge before
+ * the horizontal reach, and the handover happens under the platform
+ * (pad-diag-01: the host flare then missed by 2.5 blocks and sank 7). The
+ * clearance keeps the handover above the pad; the host flare descends onto it.
+ */
+const CHANNEL_APPROACH_AIM_CLEARANCE = 2.5
+/** Preferred spacing between approach-profile waypoints, blocks. */
+const CHANNEL_APPROACH_PROFILE_STEP = 14
+/** A refused profile is retried once with the direct two-point leg. */
+const CHANNEL_APPROACH_ATTEMPTS = 1
+/** A route refusal this close to the goal ends with the host landing, not a failure. */
+const CHANNEL_HOST_LANDING_DISTANCE = 48
+
 type LandingReason = 'goal' | 'cancelled' | 'low_supply' | 'safety' | 'timeout'
 /** The lifecycle phase the loop is in. `safety-landing` owns the cleanup. */
 type FlightPhase = 'cruise' | 'approach' | 'go-around' | 'flare' | 'safety-landing'
@@ -175,99 +274,1057 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   // launch macro can fire that hand, but the cruise thrust selects a hotbar slot,
   // so the flight takes off and reports `low_supply` instead of refusing here.
 
-  // 3. Takeoff. The bridge's per-tick macro runs first when it exists (OV-D16):
-  // it lifts off flat ground, which the edge run cannot, and it owns the two
-  // single-tick steps (the deploy press after a released jump key, and the boost
-  // from the airborne state) that a 200 ms poll cannot hit. The edge run stays
-  // as the fallback, so a cliff takeoff does not regress.
-  let state = await port.getState()
-  await port.look(yawTo(state.position, goal), 0)
-  const macro = await launchFromGround({
-    port,
-    goal,
-    fireworks,
-    shouldStop,
-    stillOwnsControl: ownsControl,
-    now,
-    sleep,
-    ...(debug ? { debug } : {}),
+  // 3. Cruise mode selection (R3). With the planner on, a world binding, and a
+  // bridge exposing the flight channel tools, the client drives per tick and
+  // the host only exchanges channels and reads receipts. The legacy
+  // look/useItem cruise stays for a planner-off flight and for a bridge
+  // without the channel tools, so neither mode pretends to be the other.
+  /** Lowest solid block over the goal, probed once; landing above it is not arrival. */
+  let goalRoofY: number | undefined
+  let goalRoofProbed = false
+  // The goal's roof is probed before the cruise band is built: the band
+  // initialisation consumes it, and the low-route scan enters every column
+  // below it (E-02 canyon gap 1 — she used to overfly the cave glass). An
+  // unloaded chunk leaves the roof unknown; the pre-finish and resolveLanding
+  // call sites retry once her own presence has loaded the column.
+  {
+    const probe = await probeGoalRoof(port, goal, debug)
+    if (probe.covered) {
+      goalRoofY = probe.roofY
+      goalRoofProbed = true
+    }
+  }
+
+  /** Channel-exchange receipts collected for the terminal result (R3). */
+  let channelSubmissions = 0
+  let channelReplans = 0
+  let channelContinuations = 0
+  let channelEndReason: string | undefined
+  /** Host-side cause that forced a bounded ending instead of a clean arrival. */
+  let channelFailure: string | undefined
+  /** Raw client refusal reason, kept for the terminal detail. */
+  let channelRefusal: string | undefined
+  /**
+   * Per-leg evidence (R4 review item 1): the planned-from point, planning
+   * cost, the raw R1 path, the path actually submitted, and when the leg
+   * ended. Written into the result so a live run can explain a gap without
+   * the debug console.
+   */
+  const channelLegs: ChannelLegRecord[] = []
+  /** Set just before a submit so the leg record carries its plan facts. */
+  let legMeta: { kind: ChannelLegRecord['kind'], plannedFrom: Vec3, planMs: number, rawPath?: Vec3[] } | undefined
+  let currentLeg: ChannelLegRecord | undefined
+  /** A leg accepted as a pending handover; promoted when the client adopts it. */
+  let pendingLeg: ChannelLegRecord | undefined
+  let pendingLegSessionId: string | undefined
+  /** The pending leg's path; promoted to the flown path only on adoption. */
+  let pendingChannelPath: Vec3[] | undefined
+  let pendingPlanLocal: boolean | undefined
+  /** Final-state freshness fact for the terminal receipt. */
+  let channelAirborneAtReturn: boolean | undefined
+  const channelReceipt = (): NonNullable<VehicleMoveResult['channel']> => ({
+    submissions: channelSubmissions,
+    replans: channelReplans,
+    ...(channelContinuations > 0 ? { continuations: channelContinuations } : {}),
+    ...(channelEndReason ? { endReason: channelEndReason } : {}),
+    ...(channelFailure ? { failure: channelFailure } : {}),
+    ...(channelLegs.length > 0 ? { legs: channelLegs } : {}),
+    ...(channelAirborneAtReturn !== undefined ? { airborneAtReturn: channelAirborneAtReturn } : {}),
   })
-  if (macro?.outcome === 'cancelled')
-    return { status: 'cancelled' }
-  // The macro's verdict is not the only source of truth: read once after it, so
-  // the fallback run and the cruise work from the state the bot holds now.
-  state = await port.getState()
-  let deployed = macro?.deployed === true || state.fallFlying === true
-  if (!deployed) {
-    // Every path that touches input releases it (review R7).
-    await port.setInput({ forward: true, sprint: true })
-    try {
-      const takeoffDeadline = now() + TAKEOFF_TIMEOUT_MS
-      while (state.onGround) {
-        if (shouldStop()) {
-          await stopIfOwner(port, ownsControl)
-          return { status: 'cancelled' }
+
+  /**
+   * The channel path a plan carries: the planner's verified thinning when it
+   * produced one, else the raw A* path. The host must not thin on its own —
+   * that is where an unverified chord cut the river bank (R4 cave-diag-07).
+   */
+  const channelPathOf = (plan: { path?: Vec3[], channelPath?: Vec3[] }): Vec3[] =>
+    plan.channelPath ?? plan.path ?? []
+
+  /** Nearest path index to a position; cuts the remaining prefix for verification. */
+  const nearestPathIndex = (path: Vec3[], position: Vec3): number => {
+    let best = 0
+    let bestDistance = Number.POSITIVE_INFINITY
+    for (let index = 0; index < path.length; index++) {
+      const point = path[index]!
+      const distance = Math.hypot(point.x - position.x, point.y - position.y, point.z - position.z)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = index
+      }
+    }
+    return best
+  }
+
+  /**
+   * Builds the client-flown terminal approach profile (R4): descending
+   * waypoints from the current state to the verified aim.
+   *
+   * A two-point direct leg asks the client to lose the whole vertical gap
+   * inside one `entryReach` window; its bounded pitch candidates cannot do
+   * that, so the session circles or refuses (`no_viable`, approach-diag-01).
+   * The profile steps the descent at `CHANNEL_APPROACH_PROFILE_STEP` spacing
+   * so every leg stays inside a normal glide, and each waypoint below a roof
+   * stays under it. The client's sweep still verifies every candidate against
+   * the live world, so these are aim points, not a claim of cleared space.
+   */
+  const buildApproachPath = (position: Vec3, aim: Vec3, roofY?: number): Vec3[] => {
+    const gap = horizontalDistance(position, aim)
+    const legs = Math.max(1, Math.min(4, Math.round(gap / CHANNEL_APPROACH_PROFILE_STEP)))
+    const points: Vec3[] = []
+    for (let index = 1; index <= legs; index++) {
+      const t = index / legs
+      const y = position.y + (aim.y - position.y) * t
+      points.push({
+        x: position.x + (aim.x - position.x) * t,
+        y: roofY !== undefined ? Math.min(y, roofY - 1) : y,
+        z: position.z + (aim.z - position.z) * t,
+      })
+    }
+    // The terminal point is the verified aim, never an interpolated one.
+    points[points.length - 1] = { ...aim }
+    return points
+  }
+
+  /**
+   * R3 channel cruise (design `elytra-flight-control-r3-channel-loop` §3–§4):
+   * submit the planned path, read typed receipts with a monotonic cursor, and
+   * answer exactly one question for the rest of the mover — is a verified
+   * channel still carrying the flight? The host writes no `look` or `useItem`
+   * during this phase (single-writer rule §7); the client drives per tick and
+   * enforces its own deadline.
+   *
+   * Returns a terminal receipt when the flight is over, or a loop seed the
+   * airborne landing machinery continues from.
+   */
+  const runChannelFlight = async (startState: MovementState): Promise<{
+    terminal?: VehicleMoveResult
+    seed?: { phase: FlightPhase, reason: LandingReason, state: MovementState, landingAim?: Vec3, landingSite?: LandingSite }
+  }> => {
+    const world = options.world
+    if (!world) {
+      return { terminal: { status: 'unavailable', failure: 'capability_unavailable', detail: 'no world binding for the flight channel', channel: channelReceipt() } }
+    }
+
+    // A client rejection is a typed outcome, not a retry loop: only a busy
+    // writer (1 s wait) and the runner's own stale/leftover repairs retry.
+    const excludes: Array<{ position: Vec3, radius: number }> = []
+    /**
+     * The glider's own corridor direction, refreshed from the last sample.
+     * The canyon bends away from the straight goal bearing; a window anchored
+     * on the goal line contains only the bank there (R4 cave-diag-08/10).
+     * Only used while it roughly agrees with the goal bearing, so a heading
+     * into a wall cannot steer the replan window.
+     */
+    let corridorBearing: { x: number, z: number } | undefined
+    const goalBearing = Math.atan2(-(goal.x - startState.position.x), goal.z - startState.position.z)
+    /**
+     * Plans one leg and stamps its wall-clock cost. The cost is evidence: a
+     * prefetched leg overlaps the previous leg, a late one explains a gap.
+     *
+     * The default (narrow) window is enough now that the frontier comparison
+     * scores every candidate: on the captured canyon snapshot the narrow
+     * window already yields a level river route (R4 cave-coverage-02), so the
+     * planner is not forced into the expensive wide-window retry.
+     */
+    const planFrom = async (position: Vec3) => {
+      const startedAt = now()
+      const result = await planLowRoute({
+        port,
+        self: position,
+        goal,
+        // The canyon plan needs the longer cap: the body-clearance and climb
+        // costs make the search explore more than the open-air default did.
+        searchTimeCapMs: CHANNEL_PLAN_TIME_CAP_MS,
+        ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}),
+        ...(excludes.length > 0 ? { exclude: excludes } : {}),
+        ...(corridorBearing ? { bearing: corridorBearing } : {}),
+        ...(options.mustPass && options.mustPass.length > 0 ? { mustPass: options.mustPass } : {}),
+      })
+      return { ...result, planMs: now() - startedAt }
+    }
+
+    const plan = await planFrom(startState.position)
+    if (plan.status !== 'planned' || !plan.path || plan.path.length < 2) {
+      debug?.(`channel route refused (${plan.status}${plan.reason ? `: ${plan.reason}` : ''}); refusing the flight instead of flying direct`)
+      return { terminal: { status: 'unavailable', failure: 'route_unavailable', detail: `no verified flight channel (${plan.status})`, channel: channelReceipt() } }
+    }
+    legMeta = { kind: 'initial', plannedFrom: startState.position, planMs: plan.planMs, rawPath: plan.path }
+    let activePath = channelPathOf(plan)
+    // A frontier leg hands over to the next revision, so the client must not
+    // enter the terminal hold at its end (ab-30 plan §2).
+    let activeWaypointKind = plan.waypointKind
+    /**
+     * True while the submitted route ends at the covered frontier because the
+     * goal's chunk was never read (R1 `local`). A frontier completion is NOT
+     * arrival: the host re-plans from the new position and resubmits until a
+     * full route exists or the replan budget is spent (R3 live 2026-09-20: the
+     * client reported `channel_complete` 85 blocks out at the frontier and the
+     * host landed there, reporting a 117-block miss).
+     */
+    let activePlanLocal = plan.local === true
+    /** Final-approach state: the client flies the last leg to a verified site. */
+    let finalApproachActive = false
+    let approachAim: Vec3 | undefined
+    let approachSite: LandingSite | undefined
+    let approachAttempts = 0
+    /** Last client-rejection spot (8-block cells); a repeat stops replanning. */
+    let lastRejectionKey: string | undefined
+    /**
+     * The next leg's plan started while the current one still flies. Only used
+     * when the exclusion set did not change after the prefetch (a rejection
+     * invalidates the prefetched route).
+     */
+    let prefetch: { from: Vec3, excludeCount: number, promise: ReturnType<typeof planFrom> } | undefined
+    const deadlineMs = now() + CRUISE_TIMEOUT_MS
+    const baseId = `fl-${options.commandId ?? 'elytra'}-${Math.floor(now())}`
+    let revision = 0
+    const runner = createFlightChannelRunner({
+      port,
+      ...(options.controlSessionGeneration !== undefined ? { generation: () => options.controlSessionGeneration! } : {}),
+      dimension: () => world.dimension,
+      now,
+      ...(debug ? { debug } : {}),
+    })
+    /**
+     * Submits the active path, or a pending candidate when the client supports
+     * handover: the candidate must not become the flown path until the client
+     * reports adoption, or the host would run prefix checks and prefetches
+     * around a route that is not flying yet (R4 review 4).
+     */
+    const submitCurrent = async (entryReach = CHANNEL_ENTRY_REACH, pending = false): Promise<boolean> => {
+      revision += 1
+      channelSubmissions += 1
+      const meta = legMeta ?? { kind: 'retry' as const, plannedFrom: startState.position, planMs: 0 }
+      const sentPath = pending && pendingChannelPath ? pendingChannelPath : activePath
+      const leg: ChannelLegRecord = {
+        revision,
+        kind: meta.kind,
+        plannedFrom: { ...meta.plannedFrom },
+        planStatus: 'planned',
+        planMs: meta.planMs,
+        ...(meta.rawPath ? { rawPath: meta.rawPath.map(point => ({ ...point })) } : {}),
+        sentPath: sentPath.map(point => ({ ...point })),
+        submittedAtMs: now(),
+        accepted: false,
+      }
+      channelLegs.push(leg)
+      // A handover leg is not the flown leg yet: the client adopts it at a
+      // tick boundary, and the old leg's end facts are stamped then (R4
+      // review item 3). A normal leg replaces the flown one at once.
+      if (pending) {
+        pendingLeg = leg
+        pendingLegSessionId = `${baseId}-${revision}`
+      }
+      else {
+        currentLeg = leg
+      }
+      legMeta = undefined
+      // A submitted leg starts its own flight window: a prefetch for the old
+      // frontier must not be consumed by the new leg's completion.
+      prefetch = undefined
+      const submitted = await runner.submit({
+        sessionId: `${baseId}-${revision}`,
+        revision,
+        mapVersion: world.mapVersion,
+        deadlineMs,
+        path: sentPath,
+        entryReach,
+        ...(activeWaypointKind !== undefined ? { kind: activeWaypointKind } : {}),
+        ...(activeWaypointKind === 'stop' ? { terminalReach: 1, terminalPlanning: true } : {}),
+        ...(options.controlSessionId ? { controlSessionId: options.controlSessionId } : {}),
+      })
+      if (!submitted.ok) {
+        leg.refusal = submitted.receipt.reason ?? submitted.refusal
+        if (pending) {
+          pendingLeg = undefined
+          pendingLegSessionId = undefined
+          pendingChannelPath = undefined
+          pendingPlanLocal = undefined
         }
-        if (now() > takeoffDeadline) {
-          await stopIfOwner(port, ownsControl)
-          return { status: 'stuck', detail: macro?.detail ?? 'no takeoff edge reached' }
-        }
-        await sleep(FLIGHT_POLL_MS)
-        state = await port.getState()
+        channelEndReason = submitted.refusal
+        channelRefusal = submitted.receipt.reason
+        debug?.(`channel submit refused (${submitted.refusal}; client reason=${submitted.receipt.reason ?? 'none'})`)
+        return false
+      }
+      leg.accepted = true
+      debug?.(`channel submitted ${baseId}-${revision} revision=${revision} points=${sentPath.length}${pending ? ' (handover)' : ''}`)
+      return true
+    }
+
+    let submittedOk = await submitCurrent()
+    if (!submittedOk && channelEndReason === 'control_busy') {
+      debug?.('channel busy with another drive; retrying once after 1 s')
+      await sleep(1_000)
+      submittedOk = await submitCurrent()
+    }
+    if (!submittedOk) {
+      return { terminal: { status: 'unavailable', failure: 'launch_unavailable', detail: `the client refused the flight channel (${channelRefusal ?? channelEndReason ?? 'rejected'})`, channel: channelReceipt() } }
+    }
+
+    const readState = async (): Promise<MovementState | undefined> => {
+      try {
+        return await port.getState()
+      }
+      catch {
+        return undefined
+      }
+    }
+
+    /**
+     * Unified in-air failure ending (R4 review item 5): an airborne failure
+     * must not return control to the caller while the glider still flies —
+     * that is how cave-diag-06 reported `route_unavailable` with
+     * `onGround=false` and left the bot to drift. Every such failure now seeds
+     * the bounded safety landing; the failure reason is kept in the receipt so
+     * "returned" and "safely grounded" stay separate facts.
+     */
+    const endAirborne = async (
+      failure: string,
+      detail: string,
+      state?: MovementState,
+      sample?: FlightChannelSample,
+    ): Promise<{ seed: { phase: FlightPhase, reason: LandingReason, state: MovementState } }> => {
+      channelFailure = failure
+      debug?.(`channel ${failure} (${detail}); bounded safety ending`)
+      await runner.revoke()
+      // Precedence: the caller's fresh state, then a live read, then the last
+      // channel sample (a read-failure ending must not pretend she is grounded
+      // by falling back to the launch state), then the start state.
+      const current = state ?? (await readState()) ?? (sample ? stateOfSample(sample, startState) : startState)
+      return { seed: { phase: 'safety-landing', reason: 'safety', state: current } }
+    }
+
+    let lastProgressAt = now()
+    let lastProgressPosition = startState.position
+    /** Closest goal distance seen; only a new best resets the loiter clock. */
+    let bestGoalDistance = horizontalDistance(startState.position, goal)
+    let lastGoalProgressAt = now()
+    let traveled = 0
+    let lastSample: FlightChannelSample | undefined
+    let pollErrors = 0
+    let resourcePoll = 0
+    let nextVerifyAt = CHANNEL_PREFIX_VERIFY_BLOCKS
+    /** The client can adopt a pending route; learned from its status. */
+    let handoverCapable = false
+    let handoverCount = 0
+    /** One continuation attempt per client hold window; avoids a submit loop. */
+    let holdingLegRequested = false
+    /** Minimum spacing between landing-site offers to a recovering client (C2). */
+    const CHANNEL_LANDING_OFFER_MS = 2_000
+    let nextLandingOfferAt = 0
+
+    for (;;) {
+      if (!ownsControl()) {
+        // Another command owns the input; the host must not fight it. Record
+        // whether the glider was airborne so the receipt does not imply a
+        // grounded stop (R4 review item 5).
+        channelAirborneAtReturn = isAirborneState((await readState()) ?? startState)
+        await runner.revoke()
+        return { terminal: { status: 'unknown', failure: 'unverified_stop', detail: 'input ownership moved to a newer command', channel: channelReceipt() } }
+      }
+      if (shouldStop()) {
+        channelEndReason = 'host_cancelled'
+        await runner.revoke()
+        return { seed: { phase: 'safety-landing', reason: 'cancelled', state: (await readState()) ?? startState } }
+      }
+      // The client enforces its own deadline; this one bounds the host wait.
+      if (now() > deadlineMs) {
+        channelEndReason = 'host_deadline'
+        await runner.revoke()
+        return { seed: { phase: 'safety-landing', reason: 'timeout', state: (await readState()) ?? startState } }
       }
 
-      deployed = state.fallFlying === true
-      /**
-       * Release the run keys before the deploy press.
-       *
-       * ROOT CAUSE (live, 2026-09-18):
-       *
-       * Holding a key is not a new press. While the takeoff sprint kept
-       * `forward + sprint` held, every `jumpOnce()` was a no-op for the glider:
-       * a live run off the ridge at (-384, 161, 19) fell 24 blocks with
-       * `fallFlying: false` the whole way and died (`airitest fell from a high
-       * place`), and the receipt reported the takeoff as unavailable. The same
-       * failure cost four attempts during the E-01 calibration, where the working
-       * sequence was "release every key, then press jump once".
-       *
-       * The release must come first and the horizontal speed survives it: in E-01
-       * the glider deployed on the first press after the release and recorded a
-       * 30-second glide.
-       */
-      if (!deployed)
-        await stopIfOwner(port, ownsControl)
-      for (let attempt = 0; attempt < 3 && !deployed && !state.onGround; attempt++) {
-        await port.jumpOnce()
-        const deployDeadline = now() + DEPLOY_TIMEOUT_MS
-        while (!deployed && now() < deployDeadline && !state.onGround) {
+      let poll
+      try {
+        poll = await runner.poll()
+      }
+      catch (error) {
+        pollErrors += 1
+        debug?.(`channel status read failed (${pollErrors}/${CHANNEL_POLL_ERROR_BUDGET}): ${errorMessageFrom(error) ?? 'unknown error'}`)
+        if (pollErrors >= CHANNEL_POLL_ERROR_BUDGET) {
+          return await endAirborne('touchdown_unverified', 'channel status reads failed', undefined, lastSample)
+        }
+        await sleep(CHANNEL_POLL_MS)
+        continue
+      }
+      pollErrors = 0
+      handoverCapable = handoverCapable || poll.status.handoverCapable === true
+
+      const sample = poll.status.trajectory[poll.status.trajectory.length - 1] ?? lastSample
+      if (sample) {
+        const moved = Math.hypot(sample.x - lastProgressPosition.x, sample.y - lastProgressPosition.y, sample.z - lastProgressPosition.z)
+        if (moved > CHANNEL_STALL_MOVE) {
+          traveled += moved
+          lastProgressPosition = { x: sample.x, y: sample.y, z: sample.z }
+          lastProgressAt = now()
+        }
+        lastSample = sample
+        const goalDistance = horizontalDistance(lastProgressPosition, goal)
+        if (goalDistance < bestGoalDistance - CHANNEL_PROGRESS_EPSILON) {
+          bestGoalDistance = goalDistance
+          lastGoalProgressAt = now()
+        }
+        // Refresh the corridor bearing from the measured motion; keep it only
+        // while it agrees with the goal bearing within 75 degrees.
+        const speed = Math.hypot(sample.vx, sample.vz)
+        if (speed > 0.15) {
+          const bearing = { x: sample.vx / speed, z: sample.vz / speed }
+          const bearingYaw = Math.atan2(-bearing.x, bearing.z)
+          let delta = bearingYaw - goalBearing
+          while (delta > Math.PI) delta -= 2 * Math.PI
+          while (delta < -Math.PI) delta += 2 * Math.PI
+          corridorBearing = Math.abs(delta) <= (75 * Math.PI) / 180 ? bearing : undefined
+        }
+        // Plan the next leg while this one still flies (R4 review item 2): the
+        // old flow planned only after `channel_complete`, and the 44-tick
+        // unowned glide (cave-diag-06) happened inside that wait.
+        if (activePlanLocal && !prefetch) {
+          const frontier = activePath[activePath.length - 1]!
+          const remaining = Math.hypot(frontier.x - sample.x, frontier.y - sample.y, frontier.z - sample.z)
+          if (remaining <= CHANNEL_PREFETCH_DISTANCE) {
+            debug?.(`channel prefetching the next leg ${remaining.toFixed(0)} blocks out`)
+            prefetch = { from: { ...frontier }, excludeCount: excludes.length, promise: planFrom(frontier) }
+          }
+        }
+      }
+
+      // The client adopted the pending leg when its session id changes; that
+      // is when the old leg's record closes and the pending path becomes the
+      // flown one (R4 review item 3 and 4).
+      const statusSessionId = poll.status.sessionId
+      if (pendingLeg && statusSessionId !== undefined && statusSessionId === pendingLegSessionId) {
+        if (currentLeg) {
+          currentLeg.endedReason = 'handover'
+          currentLeg.endedAtMs = now()
+          if (lastSample)
+            currentLeg.positionAtEnd = { x: lastSample.x, y: lastSample.y, z: lastSample.z }
+        }
+        currentLeg = pendingLeg
+        pendingLeg = undefined
+        pendingLegSessionId = undefined
+        if (pendingChannelPath) {
+          activePath = pendingChannelPath
+          activePlanLocal = pendingPlanLocal === true
+        }
+        pendingChannelPath = undefined
+        pendingPlanLocal = undefined
+        handoverCount += 1
+        holdingLegRequested = false
+        debug?.(`channel handover adopted by the client (${handoverCount})`)
+      }
+
+      // One state read per poll: the resource guard reuses it, and a glider
+      // that stopped flying ends the exchange here. The check is gated on the
+      // client having started applying, so the grounded launch phase is not
+      // mistaken for a touchdown. This is the host's own observer: it does not
+      // depend on the client reporting its end (older jars, or a session that
+      // joined mid-air and landed).
+      const liveState = await readState()
+      if (poll.phase !== 'ended' && poll.status.applyingStarted === true
+        && liveState && liveState.fallFlying !== true) {
+        channelEndReason = channelEndReason ?? 'touchdown'
+        debug?.('channel glider stopped flying; host owns the landing')
+        await runner.revoke()
+        return {
+          seed: {
+            phase: 'safety-landing',
+            reason: 'goal',
+            state: liveState,
+            ...(approachAim ? { landingAim: approachAim } : {}),
+            ...(approachSite ? { landingSite: approachSite } : {}),
+          },
+        }
+      }
+
+      // Handover-capable clients keep flying the current route until the next
+      // one is adopted, so the next leg can be submitted early: the prefetched
+      // plan is ready while she is still ~30 blocks from the frontier (R4
+      // review items 2-3). A non-capable client is never submitted to early —
+      // the runner's leftover repair would revoke the live channel.
+      if (handoverCapable && activePlanLocal && prefetch && !pendingLeg
+        && poll.phase === 'applying' && lastSample) {
+        const frontier = activePath[activePath.length - 1]!
+        const remaining = Math.hypot(frontier.x - lastSample.x, frontier.y - lastSample.y, frontier.z - lastSample.z)
+        if (remaining <= CHANNEL_HANDOVER_DISTANCE) {
+          const planned = prefetch.excludeCount === excludes.length
+            ? await prefetch.promise.catch(() => undefined)
+            : undefined
+          const prefetchedFrom = prefetch.from
+          prefetch = undefined
+          if (planned && planned.status === 'planned' && planned.path && planned.path.length >= 2) {
+            pendingChannelPath = channelPathOf(planned)
+            pendingPlanLocal = planned.local === true
+            legMeta = { kind: 'frontier', plannedFrom: prefetchedFrom, planMs: planned.planMs, rawPath: planned.path }
+            activeWaypointKind = planned.waypointKind
+            debug?.(`channel handover leg ready ${remaining.toFixed(0)} blocks out; submitting early`)
+            if (await submitCurrent(CHANNEL_ENTRY_REACH, true))
+              channelContinuations += 1
+            else
+              debug?.('channel early handover submit refused; the client hold will retry once')
+          }
+        }
+      }
+
+      // The client finished its path but holds instead of releasing input
+      // (R4 review item 4). Continue the same flight with one next leg; if the
+      // plan is refused, the client's bounded hold ends the flight and the
+      // host lands. Old clients report `channel_complete` instead and take the
+      // branch below.
+      if (poll.phase === 'applying' && poll.status.holding === true && !pendingLeg && !holdingLegRequested) {
+        holdingLegRequested = true
+        const from = lastSample
+          ? { x: lastSample.x, y: lastSample.y, z: lastSample.z }
+          : (await readState())?.position ?? startState.position
+        const prefetched = prefetch && prefetch.excludeCount === excludes.length
+          ? await prefetch.promise.catch(() => undefined)
+          : undefined
+        const prefetchedFrom = prefetch?.from
+        prefetch = undefined
+        const replanned = prefetched ?? await planFrom(from)
+        if (replanned.status === 'planned' && replanned.path && replanned.path.length >= 2) {
+          pendingChannelPath = channelPathOf(replanned)
+          pendingPlanLocal = replanned.local === true
+          legMeta = { kind: 'frontier', plannedFrom: prefetchedFrom ?? from, planMs: replanned.planMs, rawPath: replanned.path }
+          debug?.('channel client holds after the path; submitting the next leg')
+          if (await submitCurrent(CHANNEL_ENTRY_REACH, true)) {
+            channelContinuations += 1
+            debug?.('channel hold continued with a handover leg')
+          }
+        }
+        else {
+          debug?.(`channel hold could not continue (${replanned.status}); the client grace ends the flight`)
+        }
+      }
+
+      if (poll.phase === 'ended') {
+        const endReason = poll.endReason ?? 'unknown'
+        channelEndReason = endReason
+        debug?.(`channel ended: ${endReason}`)
+        const finalState = (await readState()) ?? startState
+        if (pendingLeg) {
+          // The client ended without adopting the pending leg: record it as
+          // dropped so the evidence shows the handover never completed.
+          pendingLeg.refusal = 'handover_dropped'
+          pendingLeg = undefined
+          pendingLegSessionId = undefined
+          pendingChannelPath = undefined
+          pendingPlanLocal = undefined
+        }
+        holdingLegRequested = false
+        if (currentLeg) {
+          currentLeg.endedReason = endReason
+          currentLeg.endedAtMs = now()
+          currentLeg.positionAtEnd = { ...finalState.position }
+          currentLeg = undefined
+        }
+        // The route ended, but the client's recovery may still own the
+        // aircraft. The host must not start its own flight until the physical
+        // phase is released (ab-23 repair plan, A3); while it waits it offers
+        // a verified landing site so the recovery has an executable exit (C2).
+        if (poll.controlReleased === false && now() <= deadlineMs) {
+          if (poll.recovering === true && now() >= nextLandingOfferAt) {
+            nextLandingOfferAt = now() + CHANNEL_LANDING_OFFER_MS
+            const site = (await findLandingSite(port, finalState, now, debug, goalRoofY))
+              ?? (await findGoalLandingSite(port, goal, finalState, now, debug, goalRoofY))
+            if (site) {
+              const aim = {
+                x: site.support.x + site.support.width / 2,
+                y: site.contactY + CHANNEL_APPROACH_AIM_CLEARANCE,
+                z: site.support.z + site.support.depth / 2,
+                contactY: site.contactY,
+              }
+              const receipt = await runner.landingSite({ sessionId: runner.active()?.sessionId ?? '', ...aim }).catch(() => undefined)
+              debug?.(`channel landing site offered: accepted=${receipt?.accepted === true}${receipt?.reason ? ` reason=${receipt.reason}` : ''}`)
+            }
+            else {
+              debug?.('channel recovery has no reachable landing site to offer')
+            }
+          }
+          debug?.(`channel route ended (${endReason}); waiting for the client to release control`)
+          await sleep(CHANNEL_POLL_MS)
+          continue
+        }
+        if (endReason === 'channel_complete') {
+          // The client-driven final approach (R4): when the route completes
+          // near the goal and a verified landing site exists, the LAST leg is
+          // another channel instead of the host's heuristic flight. The client
+          // then hands over within `CHANNEL_APPROACH_ENTRY_REACH` of the pad,
+          // and the host only flares and classifies.
+          if (finalApproachActive) {
+            return {
+              seed: {
+                phase: 'approach',
+                reason: 'goal',
+                state: finalState,
+                ...(approachAim ? { landingAim: approachAim } : {}),
+                ...(approachSite ? { landingSite: approachSite } : {}),
+              },
+            }
+          }
+          if (!activePlanLocal && horizontalDistance(finalState.position, goal) <= CHANNEL_APPROACH_MAX_DISTANCE) {
+            const site = (await findGoalLandingSite(port, goal, finalState, now, debug, goalRoofY))
+              ?? (await findLandingSite(port, finalState, now, debug, goalRoofY))
+            if (site) {
+              const aim: Vec3 = {
+                x: site.support.x + site.support.width / 2,
+                y: goalRoofY !== undefined
+                  ? Math.min(site.contactY + CHANNEL_APPROACH_AIM_CLEARANCE, goalRoofY - 1)
+                  : site.contactY + CHANNEL_APPROACH_AIM_CLEARANCE,
+                z: site.support.z + site.support.depth / 2,
+              }
+              if (horizontalDistance(finalState.position, aim) <= CHANNEL_APPROACH_MAX_DISTANCE) {
+                approachAim = aim
+                approachSite = site
+                finalApproachActive = true
+                approachAttempts = 0
+                // A descending profile, not a direct two-point hop: the client
+                // cannot lose the whole vertical gap inside one entryReach.
+                activePath = [{ ...finalState.position }, ...buildApproachPath(finalState.position, aim, goalRoofY)]
+                activePlanLocal = false
+                legMeta = { kind: 'approach', plannedFrom: finalState.position, planMs: 0 }
+                debug?.(`channel final approach to ${aim.x.toFixed(0)},${aim.y.toFixed(0)},${aim.z.toFixed(0)}`)
+                if (await submitCurrent(CHANNEL_APPROACH_ENTRY_REACH))
+                  continue
+                finalApproachActive = false
+                approachAim = undefined
+                approachSite = undefined
+              }
+            }
+            debug?.('channel final approach unavailable; landing with the host')
+          }
+          // A local route ends at the frontier, not at the goal: continue the
+          // same flight while the continuation budget allows. This is normal
+          // progress, not a failure, so it has its own counter (R4 review
+          // item 2) and consumes the prefetched plan when one is ready.
+          if (activePlanLocal && channelContinuations < CHANNEL_MAX_CONTINUATIONS) {
+            const prefetched = prefetch && prefetch.excludeCount === excludes.length
+              ? await prefetch.promise.catch(() => undefined)
+              : undefined
+            const prefetchedFrom = prefetch?.from
+            prefetch = undefined
+            const replanned = prefetched ?? await planFrom(finalState.position)
+            if (replanned.status === 'planned' && replanned.path && replanned.path.length >= 2) {
+              activePath = channelPathOf(replanned)
+              activePlanLocal = replanned.local === true
+              legMeta = {
+                kind: 'frontier',
+                plannedFrom: prefetchedFrom ?? finalState.position,
+                planMs: replanned.planMs,
+                rawPath: replanned.path,
+              }
+              if (await submitCurrent()) {
+                channelContinuations += 1
+                debug?.(`channel frontier reached; local route continues (continuation ${channelContinuations}, revision ${revision}, plan ${replanned.planMs}ms${prefetched ? ', prefetched' : ''})`)
+                continue
+              }
+            }
+            debug?.('channel frontier replan refused; landing at the frontier')
+          }
+          return { seed: { phase: 'approach', reason: 'goal', state: finalState } }
+        }
+        if (endReason === 'touchdown') {
+          return {
+            seed: {
+              phase: 'safety-landing',
+              reason: 'goal',
+              state: finalState,
+              ...(approachAim ? { landingAim: approachAim } : {}),
+              ...(approachSite ? { landingSite: approachSite } : {}),
+            },
+          }
+        }
+        if (endReason === 'deadline')
+          return { seed: { phase: 'safety-landing', reason: 'timeout', state: finalState } }
+        // A water entry is an explicit failure terminal, not a glide that the
+        // host should keep flying: the client's aerodynamic model has no water
+        // state, and the host must report what actually happened (R4 review
+        // 3.2/6). Stable water entry is never a safe ground contact.
+        if (endReason === 'water') {
+          channelAirborneAtReturn = false
+          channelFailure = 'landing_in_water'
+          return { terminal: { status: 'stuck', failure: 'landing_in_water', detail: 'the client entered the water', channel: channelReceipt() } }
+        }
+        // The client held after its path and no next leg arrived in time: the
+        // hold is bounded, and the host owns the landing that follows.
+        if (endReason === 'handover_timeout')
+          return await endAirborne('handover_timeout', 'the client held for a handover that never arrived', finalState)
+        // Damage while the channel applies ends it at once: the host lands.
+        if (endReason === 'damage')
+          return { seed: { phase: 'safety-landing', reason: 'safety', state: finalState } }
+        if (endReason === 'no_viable_trajectory') {
+          // The client-driven final approach (R4): retry once with the direct
+          // leg, then fall back only short — a long host heuristic flight into
+          // the terminal area is what caused the collision damage.
+          if (finalApproachActive) {
+            if (approachAttempts < CHANNEL_APPROACH_ATTEMPTS && approachAim) {
+              approachAttempts += 1
+              activePath = [{ ...finalState.position }, approachAim]
+              legMeta = { kind: 'approach', plannedFrom: finalState.position, planMs: 0 }
+              debug?.(`channel approach refused; retrying direct (${approachAttempts}/${CHANNEL_APPROACH_ATTEMPTS})`)
+              if (await submitCurrent(CHANNEL_APPROACH_ENTRY_REACH))
+                continue
+            }
+            const aim = approachAim
+            const closeToAim = aim !== undefined
+              && horizontalDistance(finalState.position, aim) <= CHANNEL_APPROACH_ENTRY_REACH * 2
+              // At or above the aim: flaring from below means a climb into
+              // whatever put her under it (pad-diag-02: flare from 5 below the
+              // aim, damage 20 -> 0). Below the aim the bounded safety landing
+              // owns the ending instead.
+              && finalState.position.y >= aim.y - 1
+              && finalState.position.y - aim.y <= FLARE_HEIGHT
+            if (closeToAim && aim) {
+              debug?.('channel approach refused; short host flare')
+              return {
+                seed: {
+                  phase: 'approach',
+                  reason: 'goal',
+                  state: finalState,
+                  landingAim: aim,
+                  ...(approachSite ? { landingSite: approachSite } : {}),
+                },
+              }
+            }
+            debug?.('channel approach refused far from the aim; bounded safety ending')
+            return { seed: { phase: 'safety-landing', reason: 'safety', state: finalState } }
+          }
+          const rejectionKey = lastSample
+            ? `${Math.round(lastSample.x / 8)},${Math.round(lastSample.z / 8)}`
+            : undefined
+          if (rejectionKey !== undefined && rejectionKey === lastRejectionKey) {
+            // The same spot was rejected twice: a fresh plan has nothing new to
+            // say (cave-diag-03 burned three revisions and two minutes on the
+            // same waypoint). Land with the host instead.
+            debug?.('channel rejected twice at the same spot; bounded host landing')
+            return { seed: { phase: 'safety-landing', reason: 'safety', state: finalState } }
+          }
+          lastRejectionKey = rejectionKey
+          if (channelReplans < CHANNEL_MAX_REVISIONS && lastSample) {
+            channelReplans += 1
+            // Exclude the space AHEAD of the failure, not the cell the glider
+            // occupies: a sphere over the current position would invalidate the
+            // start node and the replan could never leave (R3 test caught it).
+            const heading = lastSample.yaw * Math.PI / 180
+            const ahead = CHANNEL_INVALIDATE_RADIUS * 1.5
+            excludes.push({
+              position: {
+                x: lastSample.x - Math.sin(heading) * ahead,
+                y: lastSample.y,
+                z: lastSample.z + Math.cos(heading) * ahead,
+              },
+              radius: CHANNEL_INVALIDATE_RADIUS,
+            })
+            const replanned = await planFrom({ x: lastSample.x, y: lastSample.y, z: lastSample.z })
+            if (replanned.status === 'planned' && replanned.path && replanned.path.length >= 2) {
+              activePath = channelPathOf(replanned)
+              activePlanLocal = replanned.local === true
+              legMeta = {
+                kind: 'retry',
+                plannedFrom: { x: lastSample.x, y: lastSample.y, z: lastSample.z },
+                planMs: replanned.planMs,
+                rawPath: replanned.path,
+              }
+              debug?.(`channel invalidated at ${lastSample.x.toFixed(0)},${lastSample.z.toFixed(0)}; replan ${revision + 1}`)
+              if (await submitCurrent())
+                continue
+            }
+          }
+          // A refusal this close to the goal is a landing problem, not a route
+          // failure: the host lands instead of reporting route_unavailable
+          // (R4 diag-04: the last 21 blocks were refused after the budget).
+          if (lastSample && horizontalDistance({ x: lastSample.x, y: lastSample.y, z: lastSample.z }, goal) <= CHANNEL_HOST_LANDING_DISTANCE) {
+            debug?.('channel route refused near the goal; landing with the host')
+            return { seed: { phase: 'approach', reason: 'goal', state: finalState } }
+          }
+          // Far from the goal with no route left: a terminal `route_unavailable`
+          // here is what left cave-diag-06 airborne with no owner. The bounded
+          // safety landing owns the ending instead (R4 review item 5).
+          return await endAirborne('route_unavailable', `the client rejected the route after ${channelReplans} replans`, finalState)
+        }
+        if (endReason.startsWith('launch_') || endReason === 'no_elytra')
+          return { terminal: { status: 'unavailable', failure: 'launch_unavailable', detail: `client takeoff failed (${endReason})`, channel: channelReceipt() } }
+        if (endReason === 'dimension_changed')
+          return { terminal: { status: 'unknown', failure: 'dimension_changed', detail: 'channel ended (dimension_changed)', channel: channelReceipt() } }
+        return { terminal: { status: 'unknown', failure: 'unverified_stop', detail: `channel ended (${endReason})`, channel: channelReceipt() } }
+      }
+
+      // Host-side resource guards, receipt-paced (every fourth poll).
+      resourcePoll += 1
+      if (resourcePoll % 4 === 0 && poll.phase === 'applying') {
+        const health = liveState?.health
+        if (health !== undefined && health <= LOW_HEALTH) {
+          await runner.revoke()
+          return { seed: { phase: 'safety-landing', reason: 'safety', state: (await readState()) ?? startState } }
+        }
+        fireworks = await countBySuffix(port, 'firework_rocket').catch(() => fireworks)
+        if (fireworks <= FIREWORK_LOW_SUPPLY) {
+          await runner.revoke()
+          return { seed: { phase: 'safety-landing', reason: 'low_supply', state: (await readState()) ?? startState } }
+        }
+      }
+
+      // Applying without progress: a frozen bot or a loitering one. Re-plan
+      // once, else land. Loitering is movement that never reduces the distance
+      // to the goal (cave-diag-04 circled a two-block radius for 165 s).
+      const frozen = poll.phase === 'applying' && now() - lastProgressAt > CHANNEL_STALL_MS
+      const loitering = poll.phase === 'applying' && now() - lastGoalProgressAt > CHANNEL_PROGRESS_WINDOW_MS
+      if (frozen || loitering) {
+        debug?.(`channel ${frozen ? 'stalled' : 'loitering'} at ${lastProgressPosition.x.toFixed(0)},${lastProgressPosition.z.toFixed(0)}; replan budget ${channelReplans}/${CHANNEL_MAX_REVISIONS}`)
+        if (channelReplans < CHANNEL_MAX_REVISIONS) {
+          channelReplans += 1
+          const replanned = await planFrom(lastProgressPosition)
+          if (replanned.status === 'planned' && replanned.path && replanned.path.length >= 2) {
+            await runner.revoke()
+            activePath = channelPathOf(replanned)
+            activePlanLocal = replanned.local === true
+            legMeta = { kind: 'retry', plannedFrom: lastProgressPosition, planMs: replanned.planMs, rawPath: replanned.path }
+            if (await submitCurrent()) {
+              lastProgressAt = now()
+              lastGoalProgressAt = now()
+              bestGoalDistance = horizontalDistance(lastProgressPosition, goal)
+              continue
+            }
+          }
+        }
+        await runner.revoke()
+        return { seed: { phase: 'safety-landing', reason: 'timeout', state: (await readState()) ?? startState } }
+      }
+
+      // Prefix re-verification every CHANNEL_PREFIX_VERIFY_BLOCKS of progress:
+      // the remaining prefix must still lead where a fresh plan leads, or the
+      // channel is revoked and re-submitted as a new revision.
+      //
+      // ROOT CAUSE (R3 live 2026-09-20): comparing the new plan's FIRST point
+      // with the submitted next waypoint is not a comparison of like roles.
+      // The plan starts at the glider's current (launch-boosted) altitude while
+      // the submitted waypoint sits at the route band 30+ blocks below, so
+      // every verification "diverged" and the host replanned on a loop. The
+      // check now compares HORIZONTAL route shape only: a vertical difference
+      // at one station is a descent in progress, and a real vertical obstacle
+      // is the client sweep's job to refuse. A fresh plan that cannot be
+      // planned right now (read failure, search budget, terrain context) does
+      // NOT invalidate the submitted prefix, which the client is still flying;
+      // only a divergent horizontal route does.
+      if (traveled >= nextVerifyAt && poll.phase === 'applying') {
+        nextVerifyAt = traveled + CHANNEL_PREFIX_VERIFY_BLOCKS
+        // A fresh plan is only comparable from the route: the launch boost can
+        // leave the glider 50 blocks above its own first waypoint, and the
+        // fresh plan from up there routes over the bank — that mismatch is not
+        // evidence the submitted prefix diverged (R4 cave-diag-14: a false
+        // divergence at the bridge spent the replan budget before the canyon).
+        const nearestRoutePoint = activePath[nearestPathIndex(activePath, lastProgressPosition)]!
+        const offRoute = Math.hypot(
+          nearestRoutePoint.x - lastProgressPosition.x,
+          nearestRoutePoint.y - lastProgressPosition.y,
+          nearestRoutePoint.z - lastProgressPosition.z,
+        )
+        if (offRoute > CHANNEL_PREFIX_VERIFY_MAX_OFFSET) {
+          debug?.(`channel prefix verification skipped; ${offRoute.toFixed(0)} blocks off the route`)
+        }
+        else {
+          const replanned = await planFrom(lastProgressPosition)
+          const refused = replanned.status !== 'planned' || !replanned.path || replanned.path.length < 2
+          const expectedIndex = Math.min(nearestPathIndex(activePath, lastProgressPosition) + 1, activePath.length - 1)
+          const expected = activePath[expectedIndex]!
+          const aligned = !refused && replanned.path
+            ? replanned.path[nearestPathIndex(replanned.path, expected)]
+            : undefined
+          const diverged = aligned !== undefined
+            && Math.hypot(aligned.x - expected.x, aligned.z - expected.z) > CHANNEL_PREFIX_DIVERGENCE
+          if (refused || diverged)
+            debug?.(`channel prefix ${refused ? 'refused' : 'diverged'} at ${lastProgressPosition.x.toFixed(0)},${lastProgressPosition.z.toFixed(0)}; replan budget ${channelReplans}/${CHANNEL_MAX_REVISIONS}`)
+          if (diverged && channelReplans < CHANNEL_MAX_REVISIONS) {
+            channelReplans += 1
+            await runner.revoke()
+            if (replanned.path) {
+              activePath = channelPathOf(replanned)
+              activePlanLocal = replanned.local === true
+              legMeta = { kind: 'retry', plannedFrom: lastProgressPosition, planMs: replanned.planMs, rawPath: replanned.path }
+            }
+            if (await submitCurrent()) {
+              lastProgressAt = now()
+              continue
+            }
+          }
+          else if (refused) {
+            debug?.('channel prefix verification refused; holding the submitted route')
+          }
+          else if (diverged) {
+            debug?.('channel prefix diverged with no replan budget; holding the route')
+          }
+        }
+      }
+
+      await sleep(CHANNEL_POLL_MS)
+    }
+  }
+
+  let state = await port.getState()
+  // A worn suit flies straight to the nearest landing; that flow is the
+  // legacy safety landing, not a planned channel.
+  const channelCapable = options.flightPlanner?.enabled === true
+    && !equip.lowDurability
+    && options.world !== undefined
+    && port.flightSubmit !== undefined
+    && port.flightStatus !== undefined
+    && port.flightRevoke !== undefined
+
+  let deployed = false
+  /** Terminal receipt from the channel exchange; the flight never enters a loop. */
+  let channelTerminal: VehicleMoveResult | undefined
+  /** Loop seed after the channel ended with the glider still flying. */
+  let channelSeed: { phase: FlightPhase, reason: LandingReason, state: MovementState, landingAim?: Vec3, landingSite?: LandingSite } | undefined
+  /** Last approach-gate refusal; the trail logs a change, not every poll. */
+  let lastApproachRefusal: ApproachRefusal | undefined
+  if (channelCapable) {
+    const outcome = await runChannelFlight(state)
+    if (outcome.terminal)
+      channelTerminal = outcome.terminal
+    else
+      channelSeed = outcome.seed
+  }
+  if (channelTerminal)
+    return channelTerminal
+
+  if (!channelCapable) {
+    // Legacy takeoff. The bridge's per-tick macro runs first when it exists
+    // (OV-D16): it lifts off flat ground, which the edge run cannot, and it
+    // owns the two single-tick steps (the deploy press after a released jump
+    // key, and the boost from the airborne state) that a 200 ms poll cannot
+    // hit. The edge run stays as the fallback, so a cliff takeoff does not
+    // regress. The channel mode needs none of this: the client's own driver
+    // equips, launches toward the first waypoint and hands over mid-air.
+    await port.look(yawTo(state.position, goal), 0)
+    const macro = await launchFromGround({
+      port,
+      goal,
+      fireworks,
+      shouldStop,
+      stillOwnsControl: ownsControl,
+      now,
+      sleep,
+      ...(debug ? { debug } : {}),
+    })
+    if (macro?.outcome === 'cancelled')
+      return { status: 'cancelled' }
+    // The macro's verdict is not the only source of truth: read once after it, so
+    // the fallback run and the cruise work from the state the bot holds now.
+    state = await port.getState()
+    deployed = macro?.deployed === true || state.fallFlying === true
+    if (!deployed) {
+      // Every path that touches input releases it (review R7).
+      await port.setInput({ forward: true, sprint: true })
+      try {
+        const takeoffDeadline = now() + TAKEOFF_TIMEOUT_MS
+        while (state.onGround) {
+          if (shouldStop()) {
+            await stopIfOwner(port, ownsControl)
+            return { status: 'cancelled' }
+          }
+          if (now() > takeoffDeadline) {
+            await stopIfOwner(port, ownsControl)
+            return { status: 'stuck', detail: macro?.detail ?? 'no takeoff edge reached' }
+          }
           await sleep(FLIGHT_POLL_MS)
           state = await port.getState()
-          deployed = state.fallFlying === true
+        }
+
+        deployed = state.fallFlying === true
+        /**
+         * Release the run keys before the deploy press.
+         *
+         * ROOT CAUSE (live, 2026-09-18):
+         *
+         * Holding a key is not a new press. While the takeoff sprint kept
+         * `forward + sprint` held, every `jumpOnce()` was a no-op for the glider:
+         * a live run off the ridge at (-384, 161, 19) fell 24 blocks with
+         * `fallFlying: false` the whole way and died (`airitest fell from a high
+         * place`), and the receipt reported the takeoff as unavailable. The same
+         * failure cost four attempts during the E-01 calibration, where the working
+         * sequence was "release every key, then press jump once".
+         *
+         * The release must come first and the horizontal speed survives it: in E-01
+         * the glider deployed on the first press after the release and recorded a
+         * 30-second glide.
+         */
+        if (!deployed)
+          await stopIfOwner(port, ownsControl)
+        for (let attempt = 0; attempt < 3 && !deployed && !state.onGround; attempt++) {
+          await port.jumpOnce()
+          const deployDeadline = now() + DEPLOY_TIMEOUT_MS
+          while (!deployed && now() < deployDeadline && !state.onGround) {
+            await sleep(FLIGHT_POLL_MS)
+            state = await port.getState()
+            deployed = state.fallFlying === true
+          }
         }
       }
+      finally {
+        // The takeoff inputs must be released on every path: a state read error
+        // used to leave forward+sprint held (review R7).
+        await stopIfOwner(port, ownsControl)
+      }
     }
-    finally {
-      // The takeoff inputs must be released on every path: a state read error
-      // used to leave forward+sprint held (review R7).
-      await stopIfOwner(port, ownsControl)
+    if (!deployed) {
+      return { status: 'unavailable', detail: macro?.detail ?? 'elytra did not deploy' }
+    }
+    // OV-D17: the cruise takes over from the state the handoff left behind, read
+    // fresh, so a stale pre-launch position cannot seed the cruise band.
+    state = await port.getState()
+    debug?.(`elytra deployed via ${macro ? macro.outcome : 'edge-run'}${macro?.detail ? ` (${macro.detail})` : ''}`)
+  }
+  else if (channelSeed) {
+    state = channelSeed.state
+    debug?.(`elytra channel ended (${channelSeed.reason}); host owns the landing`)
+    // R4 gate: a seed approach still passes the approach-entry gate. A refusal
+    // (misaligned, too fast, above the roof, cannot glide) cruises first to
+    // re-align instead of forcing the entry.
+    if (channelSeed.phase === 'approach') {
+      const gate = evaluateApproachEntry({
+        position: state.position,
+        yaw: state.yaw,
+        horizontalSpeed: horizontalSpeed(state),
+        goal,
+        aim: channelSeed.landingAim ?? goal,
+        ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}),
+      })
+      if (!gate.enter) {
+        lastApproachRefusal = gate.reason
+        channelSeed.phase = 'cruise'
+        debug?.(`elytra approach held after the channel (${gate.reason}); cruising to re-align`)
+      }
     }
   }
-  if (!deployed) {
-    return { status: 'unavailable', detail: macro?.detail ?? 'elytra did not deploy' }
-  }
-  // OV-D17: the cruise takes over from the state the handoff left behind, read
-  // fresh, so a stale pre-launch position cannot seed the cruise band.
-  state = await port.getState()
-  debug?.(`elytra deployed via ${macro ? macro.outcome : 'edge-run'}${macro?.detail ? ` (${macro.detail})` : ''}`)
 
-  // 4. Cruise and land. A worn suit turns the flight into an early landing;
-  // the mover never cruises on an elytra that may break mid-air.
-  let reason: LandingReason = equip.lowDurability ? 'safety' : 'goal'
-  let phase: FlightPhase = equip.lowDurability ? 'safety-landing' : 'cruise'
-  let cruiseY = Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
+  let reason: LandingReason = channelSeed
+    ? channelSeed.reason
+    : equip.lowDurability ? 'safety' : 'goal'
+  let phase: FlightPhase = channelSeed
+    ? channelSeed.phase
+    : equip.lowDurability ? 'safety-landing' : 'cruise'
+  /**
+   * The cruise band starts at the goal-anchored route band when the planner
+   * is on: that band (goal.y + 2) is known a priori from the command and is
+   * what every low-route replan will anchor to, so the pitch law descends
+   * from the very first poll. ROOT CAUSE (live, 2026-09-19): starting at
+   * goal.y + 30 made her climb toward 95 while the route waited at 66, and
+   * the ratchet (stale-window scans, corridor aims) kept her at 150+. Without
+   * the planner the classic +30 offset stays (open-terrain heuristic trips).
+   * The roof cap below still applies when the probe has covered the column.
+   * A channel seed skips the band entirely: the client flew the route, and
+   * the seeded phase is an approach or a safety landing at her own altitude.
+   */
+  const plannerOn = options.flightPlanner?.enabled === true
+  let cruiseY = channelSeed
+    ? channelSeed.state.position.y
+    : plannerOn
+      ? Math.min(goal.y + 2, goalRoofY ?? Number.POSITIVE_INFINITY)
+      : goalRoofY !== undefined
+        ? Math.min(goal.y + CRUISE_BAND_ABOVE, goalRoofY)
+        : Math.max(goal.y + CRUISE_BAND_ABOVE, state.position.y)
   let lastFireworkAt = 0
   /** CD-E B0: rollout planner for the cruise phase; absent keeps the heuristics. */
-  const planner = options.flightPlanner?.enabled === true ? options.flightPlanner : undefined
+  const planner = plannerOn === true ? options.flightPlanner : undefined
   /**
    * CD-E2 corridor for the cruise phase (B0 item 2 remainder).
    *
@@ -308,6 +1365,12 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let safetyDeadline = 0
   const recent: Vec3[] = []
   const cruiseDeadline = now() + CRUISE_TIMEOUT_MS
+  // A channel seed enters the loop mid-lifecycle, so its phase owns a fresh
+  // deadline from here instead of inheriting a zero that reads as expired.
+  if (channelSeed?.phase === 'approach')
+    approachDeadline = now() + APPROACH_TIMEOUT_MS
+  if (channelSeed?.phase === 'safety-landing')
+    safetyDeadline = now() + SAFETY_LANDING_TIMEOUT_MS
 
   // The landing target resolves once and is then held: an early landing keeps
   // one verified site instead of chasing a new one every poll.
@@ -316,24 +1379,20 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
   let landingResolved = false
   /** True when no verified support area existed; an unverified point is not a site. */
   let noReachableLanding = false
-  /** Lowest solid block over the goal, probed once; landing above it is not arrival. */
-  let goalRoofY: number | undefined
-  let goalRoofProbed = false
-  /** E-02 venue gap 2: how the long-route layer participated, typed into the result. */
-  let lowRouteUsed = false
+  /**
+   * When the route layer last delivered a plan (R3). The historical "has ever
+   * flown a route" boolean is gone: the last band steers only inside the
+   * bounded hold window below, and expiry returns the band to the forward
+   * scan, so a stale plan can never own the vertical response forever.
+   */
+  let lastRoutePlannedAt = Number.NEGATIVE_INFINITY
+  /** The last planned band steers only while its bounded hold is alive. */
+  const routeHoldActive = (): boolean => now() - lastRoutePlannedAt < LOW_ROUTE_HOLD_MS
+  /** Band of the last successful plan; held through temporary refusals. */
+  let lastRouteBand: number | undefined
   let lowRouteReplans = 0
   let lowRouteRefusals = 0
-  let lowRouteLastRefusal: 'blocked' | 'read_failed' | undefined
-  // The goal's roof caps the strategic route from the first plan: probe once
-  // before the cruise so every low-route scan enters the columns below it
-  // (E-02 canyon gap 1, success half — she used to overfly the cave glass).
-  {
-    const probe = await probeGoalRoof(port, goal, debug)
-    if (probe.covered) {
-      goalRoofY = probe.roofY
-      goalRoofProbed = true
-    }
-  }
+  let lowRouteLastRefusal: 'blocked' | 'read_failed' | 'search_budget' | undefined
 
   /**
    * Resolves the landing aim once. A verified site steers the glider; when no
@@ -354,7 +1413,15 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         goalRoofProbed = true
       }
     }
-    landingSite = await findLandingSite(port, state, now, debug, goalRoofY)
+    // A goal landing prefers the patch at the command target; the ahead scan
+    // is the fallback for early landings that are not at the goal.
+    if (reason === 'goal') {
+      landingSite = (await findGoalLandingSite(port, goal, state, now, debug, goalRoofY))
+        ?? (await findLandingSite(port, state, now, debug, goalRoofY))
+    }
+    else {
+      landingSite = await findLandingSite(port, state, now, debug, goalRoofY)
+    }
     if (landingSite) {
       landingPoint = {
         x: landingSite.support.x + landingSite.support.width / 2,
@@ -364,11 +1431,28 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       return
     }
     noReachableLanding = reason !== 'goal'
-    landingPoint = unverifiedPointAhead(state)
-    debug?.(`elytra landing target ${landingPoint.x.toFixed(1)},${landingPoint.y},${landingPoint.z.toFixed(1)} (unverified)`)
+    // Minimal-risk ending: descend where she is instead of flying to an
+    // unverified point ahead. R4 cave-diag-05: the unverified aim pointed into
+    // the river bank and the host flight ended in a death; a vertical descent
+    // cannot clip terrain ahead, and water is a typed splash-down.
+    landingPoint = { ...state.position }
+    debug?.(`elytra landing target ${landingPoint.x.toFixed(1)},${landingPoint.y},${landingPoint.z.toFixed(1)} (unverified, descending in place)`)
   }
-  if (reason !== 'goal')
+  // A channel-seeded final approach carries the verified aim: the host flare
+  // must land where the client was already flying, not re-pick a site.
+  if (channelSeed?.landingAim) {
+    landingSite = channelSeed.landingSite
+    landingPoint = channelSeed.landingAim
+    landingResolved = true
+  }
+  else if (reason !== 'goal') {
     await resolveLanding()
+  }
+  // A channel seed hands over mid-air with the landing leg ahead: the site is
+  // resolved now, not on the cruise path that will never run (R3).
+  else if (phase === 'approach') {
+    await resolveLanding()
+  }
 
   /** Enters the bounded safety landing that owns cancellation and timeouts. */
   const enterSafetyLanding = async (): Promise<FlightPhase> => {
@@ -379,6 +1463,12 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
 
   /** Enters a bounded go-around, or falls back to a safety landing. */
   const enterGoAround = async (): Promise<FlightPhase> => {
+    // No verified site: a go-around has nowhere better to go. Descending with
+    // the bounded safety landing and reporting the limitation is the honest
+    // ending; a go-around here only extends the flight over unverified ground
+    // (R4 approach-diag-03: the unverified aim led to a go-around and a death).
+    if (landingSite === undefined || noReachableLanding)
+      return await enterSafetyLanding()
     if (goArounds >= MAX_GO_AROUNDS || fireworks <= FIREWORK_LOW_SUPPLY) {
       if (reason === 'goal')
         reason = 'timeout'
@@ -434,11 +1524,28 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       // the glass over it. While above the roof the cruise keeps descending
       // along the low-route band (E-02 canyon, live 2026-09-19: 3/3 runs
       // landed on the glass at y=86 because the approach started from y=150).
-      if (phase === 'cruise' && reason === 'goal' && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE
-        && (goalRoofY === undefined || state.position.y <= goalRoofY)) {
+      //
+      // R4: 80 blocks is only the candidate trigger. The gate also checks
+      // alignment, speed, the roof and glide feasibility; a refusal leaves the
+      // cruise in control and is named once in the trail.
+      const approachGate = evaluateApproachEntry({
+        position: state.position,
+        yaw: state.yaw,
+        horizontalSpeed: horizontalSpeed(state),
+        goal,
+        aim: landingPoint,
+        ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}),
+      })
+      if (phase === 'cruise' && reason === 'goal' && approachGate.enter) {
         phase = 'approach'
         approachDeadline = now() + APPROACH_TIMEOUT_MS
         minApproachGap = horizontalDistance(state.position, goal)
+      }
+      else if (phase === 'cruise' && reason === 'goal' && !approachGate.enter
+        && horizontalDistance(state.position, goal) <= APPROACH_DISTANCE
+        && lastApproachRefusal !== approachGate.reason) {
+        lastApproachRefusal = approachGate.reason
+        debug?.(`elytra approach held (${approachGate.reason})`)
       }
       if (phase === 'cruise' && reason !== 'goal' && !landingResolved)
         await resolveLanding()
@@ -516,11 +1623,17 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         const routeReached = lowRoute !== undefined
           && horizontalDistance(state.position, lowRoute.waypoint) <= LOW_ROUTE_WAYPOINT_REACH
         if (routeStale || routeReached) {
-          const plan = await planLowRoute({ port, self: state.position, goal, ...(goalRoofY !== undefined ? { roofY: goalRoofY } : {}) })
+          const plan = await planLowRoute({
+            port,
+            self: state.position,
+            goal,
+            ...(options.mustPass && options.mustPass.length > 0 ? { mustPass: options.mustPass } : {}),
+          })
           lowRouteAt = now()
           if (plan.status === 'planned' && plan.waypoint) {
             lowRoute = { waypoint: plan.waypoint, bandY: plan.bandY ?? plan.waypoint.y }
-            lowRouteUsed = true
+            lastRoutePlannedAt = now()
+            lastRouteBand = lowRoute.bandY
             lowRouteReplans += 1
             debug?.(`elytra low-route waypoint ${plan.waypoint.x.toFixed(0)},${plan.waypoint.y.toFixed(0)},${plan.waypoint.z.toFixed(0)} band=${(plan.bandY ?? plan.waypoint.y).toFixed(0)} reached=${plan.reached}`)
           }
@@ -537,40 +1650,38 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         }
       }
       let target = phase === 'cruise' ? (lowRoute?.waypoint ?? goal) : landingPoint
-      // The band follows the route's altitude, not a fixed offset above the goal.
-      if (phase === 'cruise' && lowRoute)
-        cruiseY = Math.max(lowRoute.bandY + LOW_ROUTE_BAND_MARGIN, Math.min(cruiseY, state.position.y))
+      // The route band LEADS the descent instead of ratcheting to her
+      // altitude. ROOT CAUSE (live, 2026-09-19): the old construction
+      // max(bandY + margin, min(cruiseY, y)) glued the band to her current
+      // altitude, so the route's low band (66) could never pull her down —
+      // she stayed at whatever height the launch and stale-window scans had
+      // ratcheted her to (75 → 110 → 139) and arrived at the goal 80 blocks
+      // too high. The band is now the route's own altitude; the pitch law
+      // converts the gap into a nose-down angle, and the descent-step cap
+      // bounds how fast the band itself may drop.
+      if (phase === 'cruise' && lowRoute) {
+        const routeBand = lowRoute.bandY + LOW_ROUTE_BAND_MARGIN
+        cruiseY = Math.max(routeBand, cruiseY - LOW_ROUTE_DESCENT_STEP)
+      }
       // A goal under a roof caps the cruise band: the approach must enter the
       // cave mouth, and the band cannot sit above the roof while the glider
       // still needs to descend under it (live 2026-09-19: without the cap the
       // band followed the canyon wall upward and she overflew east 300 blocks).
       if (phase === 'cruise' && goalRoofY !== undefined && reason === 'goal')
         cruiseY = Math.min(cruiseY, goalRoofY)
-      // CD-E2: on the cruise leg the coarse corridor owns the near-field route
-      // hint. A route point replaces the direct goal so the rollout plans around
-      // terrain it can see; any refusal (unknown window, no route, failed read)
-      // keeps the direct goal, because unknown space is not a route.
-      if (corridor && phase === 'cruise') {
-        // The corridor answers the NEAR field: its target is the fresh
-        // long-route waypoint when one exists (usually inside the window), so
-        // it never guesses clamped exits for a goal hundreds of blocks out.
-        // Live 2026-09-19: aiming at the far goal picked west-corner window
-        // exits and spiralled two canyon runs off-course.
-        const corridorTarget = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
-          ? lowRoute.waypoint
-          : goal
-        const routeAim = await corridor.step(state.position, corridorTarget)
+      // CD-E2: the coarse corridor owns the near-field route hint, but ONLY
+      // while the long-route layer has no fresh plan. ROOT CAUSE (live,
+      // 2026-09-19): with a fresh route the corridor's internal grid still
+      // planned vertical detours (aims at y=137, 165 over a band-66 route) and
+      // the rollout chased them up to y=174; the goal-anchored route owns the
+      // whole path when it exists. A corridor aim also never commands a climb:
+      // it is a lateral avoidance layer and the route band owns altitude.
+      const routeFresh = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
+      if (corridor && phase === 'cruise' && !routeFresh) {
+        const routeAim = await corridor.step(state.position, goal)
         if (routeAim) {
-          // The corridor is a LATERAL avoidance layer; the low-route band owns
-          // altitude. Live 2026-09-19: an unclamped corridor aim at y=163 made
-          // the rollout chase the corridor's own upward detour to y=166, where
-          // stale chunk reads turned into unknown cells and the grid routed
-          // west around them. The corridor may command descent, never climb.
-          const aimY = lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
-            ? Math.min(routeAim.y, state.position.y)
-            : routeAim.y
-          target = { x: routeAim.x, y: aimY, z: routeAim.z }
-          debug?.(`elytra corridor aim ${routeAim.x.toFixed(1)},${aimY.toFixed(1)},${routeAim.z.toFixed(1)}`)
+          target = { x: routeAim.x, y: Math.min(routeAim.y, state.position.y), z: routeAim.z }
+          debug?.(`elytra corridor aim ${target.x.toFixed(1)},${target.y.toFixed(1)},${target.z.toFixed(1)}`)
         }
         else if (corridor.status() !== 'planned') {
           const reason = corridor.refusal?.()
@@ -598,7 +1709,19 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
        * must not overrule it; a block immediately ahead still does.
        */
       const lowRouteFresh = phase === 'cruise' && lowRoute !== undefined && now() - lowRouteAt < LOW_ROUTE_TTL_MS
-      cruiseY = lowRouteFresh ? cruiseY : scan.cruiseY
+      // Band sources, in order: a fresh route leads the descent (it already
+      // set the band above); without one, a mission that HAS flown a route
+      // holds its last known band — a temporary plan refusal must not rocket
+      // her into the canyon ceiling (live 2026-09-19: the TTL replan refused
+      // once, the scan raised the band, and she climbed into the wall at t=6s,
+      // twice). The scan's raise only applies to flights that never had a
+      // route (open-terrain heuristic trips).
+      if (!lowRouteFresh) {
+        if (lastRouteBand !== undefined && routeHoldActive())
+          cruiseY = Math.max(lastRouteBand, cruiseY - LOW_ROUTE_DESCENT_STEP)
+        else
+          cruiseY = scan.cruiseY
+      }
       const obstacleDistance = scan.obstacleDistance
       const emergency = obstacleDistance !== undefined && obstacleDistance <= TERRAIN_GUARD_DISTANCE
 
@@ -610,7 +1733,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         // go-around, flare and safety keep the audited heuristics until
         // E-02/E-03 wire their lifecycle counterparts.
         let applied: LiveFlightControl | undefined
-        if (planner) {
+        if (planner && planner.rolloutOn) {
           applied = await planLiveFlightControl({ planner, port, state, poll: pollIndex, fireworks, health: state.health ?? 20, goal: target, lastRocketAt: lastFireworkAt === 0 ? undefined : lastFireworkAt, now })
           if (!applied)
             debug?.('elytra rollout fell back to heuristics')
@@ -621,9 +1744,16 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
           wantThrust = applied.useRocket
         }
         else {
-          // Climb over anything close ahead; the scan may only see terrain at
-          // the last safe distance, so the nose-up must be decisive.
-          const climbing = state.position.y < cruiseY - 4 || emergency
+          // Climb over anything close ahead — but only while the flight has
+          // no route contract. ROOT CAUSE (live, 2026-09-19, the extended
+          // ceiling fixture): the scan reads the obsidian ceiling at her
+          // altitude as "obstacle ahead" and the emergency response climbs
+          // OVER it, while the goal-anchored route has already verified air
+          // at band 66 through that same ceiling — she must fly UNDER. Once
+          // the mission has a route, vertical decisions belong to the route
+          // band; the scan keeps its obstacleDistance for the landing path.
+          const climbing = state.position.y < cruiseY - 4
+            || (emergency && !routeHoldActive())
           // A large surplus is dived away, not waited away: the elytra trades
           // height for speed, and the old 35-degree ceiling made the mover arrive
           // over a goal under a roof with 20-50 blocks it could not lose (live
@@ -631,7 +1761,7 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
           const surplus = state.position.y - cruiseY
           const diveCeiling = surplus > 12 ? DIVE_PITCH : 35
           pitch = climbing ? CLIMB_PITCH : clamp(-(cruiseY - state.position.y) * 1.2, -30, diveCeiling)
-          wantThrust = climbing || horizontalSpeed(state) < MIN_CRUISE_SPEED
+          wantThrust = (climbing && !routeHoldActive()) || horizontalSpeed(state) < MIN_CRUISE_SPEED
         }
       }
       else if (phase === 'go-around') {
@@ -650,8 +1780,13 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         pitch = clamp(blend * required + (1 - blend) * FLARE_PITCH, FLARE_PITCH, 35)
         wantThrust = height <= FLARE_HEIGHT && (state.motion?.y ?? 0) < LANDING_ASSIST_FALL_SPEED
       }
-      else if (obstacleDistance !== undefined && state.position.y < cruiseY - 4) {
-        // A wall in the landing path: spend a rocket to clear it.
+      else if (obstacleDistance !== undefined
+        && (obstacleDistance <= TERRAIN_GUARD_DISTANCE || state.position.y < cruiseY - 4)) {
+        // A wall in the landing path: spend a rocket to clear it. R4 collision
+        // diagnostic 2026-09-20: the old condition only climbed when she was
+        // already 4 blocks under the band, so an approach at band height flew
+        // straight into a close bank (health 20 -> 17.9 during the host-owned
+        // landing leg). Terrain this close always wins over the descent aim.
         pitch = CLIMB_PITCH
         wantThrust = true
       }
@@ -702,6 +1837,10 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         goalRoofProbed = true
       }
     }
+    // "Returned" and "safely grounded" are separate facts (R4 review item 5):
+    // the receipt records the state the mover actually returned from. A water
+    // float is not airborne; it is its own typed outcome.
+    channelAirborneAtReturn = isAirborneState(state)
     return await finishFlight({
       port,
       finalState: state,
@@ -712,8 +1851,9 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
       noReachableLanding,
       ...(goalRoofY !== undefined ? { goalRoofY } : {}),
       ...(lowRouteEnabled
-        ? { lowRoute: { used: lowRouteUsed, replans: lowRouteReplans, refusals: lowRouteRefusals, ...(lowRouteLastRefusal ? { lastRefusal: lowRouteLastRefusal } : {}) } }
+        ? { lowRoute: { used: lastRoutePlannedAt > Number.NEGATIVE_INFINITY, replans: lowRouteReplans, refusals: lowRouteRefusals, ...(lowRouteLastRefusal ? { lastRefusal: lowRouteLastRefusal } : {}) } }
         : {}),
+      ...(channelCapable ? { channel: channelReceipt() } : {}),
       tolerance,
       fireworks,
       shouldStop,
@@ -741,6 +1881,47 @@ function canReachAim(state: MovementState, aim: Vec3): boolean {
   if (gap <= FLARE_DISTANCE)
     return true
   return state.position.y - aim.y >= gap * MIN_GLIDE_RATIO
+}
+
+/** Why the approach entry was refused; named for the trail and the receipt. */
+export type ApproachRefusal = 'too-far' | 'above-roof' | 'not-aligned' | 'too-fast' | 'cannot-reach'
+
+/**
+ * Evaluates the approach-entry gate (R4). Pure: the caller supplies the live
+ * facts. `enter: true` hands the flight to the approach state machine; a
+ * refusal leaves the cruise in control and names the missing condition.
+ *
+ * @example
+ * // Aligned and under the roof, 60 blocks out, gliding speed
+ * evaluateApproachEntry({ position: { x: 0, y: 70, z: 0 }, yaw: 0, horizontalSpeed: 0.8,
+ *   goal: { x: 0, y: 64, z: 60 }, aim: { x: 0, y: 64, z: 60 }, roofY: 75 })
+ * // => { enter: true }
+ */
+export function evaluateApproachEntry(input: {
+  position: Vec3
+  yaw: number
+  horizontalSpeed: number
+  goal: Vec3
+  aim: Vec3
+  roofY?: number
+}): { enter: true } | { enter: false, reason: ApproachRefusal } {
+  const gap = horizontalDistance(input.position, input.goal)
+  if (gap > APPROACH_DISTANCE)
+    return { enter: false, reason: 'too-far' }
+  if (input.roofY !== undefined && input.position.y > input.roofY)
+    return { enter: false, reason: 'above-roof' }
+  // Short final: the flare owns the settling, alignment and speed no longer
+  // gate the entry.
+  if (gap <= APPROACH_SHORT_FINAL)
+    return { enter: true }
+  if (Math.abs(angleDelta(input.yaw, yawTo(input.position, input.aim))) > APPROACH_ALIGN_DEG)
+    return { enter: false, reason: 'not-aligned' }
+  if (input.horizontalSpeed > APPROACH_MAX_SPEED)
+    return { enter: false, reason: 'too-fast' }
+  const aimGap = horizontalDistance(input.position, input.aim)
+  if (aimGap > FLARE_DISTANCE && input.position.y - input.aim.y < aimGap * MIN_GLIDE_RATIO)
+    return { enter: false, reason: 'cannot-reach' }
+  return { enter: true }
 }
 
 /** Walks the remaining gap after a short landing; stops at tolerance or the timeout. */
@@ -774,14 +1955,9 @@ async function walkCloser(
   }
 }
 
-/** The furthest point ahead on the current heading, explicitly unverified. */
-function unverifiedPointAhead(state: MovementState): Vec3 {
-  const radians = state.yaw * Math.PI / 180
-  return {
-    x: state.position.x - Math.sin(radians) * LANDING_SCAN_MAX,
-    y: state.position.y,
-    z: state.position.z + Math.cos(radians) * LANDING_SCAN_MAX,
-  }
+/** Still in the air: neither standing nor floating in water. */
+function isAirborneState(state: MovementState): boolean {
+  return state.onGround !== true && state.inWater !== true
 }
 
 /** Maps a player-state read to the touch-down sample the classifier takes. */
@@ -793,6 +1969,23 @@ function touchdownSampleOf(state: MovementState) {
     inWater: state.inWater,
     // A missing `fallFlying` stays absent so the classifier returns unknown.
     ...(state.fallFlying !== undefined ? { fallFlying: state.fallFlying } : {}),
+  }
+}
+
+/**
+ * Builds the best-known state from the last channel sample. Used when a state
+ * read fails while the glider is airborne: falling back to the launch state
+ * would claim she is on the ground and skip the landing entirely.
+ */
+function stateOfSample(sample: FlightChannelSample, fallback: MovementState): MovementState {
+  return {
+    position: { x: sample.x, y: sample.y, z: sample.z },
+    yaw: sample.yaw,
+    motion: { x: sample.vx, y: sample.vy, z: sample.vz },
+    onGround: sample.onGround,
+    fallFlying: sample.gliding,
+    ...(sample.health !== undefined ? { health: sample.health } : {}),
+    inWater: fallback.inWater,
   }
 }
 
@@ -815,6 +2008,8 @@ async function finishFlight(input: {
   goalRoofY?: number
   /** Long-route participation typed into every terminal outcome. */
   lowRoute?: VehicleMoveResult['lowRoute']
+  /** Channel exchange participation typed into every terminal outcome (R3). */
+  channel?: VehicleMoveResult['channel']
   tolerance: number
   fireworks: number
   shouldStop: () => boolean
@@ -826,6 +2021,7 @@ async function finishFlight(input: {
 }): Promise<VehicleMoveResult> {
   const { port, goal, landingPoint, landingSite, reason, shouldStop, ownsControl, sleep, now, debug, fireworks } = input
   const lowRouteField = input.lowRoute ? { lowRoute: input.lowRoute } : {}
+  const channelField = input.channel ? { channel: input.channel } : {}
   // Only a verified site or the goal can be the reference; an unverified point
   // ahead is not a support claim, so contact there is not a plausible landing.
   const reference = landingSite ? { x: landingPoint.x, y: landingPoint.y, z: landingPoint.z } : goal
@@ -850,17 +2046,17 @@ async function finishFlight(input: {
   }
 
   if (outcome.kind === 'water') {
-    return { status: 'stuck', failure: 'landing_in_water', detail: 'touch-down landed in water', ...lowRouteField }
+    return { status: 'stuck', failure: 'landing_in_water', detail: 'touch-down landed in water', ...lowRouteField, ...channelField }
   }
   if (outcome.kind !== 'landed' && outcome.kind !== 'unsettled') {
     if (outcome.kind === 'still-flying')
-      return { status: 'unknown', failure: 'touchdown_unverified', detail: 'the glide was still active at the deadline', ...lowRouteField }
+      return { status: 'unknown', failure: 'touchdown_unverified', detail: 'the glide was still active at the deadline', ...lowRouteField, ...channelField }
     if (input.noReachableLanding)
-      return { status: 'unknown', failure: 'no_reachable_landing', detail: 'no verified landing site on the flight', ...lowRouteField }
+      return { status: 'unknown', failure: 'no_reachable_landing', detail: 'no verified landing site on the flight', ...lowRouteField, ...channelField }
     const detail = outcome.kind === 'lost-flight'
       ? 'the glide ended without a confirmed ground contact'
       : outcome.kind === 'unknown' ? outcome.reason : 'the touch-down was never verified'
-    return { status: 'unknown', failure: 'touchdown_unverified', detail, ...lowRouteField }
+    return { status: 'unknown', failure: 'touchdown_unverified', detail, ...lowRouteField, ...channelField }
   }
 
   // A confirmed ground contact can stop a few blocks short of the aim; close
@@ -885,10 +2081,11 @@ async function finishFlight(input: {
       ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
       detail: `landed ${distance.toFixed(1)} blocks from the goal`,
       ...lowRouteField,
+      ...channelField,
     }
   }
   if (reason === 'low_supply')
-    return { status: 'low_supply', detail: `landed early with ${fireworks} rockets`, ...lowRouteField }
+    return { status: 'low_supply', detail: `landed early with ${fireworks} rockets`, ...lowRouteField, ...channelField }
   if (distance <= input.tolerance) {
     // Landing on the roof over the goal is horizontally "at" it but is not
     // arrival: the goal sits under that roof (E-02 canyon gap 1).
@@ -898,15 +2095,17 @@ async function finishFlight(input: {
         failure: 'goal_under_roof',
         detail: `landed on the roof y=${finalState.position.y.toFixed(0)} above goal ceiling y=${input.goalRoofY.toFixed(0)} at ${distance.toFixed(1)} blocks horizontal`,
         ...lowRouteField,
+        ...channelField,
       }
     }
-    return { status: 'reached', ...lowRouteField }
+    return { status: 'reached', ...lowRouteField, ...channelField }
   }
   return {
     status: 'stuck',
     ...(input.noReachableLanding ? { failure: 'no_reachable_landing' as const } : {}),
     detail: `landing miss: ${distance.toFixed(1)} blocks`,
     ...lowRouteField,
+    ...channelField,
   }
 }
 
@@ -1022,6 +2221,73 @@ async function findLandingSite(
         return site
       }
     }
+  }
+  return undefined
+}
+
+/**
+ * Finds a verified landing patch NEAR THE GOAL (R4): the goal-anchored search.
+ *
+ * The ahead-scan finds the nearest patch along the heading, which on the river
+ * fixture is the bank beside the target pad (pad-runs-01 runs 4/5: the host
+ * flared onto a y=80 bank, 8 blocks above the pad). A goal-anchored read makes
+ * the command target decide the site; the ahead scan stays as the fallback for
+ * landings that are not at the goal.
+ */
+async function findGoalLandingSite(
+  port: MovementControlPort,
+  goal: Vec3,
+  state: MovementState,
+  now: () => number,
+  debug?: (message: string) => void,
+  /** When set, patches standing at or above this y are roofs, not ways in. */
+  maxContactY?: number,
+): Promise<LandingSite | undefined> {
+  const radius = 8
+  const gx = Math.floor(goal.x)
+  const gz = Math.floor(goal.z)
+  const topY = Math.floor(goal.y) + 6
+  const bottomY = Math.floor(goal.y) - 8
+  let entries
+  try {
+    entries = await port.getBlocksRegion(
+      { x: gx - radius, y: bottomY, z: gz - radius },
+      { x: gx + radius, y: topY, z: gz + radius },
+    )
+  }
+  catch {
+    return undefined
+  }
+  let best: LandingSite | undefined
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (let x = gx - radius; x <= gx + radius; x++) {
+    for (let z = gz - radius; z <= gz + radius; z++) {
+      const site = evaluatePatch({
+        entries,
+        x,
+        z,
+        from: state.position,
+        topY,
+        scanDepth: 14,
+        now: now(),
+      })
+      if (!site)
+        continue
+      if (maxContactY !== undefined && site.contactY >= maxContactY)
+        continue
+      const distance = Math.hypot(
+        site.support.x + site.support.width / 2 - goal.x,
+        site.support.z + site.support.depth / 2 - goal.z,
+      )
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = site
+      }
+    }
+  }
+  if (best && bestDistance <= radius) {
+    debug?.(`elytra goal landing site ${(best.support.x + best.support.width / 2).toFixed(1)},${best.contactY},${(best.support.z + best.support.depth / 2).toFixed(1)} (${bestDistance.toFixed(1)} from the goal)`)
+    return best
   }
   return undefined
 }

@@ -1,0 +1,18 @@
+{
+  "D:/mcpfabric/versions/1.21.1/build/libs/mcpfabric-0.2.105+1.21.1.jar": "fbc3cae729ffd3244e7a2d8bfc403b48db3c518e248178bc4ac1b2f93bd76ea8",
+  "D:/mcpfabric/src/client/java/dev/mcpfabric/client/flight/FlightSession.java": "0cde4c6dfdb48daeee540baf7ed0f5005551c276e0057cd6426b0e335f3c43c0",
+  "D:/mcpfabric/src/client/java/dev/mcpfabric/client/flight/FlightPlanner.java": "6b93bde726f70f6550942bdba600d455163ffc22cffd9b5d32528ea89165d625",
+  "D:/mcpfabric/src/client/java/dev/mcpfabric/client/flight/FlightPlanning.java": "c7f81f658214b08f8776b92d2cccffdb57533f7ab39cf1d8a8db504bea1472de",
+  "D:/mcpfabric/src/test/java/dev/mcpfabric/client/flight/FlightPlanningTest.java": "d39f5924044182730572037d83194b3605ada8dbaeb2c1a1a1c8d9f91f92f3a9",
+  "D:/mcpfabric/src/test/java/dev/mcpfabric/client/flight/FlightSessionContinuationTest.java": "d8719ab77f409a9a9d9fcff297463214999fae7ebf2bf2b83650dc184f20a02d",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\geometric-route.json": "cea7c99521d7414f7b22b07804cb74d0bd92517b827ed6f86c661de01d37ea78",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\fly-terminal.mjs": "9a722719abafb296b88f9638af0d687127be24bc0745771c2d8be7a7191c7dbb",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\bridge-1-01.jsonl": "dc0212bf2646910c836b18aec205ad5bd58df9262617671e111503e4b8587c4b",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\bridge-1-02.jsonl": "4ae8cf70f067371168b7606dea63741567a0a3879950c4ef00736bf841619337",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\bridge-1-03.jsonl": "833cadc1469a429459455be1bd71f278b50138e61e1e61196ac66deb409fff37",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\bridge-audit.txt": "43c45257cf229d11b0c4aa6d9c8164b2190a0a69a67c649038397536e7fd4deb",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\all-tick-audit.json": "06b5645b97c05ef9f69e44bd4e2c048cb1f7958ca209b959b0e998dc9cd64315",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\bridge-planning-events.jsonl": "d2996dd33e14fe03387195e2deb82ccf80b7135a2267e5318775d879055e8e10",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\short-window-tests.txt": "ec29e4f15336ac4aa646ba17df36117cb35731b52db10b8e9310f836f6110dd0",
+  "D:\\airi\\docs\\fork\\evidence\\elytra-runtime-20260927\\milestone-105.md": "55fcf42942b9fc1cc9083d4bd7841f4239f0b54ca86522cfd255cd2355034cfb"
+}

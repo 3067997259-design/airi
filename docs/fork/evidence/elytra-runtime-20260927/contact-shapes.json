@@ -1,0 +1,35 @@
+{
+  "at": "2026-09-27T02:51:35.915Z",
+  "result": [
+    {
+      "position": {
+        "x": -868,
+        "y": 69,
+        "z": -233
+      },
+      "response": {
+        "dimension": "minecraft:overworld",
+        "volume": 1,
+        "count": 0,
+        "truncated": false,
+        "exactShapes": true,
+        "blocks": []
+      }
+    },
+    {
+      "position": {
+        "x": -851,
+        "y": 68,
+        "z": -260
+      },
+      "response": {
+        "dimension": "minecraft:overworld",
+        "volume": 1,
+        "count": 0,
+        "truncated": false,
+        "exactShapes": true,
+        "blocks": []
+      }
+    }
+  ]
+}

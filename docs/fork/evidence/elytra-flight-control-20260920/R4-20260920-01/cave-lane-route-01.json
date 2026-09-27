@@ -1,0 +1,25 @@
+{
+  "schema": "e02-fixed-lane/v1",
+  "note": "Aerial-platform clear glide lane for handover timing perturbations (late/timeout). The platform's stone surface is y=200 (walk at 201); west of x=240 the cliff drops to y~87 and the scanned box x -60..239, y 168..206, z -24..-10 is entirely air. Fixed route only for fault isolation, not a production fixture.",
+  "platform": {
+    "stoneSurfaceY": 200,
+    "walkY": 201,
+    "westEdgeX": 240,
+    "redCenter": { "x0": 299, "x1": 301, "y": 201, "z0": -1, "z1": 1 },
+    "takeoffPad": { "x": 240, "y": 201, "z0": -18, "z1": -16, "id": "minecraft:orange_terracotta" }
+  },
+  "start": { "x": 245, "y": 201, "z": -17 },
+  "crossX": -40,
+  "laneBox": { "x0": -60, "x1": 239, "y0": 168, "y1": 206, "z0": -24, "z1": -10, "nonAirCells": 0 },
+  "points": [
+    { "x": 245, "y": 201, "z": -17 },
+    { "x": 205, "y": 197, "z": -17 },
+    { "x": 165, "y": 193, "z": -17 },
+    { "x": 125, "y": 189, "z": -17 },
+    { "x": 85, "y": 185, "z": -17 },
+    { "x": 45, "y": 181, "z": -17 },
+    { "x": 5, "y": 177, "z": -17 },
+    { "x": -35, "y": 173, "z": -17 },
+    { "x": -60, "y": 171, "z": -17 }
+  ]
+}

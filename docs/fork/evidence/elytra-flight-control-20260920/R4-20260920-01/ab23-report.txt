@@ -1,0 +1,110 @@
+=== ARM full subs=1 crossed=false end=no_viable_trajectory ending=safe_ground damage=3.6400700000000015 residual=0 hp=20->16.35993
+  final={"x":-981.5651008868624,"y":77,"z":-90.69999998807907,"health":17.35993,"onGround":true,"inWater":false}
+  samples=220 owners={"none":72,"launch-macro":9,"flight-session":18,"flight-recovery":121} fired=1 stackedTicks=0
+  ownerSegments=none:25903-25903 launch-macro:25904-25912 flight-session:25913-25930 flight-recovery:25931-26051 none:26052-26122
+  airborneNoneTicks=46 first=26052 last=26098
+  driven=18 taTicks=0 maxTa=0
+  lastDriven t=25930 cur=3 tgt=-998.5,66.5,47.5 pred=20(horizon) ta=none rej=collision@t11 block=minecraft:water shape=empty c/f/s/ta=18/0/0/0
+  preview=-1001.36,73.36,53.38;-1000.93,72.79,50.06;-1000.50,72.14,46.72
+  recovery t=25931-26051 startY=73.4 minY=71.6 endY=84.2 endVy=-0.16 fired=0 pitchAtFlare=8
+  trail: arm=full ended: no_viable_trajectory detail=no_viable_trajectory eval=20 sim=2ms reject[c=19,f=1,s=0,ta=0] first=collision@t10(-996.2,63.0,40.9)block=minecraft:water shape=empty entry=3/19 target=-998.5,66.5,47.5 at=-1001.4,73.4,53.4 pitch=12.8
+=== ARM segmented subs=4 crossed=false end=no_viable_trajectory ending=safe_ground damage=0 residual=0 hp=20->20
+  final={"x":-998.1112112872828,"y":72,"z":-88.69999998807907,"health":20,"onGround":true,"inWater":false}
+  samples=203 owners={"none":40,"launch-macro":9,"flight-session":24,"flight-recovery":130} fired=1 stackedTicks=0
+  ownerSegments=none:26253-26255 launch-macro:26256-26264 flight-session:26265-26288 flight-recovery:26289-26418 none:26419-26455
+  airborneNoneTicks=15 first=26419 last=26434
+  driven=24 taTicks=23 maxTa=139
+  lastDriven t=26288 cur=1 tgt=-996.5,64.5,36.5 pred=17(arrived_lookahead) ta=hold rej=collision@t11 block=minecraft:water shape=empty c/f/s/ta=18/0/0/0
+  preview=-1001.62,68.57,43.42;-1001.49,68.19,40.08;-1001.39,67.67,36.71
+  recovery t=26289-26418 startY=68.6 minY=65.6 endY=72.8 endVy=-0.02 fired=0 pitchAtFlare=-20
+  trail: arm=segmented ended: no_viable_trajectory detail=no_viable_trajectory eval=20 sim=1ms reject[c=18,f=0,s=0,ta=2] first=collision@t9(-993.7,63.1,30.3)block=minecraft:water shape=empty entry=1/4 target=-996.5,64.5,36.5 at=-1001.6,68.6,43.4 pitch=10.1
+# ab-23 原始观察（自动提取，供审计）
+
+## full
+  hp drop t26086 20.00->13.36 pos=-982.7,78.6,-90.7 owner=none onGround=false inWater=false vy=-0.16
+  rec t25931 pos=-1001.4,73.4,53.4 vy=-0.28 pitch=8 hp=20.00 gliding=true boost=0
+  rec t25941 pos=-999.2,72.1,36.9 vy=0.29 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t25951 pos=-997.5,76.6,23.1 vy=0.55 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t25961 pos=-996.1,82.3,12 vy=0.57 pitch=8 hp=20.00 gliding=true boost=0
+  rec t25971 pos=-994.8,86.7,2.5 vy=0.41 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t25981 pos=-993.8,90.3,-5.4 vy=0.25 pitch=8 hp=20.00 gliding=true boost=0
+  rec t25991 pos=-992.9,91.5,-12.5 vy=0.02 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26001 pos=-992.1,90.8,-19.2 vy=-0.09 pitch=-18 hp=20.00 gliding=true boost=0
+  rec t26011 pos=-991.2,90.2,-25.6 vy=-0.10 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26021 pos=-990.4,88.9,-32.3 vy=-0.14 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26031 pos=-989.4,87.4,-39.7 vy=-0.16 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26041 pos=-988.4,85.8,-47.8 vy=-0.16 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26051 pos=-987.3,84.2,-56.7 vy=-0.16 pitch=8 hp=20.00 gliding=true boost=0
+  post t26052 pos=-987.2,84.1,-57.6 vy=-0.16 pitch=8 hp=20.00 gliding=true onGround=false
+  post t26062 pos=-985.9,82.5,-67.2 vy=-0.16 pitch=8 hp=20.00 gliding=true onGround=false
+  post t26072 pos=-984.6,80.9,-77.4 vy=-0.16 pitch=8 hp=20.00 gliding=true onGround=false
+  post t26082 pos=-983.3,79.3,-88.1 vy=-0.16 pitch=8 hp=20.00 gliding=true onGround=false
+  post t26092 pos=-982.1,77.6,-90.7 vy=-0.16 pitch=8 hp=13.36 gliding=true onGround=false
+  post t26102 pos=-981.6,77,-90.7 vy=-0.08 pitch=8 hp=14.36 gliding=false onGround=true
+  post t26112 pos=-981.6,77,-90.7 vy=-0.08 pitch=8 hp=15.36 gliding=false onGround=true
+  post t26122 pos=-981.6,77,-90.7 vy=-0.08 pitch=8 hp=16.36 gliding=false onGround=true
+  driven ticks (t, pos, target, ta, keep):
+    t25913 -1007,75.4,79 tgt=-1005.5,73.5,67.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25914 -1006.6,75.9,79.4 tgt=-1005.5,73.5,67.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25915 -1006.3,76,78.7 tgt=-1005.5,73.5,67.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25916 -1006,76,77.6 tgt=-1005.5,73.5,67.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25917 -1005.9,76,76.1 tgt=-1005.5,73.5,67.5 ta=0 rej=collision@t19 minecraft:water pred=20/horizon act=none
+    t25918 -1005.8,75.9,74.6 tgt=-1002.5,70.5,57.5 ta=0 rej=collision@t18 minecraft:water pred=20/horizon act=none
+    t25919 -1005.7,75.9,73 tgt=-1002.5,70.5,57.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25920 -1005.4,75.6,71.4 tgt=-1002.5,70.5,57.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25921 -1005.1,75.3,69.7 tgt=-1002.5,70.5,57.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25922 -1004.8,75.1,68.1 tgt=-1002.5,70.5,57.5 ta=0 rej=floor@t20  pred=20/horizon act=none
+    t25923 -1004.5,74.9,66.4 tgt=-1002.5,70.5,57.5 ta=0 rej=collision@t19 minecraft:water pred=20/horizon act=none
+    t25924 -1004.1,74.6,64.8 tgt=-1002.5,70.5,57.5 ta=0 rej=collision@t16 minecraft:water pred=20/horizon act=none
+    t25925 -1003.8,74.3,63.2 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t18 minecraft:water pred=20/horizon act=none
+    t25926 -1003.4,74.1,61.5 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t16 minecraft:water pred=20/horizon act=none
+    t25927 -1002.9,73.9,59.9 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t15 minecraft:water pred=20/horizon act=none
+    t25928 -1002.4,73.7,58.3 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t14 minecraft:water pred=20/horizon act=none
+    t25929 -1001.9,73.7,56.7 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t13 minecraft:water pred=20/horizon act=none
+    t25930 -1001.6,73.5,55 tgt=-998.5,66.5,47.5 ta=0 rej=collision@t11 minecraft:water pred=20/horizon act=none
+
+## segmented
+  hp drop t26427 20.00->19.31 pos=-998.2,72.5,-88.7 owner=none onGround=false inWater=false vy=-0.05
+  rec t26289 pos=-1001.6,68.6,43.4 vy=-0.16 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26299 pos=-1001.1,66.8,26.6 vy=-0.17 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26309 pos=-1000.6,65.7,10 vy=0.05 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t26319 pos=-1000.3,68,-3.9 vy=0.36 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t26329 pos=-1000,72.2,-15.1 vy=0.38 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26339 pos=-999.7,74.7,-24.9 vy=0.15 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26349 pos=-999.5,75,-33.8 vy=-0.05 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26359 pos=-999.3,74,-42.4 vy=-0.13 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26369 pos=-999.1,72.5,-51.3 vy=-0.15 pitch=8 hp=20.00 gliding=true boost=0
+  rec t26379 pos=-998.9,71.2,-60.8 vy=-0.07 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t26389 pos=-998.6,71.3,-69.3 vy=0.06 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t26399 pos=-998.5,72.1,-76.1 vy=0.08 pitch=-20 hp=20.00 gliding=true boost=0
+  rec t26409 pos=-998.3,72.7,-81.5 vy=0.04 pitch=-20 hp=20.00 gliding=true boost=0
+  post t26419 pos=-998.2,72.8,-85.9 vy=-0.02 pitch=-20 hp=20.00 gliding=true onGround=false
+  post t26429 pos=-998.1,72.3,-88.7 vy=-0.08 pitch=-20 hp=19.31 gliding=true onGround=false
+  post t26439 pos=-998.1,72,-88.7 vy=-0.08 pitch=-20 hp=20.00 gliding=false onGround=true
+  post t26449 pos=-998.1,72,-88.7 vy=-0.08 pitch=-20 hp=20.00 gliding=false onGround=true
+  driven ticks (t, pos, target, ta, keep):
+    t26265 -1007,75.4,79 tgt=-1005.5,73.5,67.5 ta=2 rej=floor@t20  pred=20/arrived_lookahead act=hold
+    t26266 -1006.6,75.9,79.4 tgt=-1005.5,73.5,67.5 ta=4 rej=floor@t20  pred=20/arrived_lookahead act=hold
+    t26267 -1006.2,76,78.7 tgt=-1005.5,73.5,67.5 ta=6 rej=floor@t20  pred=20/arrived_lookahead act=hold
+    t26268 -1006,75.8,77.6 tgt=-1005.5,73.5,67.5 ta=8 rej=floor@t20  pred=20/arrived_lookahead act=hold
+    t26269 -1005.9,75.6,76.1 tgt=-1005.5,73.5,67.5 ta=11 rej=floor@t20  pred=20/arrived_lookahead act=hold
+    t26270 -1005.8,75.3,74.6 tgt=-1002.5,70.5,57.5 ta=13 rej=terminal_action@t18 grass_block pred=19/arrived_lookahead act=hold
+    t26271 -1005.7,75,73 tgt=-1002.5,70.5,57.5 ta=14 rej=terminal_action@t18 grass_block pred=18/arrived_lookahead act=hold
+    t26272 -1005.4,74.6,71.4 tgt=-1002.5,70.5,57.5 ta=15 rej=terminal_action@t19 grass_block pred=17/arrived_lookahead act=hold
+    t26273 -1005.1,74.2,69.7 tgt=-1002.5,70.5,57.5 ta=18 rej=terminal_action@t19 dirt pred=16/arrived_lookahead act=hold
+    t26274 -1004.8,73.8,68.1 tgt=-1002.5,70.5,57.5 ta=21 rej=terminal_action@t18 grass_block pred=15/arrived_lookahead act=hold
+    t26275 -1004.5,73.4,66.5 tgt=-1002.5,70.5,57.5 ta=25 rej=terminal_action@t19 dirt pred=14/arrived_lookahead act=hold
+    t26276 -1004.1,72.9,64.8 tgt=-998.5,66.5,47.5 ta=30 rej=terminal_action@t18 dirt pred=13/arrived_lookahead act=hold
+    t26277 -1003.8,72.3,63.3 tgt=-998.5,66.5,47.5 ta=38 rej=terminal_action@t18 dirt pred=12/arrived_lookahead act=hold
+    t26278 -1003.6,71.8,61.6 tgt=-998.5,66.5,47.5 ta=48 rej=terminal_action@t18 dirt pred=11/arrived_lookahead act=hold
+    t26279 -1003.5,71.3,60 tgt=-998.5,66.5,47.5 ta=59 rej=terminal_action@t18 dirt pred=10/arrived_lookahead act=hold
+    t26280 -1003.3,70.8,58.3 tgt=-998.5,66.5,47.5 ta=70 rej=terminal_action@t11 stone pred=9/arrived_lookahead act=hold
+    t26281 -1003.1,70.3,56.7 tgt=-998.5,66.5,47.5 ta=82 rej=terminal_action@t18 dirt pred=8/arrived_lookahead act=hold
+    t26282 -1002.9,69.8,55.1 tgt=-998.5,66.5,47.5 ta=95 rej=terminal_action@t18 dirt pred=7/arrived_lookahead act=hold
+    t26283 -1002.6,69.3,53.4 tgt=-991.8,69.3,6.7 ta=107 rej=terminal_action@t19 grass_block pred=7/arrived_lookahead act=hold
+    t26284 -1002.3,68.9,51.8 tgt=-998.5,69.3,3.9 ta=115 rej=terminal_action@t18 grass_block pred=7/arrived_lookahead act=hold
+    t26285 -1002.1,68.7,50.1 tgt=-998.3,69.3,2.3 ta=123 rej=terminal_action@t17 grass_block pred=7/arrived_lookahead act=hold
+    t26286 -1002,68.7,48.4 tgt=-998.2,69.3,0.6 ta=131 rej=terminal_action@t16 grass_block pred=7/arrived_lookahead act=hold
+    t26287 -1001.9,68.6,46.8 tgt=-998.1,69.3,-1.1 ta=139 rej=terminal_action@t15 grass_block pred=7/arrived_lookahead act=hold
+    t26288 -1001.7,68.6,45.1 tgt=-996.5,64.5,36.5 ta=0 rej=collision@t11 minecraft:water pred=17/arrived_lookahead act=hold
+

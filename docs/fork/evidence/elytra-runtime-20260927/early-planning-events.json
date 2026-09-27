@@ -1,0 +1,217 @@
+[
+  {
+    "tag": "early-1-01",
+    "changes": [
+      {
+        "tick": 952,
+        "position": {
+          "x": -867.9632558889199,
+          "y": 70.70427443701782,
+          "z": -228.93072236575497
+        },
+        "planning": "searching:1 due=160 branches=1 rejectedExpiry=-1 result=none",
+        "policy": "+30:AIM_PULL:glide"
+      },
+      {
+        "tick": 964,
+        "position": {
+          "x": -864.4906171104515,
+          "y": 70.91585939327823,
+          "z": -243.61824054468974
+        },
+        "planning": "delivered result=planned:406:64ms",
+        "policy": "sequence:tracking"
+      }
+    ]
+  },
+  {
+    "tag": "early-1-02",
+    "changes": [
+      {
+        "tick": 1663,
+        "position": {
+          "x": -870.3158980645038,
+          "y": 68.91660484642966,
+          "z": -218.21971970823338
+        },
+        "planning": "searching:1 due=153 branches=1 rejectedExpiry=-1 result=none",
+        "policy": "+0:AIM_PULL:glide"
+      },
+      {
+        "tick": 1675,
+        "position": {
+          "x": -867.6742040638893,
+          "y": 70.21394592527994,
+          "z": -231.8999921239868
+        },
+        "planning": "delivered result=planned:907:65ms",
+        "policy": "sequence:tracking"
+      }
+    ]
+  },
+  {
+    "tag": "early-1-03",
+    "changes": [
+      {
+        "tick": 3083,
+        "position": {
+          "x": -870.0257657901228,
+          "y": 71.25097360452816,
+          "z": -217.13496725489597
+        },
+        "planning": "searching:1 due=153 branches=13 rejectedExpiry=-1 result=none",
+        "policy": "-15:PULL_UP:glide"
+      },
+      {
+        "tick": 3086,
+        "position": {
+          "x": -869.9446832091966,
+          "y": 72.33316555445985,
+          "z": -221.8133561272811
+        },
+        "planning": "prefix_expiry_refused branches=5 rejectedExpiry=4 result=no_sequence:2048:140ms",
+        "policy": "+15:AIM_PULL:glide"
+      },
+      {
+        "tick": 3087,
+        "position": {
+          "x": -870.169796919639,
+          "y": 72.68227395888964,
+          "z": -223.38397105735984
+        },
+        "planning": "prefix_expiry_refused branches=3 rejectedExpiry=2 result=no_sequence:2048:140ms",
+        "policy": "+15:AIM_PULL:glide"
+      },
+      {
+        "tick": 3088,
+        "position": {
+          "x": -870.0498836584202,
+          "y": 72.89154393953226,
+          "z": -224.970047449174
+        },
+        "planning": "searching:2 due=158 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "+30:AIM_PULL:glide"
+      },
+      {
+        "tick": 3089,
+        "position": {
+          "x": -869.8756184580834,
+          "y": 73.07448676043789,
+          "z": -226.52554722283364
+        },
+        "planning": "reserved:1/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3090,
+        "position": {
+          "x": -869.6601847352007,
+          "y": 73.22729243491094,
+          "z": -228.0542991515695
+        },
+        "planning": "reserved:2/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3091,
+        "position": {
+          "x": -869.4128709788258,
+          "y": 73.34913600715022,
+          "z": -229.55887990557878
+        },
+        "planning": "reserved:3/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3092,
+        "position": {
+          "x": -869.1468845225177,
+          "y": 73.4382321904317,
+          "z": -231.04335204328999
+        },
+        "planning": "reserved:4/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3093,
+        "position": {
+          "x": -868.843735659896,
+          "y": 73.49639933212728,
+          "z": -232.4998635922158
+        },
+        "planning": "reserved:5/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3094,
+        "position": {
+          "x": -868.5172013621152,
+          "y": 73.52218181440236,
+          "z": -233.93366173419196
+        },
+        "planning": "reserved:6/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3095,
+        "position": {
+          "x": -868.1526953723638,
+          "y": 73.51434478807342,
+          "z": -235.3374806097598
+        },
+        "planning": "reserved:7/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3096,
+        "position": {
+          "x": -867.7077095133457,
+          "y": 73.48229668387047,
+          "z": -236.67176122382264
+        },
+        "planning": "reserved:8/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3097,
+        "position": {
+          "x": -867.1823218913653,
+          "y": 73.4323609038388,
+          "z": -237.92457937329021
+        },
+        "planning": "reserved:9/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3098,
+        "position": {
+          "x": -866.5830409934936,
+          "y": 73.3668908115343,
+          "z": -239.09162244102887
+        },
+        "planning": "reserved:10/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3099,
+        "position": {
+          "x": -865.9178605424737,
+          "y": 73.28814505961921,
+          "z": -240.17204772478746
+        },
+        "planning": "reserved:11/12 branches=1 rejectedExpiry=-1 result=no_sequence:2048:140ms",
+        "policy": "planning_prefix"
+      },
+      {
+        "tick": 3100,
+        "position": {
+          "x": -865.1951639449503,
+          "y": 73.19821360205616,
+          "z": -241.16809777243736
+        },
+        "planning": "delivered result=planned:859:43ms",
+        "policy": "sequence:tracking"
+      }
+    ]
+  }
+]

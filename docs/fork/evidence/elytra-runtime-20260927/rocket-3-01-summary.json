@@ -1,0 +1,127 @@
+{
+  "tag": "rocket-3-01",
+  "build": "0.2.89+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [
+        {
+          "tick": 1731,
+          "position": {
+            "x": -974.6991072162239,
+            "y": 73.52092573173783,
+            "z": -84.01901793784629
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "lower-wool",
+      "events": [
+        {
+          "tick": 1740,
+          "position": {
+            "x": -970.016626603095,
+            "y": 74.19566760508637,
+            "z": -97.97868812342583
+          },
+          "inside": false,
+          "controlled": true
+        }
+      ],
+      "passed": false
+    },
+    {
+      "name": "slab-approach",
+      "events": [
+        {
+          "tick": 1754,
+          "position": {
+            "x": -955.9320148348862,
+            "y": 72.41850705530453,
+            "z": -115
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-entry",
+      "events": [
+        {
+          "tick": 1761,
+          "position": {
+            "x": -947.5987150028491,
+            "y": 71.46650119576358,
+            "z": -123
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-exit",
+      "events": [
+        {
+          "tick": 1789,
+          "position": {
+            "x": -918.9678099572617,
+            "y": 70.63055828559396,
+            "z": -158.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "second-roof-exit",
+      "events": [
+        {
+          "tick": 1836,
+          "position": {
+            "x": -870.4603836514552,
+            "y": 71.30677883769408,
+            "z": -216.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "last-roof-exit",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "cave-approach",
+      "events": [],
+      "passed": false
+    }
+  ],
+  "continuous": false,
+  "damage": 0,
+  "minHealth": 20,
+  "samples": 154,
+  "controlledTicks": 142,
+  "budgetExhausted": 0,
+  "settled": 0,
+  "stopReason": "route_failed",
+  "endReason": "no_viable_trajectory",
+  "endDetail": "no_viable_trajectory eval=20 ok=0 sim=0ms reject[c=20,f=0,s=0,ta=0] first=collision@t19(-848.5,68.5,-256.3)block=light_gray_terracotta shape=full entry=176/203 target=-865.5,70.5,-240.5 at=-867.0,72.0,-234.5 pitch=8.0",
+  "localPass": false,
+  "endingVerified": false,
+  "fullCoursePass": false,
+  "terminalError": 38.55661243527309,
+  "targetLanding": false
+}

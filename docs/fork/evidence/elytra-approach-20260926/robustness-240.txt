@@ -1,0 +1,16 @@
+axis=0 sign=-1 clear=true failedAt=-1 endDistance=0.7538 landing=true
+axis=0 sign=1 clear=true failedAt=-1 endDistance=0.6671 landing=false
+axis=1 sign=-1 clear=true failedAt=-1 endDistance=0.6904 landing=true
+axis=1 sign=1 clear=true failedAt=-1 endDistance=0.7326 landing=true
+axis=2 sign=-1 clear=true failedAt=-1 endDistance=0.6987 landing=true
+axis=2 sign=1 clear=true failedAt=-1 endDistance=0.7247 landing=true
+axis=3 sign=-1 clear=false failedAt=32 endDistance=10.3234 landing=false
+axis=3 sign=1 clear=true failedAt=-1 endDistance=0.4586 landing=false
+axis=4 sign=-1 clear=true failedAt=-1 endDistance=0.4129 landing=false
+axis=4 sign=1 clear=true failedAt=-1 endDistance=1.0310 landing=false
+axis=5 sign=-1 clear=true failedAt=-1 endDistance=0.5683 landing=false
+axis=5 sign=1 clear=true failedAt=-1 endDistance=0.9441 landing=true
+axis=6 sign=-1 clear=true failedAt=-1 endDistance=0.7100 landing=true
+axis=6 sign=1 clear=true failedAt=-1 endDistance=0.7100 landing=true
+axis=7 sign=-1 clear=true failedAt=-1 endDistance=0.7100 landing=true
+axis=7 sign=1 clear=true failedAt=-1 endDistance=0.5904 landing=false

@@ -1,0 +1,20 @@
+{
+  "schema": "e02-acceptance/v1",
+  "scenario": "river canyon start -> cave pad (E-02 venue), R4 frozen criteria",
+  "frozenAt": "2026-09-20T15:45:00+08:00",
+  "provenance": "R3 diagnostics: horizontal tolerance 2 kept from R0 design; vertical tolerance 2 and support check added by R4 plan §9; stable ground 1000 ms; no collision damage allowed (maxHealthLoss 0); deadline 150 s from the e02 diagnostic budget; minimum 4 rockets kept for the landing assist.",
+  "dimension": "minecraft:overworld",
+  "platform": {
+    "x": -843,
+    "y": 65,
+    "z": -266,
+    "horizontalTolerance": 2,
+    "verticalTolerance": 2
+  },
+  "maxTouchdownSpeed": 0.5,
+  "stableGroundMs": 1000,
+  "minHealth": 10,
+  "maxHealthLoss": 0,
+  "deadlineMs": 150000,
+  "minRockets": 4
+}

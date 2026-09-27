@@ -1,0 +1,826 @@
+{
+  "results": [
+    {
+      "tag": "local-01",
+      "build": "0.2.72+1.21.1",
+      "sha256": "09b899a9fe380cb94dfc82b45fdb33a0bbb376d911d47c38ee68639c8d4766bb",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1171,
+          "position": {
+            "x": -974.38091416682,
+            "y": 73.15455336835181,
+            "z": -83.66900558350207
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1180,
+          "position": {
+            "x": -969.8962926113659,
+            "y": 73.18644574996442,
+            "z": -97.93189157108672
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1194,
+          "position": {
+            "x": -955.2819471755561,
+            "y": 72.47530890123895,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1200,
+          "position": {
+            "x": -949.2283573824334,
+            "y": 72.22740500085087,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1229,
+          "position": {
+            "x": -917.2621226928793,
+            "y": 71.14417585506186,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 60,
+      "sweptPoints": 472,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000004,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "old_harness",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-02",
+      "build": "0.2.72+1.21.1",
+      "sha256": "872c1e7da8608d63254bd27d77a7c40a2e47afd93404af97aaa44a8281e922fc",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 2910,
+          "position": {
+            "x": -974.3809201388465,
+            "y": 73.15454553377432,
+            "z": -83.6690121527311
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 2919,
+          "position": {
+            "x": -969.0080339061656,
+            "y": 73.77126812183843,
+            "z": -97.58645763017552
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 2932,
+          "position": {
+            "x": -956.3423186731998,
+            "y": 72.37257592924043,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 2939,
+          "position": {
+            "x": -948.1388521092102,
+            "y": 71.86895209434782,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 2968,
+          "position": {
+            "x": -916.2862859028107,
+            "y": 70.53108696872168,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 60,
+      "sweptPoints": 472,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000005,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "old_harness",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-03",
+      "build": "0.2.73+1.21.1",
+      "sha256": "0f5e2d592dee595518c0bc8b53928ffa53b587a3bc589cc3ffc6751968c1f065",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 685,
+          "position": {
+            "x": -974.3809224253621,
+            "y": 73.1546644161131,
+            "z": -83.66901466789824
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 694,
+          "position": {
+            "x": -969.8962210467996,
+            "y": 73.18658108817054,
+            "z": -97.93186374042206
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 708,
+          "position": {
+            "x": -955.2818214267417,
+            "y": 72.4753109283242,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 714,
+          "position": {
+            "x": -949.2284206170618,
+            "y": 72.22741204963924,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 744,
+          "position": {
+            "x": -916.9553495356911,
+            "y": 70.22311427471918,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 61,
+      "sweptPoints": 480,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000006,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "settled_ground",
+        "damage": 13.2700157,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-04",
+      "build": "0.2.74+1.21.1",
+      "sha256": "4beec999d4b084d14b29b79d9d2ad0d351527e0c0f618e5600cee3ae263df4ab",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1325,
+          "position": {
+            "x": -974.38091416682,
+            "y": 73.15455336835181,
+            "z": -83.66900558350207
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1334,
+          "position": {
+            "x": -970.1446874606748,
+            "y": 73.20491462564142,
+            "z": -98.02848956804021
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1347,
+          "position": {
+            "x": -957.6311660486085,
+            "y": 72.68246009360799,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1354,
+          "position": {
+            "x": -950.6144502277909,
+            "y": 71.31357374920361,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1385,
+          "position": {
+            "x": -916.5478514757683,
+            "y": 70.64858153909074,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 62,
+      "sweptPoints": 486,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000009999999975,
+      "maxPitch": 8.000000400000001,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "fixture_boundary_abort",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-05",
+      "build": "0.2.74+1.21.1",
+      "sha256": "67a4765181b89d9d5cb191e686a5bbccac4a954d11e02c73b01195891a738ebb",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 3354,
+          "position": {
+            "x": -973.7721675087618,
+            "y": 73.10793170892521,
+            "z": -82.99938425963798
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 3363,
+          "position": {
+            "x": -969.8205072335337,
+            "y": 72.90569452686748,
+            "z": -97.90241947970756
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 3375,
+          "position": {
+            "x": -960.1995967908898,
+            "y": 72.99292699450443,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 3383,
+          "position": {
+            "x": -951.5248940121936,
+            "y": 70.97059333956744,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 3414,
+          "position": {
+            "x": -916.443104395222,
+            "y": 70.51855572452527,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 62,
+      "sweptPoints": 488,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000004999999987,
+      "maxPitch": 8.00000004,
+      "ownersValid": false,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-06",
+      "build": "0.2.74+1.21.1",
+      "sha256": "32ca47a287fc83eb76366c21b2b68e6cf864db841dd12b819ee492473a576a02",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 4739,
+          "position": {
+            "x": -974.3809966997886,
+            "y": 73.1548913460784,
+            "z": -83.66909636976747
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 4748,
+          "position": {
+            "x": -970.1449635341808,
+            "y": 73.20527095804304,
+            "z": -98.02859692995916
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 4761,
+          "position": {
+            "x": -957.631416444322,
+            "y": 72.68239293427958,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 4768,
+          "position": {
+            "x": -948.632957758278,
+            "y": 71.52891965499319,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 4798,
+          "position": {
+            "x": -917.7482503273633,
+            "y": 71.0904580015384,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 61,
+      "sweptPoints": 480,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000005,
+      "ownersValid": false,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-07",
+      "build": "0.2.75+1.21.1",
+      "sha256": "5ec429b4af319efa4ec7399810979a2a9cc476145cd04356f9f37ab56a9ae7d6",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1421,
+          "position": {
+            "x": -974.3812491795512,
+            "y": 73.15498813101212,
+            "z": -83.66937409750633
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1430,
+          "position": {
+            "x": -970.1452217086323,
+            "y": 73.20519445036463,
+            "z": -98.02869733113481
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1443,
+          "position": {
+            "x": -957.6318122108166,
+            "y": 72.68238902953449,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1450,
+          "position": {
+            "x": -948.9792373472463,
+            "y": 71.52591011206485,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1481,
+          "position": {
+            "x": -915.9281996452775,
+            "y": 70.18175356739222,
+            "z": -158.5
+          },
+          "passed": false
+        }
+      ],
+      "nativeTicks": 0,
+      "sweptPoints": 0,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 0,
+      "maxPitch": 0,
+      "ownersValid": false,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-08",
+      "build": "0.2.75+1.21.1",
+      "sha256": "95615d796120bf796bf9f5135e613b0c9ff1a5ce900509b504cfb5a9ffab2e31",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "passed": false
+        },
+        {
+          "name": "lower-wool",
+          "passed": false
+        },
+        {
+          "name": "slab-approach",
+          "passed": false
+        },
+        {
+          "name": "slab-entry",
+          "passed": false
+        },
+        {
+          "name": "slab-exit",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 0,
+      "sweptPoints": 0,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 0,
+      "maxPitch": 0,
+      "ownersValid": false,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "observation_timeout",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-09",
+      "build": "0.2.75+1.21.1",
+      "sha256": "7cda5d9e03bbabbaed40eec1d092b2c773660d3092d61255b7e91be4ecfed951",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 5358,
+          "position": {
+            "x": -974.380343708881,
+            "y": 73.15370422219382,
+            "z": -83.66837807976911
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 5367,
+          "position": {
+            "x": -969.8955503207137,
+            "y": 73.18611182907226,
+            "z": -97.93160290249978
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 5381,
+          "position": {
+            "x": -954.6861495050704,
+            "y": 72.45449767541959,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 5387,
+          "position": {
+            "x": -948.9903581460683,
+            "y": 72.03836298905695,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 5418,
+          "position": {
+            "x": -915.0142577310605,
+            "y": 71.0412848745381,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 62,
+      "sweptPoints": 488,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000004999999987,
+      "maxPitch": 8.0000001,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-10",
+      "build": "0.2.75+1.21.1",
+      "sha256": "8103b1511218bb983bd373a97ca3c52d9a0602774188993574291690a3dbf953",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 7415,
+          "position": {
+            "x": -973.8189729540452,
+            "y": 73.04096376730557,
+            "z": -83.05087024944976
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 7424,
+          "position": {
+            "x": -969.8282922656169,
+            "y": 72.84841628201636,
+            "z": -97.90544699218437
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 7437,
+          "position": {
+            "x": -957.7990867736645,
+            "y": 72.5602778859082,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 7444,
+          "position": {
+            "x": -950.2792981665378,
+            "y": 71.58117996111461,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 7475,
+          "position": {
+            "x": -915.1739538614565,
+            "y": 70.77642867204723,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 62,
+      "sweptPoints": 488,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.0000003,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-11",
+      "build": "0.2.75+1.21.1",
+      "sha256": "64e8c6991508ea3ac17e6c3714dcf6b5f21df6bd9de083fd6f670d12b70d7030",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 8267,
+          "position": {
+            "x": -974.380343708881,
+            "y": 73.15370422219382,
+            "z": -83.66837807976911
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 8276,
+          "position": {
+            "x": -969.5192573997737,
+            "y": 73.15574978800585,
+            "z": -97.78526676657864
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 8289,
+          "position": {
+            "x": -956.1301480413215,
+            "y": 72.31105160905268,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 8296,
+          "position": {
+            "x": -947.8571796498052,
+            "y": 71.76234163831215,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 8326,
+          "position": {
+            "x": -915.3007296441087,
+            "y": 70.07398659332866,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 61,
+      "sweptPoints": 480,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.000000400000001,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    },
+    {
+      "tag": "local-12",
+      "build": "0.2.75+1.21.1",
+      "sha256": "ef74be679fb4259d368880e66e663197ada6932c82dd0ad5daac7b4b524f8f8a",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 9029,
+          "position": {
+            "x": -974.0006193054801,
+            "y": 72.87941407262424,
+            "z": -83.25068123602814
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 9038,
+          "position": {
+            "x": -969.7077914919513,
+            "y": 73.03426279669516,
+            "z": -97.85858558020328
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 9052,
+          "position": {
+            "x": -955.5114764753199,
+            "y": 72.36494063413757,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 9058,
+          "position": {
+            "x": -950.0184434463973,
+            "y": 71.67784377516706,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 9088,
+          "position": {
+            "x": -916.531557764935,
+            "y": 70.02434935384568,
+            "z": -158.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 61,
+      "sweptPoints": 480,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000004999999987,
+      "maxPitch": 8.000000159999999,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "local_measurement_complete",
+        "damage": 0,
+        "verified": false
+      }
+    }
+  ]
+}

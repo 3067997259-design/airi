@@ -1,0 +1,5 @@
+SyntaxError: Unexpected token 'B', "Bridge err"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at call (file:///D:/airi/docs/fork/evidence/elytra-runtime-20260927/fly-terminal.mjs:34:51)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async main (file:///D:/airi/docs/fork/evidence/elytra-runtime-20260927/fly-terminal.mjs:59:20)

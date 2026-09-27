@@ -1,0 +1,20 @@
+{
+  "schema": "e02-acceptance/v1",
+  "scenario": "harness validation on the short river pad (NOT the R4 acceptance target)",
+  "frozenAt": "2026-09-20T15:45:00+08:00",
+  "provenance": "Validation-only config used to exercise the formal assertions and the batch-stop rule against the short pad. The acceptance target stays the cave pad in acceptance-config.json.",
+  "dimension": "minecraft:overworld",
+  "platform": {
+    "x": -997,
+    "y": 67,
+    "z": -8,
+    "horizontalTolerance": 4,
+    "verticalTolerance": 3
+  },
+  "maxTouchdownSpeed": 0.5,
+  "stableGroundMs": 1000,
+  "minHealth": 10,
+  "maxHealthLoss": 20,
+  "deadlineMs": 90000,
+  "minRockets": 2
+}

@@ -1,0 +1,182 @@
+[
+  {
+    "t": 3129,
+    "p": {
+      "x": -871.2558801070238,
+      "y": 71.0119546320478,
+      "z": -215.74482277163227
+    },
+    "boost": 0,
+    "plan": "snapshot:164025/164025 result=none",
+    "policy": "+15:PULL_UP:glide",
+    "eval": 40
+  },
+  {
+    "t": 3130,
+    "p": {
+      "x": -870.8014520453114,
+      "y": 71.1440731392311,
+      "z": -217.20960935636373
+    },
+    "boost": 0,
+    "plan": "searching:1 due=152 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "+15:PULL_UP:glide",
+    "eval": 40
+  },
+  {
+    "t": 3131,
+    "p": {
+      "x": -870.3334596867635,
+      "y": 71.29139635373177,
+      "z": -218.6402360917456
+    },
+    "boost": 0,
+    "plan": "reserved:1/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3132,
+    "p": {
+      "x": -869.8623910997865,
+      "y": 71.45287889816044,
+      "z": -220.04173827945107
+    },
+    "boost": 0,
+    "plan": "reserved:2/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3133,
+    "p": {
+      "x": -869.4003371702818,
+      "y": 71.62754202793367,
+      "z": -221.41911366584787
+    },
+    "boost": 0,
+    "plan": "reserved:3/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3134,
+    "p": {
+      "x": -868.9563148371193,
+      "y": 71.814450947188,
+      "z": -222.77543283595404
+    },
+    "boost": 0,
+    "plan": "reserved:4/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3135,
+    "p": {
+      "x": -868.5389365281337,
+      "y": 72.01269168181074,
+      "z": -224.11280553378901
+    },
+    "boost": 0,
+    "plan": "reserved:5/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3136,
+    "p": {
+      "x": -868.1561165588523,
+      "y": 72.22135546763732,
+      "z": -225.43225689465257
+    },
+    "boost": 0,
+    "plan": "reserved:6/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3137,
+    "p": {
+      "x": -867.8364893534111,
+      "y": 72.43952658701663,
+      "z": -226.73187844202025
+    },
+    "boost": 0,
+    "plan": "reserved:7/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3138,
+    "p": {
+      "x": -867.5817485909915,
+      "y": 72.66608885918681,
+      "z": -228.008683457868
+    },
+    "boost": 0,
+    "plan": "reserved:8/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3139,
+    "p": {
+      "x": -867.3916595542333,
+      "y": 72.89992589246346,
+      "z": -229.25971865013952
+    },
+    "boost": 0,
+    "plan": "reserved:9/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3140,
+    "p": {
+      "x": -867.2642817435355,
+      "y": 73.13993853220677,
+      "z": -230.4824163226565
+    },
+    "boost": 0,
+    "plan": "reserved:10/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3141,
+    "p": {
+      "x": -867.196307743901,
+      "y": 73.38506251994126,
+      "z": -231.67482361695275
+    },
+    "boost": 0,
+    "plan": "reserved:11/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 3142,
+    "p": {
+      "x": -867.1557144645991,
+      "y": 73.63428377456938,
+      "z": -232.84481204089528
+    },
+    "boost": 0,
+    "plan": "delivered result=no_sequence:2048:179ms",
+    "policy": "",
+    "eval": 40
+  },
+  {
+    "t": 3143,
+    "p": {
+      "x": -867.1851977650612,
+      "y": 73.86887584634098,
+      "z": -233.97922982526444
+    },
+    "boost": 0,
+    "plan": "none",
+    "policy": "",
+    "eval": 0
+  }
+]

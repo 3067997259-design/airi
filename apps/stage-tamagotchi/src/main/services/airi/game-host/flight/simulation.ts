@@ -153,16 +153,12 @@ export function stepFlight(profile: FlightProfile, state: FlightState, input: Fl
   let velocity: Vec3 = { ...state.velocity }
   let rocketTicksRemaining = state.rocketTicksRemaining
 
-  // A requested rocket is paid once and then boosts every tick of its lifetime.
-  if (input.useRocket === true && input.rocketAvailable !== false)
-    rocketTicksRemaining = ROCKET_BOOST_TICKS
-  if (rocketTicksRemaining > 0) {
-    velocity = applyRocketBoost(profile, velocity, look)
-    rocketTicksRemaining -= 1
-  }
-
-  // The horizontal speed is captured after the firework boost so the same tick
-  // sees the boosted velocity, matching the Prismarine reference order.
+  // The glide runs on the PRE-thrust velocity. Calibrated against the live
+  // telemetry boundary (ab-17 audit 2026-09-21): the next recorded position
+  // matches a glide step with the pre-thrust velocity, and the rocket's pull
+  // reaches the velocity only AFTER that displacement. The old order (boost
+  // first) had a single-step position error P95 of 0.54 blocks on 139 boosted
+  // ticks; this one fits to ~2e-5. Java's FlightDynamics mirrors this order.
   const horizontalSpeed = horizontalDistance(velocity)
 
   velocity = {
@@ -209,6 +205,16 @@ export function stepFlight(profile: FlightProfile, state: FlightState, input: Fl
     y: state.position.y + velocity.y,
     z: state.position.z + velocity.z,
   }
+
+  // The rocket's pull lands on the velocity AFTER the displacement, so it
+  // steers the NEXT tick's motion.
+  if (input.useRocket === true && input.rocketAvailable !== false)
+    rocketTicksRemaining = ROCKET_BOOST_TICKS
+  if (rocketTicksRemaining > 0) {
+    velocity = applyRocketBoost(profile, velocity, look)
+    rocketTicksRemaining -= 1
+  }
+
   const onGround = world.isBlocked?.(position) === true
 
   return {

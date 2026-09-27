@@ -1,0 +1,1 @@
+"{\"status\":\"connected\",\"identity\":{\"minecraftVersion\":\"1.21.1\",\"worldId\":\"connection-scoped\",\"dimension\":\"minecraft:overworld\",\"playerUuid\":\"afebedfb-f823-365d-9051-e5b532688446\"}}"

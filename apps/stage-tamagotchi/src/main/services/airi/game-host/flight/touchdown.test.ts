@@ -43,4 +43,11 @@ describe('classifyTouchdown', () => {
     const outcome = classifyTouchdown({ position: { x: 40, y: 64, z: 0 }, onGround: true, motion: { x: 0, y: 0, z: 0 } }, reference)
     expect(outcome.kind).toBe('unsettled')
   })
+
+  it('never proves a landing from a missing motion sample', () => {
+    // C4: a missing speed is unknown, not zero — the old helper defaulted it
+    // to 0 and would have accepted an unmeasured contact as settled.
+    const outcome = classifyTouchdown({ position: { x: 0, y: 64, z: 0 }, onGround: true }, reference)
+    expect(outcome.kind).toBe('unknown')
+  })
 })

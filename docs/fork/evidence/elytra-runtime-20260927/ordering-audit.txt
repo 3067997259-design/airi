@@ -1,0 +1,46 @@
+[
+  {
+    run: 'timing-1-01',
+    build: '0.2.95+1.21.1',
+    local: false,
+    ticks: 202,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'ordering-1-01',
+    build: '0.2.96+1.21.1',
+    local: false,
+    ticks: 207,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'ordering-1-02',
+    build: '0.2.96+1.21.1',
+    local: true,
+    ticks: 210,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'ordering-1-03',
+    build: '0.2.96+1.21.1',
+    local: false,
+    ticks: 148,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  }
+]

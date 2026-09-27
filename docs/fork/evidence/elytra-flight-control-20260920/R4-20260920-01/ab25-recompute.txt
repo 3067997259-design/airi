@@ -1,0 +1,33 @@
+## arm=full
+controlledRouteCrossing=true
+riverBandCrossing=true
+routeCrossing=tick 2881 owner=flight-session xAtLine=-1001.12
+recoveryCrossing=none
+searchCompleted=false
+chosenTrajectoryVerified=true
+recoveryTrajectoryVerified=unknown (field added after ab-24)
+budgetExhaustedTicks=92
+settledBeforeDeadline=true
+stableTicks=20 settledAtWallMs=1790036966676 hardDeadlineEstimate=1790037102667
+flightDamageFree=false
+endingDamageFree=false
+endingObservedDamage=0.14814 firstDamageTick=3087 fullyObserved=true gaps=0
+noUncontrolledAirborne=true
+uncontrolledAirborneTicks=0
+
+## arm=segmented
+controlledRouteCrossing=true
+riverBandCrossing=true
+routeCrossing=tick 3298 owner=flight-session xAtLine=-1000.21
+recoveryCrossing=none
+searchCompleted=false
+chosenTrajectoryVerified=true
+recoveryTrajectoryVerified=unknown (field added after ab-24)
+budgetExhaustedTicks=63
+settledBeforeDeadline=true
+stableTicks=20 settledAtWallMs=1790036978776 hardDeadlineEstimate=1790037123596
+flightDamageFree=false
+endingDamageFree=false
+endingObservedDamage=7.27945 firstDamageTick=3334 fullyObserved=true gaps=0
+noUncontrolledAirborne=false
+uncontrolledAirborneTicks=1

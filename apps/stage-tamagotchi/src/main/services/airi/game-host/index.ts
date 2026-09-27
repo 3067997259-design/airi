@@ -2866,6 +2866,7 @@ export async function setupGameHost(
         ...(moveTo.vehicleStrategy ? { strategy: moveTo.vehicleStrategy } : {}),
         ...(moveTo.vehicleUuid ? { vehicleUuid: moveTo.vehicleUuid } : {}),
         ...(moveTo.allowTame === true ? { allowTame: true } : {}),
+        ...(moveTo.mustPass && moveTo.mustPass.length > 0 ? { mustPass: moveTo.mustPass } : {}),
         commandId: envelope.commandId,
         controlSessionId: envelope.controlSessionId,
         controlSessionGeneration: envelope.controlSessionGeneration,

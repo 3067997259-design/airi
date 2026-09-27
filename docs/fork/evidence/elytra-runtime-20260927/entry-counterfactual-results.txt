@@ -1,0 +1,9 @@
+rocket-1-02 y=72.804 hs=1.390 result=planned rollouts=805 ms=210
+expiry-2-01 y=68.398 hs=0.775 result=no_sequence rollouts=2048 ms=114
+expiry-2-01-height y=71.398 hs=0.775 result=no_sequence rollouts=2048 ms=183
+expiry-2-01-speed y=68.398 hs=1.600 result=no_sequence rollouts=2048 ms=75
+expiry-2-01-both y=71.398 hs=1.600 result=planned rollouts=797 ms=48
+expiry-3-01 y=68.418 hs=0.806 result=no_sequence rollouts=2048 ms=93
+expiry-3-01-height y=71.418 hs=0.806 result=no_sequence rollouts=2048 ms=212
+expiry-3-01-speed y=68.418 hs=1.600 result=no_sequence rollouts=2048 ms=79
+expiry-3-01-both y=71.418 hs=1.600 result=planned rollouts=670 ms=32

@@ -1,0 +1,1 @@
+landing=true cells=4 totalReads=20 maxPerCell=5

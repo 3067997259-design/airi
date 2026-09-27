@@ -1,0 +1,20 @@
+{
+  "schema": "e02-acceptance/v1",
+  "scenario": "elevated validation pad built 2026-09-20 (chain validation, NOT the R4 acceptance target)",
+  "frozenAt": "2026-09-20T17:58:00+08:00",
+  "provenance": "Self-built 9x9 stone pad at y=70..71 (top y=72), x -994..-986, z 36..44, over the river east bank. Used to validate the full channel -> final approach -> host flare -> touchdown chain with the frozen formal assertions. The R4 acceptance target stays the cave pad in acceptance-config.json.",
+  "dimension": "minecraft:overworld",
+  "platform": {
+    "x": -990,
+    "y": 72,
+    "z": 40,
+    "horizontalTolerance": 2,
+    "verticalTolerance": 2
+  },
+  "maxTouchdownSpeed": 0.5,
+  "stableGroundMs": 1000,
+  "minHealth": 10,
+  "maxHealthLoss": 0,
+  "deadlineMs": 90000,
+  "minRockets": 4
+}

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "elytra-flight-control-r0-manifest/v1",
+  "batch": "R0-20260920-01",
+  "createdAt": "2026-09-20",
+  "executor": "Codex session (offline execution, user asleep; live acceptance deferred by user instruction)",
+  "repositories": {
+    "airi": {
+      "path": "D:\\airi",
+      "head": "f0dc80208fa7150389ee4a5fefe456d925428c72",
+      "branch": "mods",
+      "trackedModifiedFiles": 10,
+      "trackedPatchFile": "tracked-workspace.patch",
+      "untracked": [
+        "botclass24.txt (javap dump scratch, not evidence)",
+        "docs/fork/elytra-flight-control-execution-plan.md",
+        "docs/fork/elytra-flight-control-revision.md",
+        "docs/fork/evidence/flight-venue-20260918/route-runs-{bandhold,bandinit,emergency-sup,heuristic,lead-descent,rollout-off,unconditional-anchor}-20260919.jsonl",
+        "this evidence directory"
+      ],
+      "uncommittedChangePolicy": "No commits during implementation (execution plan §1). Working tree preserved; nothing reset, cleaned or stashed."
+    },
+    "mcpfabric": {
+      "path": "D:\\mcpfabric",
+      "head": "274ce412a7be5767d33cbab1f45a24404736478d",
+      "workingTreeClean": true,
+      "modVersionSource": "0.2.34"
+    }
+  },
+  "environment": {
+    "gameVersion": "1.21.1",
+    "loader": "Fabric (server jar fabric-server-mc.1.21.1-loader.0.19.5-launcher.1.1.2.jar at D:\\Minecraft-Server)",
+    "stonecutterActive": "1.21.8 (per execution plan §2; explicit ':1.21.1:build' required for target builds)",
+    "versionsNodeExists": "D:\\mcpfabric\\versions\\1.21.1\\gradle.properties with minecraft_version=1.21.1 confirmed",
+    "deployedJars": {
+      "clientModsDir": "D:\\未完成TimeLimit\\残灯花火\\杂七杂八的东西\\.minecraft\\versions\\AIRI-bot\\mods\\",
+      "clientActiveJar": "mcpfabric-0.2.29+1.21.1.jar",
+      "serverModsDir": "D:\\Minecraft-Server\\mods\\",
+      "serverActiveJar": "mcpfabric-0.2.29+1.21.1.jar",
+      "fabricApi": "fabric-api-0.116.17+1.21.1.jar",
+      "deploymentLag": "source mod_version=0.2.34; deployed jars are 0.2.29. R2a must rebuild and redeploy with old/new artifact summaries recorded."
+    },
+    "jarSha256": "NOT-RUN (jars hashed only at deployment time in R2a; current offline batch does not deploy)",
+    "stackStatusAtR0": {
+      "listening": ["127.0.0.1:25600 (MCP client instance)", "127.0.0.1:25602 (MCP server instance)", "127.0.0.1:9222 (AIRI CDP)"],
+      "down": ["25565 game server", "25598 server bridge", "25601 bot bridge", "25599 human client bridge"],
+      "note": "Minecraft server and both clients were closed after the 2026-09-19 session; MCP node processes kept running with dead upstream bridges. get_self through 25600 returns empty fields. All live figures below are historical, re-verify at next session start."
+    },
+    "world": {
+      "status": "UNKNOWN (server down; world id and seed not readable this batch)",
+      "historicalFixture": "start (-1007, 74, 79) bridge deck; goal (-843, 65, -266) prismarine pad; venue geometry in docs/fork/evidence/flight-venue-20260918/README.md"
+    },
+    "players": {
+      "airitest": "historical uuid afebedfb-f823-365d-9051-e5b532688446 (from 2026-09-19 get_self)",
+      "AfterRain": "historical uuid d0451c6d-d02c-320a-b06b-495bc9b06605 (from 2026-09-19 players.list)"
+    }
+  },
+  "config": {
+    "source": "C:\\Users\\86130\\AppData\\Roaming\\@proj-airi\\stage-tamagotchi\\game-host.json (token excluded)",
+    "content": {
+      "url": "http://127.0.0.1:25600/mcp",
+      "serverUrl": "http://127.0.0.1:25602/mcp",
+      "allowedTools": ["get_self", "get_status", "get_inventory", "get_blocks_region"],
+      "movement": { "planner": "terrain", "flight": { "planner": "on", "calibrated": true, "escort": "on" } },
+      "chatCommands": { "enabled": true, "admins": ["AfterRain"], "blocked": [], "mentionlessSampleRate": 0.2, "contextLines": 5 }
+    },
+    "physicsProfile": { "version": "1.21.1", "solutionRevision": 1, "rocketBoostTicksCorrected": 35, "source": "flight/profile.ts + flight/simulation.ts at HEAD f0dc80208 + workspace" }
+  },
+  "checksWithinBatch": {
+    "reference": "checks.md"
+  }
+}

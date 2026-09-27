@@ -1,7 +1,158 @@
 # AIRI fork mods（本地魔改记录）
 
+**鞘翅局部赛道连续三轮严格通过（2026-09-27，0.2.105）**：最终构建首次三轮 `bridge-1-01..03` 全部严格 PASS：八截面连续、零伤害、零预算耗尽、目标一格内稳定接地 21/21/20 tick，独立几何审计无接触与缺帧。候选质量改为附近三维航线段距离；终端规划内缩到 0.8 格、实机验收仍一格；短预约采用自身长度。Java 定向 56/56，按用户授权跳过 lint/typecheck/Vitest 并立即提交里程碑；native 提交 `69a35a6`。此前失败保留，不扩大为原桥面动态全程或全部烟花配方验收。详见 [三轮原始证据、改动与范围](./evidence/elytra-runtime-20260927/milestone-105.md)。
+
+**鞘翅终端预约、完整滑行与冷启动查询（2026-09-27，0.2.101，零提交）**：补充受限八 tick 无动力预约，后台失败结果提前释放前缀；落地预测不再在速度 0.05 时截断剩余滑行；完整决策在隔离世界预热，原生空气和缓存命中减少重复查询。关键回归保留修前失败，最终 Java 54/54。最终同版本同一级烟花三轮零伤害、零预算耗尽均 3/3，严格局部 PASS 仍 1/3：一轮落地前复检拒止，一轮下羊毛高度超界约 0.04 格。包含重启后首轮，不排除冷启动样本；未扩大成原桥面动态全程通过。详见 [完整回放、各中间版本及最终实机证据](./evidence/elytra-runtime-20260927/terminal-reservation-report.md)。
+
+**鞘翅分阶段耗时与候选去重（2026-09-27，0.2.96，零提交）**：增加原生 tick 阶段计时，候选去重改用精确记录，消除逐候选字符串格式化及小角度被舍入合并的问题；回归修前失败、修后 Java 50/50。最终同构建三轮严格局部 PASS 1/3、落台 2/3、零伤害 3/3。冷启动预算问题尚存；另复现无超时却因末段点火后余推 13 tick、无动力终端规划尚不能接管而拒止的边界。羊毛高度问题本批未复现，未宣称修复。详见 [阶段诊断、实机结果与终端点火缺口](./evidence/elytra-runtime-20260927/ordering-report.md)。
+
+**鞘翅末段下降走廊与支撑缓存（2026-09-27，0.2.94，零提交）**：下降豁免增加到目标的连续机体净空检查；支撑摩擦按 tick 内缓存并验证下一 tick 刷新。撤回扩大硬预测时域的退步实验，保留失败证据。Java 定向 49/49；最终同版本同一级烟花三轮均零伤害落台，严格局部 PASS 仍为 1/3：一轮下羊毛截面高度超界，两轮出现预算耗尽。三轮独立几何审计均无碰撞/缺帧；未将局部冻结路线扩大为原桥面动态全程通过。详见 [本批改动、三轮结果与剩余问题](./evidence/elytra-runtime-20260927/descent-report.md)。
+
+**鞘翅预约熄火分支验证（2026-09-27，0.2.92，零提交）**：12 tick 预约检查全部离散熄火时刻及持续助推，执行前与执行中复检；修正误验交接后候选尾段。Java 23/23，保留修前失败。最终同等级三轮严格局部落台 1/3、零伤害 3/3；成功轮八截面连续、稳定接地 21 tick，独立几何审计通过。另修夹具漏计 flight-undecided 的预算耗尽；修正值另存，不改原始日志。入口高度/速度与终端执行预算仍阻碍连续通过。详见 [修复、七轮实机及剩余边界](./evidence/elytra-runtime-20260927/expiry-prefix-report.md)。
+
+**烟花配方与预约初态修正（2026-09-27，0.2.90，零提交）**：按实际点火手/附着实体的 FIREWORKS 组件区分等级，取消通用 35 tick；助推变化同 tick 撤销陈旧预约，晚熄火不重复烧搜索名额。Java 定向 20/20。六轮保留全部证据，最终构建等级 1/2/3 各一轮，严格局部落台 1/3、零伤害 3/3；等级 1 新成功八截面连续、零预算耗尽、稳定接地 20 tick，独立几何审计通过。随机寿命全分支验证、TS rollout 同步及原桥面全程仍未完成。详见 [配方修复与实机边界](./evidence/elytra-runtime-20260927/rocket-duration-report.md)。
+
+**鞘翅在线终端规划与实机落台（2026-09-27，客户端 0.2.88，零提交）**：接通局部快照、后台有限控制序列搜索、12 tick 预约前缀和实测状态匹配采纳；已多次在局部起点连续穿过羊毛、板下、洞口并稳定落台。online-10 首次同时通过八截面、零伤害、零预算耗尽、21 tick 稳定接地及独立几何审计；尚未同版本三轮全绿。修复三维落点半径不一致、原生接地与滑翔标志延迟、落地序列拒绝被误判完成；Java 定向 16/16，保留修前失败。最终同版本三轮严格局部落台 1/3、零伤害/零预算耗尽 3/3；余推提前结束会撤销预约，稳定性仍未过。原桥面 AIRI 正常链路已测，首段失败后无伤落在非目标处。修复 AIRI MCP 端口丢弃 stop/through，补终末参数透传，main 已重新打包。用户要求跳过 lint/typecheck/Vitest；原桥面正常链路另行诊断，不把局部成功当全程成功。详见 [在线规划、逐轮结果与边界](./evidence/elytra-runtime-20260927/RESULTS.md)。
+
+**鞘翅终端序列闭环执行（2026-09-26，客户端保持 0.2.82，零提交）**：在源码的 FlightSession 中接入有限无动力序列采纳、实测状态复检、小幅控制修正与接地尾段保留；修复“提前可接地、最后一 tick 却因未截停的空气坐标被拒绝”，增加有界补时并整段重扫。直接 JUnit 定向回归 31/31；起点与中途位置/速度组合扰动的最终回放 258/260，256 个扰动用例通过，2 个无扰动首轮因 12 ms 预算拒绝，整批仍未全绿。后台规划生产者、控制器交接和真机验证尚未接通；本批未部署、未试飞、不扩大既有实机结论。按用户要求跳过 lint/typecheck/Vitest，未运行 Gradle。详见 [执行器、接地反例与预算边界](./evidence/elytra-sequence-control-20260926/RESULTS.md)。
+
 本分支（`mods`）是 3067997259-design 的本地魔改，不打算提交 upstream。
 基于 upstream `main`（`e170d454e`，v0.12.0-beta.2）。
+
+**鞘翅终端动作序列探索（2026-09-26，客户端保持 0.2.82，零提交）**：按用户资源约束跳过 lint/typecheck/Vitest，使用限堆、串行离线回放。从 terminal-02 与 terminal-06 的真实状态，在相同生产物理/扫掠规则下找到名义可行的过弯、下降、减速与接地序列，说明既有 `no_viable_trajectory` 不是物理不可达证明。terminal-06 序列通过 16 个单轴小扰动，但 64 个位置/速度组合角点未全过，追加有限搜索仍未解决；没有下发固定动作到真机，也未改变生产控制器或扩大实机通过结论。下一步为提前序列规划、实测状态匹配、逐 tick 剩余序列复检和联合误差/退出验证。详见 [可达性证据与剩余边界](./evidence/elytra-approach-20260926/RESULTS.md)。
+
+**鞘翅终端进近与助推验证（2026-09-26，客户端 0.2.82，零提交）**：增加受约束的无动力下降进近、独立终末半径及真实接触后的地面滑行验证；修复 stop 候选只预测 20 tick 却提交长助推，以及恢复器只验 14 tick/未通过候选仍可点火的两类缺口。关键回归先红后绿，Java 120/120、包级 typecheck 与定向 lint 通过。共保留 8 轮实机证据；最终同构建 terminal-06/07/08 在双羊毛、第一低板到第二顶盖间 3/3 连续成立，全部航路 tick 独立采样无接触、零掉血/预算耗尽，最后顶盖仅 1/3，洞口/落台 0/3；没有提高远端通过率，不把夹具复位算自主结束。下一步应提前验证减速、过弯、下降的动作序列，不继续调整 A* 评分。详见 [本批修复、失败证据与验收边界](./evidence/elytra-terminal-20260926/RESULTS.md)。
+
+**鞘翅后续顶盖与洞口诊断（2026-09-26，客户端 0.2.79，零提交）**：修复显式 stop 的预测动作/零等待终端检查不一致，加入停止进近的安全滑翔优先；用真实失败 tick 修复离散扫掠漏擦角，并按本机 Minecraft 1.21.1 分轴碰撞顺序验证中间机体盒。最终 extension-05/06/07 同构建同路线，三轮零掉血连续通过闸门、第一低板与第二顶盖（z=-216.5）；最后顶盖（z=-246.5）仅 2/3，洞口与自主落台均未通过。0.2.78 的撞岸掉血 6.98 与其他失败原始记录保留。Java 112/112、包级 typecheck、定向 lint 通过；全仓 lint 未通过。补齐场地认知：先前 z=-158.5 仅是第一板出口。bot 已满血接地复位，撤销本批临时强加载。详见 [实测、根因与下一批边界](./evidence/elytra-landing-20260926/RESULTS.md)。
+
+**鞘翅局部连续穿越调试（2026-09-26，客户端 0.2.75，零提交）**：修正客户端/主机机体体素多读顶棚与邻格、恢复意图未进入选优、终点额外 hold、恢复候选丢失直行方向、地面扫描偏移及安全遥测跨轮残留。修复夹具终点到达球覆盖出口、烟花满包导致未收到鞘翅、复位后残余助推等问题。local-10/11/12 在同一客户端与路径上连续通过上下羊毛、板前、板下入口和出口：零掉血/预算耗尽/缺帧，独立机体扫掠零障碍。**仅从闸门前天然地面开始，出口后由夹具复位；自主落地、原桥面到洞内和动态交接未验收。** Java 106/106，game-host 978 通过/3 跳过，包级 typecheck 与定向 lint 通过；全仓 lint 仍有历史/其他文件错误。失败轮次与更正口径完整保留。详见 [实测报告](./evidence/elytra-local-passages-20260926/RESULTS.md)。
+
+**ab-27/28 转向修复与 ab-29 复核（2026-09-22，客户端 0.2.69，零提交）**：修复偏航角差跨 ±180° 反向限速、下坡航点 3D 过站平面追身后目标、起飞对准脚下锚点；预测/hold/恢复在扫掠前统一限速，执行不二次改姿态，着陆验证读取实测姿态，漏过终末到达体积显式拒绝。Java 88/88、remapJar 成功，ab-29 两臂河带受控跨线、连续航路 tick 最大 yaw 25°/pitch 8°、无 >40° 偏航。剩余：分腿恢复碰撞掉血 5.112；恢复门控是曾通过而非全程通过；无主空中统计漏掉 8 个 TRACK 滑翔 tick。后两项尚未实现修复。详见 [ab-29 复核与下一批约束](./elytra-flight-control-ab29-review-20260922.md)。
+
+## R4 进近门与正式验收器具（2026-09-20，离线 + 器具自检，零提交）
+
+R4 的可离线部分落地：
+
+- **进近入口门**（`movement/elytra.ts` 的 `evaluateApproachEntry`，纯函数 + 3 例单测）：80 格只是候选触发，进入还要求顶棚之下、对准瞄准点 ≤60°、地速 ≤1.1 格/tick、剩余高度可滑到瞄准点；短进近（≤32 格）豁免对准与速度。拒绝原因类型化、只换值时打日志；通道交接种子同样过门，被拒转巡航复位。
+- **冻结验收配置** `R4-20260920-01/acceptance-config.json`：洞穴平台 (-843,65,-266)、水平/垂直容差 2、接地速度 ≤0.5、稳定接地 1000ms、生命 ≥10、允许碰撞掉血 0、期限 150s、烟花 ≥4；缺数值则正式模式拒绝运行。
+- **正式断言与停批**（`e02-route.integration.test.ts`）：每轮 12 项检查（到达、失败、水平/垂直容差、`onGround`、接地速度、稳定接地、脚下支撑读回、维度、生命下限、掉血上限、烟花下限）落进记录；任一违反停批且记录先落盘，失败/无效不得改记。
+- **器具自检**（`validation-config.json` + `harness-validation.jsonl`，非验收）：短河段垫跑一次正式模式，12 项检查全部计算，`support=grass_block`、接地速度 0、稳定接地通过、通道 `channel_complete`；仅 `status` 违反（主机 tolerance 2 判 3.7 格 miss），停批信息清晰。
+
+离线：game-host 套件 **946 通过 / 1 跳过**；typecheck/lint 0。未启动正式批次的前置：目标洞穴平台尚不可达、落点精度 2.1–18.7 格、客户端碰撞掉血未清零（R3 运行 09 死亡、运行 12 掉血）。下一批建议先修客户端贴地/贴壁碰撞，再对齐主机 tolerance 与冻结容差后开始 20 次/场景正式批次。
+
+### R4 碰撞修复（2026-09-20，真机诊断，零提交）
+
+诊断把伤害定位到**主机落地段**（环生命 + 输入所有者）：diag-02 客户端驱动段零伤害，掉血 20→17.96 出现在 `owner=none`、`gliding=true`、y≈63 的主机进近。修复：
+
+- Java 0.2.38：逐 tick 点采样扫掠 → 段扫掠（0.5 格步长，防切角/薄墙）；轨迹环记录每 tick 生命；应用期掉血即 `terminateIfActive("damage")`；sim 预算 8→12 ms。
+- Java 0.2.39：水面按可通行处理（溅落是类型化落水结局，不是碰撞；此前河面低带候选全被拒 → `no_viable`）。
+- 主机：进近/落地段前方 12 格内地形一律拉平（原来只在低于巡航带 4 格时才拉）；`damage` 终局映射安全落地；端口/记录补 `health`。
+
+结果：diag-03 全程 `minHealth 20`。剩余：河湾低带 `no_viable` 预算耗尽（航路可行性抖动）、落地精度。证据 `R4-20260920-01/collision-diag-0{1,2,3}.jsonl`。
+
+**0.2.40（同日续）**：可通行判定改读 `BlockState.getCollisionShape`（水/草/甘蔗/铁轨/火把等无碰撞方块标 `passable`，不再按 id 猜；岩浆/火/甜浆果丛仍为障碍）。diag-04：全程零伤害，航程推进到距目标 21.5 格；剩余为最后一段前沿续飞被客户端拒绝。证据 `collision-diag-04.jsonl`。
+
+**进近通道（2026-09-20 晚，主机侧）**：`channel_complete` 且距目标 ≤80 格且存在已验证落点时，把最后一段作为新通道提交（**3–5 点递降剖面**、`entryReach 4`），客户端驱动到 ≤4 格后主机拉平分类；落点随种子传给主机。客户端拒绝剖面 → 直连两点重试一次 → 只在**位于瞄准点上方**且 ≤8 格时主机拉平，否则有界安全落地；**无落点不复飞**（approach-diag-03 的死亡路径）；进近瞄准点抬高 2.5 格（受顶棚约束），避免客户端下滑低于台缘。单测 4 例。
+
+**自建验证平台与链路验收**：服务端控制台 + `forceload` 自建 9×9 石台（台面 y=72，x -994..-986，z 36..44）。pad-diag-03：**`reached`，水平差 0.64 格、零伤害**——通道 → 禁区重规划 → 递降剖面 → 主机拉平 → 台面接地全链路跑通。pad-formal-01（正式断言）：同夹具第二次落水差 7.8 格，12 项断言正确停批。剩余：进近/交接重复性；峡谷低航路（cave-diag-01，距目标 324 格被拒）仍待客户端驱动可行性。离线套件 **948 通过 / 1 跳过**。
+
+**目标锚定落点与重复性（同日续）**：新增 `findGoalLandingSite`（目标 ±8 格读区、评估平台、取离目标最近可用面；进近与主机回退优先，航向前扫降级后备）——修复前落点总被旁边河岸/水面抢走。pad-runs-02 诊断 **4/5 reached**（0.5–1.3 格、零伤害）；pad-formal-02 正式 **3/3 全过**（差 ≤0.36 格、支撑 `minecraft:stone`、接地速度 ≈0、稳定接地、零掉血、0 违反）。
+
+**ab-24 验收收口：门控/所有权（第一批）+ 终端一致性（第二批）+ 预算归因（第三批）（2026-09-22，客户端 0.2.64，零提交）**：第一批：软期限所有权改为 phase+硬期限（审计复现成为回归）、LAND 失败空中转移 `returnToRecovery`、恢复最终动作 `verifyFrame` 全轨迹三维扫掠+回退链、统一 `FlightGeometry` 水面语义、夹具真实跨线事件与门控拆分（riverBand/searchCompleted/chosenVerified/recoveryFrameVerified/settledBeforeDeadline/fullyObserved/noUncontrolledAirborne）、`settled_ground` 命名、`flight-landing` owner 进环；并用修正门控重算 ab-24（分腿臂不再"六条全过"：riverBandCrossing=false、5 个无输入空中 tick）。第二批：`passedPlane` 共享过站规则、`verifyHold` 用真实候选集与 `selectBest`、boost/库存/冷却完整推进、`land` 需下降接触且水平 ≤0.5。第三批：条件化时域、候选全局优先序、`search_incomplete` 不判无路、`nanoTime` 计时与 `budgetReason`。新增 `FlightSessionBudgetTest` 4 例、Ownership 12 例。验证：Java 81/81、game-host 975/975、typecheck 0、lint 0。下一步：冷启动/预热预算归因 + 一对新诊断。
+
+**ab-23 修复批 C2 完成 + 批次 D1（2026-09-21，客户端 0.2.62，零提交）**：C2 主机落点交接：新增 `flight_landing_site` 协议（端口/桥接/通道 runner/elytra 等待期按 2 s 提供主机 `findLandingSite` 结果）；客户端 `FlightLandingPlan.validate` 从实测状态验证支撑面/净空/可达（同一有界预测），通过后进入 LAND 并把落点作为真实两点通道腿执行，LAND 拒绝新路线且硬期限仍权威（`FlightLandingPlanTest` 5、Ownership LAND 用例、channel 13/13）。D1 证据 schema：Decision 增 chosenPolicy；环样本与状态增 controlPhase/routeOutcome/progress/predictedEndProgress/chosenPolicy/evaluated/feasible/budgetExhausted/physicsSteps/blockQueries/cacheHits/simMs/cooldownActive/transitionReason 与 build；端口透传（缺字段显式缺省）；夹具增 routeHash 与 clientBuild。验证：Java 全绿、game-host 975/975、typecheck 0、lint 0。D2/D3 计划（两种比较 + 逐级放行：先一对诊断再三对复现）已写入 checks.md。
+
+**ab-23 修复批 C 完成（2026-09-21，客户端 0.2.61，零提交）**：C1：新增 `FlightGeometry` 共享几何边界（可穿越/空气/水/不安全支撑/表面扫描；整格保守顶面），主控、终端验证与恢复共用（删除控制器重复实现），列缓存保证不同扫描高度各自正确。C2：恢复保持地形前瞻 + 单次点火制动，新增有界落点扫描（5 偏置 × ≤32 格、支撑安全 + 净空 + 可达）作为航向目标并写入遥测，无落点不伪造 land。C3：三个时钟分离（路线期限 / 6 s 策略窗口 / 授权硬期限）；`rearmRecovery` 只在硬期限内续窗并计数；硬期限空中到期 → `control_expired_airborne` 类型化失败；`!fallFlying` 无接地/入水 → `recoveryUnresolved`，绝不 settled。C4：客户端连续 20 个限速接地/入水样本才 settle；`touchdown.ts` 缺失 motion 改为 unknown（新增回归）。验证：Java 全绿（FlightGeometryTest 6、FlightOwnershipTest 10）、game-host 974/974、typecheck 0、lint 0。未完成：主机落点交接协议（当前为客户端有界镜像）、批次 D（冻结路线验收）。
+
+**ab-23 修复批 B 完成（2026-09-21，客户端 0.2.60，零提交）**：补齐 B2/B3/B4/B5。B2：`orderedPolicies` 让上一轮获选策略优先复检，再 LEVEL/PULL_UP，最后 AIM/AIM_PULL，预算截断不再吃掉保命动作。B3：`setRouteIdentity` + Decision 增 routeId/routeRevision/progress/predictedEndProgress（控制器传入 sessionId/revision）。B4：`isSupportLanding` 验证支撑面（1.5 格内、实心安全方块、上方站立净空），水/树叶/墙/顶接触不再判 land（新增水面着陆反例）。B5：Decision 增 physicsSteps/blockQueries/cacheHits/simMs 插桩；新增 `FlightSessionRoutePolicyTest` 6 例（过站换瞄准、弯道跟随+直冲被挡、低顶拒爬升、末点不提前完成、点火门控 20/40/20、代价上报）；交接重放与门控测试改宽裕 sim 预算消除墙钟截断。Java 59/59、game-host 973/973。实测：12 ms 默认预算下 40 候选只评估约 14 个（插桩就绪，下一轮按分布调优）。批次 B 完成；下一步 C（恢复与着陆）与 D（冻结路线验收）。
+
+**ab-23 修复批 B 核心（2026-09-21，客户端 0.2.59，零提交）**：预测层从冻结姿态改为有界反馈策略。B1：每模拟步重算参考与瞄准（`referenceFor`），到站后方向随进度更新，预测可越过时域补完终端检查。B2：俯仰策略扩为 `AIM`/`AIM_PULL`/`LEVEL`/`PULL_UP`（相对+绝对），上限 5×4×2=40。B3：新增弧长累计与单调 `progressOf`；`selectBest` 全局选择（最大进度 + 1 格等价带 + 总序比较：横向→高度→控制变化→少点火→policyId），删除非传递的两两比较器；`routeLowerBound` 改局部参考窗口。B4：到站快照带 `arrivedRocketTicks`（不借预测末端 boost），hold 验证用同一策略集。顺带修复 C1 的几何缓存：`surfaceBelow` 改列缓存（每列每 tick 一次扫描、精确 (x,z) 键、结果与全新扫描一致），消除"缓存首问顺序决定胜者"。新增 `FlightSessionPolicyTest` 2 例：ab-23 平水面反例必须找到可行候选（旧瞄准角候选集四角全俯冲）；候选枚举顺序无关（依赖缓存修复）。Java 52/52；TS 未改动。未完成：预算调度与基线优先、routeId/revision 全局进度、安全着陆支撑面判定、B5 其余场景、C/D 批。
+
+**ab-23 修复批 A5（统计与交付规则）（2026-09-21，零提交）**：FlightSession 逐 tick 重置
+ejectTerminal 与首拒明细（ab-23 的 ta=139 源于未清零），累计量独立命名（cumulativeRejects/Collisions/Floor/Speed/Terminal），Decision 增 evaluated/feasible/rejected/unevaluated/budgetExhausted；新增 FlightSessionStatsTest 4 例（首拒分类之和==被拒数、逐 tick 清零+累计、预算停止上报、可行计数）。新增纯规则 movement/leg-offer.ts（终态优先、路线失败冻结、默认仅 holding 提交）+ 6 例，夹具改为调用该规则。汇总：Java 50/50、game-host 973/973、typecheck 0、lint 0。
+
+**ab-23 修复批 A（A1/A2/A3/A4 + A5 部分）（2026-09-21，零提交）**：在 A1/A4 之上补齐 A2/A3。新增纯类 FlightOwnership（routeOutcome 与 flightPhase 分离、首次失败冻结、恢复窗口 cceptBlockReason=recovering，8 单测）；控制器改为每 tick 单 InputFrame 提交（删除 driveSession→driveRecovery 双写），恢复期 submit/handover 返回
+ecovering 且不改失败/窗口/冷却，revoke 取消恢复，hasLiveChannel 覆盖恢复窗口（保护器心跳豁免生效），status 增 phase/
+outeOutcome/
+ecoveryReason/
+ecovering。主机：channel.ts 路线 ended 与 controlReleased 分离、恢复期不启动第二控制器、
+ecovering 不 revoke-retry、显式 revoke 仍能取消恢复；elytra.ts 未释放控制前不启动主机飞控；port/host-port 增字段。验证：Java 全绿（含 8 单测）、game-host 963/963、channel 12/12、typecheck 0、lint 0。未完成：A5 控制器级直接用例、B/C/D 批；0.2.58 未含本批 Java，真机前需重建部署。
+
+**ab-23 修复批 A（部分：A1/A4/A5 伤害口径）（2026-09-21，零提交）**：按 `elytra-flight-control-ab23-repair-plan-20260921.md` 先写回归再改实现，本批只动证据与统计。新增 `movement/ending-stats.ts`（累计掉血 `endingObservedDamage`、最低血、首伤 tick、缺帧/重复 tick、20 tick 稳定结束、settledGround/settledWater/unresolvedAirborne、damageFreeObserved）与 8 个回归：ab-23 完整臂重算 6.64（旧口径 3.64 被回血掩盖）、分腿臂 0.69。夹具改为终态优先：先采样与冻结首次路线失败（不可被 revision/恢复改写），失败后不再提交普通下一腿并用同一完整 schema 记录到稳定结束；统一跨线检测器产出 route/recovery 两类跨线；默认分段只在 holding 时预交接。typecheck 0、movement 436/436、lint 0。未完成：A2 控制器 phase/单帧提交/recovering 拒绝、A3 主机与保护器、A5 其余回归、B/C/D 批。
+
+**审计全项批：源码顺序、四状态标定、终端动作、恢复策略（2026-09-21，客户端 0.2.58，零提交）**：①源码核验（无源码 jar，用 Mojang 映射类 + `javap -LineNumberTable`）：烟花在被附着实体自己的 tick 内写速度、玩家先位移、实体列表插入序 → 审计假设 (A) 成立，写入 `ab20-audit/source-order.md`；②四状态 + 多 tick 标定探针（`CalibrateDynamics.java`/`calibration.md`）：单 tick 单枚推进 P95 `2e-5`，多 tick 开环误差主因是 ab-17 的推进估计失效（已修），硬净空只保证首段扫掠；③终端动作 `verifyHold`（近端 8 tick 净空 + 远端温和接地=true `land` + 拒绝分类）与完整逐 tick 遥测（cursor/target/预测终点/1-3-5 tick 预览/首个拒绝方块与形状/墙钟+单调钟）；④`FlightRecovery` 纯策略（地形前瞻 + 单次点火制动 + 禁叠加）与 6 单测；⑤末端空间快照（x −1020..−920 / y 55..100 / z −135..−40，250,810 固体格）。真机 ab-21/22：终端误拒大幅收敛（远端温和接地判 `land`），两臂恢复安全接地（掉血 4.09/0，ab-18 为 10.4）；但河湾进场仍有 `ta≈131/tick` 的陡降拒绝，且两臂均因河湾水规则早退（路线水面余量 ~2.5 格 < 进场方差）→ 下一步按审计第 4/5 项给已验证中心线加 ≥4 格水面剖面余量后重跑两臂。复跑说明见 `R4-20260920-01/NEXT-RUN.md`，分析用 `movement-corridor-acceptance-20260915/analyze-run.mjs`。
+
+**审计批：模型边界、终点接续与安全收尾（2026-09-21，客户端 0.2.56，零提交）**：按 `elytra-flight-control-ab17-audit-20260921.md` 顺序执行。①动力学时序：两模型改为"先位移后推力"，用审计 142 个 boost tick 复算 posP95 0.54→0.0000187 格；②叠加点火：`rocketTicksRemaining>0` 时禁止点火，烟花遥测实体化（`boostCount`/`boostEntityIds`/每实体首见寿命）；③终点接续：预测虚拟游标推进，终末后 6 tick 前瞻扫掠，到站检查取到达态（回归：终末后 8 格的墙会拒绝候选）；④安全收尾：客户端 `no_viable` 空中失败进入有界恢复（保持航向+近地拉起，owner `flight-recovery`），夹具记录到 20 个稳定接地样本并分类带掉血/残余速度。真机 ab-20：分腿臂跨线后推进至 z≈−120.7（越过羊毛闸门带下沿）、**零掉血 `safe_ground`**；完整臂因水规则在 entry 3/19 失败，恢复落地掉血 9.97（撞上升河岸）。客户端单测 30/30；TS 157/157。下一步：末段地形快照（z −50..−125）与规划弦段/实际轨迹对比、恢复的地形跟随或点火制动、两臂重跑验收。
+
+**介质判定批：预测中水即障碍（2026-09-21，客户端 0.2.53，零提交）**：修复"预测扫掠把水当可穿越"（完整臂俯冲入水的根因）——机体盒触水即否决候选，贴水面上飞仍合法；回归 2 例，客户端单测 **25/25**。夹具：长飞磨损 elytra（431/432）导致 `launch_not_deployed`，重置时 clear+give 更换。真机 cave-ab-15/16：完整臂受控跨线后不再入水，新失败为爬升段 `reject[c=0,f=0,s=20]`（20/20 候选因末速 <0.25 被拒）；分腿臂跨线后爬到 y≈95、z≈−34（比 ab-12 更远），撞 `jungle_leaves` 收尾。下一处：①爬升段的推进/末速判据；②规划器读到树冠高度并避开丛林。
+
+**组 4：腿界扫描与完整臂归因（2026-09-21，客户端 0.2.52，零提交）**：同路线 A/B（cave-ab-13）**两臂均受控跨线**——完整臂 tick 23550（(−998.4,63.3,18.8)、速度 1.64、rev 1），旧 40/40 拒绝失败由 0.2.48–0.52 修复关闭；分腿臂 tick 23730 跨线后推进到 z≈−67、y≈83，`oak_leaves` t3 碰撞收尾。腿界扫描（转弯前 z=35 / 中 z=20 / 后 z=5）：前两者**受控跨线**，转弯后（首腿过长到 z=5）未受控入水。完整臂跨线后失败链：发射交接 y=75.9、无点火、以 −0.32/tick 下沉（剖面仅 −0.1/tick），z≈20 时仅剩 1.5 格余量后入水——下一处修复为**剖面/能量下界**（继续性下界绑路线局部高度 + 更厚的贴水余量），非交接/A*。
+
+**空中平台固定通道与 hold 直线化（2026-09-21，客户端 0.2.52，零提交）**：只读扫描确认 97×97 空中平台（石面 y=200、西缘 x=240、红混凝土中心 (300,0)、西侧 300 格全净空），手写固定直线通道 `cave-lane-route-01.json` 并加 x 轴越线判定。修复 hold 绕固定点转圈：等待目标改为每 tick 取当前位置沿当前速度前方 48 格（航向保持），新增回归；复测 `lane-pert-timeout-2` 直线无转圈、typed `handover_timeout`；`lane-pert-late-3` 重锚模式 6 次全部采纳、受控越线并推进到 x≈−357（越出通道后撞自然地形，属夹具范围外）。客户端单测 23/23。
+
+**组 2/3：分段语义与时序扰动（2026-09-21，客户端 0.2.51，零提交）**：`FlightHandover` 升级为有状态状态机（pending/修订/年龄/计数；`offer`/`decide`/`adopt`/`completeAdoption`/`dropPending`），控制器全量委托；`offer` 排序规则拒绝重复 id、旧修订与 ≤在飞修订。规则测试覆盖组 2（提前就绪立即切换、目标不回退、首点跳过）与组 3（迟到可接 ADOPT、完成时不可连 DROP、超龄 DROP、重复/乱序不覆盖、入水不可连），客户端单测 **22/22**。真机扰动（仅分腿臂）：`early` 4 次交接 + 受控跨线；`duplicate` 幂等应答且不二次接管、推进到 z≈−38.5（HP 17.3）；`late`/`timeout` 因 hold 在开阔河道仅存活 ~1.1 s（候选全拒 `no_viable`）提前 typed 收尾，未测到真正的宽限等待——夹具需把首腿终点移到更长净空河段。
+
+**交接规则抽取与控制器级回放（2026-09-21，客户端 0.2.50，零提交）**：按复核组 1 推进。新增纯逻辑 `FlightHandover`（`PilotState`/`canConnect`/`decide`/`adopt`），控制器改为委托（行为不变：字段更新、交接计数、会话起点、应用标记）；新增控制器级回放用例：同一状态序列、A 臂续飞、B 臂经真实规则接入剩余路线，逐 tick 断言 applicability/fire/yaw/pitch/目标距离一致（仅会话身份/交接计数不同），并覆盖冷却继承、首点跳过、终末不提前完成。客户端单测 **13/13**。部署 0.2.50（`3E65...` 历史链继续备份）。下一批：组 2 分段语义验收（进度不倒退、目标不跳变、提前就绪不无故 holding）、组 3 时序扰动（提前/迟到/超时/乱序）、组 4 真机腿界前后移动。
+
+**到站检查与首点判定批（2026-09-21，客户端 0.2.49，零提交）**：复核跟进用户指出的两个缺口：①到达航路点的候选此前跳过高度/速度检查——现在同样要求水面净空（到站 0.5 格）与末速，拒绝原因标记 `arrival_floor`/`arrival_speed`；②新会话首点无法触发"已过站"平面判定（无前驱）——首点改用首段方向判定，被飞过的首点直接跳过。回归：新增首点跳过用例，客户端 12/12。真机 ab-12：**两臂均受控跨线**（完整臂 tick 1776、(−999.9,63.25,19.95)、速度 0.87、revision 1；分腿臂 tick 1966、(−997.83,66.10,18.95)、速度 1.67、boost=32、revision 3）；分腿臂连续 7 次提交推进到 **z≈−65.8**（羊毛闸门方向），最后因 `grass_block` 在 t3 碰撞（entry 4/4）转有界收尾；完整臂越线后 z≈13 入水（1 次点火）。采纳后的反向追点消失（仅剩发射段正常转向）。ab-11 证据确认了用户指出的 holding 期点火（tick 1702）与 rev4/rev5 反向追点（174.7°→10.5°、170°→−20.9°）。
+
+**查询契约与归因批（2026-09-21，客户端 0.2.48，零提交）**：按 `docs/fork/elytra-flight-control-client-review-20260921.md` 执行。①生产查询保留水为 `minecraft:water`（不再并入 `passable`），`FlightSession` 分离碰撞可穿越/水面扫描/介质切换；②候选拒绝分类（collision/floor/speed + 首个拒绝的预测 tick/点/方块）随 `endDetail` 落盘；③移除 +50 加权罚分，改为显式顺序比较（可行性 → 进度/跟随（1 格等价带）→ 烟花）；④交接继承未完成的点火冷却（新增 `inheritFireCooldown` 等，控制器采纳时移交），修复"交接清掉冷却"；⑤`advanceEntries` 增加平面投影判定，已飞过的入口不再成为追逐目标（ab-09 rev4 掉头入水的根因）；⑥预测在到达当前航路点时终止，不再把过站后的钻地当作候选碰撞（ab-10 的 22/40 碰撞即此假阴性）。客户端单测 11/11（hold 3、continuation 2、handover 回放 6），A/B 记录补齐完整 19 航路点与每腿路径。真机 ab-11：分腿臂**受控跨线**（(−998.15,66.28,19.15)、速度 1.67、boost=32、revision 3）并继续飞到 z≈2.2（随后因起姿盒与橡木树叶重叠转有界收尾）；完整臂跨线瞬间已入水（1 次点火）→ 按决策树继续查完整臂点火/候选策略。
+
+**客户端执行批：归责实验（2026-09-21，客户端 0.2.46，零提交）**：按 `docs/fork/elytra-flight-control-client-review-20260921.md` 执行。①修 `holdY` 遮蔽（局部变量改名 `targetY`，字段正确写入；新增 `holdTarget()`），加 JUnit 回归（mcpfabric 新增 `src/test` + JUnit5，3 例）；②判定顺序改为"碰撞/介质/通道下界/预测可继续 → 进度 → 烟花（+50 罚分最后比较）"，取消"仅低速/需爬升才评估点火"，新增 2 例回归；③俯仰候选相对**瞄准线**而非当前姿态（发射后鼻上不再锁死候选集，ab-05 曾冲高至 y≈296、点火 7 次）；④客户端入水即 `water` 终态、环补 `inWater`/`rocketsInHands`/`rocketsInInventory`；驱动双手为空自动补弹（`equipRocketOffhand` 公开返回布尔）；⑤A/B 夹具：冻结路线链接多段已验证通道直到终点完成半径全在截面之后（ab-09 路线 19 点、终点 z=−67.5）、每臂唯一 sessionId、按当前会话撤销、死亡重生/抗性/饱食/落地确认（修掉幂等回放、反射 `reflex_preempted`、跨臂坠落等夹具故障）。**ab-09 结论**：完整下发在 entry 5/19（z≈37）40 候选全被扫掠拒绝（`eval=40 sim=9ms`）；分腿交接**受控跨过 z=20**（tick 7727、(−1001.38,67.38,19.13)、水平速度 1.48、gliding、owner=flight-session、revision 3），随后 z=8.3 入水（零掉血）。按复核决策树：完整失败+分腿通过 → 下一批修驱动/模型（诊断 z≈37 全拒）。离线：mcpfabric `:1.21.1:test` 5/5、AIRI typecheck/lint 0。
+
+**河湾批：验证缺口 + 覆盖/前沿选择（2026-09-20 深夜第三段，TS-only，零提交）**：按复核顺序执行。①验证缺口：`channelPathOfVerified` 两点路径也过机体盒扫掠，找不到通过检查的回退点时返回 `blocked: channel_unverified`，不再下发已知未通过检查的段；②覆盖分析模式（`E02_MODE=analysis`，`E02_SNAPSHOT_FILE` 可离线重放）在峡谷快照上证明整幅直连 A* 有 level 河道路线（70 点、slope 0），旧前沿选择在所有窗宽都选岸顶（slope 0.29–0.74）→ 属"读到却选错"；③前沿改为候选集合比较（开天优先、8 格去重、≤8 候选、≤4 次有界搜索；评分 = 进度 − 墙代价 − 3×爬升，航段长度不再计成本），同一快照所有窗宽给出 level 河道（hw=4：reached 47.6、climb 0、river 0.83；注：coverage-04 的 hw=8 仍为 0.279 爬升，复核已更正"所有窗宽"表述）；④前缀校验在离路线 >24 格时跳过（发射助推假发散）。离线：flight 157 通过、elytra 48 通过、typecheck/lint 0。真机 cave-diag-13/15/16 零掉血，河道推进到 z≈27–31、交接 2–3 次。
+
+**路径可飞性批（2026-09-20 深夜第二段，TS-only，零提交）**：按复核"再下一批"交付。①通道抽稀移入规划器并逐段复检机体盒（`channelPathOfVerified`，被挡段回退到更细 A* 点且回退段同样复检；主机不再自行抽稀）；②空间搜索增加身体净空硬约束（`bodyFootprintClear`，节点 ±1 水平邻格在机体高度内必须为空气）并改惰性 memo（大窗口不再在预计算上耗尽时限）；③靠壁代价 0.25/格、爬升代价 1.2/格、禁止原地垂直爬升、启发权重 1.2→1.5、主机规划时限 2→4 s；④本地前沿垂直带 `goal.y ±2` → `−8..+16`（同进度优先目标层）；⑤读取窗沿航向多覆盖 2 格、前沿扫描按层索引；⑥主机把实测速度方向（与目标方位差 ≤75°）作为走廊航向，取代只覆盖岸壁的直线目标方位。离线：flight 157 通过、elytra 48 通过、typecheck/lint 0。真机 cave-diag-08..12 零掉血，早段由 z≈35 推进到 z≈28，但仍在东岸壁被拒（航线在岸顶上方 8 格处要求贴壁爬升，客户端 20 候选全拒）。**根因**：读取窗仍是单方位带（半宽 4），峡谷偏离目标方位约 25° 时只覆盖岸壁；下一批需按开阔空间展开窗带（或多方位候选）并做"提前爬升"的垂直剖面整形。
+
+**连续交接与失效收尾批（2026-09-20 深夜，客户端 0.2.43，零提交）**：按 `docs/fork/elytra-flight-control-progress-review.md` 交付。主机（TS）：前沿 64 格预规划、32 格提前提交为待接入路线；前沿续接 `continuations` 与失败 `replans` 分开计数（12 vs 3）；每条腿记录 `plannedFrom`/`planMs`/`rawPath`/`sentPath`/`endedReason`/`positionAtEnd`；读失败、`route_unavailable`、`handover_timeout` 统一进入有界安全落地，`channel.failure` 与 `airborneAtReturn` 分开记录"函数返回/安全接地"；环游标按当前 tick 预热、样本带 `sessionId`/`revision`。客户端（Java 0.2.43）：同一飞行任务接受待接入路线（身份/代次/维度/在飞/入口距离校验），tick 边界切换、唯一输入所有者，`handoverCapable`/`pendingSessionId`/`handoverCount`/`holding` 遥测；路线耗尽后进入 5 秒有界保持（沿航向缓降）等待交接，超时 `handover_timeout`。离线：`elytra.test.ts` 48 通过、game-host 954 通过/1 跳过、typecheck/lint 0。真机 cave-diag-07：两次交接被客户端采纳、零掉血；早段推进至 (-997.3,64.4,19.1)，两条腿在同一处 `no_viable`（`eval=20 sim=0ms`）后由双拒守卫有界落地。新根因：机体盒已与岸壁方块重叠（航线贴岸缺横向净空），属下一批"路径可飞性"。
+
+**峡谷修复批（2026-09-20 晚，遥测驱动，零提交）**：`endDetail` 定位到峡谷早段阻塞是主机本地前沿航路点选进山体洞穴（`eval=20..24 sim=0ms`，非客户端性能）。修复：①`low-route.ts` 前沿开天优先（列在读取窗口内无顶棚才当前沿，顶棚下走廊降级后备）；②`elytra.ts` 盘旋检测（目标距离 30s 无改善 → 重规划一次，预算耗尽有界收尾，修掉原地绕圈 165s）；③同一地点两次拒绝停止重规划；④无落点收尾改为**原地最小风险下降**（不再飞未核实点，修掉 cave-diag-05 的死亡）。真机 cave-diag-06：零死亡；第二段仍被客户端拒绝（距东岸约 4 格、需爬升，客户端正确拒绝）。离线套件 **951 通过 / 1 跳过**。下一批：规划器保持河道横向净空或客户端"脱离地形"原语。
+
+## R3 通道闭环：宿主双模式 + 客户端两处修复（2026-09-20，真机，零提交）
+
+宿主侧按 [R3 设计](./elytra-flight-control-r3-channel-loop.md) 落地：`flight/channel.ts` 通道执行器（stale_generation 用回执 expectedGeneration 重试并记住协商代次、session_active 撤销己方残留重试、游标轮询、撤销幂等）；`port.ts`/`host-port.ts` 通道面（状态枚举**大小写归一**——客户端发 `TERMINATED`，此前终局原因到不了主机）；`low-route.ts` `exclude` 禁区；`elytra.ts` 巡航段双模式（提交→回执→前缀校验→落地段；本地前沿完成续飞；健康/低弹药守卫；glider 停止滑翔由主进程自证收尾）；`VehicleMoveResult.channel`。遗留模式逐字节保留。
+
+客户端：0.2.36 拒绝的 submit 不写幂等记忆（修复 stale_generation/session_active 重试永远重放拒绝）；0.2.37 应用后落地即 `terminateIfActive("touchdown")`（不再落地自动复飞）。
+
+真机（部署 0.2.35/36/37 并重启，12 次运行，[R3-20260920-01](./evidence/elytra-flight-control-20260920/R3-20260920-01/verdict.md)）：短目标 `channel_complete` + 落地 2.1 格；长河道（200+ 格）`channel_complete` + 禁区重规划 + 前沿续飞 + 落地 18.7 格；故障路径均有界。真机暴露并修掉五处：状态大小写、前缀比较角色错配（起点 vs 航路点、含 Y）、本地前沿完成被当到达、落地停滞重规划再起飞、主机未自证停止滑翔。
+
+离线：game-host 套件 **943 通过 / 1 跳过**；typecheck/lint 0。测试预算修正：low-route 密封洞穷举用例 8s→30s（带载机器返回 `time_cap`，断言不变）。遗留：落地精度（R4）、客户端碰撞伤害（运行 09 死亡、运行 12 掉血）、TS/Java 交叉回放。
+
+## R2b 修复批：控制生命周期与确定性驾驶（2026-09-20，离线 + 真机，零提交）
+
+按 [R2b 诊断](./evidence/elytra-flight-control-20260920/r2b-diagnosis-20260920-103351/diagnosis.md) 的修复顺序落地（无 bot 操作、无部署、无提交；旧证据未改写）：
+
+- **控制生命周期**：`RpcRouter` 把 `flight.submit/boost/revoke` 归入控制方法（续期心跳），`flight.observe/status` 不续期；`ClientControlGuard` 对活动通道跳过心跳清理（通道按 deadline 自驱，死亡/断线/换维度/撤销仍终止）；`FlightController.terminateIfActive` 成为唯一终止入口（置终态 + 取消起飞宏 + 清 session），`externalStop` 供看门狗调用；准备阶段也执行 deadline；宏 failed/cancelled 即结束会话；宏运行期间不驱动（修复同 tick 抢姿态）；提交与旧驱动互斥（`control_busy`）；起飞方向改用首个未达航路点。
+- **确定性驾驶**：`FlightSession` 首航路点不再被跳过、yaw 用 `atan2-90°`（正东 -15°→-90°）、`Decision.applicable` 阻止终态写默认姿态、预测消费交接的 boost 剩余量、`entryReach` 实际采用并回显、`simBudgetMs` 生效；`FlightController` 用宏点火计数增量与驱动点火共同标记 `rocketFiredThisTick`，`inputOwner` 如实为 none/launch-macro/flight-session。
+- **验证**：五项反例 `replay-fixed.java` 全 PASS（[replay-fixed.log](./evidence/elytra-flight-control-20260920/R2b-20260920-02/replay-fixed.log)）；`:1.21.1:build` 成功，jar `0.2.35` SHA-256 `AAEB0280B3B0083B5EF5FD5F3CA10F16F9D577737131C870093F416E26DFBA0D`（未部署）；mcp-server typecheck/build 0；game-host 套件 927 通过 / 1 跳过 + `sealed cave` 全量负载下 5s 超时抖动（定向重跑 4.64s 通过，未改 TS）。
+- **真机（2026-09-20，部署 0.2.35 + 客户端重启后）**：R2b 门 **PASS**。首次运行解除 0 tick 阻断（提交接受、entryReach 采用、宏 `done`、驱动 96 样本、诚实 `no_viable_trajectory`）；修正脚本门与通道后第二次运行全门通过：`channel_complete`、终点 3.99 格、3.5 s MCP 停顿后 92 个新样本、游标滞后 1、点火 2、撤销后无驱动。证据 [live-verdict-20260920-02.json](./evidence/elytra-flight-control-20260920/R2b-20260920-02/live-verdict-20260920-02.json)。
+- **范围内遗留**：手写诊断通道（非 R1 规划器输出）、完整 VoxelShape 扫掠、TS/Java 交叉回放、不同推进剩余量补测；胸甲鞘翅耐久客户端不可读。
+
+## 跨线执行顺序收敛为四线并回写现状（2026-09-20，文档，零提交）
+
+按用户要求把 [cross-line-execution-order.md](./cross-line-execution-order.md) 从"验收收尾 → OV/TG/free-play"收敛为四线结构并回写现状：
+
+1. **主线 A（感知 → 关注 → 自主）**：OV-1 → OV-2A → [CD-L 收尾] → OV-3A → OV-3B(+TG-3) → OV-3C → TG-0/TG-1 → free-play F0/F1 → [MC-0a 资源测量] → TG-4；未开工，闸门为阶段 0 完成门。
+2. **飞行线 B（与 A 代码面基本不重叠）**：LR-0/B0 接线(+LR-1/LR-2) → E-01 校准 → OV-5 起飞宏 → E-02..E-10 + FS-01..09 + OV-5 合并验收 → LR-3/LR-4 伴飞；接线与 LR-1..4 代码落地、E-01 PASS、OV-5 已提前落地，E-02 经河峡谷九批迭代后转 R0–R4 闭环。
+3. **机会线**：CD-M/B/V 验收已执行完毕（PASS 或带范围 PARTIAL）；OV-4 截图探针与 OV-2B 宏观地形未开工。
+4. **阻塞/排后**：RS 等 Litematica 产物与蓝图；multichannel 既定排后。
+
+同批修正过时口径：E-01 已 PASS、LR-2/3/4 代码完成且 `escort` 已开（`suggest` 的"不追只劝"未做）、OV-5 已提前、jar 版本更新为客户端 0.2.34 / 服务端 0.2.29（部署 0.2.29 滞后）、部署栈已关闭、阶段 0 完成门未满足（登记表部分缺行）。另同步：[验收清单](./capability-deepening-acceptance-checklist.md) §1.1 加 2026-09-20 现状段；[能力深化总方案](./capability-deepening-plan.md) 与[远距伴飞设计](./long-range-escort-design.md) 头部状态更新；新增互引[鞘翅飞行闭环修订方案](./elytra-flight-control-revision.md)与[执行文件](./elytra-flight-control-execution-plan.md)。零代码改动。
+
+## 飞行闭环 R0/R1 离线交付（2026-09-20，证据 R0-20260920-01，零提交）
+
+按 [elytra-flight-control-execution-plan.md](./elytra-flight-control-execution-plan.md) 执行 R0+R1（用户指示：只跑 vitest/typecheck/lint，不做真机）。**零 Git 提交**，交付为工作区修改 + 证据目录。
+
+- **R0 PASS**：两仓基线实读（与执行文件 §2 逐项一致；新事实=服务器/双客户端已关闭、部署 jar 0.2.29 滞后源码 0.2.34）；tracked-workspace.patch + HEAD 副本冻结；**两个反例先失败后修复**（薄墙 z=6 穿墙 96.5、halfWidth 16 丢目标层 blocked）；e02 证据生命周期修正（输出唯一化/meta 行/finally 收尾/错误部分记录/诊断-正式模式分离）。
+- **R1 PASS**：`corridor.ts` 新增 `planSpaceRoute`（块尺度 3D A*：26 邻域、角规则防切角、双格净空、可通行节点预计算、二叉堆、节点/时间双上限）；`low-route.ts` `planLowRoute` 重写（分块垂直读取保目标层、目标未读→`local` 前沿路线、`search_budget` 类型化、有序 `path` 输出替代 waypoint+bandY 坍缩）。两反例转绿 + 八场景边界测试（密封洞/弯河/多层顶/先升后降/无地面/切角/未加载/截断）。离线回归（排除两个真机入口）**928 通过 / 1 跳过**；typecheck 0；触碰范围 lint 0。
+- **R2a**（同日续，离线交付完成 → IN-PROGRESS）：新增 `client/flight/FlightController.java`（同 tick 同阶段观测含碰撞盒/装备/boost 估计[35t 源标注]；通道契约 sessionId 幂等/generation 陈旧拒绝/accepted≠startedApplying/维度-死亡-断线-期限类型化终止；烟花 opId 去重不重放；600 tick 轨迹环 trajectoryLost 如实计数）+ `FlightHandlers` 五条 RPC（flight.observe/submit/status/revoke/boost）+ tools.ts 目录 + BotController tick 接线（观测在任务 tick 后、player==null 路径也通知）。`:1.21.1:build` BUILD SUCCESSFUL，新 jar `0.2.34` SHA-256 `65ce09d0…`（未部署）。**R2b 预留**：控制器零输入写入（inputOwner/startedApplying 诚实标注），逐 tick 驾驶留待 R2b。编译修正三轮：moduleTick 类型、tickCount 非公开、entitiesForRendering 迭代改 Projectile.getOwner 归属模式。真机完成门 NOT-RUN（待栈+部署新 jar）。
+
+工作区状态：10 个已跟踪文件修改未提交（执行文件纪律：实施期零提交）；R2a 接手须先按 §4 重核基线。
+
+## R2a 真机门 PASS（2026-09-20，栈拉起 + 部署 65ce09d0/919aafdc）
+
+三端部署新 jar（旧摘要备份 `.bak-preR2a`），全栈按序拉起（服务器 16s/bot 30s/AIRI 57s leader）。真机验证场景 A–F 全过：同 tick 观测 21tps（首次 tick 冻结=加载屏瞬态，二次排除）；通道契约 accept/陈旧代次拒绝（控制器修复：跨会话记忆 lastGeneration——首轮暴露无会话无基准）/幂等重提交；烟花 opId 去重（secondIsReplay 原样响应）；轨迹环 77 样本 lost=0；launch 宏三行为回归（成功/无烟花拒绝 no_firework_in_hands/完成后取消无操作——运行中取消因宏 9 tick 不可稳定触发，记场景限制）。trajectoryLost=2473 为环形设计行为验证。当前批次：R2b（简单通道逐 tick 驾驶）。零提交纪律保持。
+
 
 ## 钻洞迭代九批收官：连通性 walk 与区块视距探测（2026-09-19，提交 `73ad7f4c7`+`0787a305b`，套件 918/3）
 

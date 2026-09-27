@@ -1,0 +1,167 @@
+[
+  {
+    "t": 590,
+    "p": {
+      "x": -878.8212740197555,
+      "y": 69.96125023668965,
+      "z": -205.8013416006218
+    },
+    "plan": "snapshot:164025/164025 result=none",
+    "policy": "-30:LEVEL:glide",
+    "eval": 40
+  },
+  {
+    "t": 599,
+    "p": {
+      "x": -870.8097274808305,
+      "y": 69.14328617417141,
+      "z": -217.21337020569086
+    },
+    "plan": "searching:1 due=153 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "+0:PULL_UP:glide",
+    "eval": 40
+  },
+  {
+    "t": 600,
+    "p": {
+      "x": -870.1962098258501,
+      "y": 69.16418368050361,
+      "z": -218.50219773497622
+    },
+    "plan": "reserved:1/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 601,
+    "p": {
+      "x": -869.6344660912985,
+      "y": 69.19989886490998,
+      "z": -219.78055221972335
+    },
+    "plan": "reserved:2/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 602,
+    "p": {
+      "x": -869.1313899249026,
+      "y": 69.24916620856943,
+      "z": -221.0474330824114
+    },
+    "plan": "reserved:3/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 603,
+    "p": {
+      "x": -868.6902791927445,
+      "y": 69.31084844010547,
+      "z": -222.3008700190783
+    },
+    "plan": "reserved:4/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 604,
+    "p": {
+      "x": -868.3130158342158,
+      "y": 69.38380235911238,
+      "z": -223.53836308616195
+    },
+    "plan": "reserved:5/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 605,
+    "p": {
+      "x": -868.0000135616871,
+      "y": 69.46688816460536,
+      "z": -224.7571824940845
+    },
+    "plan": "reserved:6/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 606,
+    "p": {
+      "x": -867.7671370679902,
+      "y": 69.55898140356122,
+      "z": -225.94882565051677
+    },
+    "plan": "reserved:7/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 607,
+    "p": {
+      "x": -867.6087670071649,
+      "y": 69.65874987690826,
+      "z": -227.1103518002843
+    },
+    "plan": "reserved:8/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 608,
+    "p": {
+      "x": -867.5184186344986,
+      "y": 69.76494726414009,
+      "z": -228.239886280901
+    },
+    "plan": "reserved:9/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 609,
+    "p": {
+      "x": -867.4891004010191,
+      "y": 69.87642467988738,
+      "z": -229.3365901087678
+    },
+    "plan": "reserved:10/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 610,
+    "p": {
+      "x": -867.494150336143,
+      "y": 69.99213664274623,
+      "z": -230.40928074766384
+    },
+    "plan": "reserved:11/12 branches=1 rejectedExpiry=-1 result=none",
+    "policy": "planning_prefix",
+    "eval": 0
+  },
+  {
+    "t": 611,
+    "p": {
+      "x": -867.5293887895325,
+      "y": 70.11136243164559,
+      "z": -231.45836654637037
+    },
+    "plan": "delivered result=planned:1026:131ms",
+    "policy": "sequence:tracking",
+    "eval": 0
+  },
+  {
+    "t": 676,
+    "p": {
+      "x": -843.348955551967,
+      "y": 66,
+      "z": -265.3485351280903
+    },
+    "plan": "none",
+    "policy": "",
+    "eval": 0
+  }
+]

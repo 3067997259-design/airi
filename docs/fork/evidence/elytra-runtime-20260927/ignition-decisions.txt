@@ -1,0 +1,6 @@
+measured-2663 horizon=12 rockets=0 applicable=true policy=+15:LEVEL:glide end=12/horizon note=eval=20 ok=20 sim=54ms reject[c=0,f=0,s=0,ta=0]
+measured-2663 horizon=12 rockets=64 applicable=true policy=+0:LEVEL:fire end=12/horizon note=eval=40 ok=38 sim=11ms reject[c=2,f=0,s=0,ta=0] first=collision@t11(-880.6,70.6,-223.6)block=minecraft:red_sandstone shape=
+measured-2663 horizon=16 rockets=0 applicable=true policy=+15:LEVEL:glide end=16/horizon note=eval=20 ok=12 sim=3ms reject[c=0,f=0,s=8,ta=0] first=speed@t16(-871.8,69.1,-231.7)block= shape=
+measured-2663 horizon=16 rockets=64 applicable=true policy=+0:LEVEL:fire end=16/horizon note=eval=40 ok=28 sim=8ms reject[c=4,f=0,s=8,ta=0] first=speed@t16(-871.8,69.1,-231.7)block= shape=
+measured-2663 horizon=20 rockets=0 applicable=true policy=+15:LEVEL:glide end=20/horizon note=eval=20 ok=10 sim=7ms reject[c=0,f=0,s=10,ta=0] first=speed@t20(-872.5,70.9,-232.4)block= shape=
+measured-2663 horizon=20 rockets=64 applicable=true policy=+0:LEVEL:fire end=20/horizon note=eval=40 ok=24 sim=9ms reject[c=6,f=0,s=10,ta=0] first=speed@t20(-872.5,70.9,-232.4)block= shape=

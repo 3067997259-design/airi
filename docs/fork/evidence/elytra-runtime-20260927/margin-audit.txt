@@ -1,0 +1,35 @@
+[
+  {
+    run: 'margin-1-01',
+    build: '0.2.102+1.21.1',
+    local: false,
+    ticks: 140,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'margin-1-02',
+    build: '0.2.102+1.21.1',
+    local: false,
+    ticks: 199,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'margin-1-03',
+    build: '0.2.102+1.21.1',
+    local: false,
+    ticks: 140,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  }
+]

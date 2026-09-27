@@ -1,0 +1,615 @@
+{
+  "capturedAt": "2026-09-26T02:08:13.897Z",
+  "box": {
+    "x0": -1010,
+    "x1": -900,
+    "y0": 55,
+    "y1": 104,
+    "z0": -185,
+    "z1": -45
+  },
+  "palette": [
+    "minecraft:unknown",
+    "minecraft:stone",
+    "minecraft:andesite",
+    "minecraft:copper_ore",
+    "minecraft:granite",
+    "minecraft:coal_ore",
+    "minecraft:diorite",
+    "minecraft:lapis_ore",
+    "minecraft:clay",
+    "minecraft:iron_ore",
+    "minecraft:vine",
+    "minecraft:dirt",
+    "minecraft:air",
+    "minecraft:gravel",
+    "minecraft:grass_block",
+    "minecraft:jungle_log",
+    "minecraft:oak_leaves",
+    "minecraft:fern",
+    "minecraft:short_grass",
+    "minecraft:oak_log",
+    "minecraft:jungle_leaves",
+    "minecraft:glow_lichen",
+    "minecraft:mossy_cobblestone",
+    "minecraft:cobblestone",
+    "minecraft:cobblestone_stairs",
+    "minecraft:cocoa",
+    "minecraft:melon",
+    "minecraft:dandelion",
+    "minecraft:water",
+    "minecraft:seagrass",
+    "minecraft:tall_seagrass",
+    "minecraft:sand",
+    "minecraft:tall_grass",
+    "minecraft:bamboo",
+    "minecraft:light_blue_wool",
+    "minecraft:gold_ore",
+    "minecraft:terracotta",
+    "minecraft:orange_terracotta",
+    "minecraft:light_gray_terracotta",
+    "minecraft:white_terracotta",
+    "minecraft:red_terracotta",
+    "minecraft:brown_terracotta",
+    "minecraft:dead_bush",
+    "minecraft:obsidian",
+    "minecraft:poppy",
+    "minecraft:moss_block",
+    "minecraft:red_sand",
+    "minecraft:coarse_dirt",
+    "minecraft:yellow_terracotta",
+    "minecraft:glowstone",
+    "minecraft:podzol",
+    "minecraft:red_sandstone"
+  ],
+  "cells": 782550,
+  "sha256": "9b3735747900d55de869291edb01a93c3d1e75217146444860cc12d17dcb4efd",
+  "reads": [
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -1010,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -995,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -994,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -979,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -978,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -963,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -962,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -947,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -946,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -931,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 19200
+    },
+    {
+      "from": {
+        "x": -930,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -915,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 16800
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -185
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -162
+      },
+      "cells": 18000
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -161
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -138
+      },
+      "cells": 18000
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -137
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -114
+      },
+      "cells": 18000
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -113
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -90
+      },
+      "cells": 18000
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -89
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -66
+      },
+      "cells": 18000
+    },
+    {
+      "from": {
+        "x": -914,
+        "y": 55,
+        "z": -65
+      },
+      "to": {
+        "x": -900,
+        "y": 104,
+        "z": -45
+      },
+      "cells": 15750
+    }
+  ]
+}

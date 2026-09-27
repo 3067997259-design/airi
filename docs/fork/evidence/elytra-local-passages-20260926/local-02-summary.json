@@ -1,0 +1,96 @@
+{
+  "tag": "local-02",
+  "build": "0.2.72+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [
+        {
+          "tick": 2910,
+          "position": {
+            "x": -974.3809201388465,
+            "y": 73.15454553377432,
+            "z": -83.6690121527311
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "lower-wool",
+      "events": [
+        {
+          "tick": 2919,
+          "position": {
+            "x": -969.0080339061656,
+            "y": 73.77126812183843,
+            "z": -97.58645763017552
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-approach",
+      "events": [
+        {
+          "tick": 2932,
+          "position": {
+            "x": -956.3423186731998,
+            "y": 72.37257592924043,
+            "z": -115
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-entry",
+      "events": [
+        {
+          "tick": 2939,
+          "position": {
+            "x": -948.1388521092102,
+            "y": 71.86895209434782,
+            "z": -123
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "slab-exit",
+      "events": [
+        {
+          "tick": 2968,
+          "position": {
+            "x": -916.2862859028107,
+            "y": 70.53108696872168,
+            "z": -158.5
+          },
+          "inside": true,
+          "controlled": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "continuous": true,
+  "damage": 0,
+  "minHealth": 20,
+  "samples": 963,
+  "controlledTicks": 125,
+  "budgetExhausted": 0,
+  "settled": 24,
+  "endReason": "no_viable_trajectory",
+  "endDetail": "no_viable_trajectory eval=20 ok=6 sim=1ms reject[c=14,f=0,s=0,ta=6] first=collision@t1(-863.2,77.1,-237.3)block=orange_terracotta shape=full entry=100/100 target=-832.9,70.6,-270.5 at=-865.7,76.6,-235.4 pitch=-12.0",
+  "pass": true
+}

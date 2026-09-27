@@ -388,4 +388,89 @@ describe('createMcpMovementPort', () => {
     expect(partial.launchStatus).toBeUndefined()
     expect(partial.cancelLaunch).toBeUndefined()
   })
+
+  it('maps the flight channel tools and flattens the sample vectors', async () => {
+    // ROOT CAUSE the mapping must not repeat (R3): the client sends `position`
+    // and `velocity` as nested objects, so a mapper reading flat x/vx fields
+    // reports every sample at the origin and the host sees no progress.
+    const callTool = callerWith({
+      flight_submit: { accepted: true, startedApplying: false, pathPoints: 2, entryReach: 8 },
+      flight_status: {
+        // The client enum ships uppercase; the port contract is lowercase.
+        state: 'RUNNING',
+        endReason: '',
+        applyingStarted: true,
+        entryReach: 8,
+        trajectoryLost: 12,
+        trajectory: [{
+          tick: 42,
+          phase: 'end-client-tick',
+          position: { x: 1.5, y: 80.5, z: -3 },
+          velocity: { x: 0.8, y: -0.05, z: 0.1 },
+          yaw: -90,
+          pitch: 3,
+          gliding: true,
+          onGround: false,
+          boostAttached: true,
+          rocketFiredThisTick: false,
+          inputOwner: 'flight-session',
+        }],
+      },
+      flight_revoke: { revoked: true, wasActive: true, endReason: 'revoked' },
+    })
+    const port = createMcpMovementPort(callTool, {
+      hasTool: name => ['flight_submit', 'flight_status', 'flight_revoke'].includes(name),
+    })
+
+    const submit = await port.flightSubmit?.({
+      sessionId: 'fl-1',
+      generation: 4,
+      revision: 2,
+      deadlineMs: 1_000,
+      dimension: 'minecraft:overworld',
+      controlSessionId: 'cs-1',
+      // ROOT CAUSE: the port rebuilt channel without its terminal semantics,
+      // so a host stop/through choice never reached the client.
+      channel: { path: [{ x: 0, y: 80, z: 0 }, { x: 10, y: 80, z: 0 }], entryReach: 8, kind: 'stop', terminalReach: 1, terminalPlanning: true },
+    })
+    expect(callTool).toHaveBeenCalledWith('flight_submit', {
+      sessionId: 'fl-1',
+      generation: 4,
+      revision: 2,
+      deadlineMs: 1_000,
+      dimension: 'minecraft:overworld',
+      controlSessionId: 'cs-1',
+      channel: { path: [{ x: 0, y: 80, z: 0 }, { x: 10, y: 80, z: 0 }], entryReach: 8, kind: 'stop', terminalReach: 1, terminalPlanning: true },
+    })
+    expect(submit).toMatchObject({ accepted: true, pathPoints: 2, entryReach: 8 })
+
+    const status = await port.flightStatus?.(11)
+    expect(callTool).toHaveBeenCalledWith('flight_status', { sinceTick: 11 })
+    expect(status?.state).toBe('running')
+    expect(status?.applyingStarted).toBe(true)
+    expect(status?.trajectoryLost).toBe(12)
+    expect(status?.trajectory[0]).toMatchObject({
+      tick: 42,
+      x: 1.5,
+      y: 80.5,
+      z: -3,
+      vx: 0.8,
+      vy: -0.05,
+      vz: 0.1,
+      inputOwner: 'flight-session',
+    })
+
+    const revoke = await port.flightRevoke?.('fl-1')
+    expect(callTool).toHaveBeenCalledWith('flight_revoke', { sessionId: 'fl-1' })
+    expect(revoke).toEqual({ revoked: true, wasActive: true, endReason: 'revoked' })
+
+    // A bridge with only a subset of the channel tools keeps the surface off:
+    // a channel that cannot be observed or aborted is not a contract.
+    const partial = createMcpMovementPort(callTool, {
+      hasTool: name => ['flight_submit', 'flight_status'].includes(name),
+    })
+    expect(partial.flightSubmit).toBeUndefined()
+    expect(partial.flightStatus).toBeUndefined()
+    expect(partial.flightRevoke).toBeUndefined()
+  })
 })
