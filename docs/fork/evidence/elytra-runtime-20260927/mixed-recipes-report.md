@@ -45,6 +45,8 @@ The first report of a grade-1 launch in mixed-02 was incorrect. The offhand held
 
 ## Validation scope
 
+Update: the deferred checks and one final strict flight passed in the [closeout report](./closeout-report.md). The paragraph below records the milestone's original check-deferral state.
+
 Only single-worker deployment builds ran, with tests excluded. No lint, typecheck, Vitest or Java test suite ran. A Java regression for explicit recipe selection was added but remains unexecuted. This batch does not accept the original bridge dynamic route.
 
 Commit-time exception: AIRI's pre-commit hook attempted `moeru-lint --fix`, but command-line length prevented it from running successfully. Nano-staged reported restoring the original files. The commit then used a command-local disabled hook path under the user's explicit check-deferral authorization; repository hook configuration was not changed. This is not a passing lint result.

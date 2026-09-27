@@ -97,13 +97,16 @@ async function main() {
       let staged = 0
       for (let index = 0; index < 9; index++) {
         const stack = currentInventory.hotbar[index]
-        if (stack?.id !== 'minecraft:firework_rocket' && stack?.count > 0) continue
-        if (!mixedRockets && stack?.id !== 'minecraft:firework_rocket') continue
+        if (stack?.id !== 'minecraft:firework_rocket' && stack?.count > 0)
+          continue
+        if (!mixedRockets && stack?.id !== 'minecraft:firework_rocket')
+          continue
         const grade = mixedRockets ? (index === selectedSlot ? 1 : 1 + staged % 3) : duration
         await command(`item replace entity airitest hotbar.${index} with minecraft:firework_rocket[minecraft:fireworks={flight_duration:${grade},explosions:[]}] 64`)
         staged++
       }
-      if (mixedRockets && staged < 3) throw new Error('Need three free or rocket hotbar slots for mixed recipes')
+      if (mixedRockets && staged < 3)
+        throw new Error('Need three free or rocket hotbar slots for mixed recipes')
       log('rocket_recipe', { flightDuration: duration, mixedRockets, staged, launchSelectedSlot: selectedSlot })
     }
     const self = await call(0, 'get_self')

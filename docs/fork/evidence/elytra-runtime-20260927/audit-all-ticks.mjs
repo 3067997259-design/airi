@@ -37,8 +37,7 @@ for (const tag of process.argv.slice(2)) {
   const bytes = readFileSync(new URL(`${tag}.jsonl`, root))
   const records = bytes.toString('utf8').trim().split('\n').map(line => JSON.parse(line))
   const start = records.find(r => r.kind === 'start')
-  const samples = [...new Map(records.filter(r => r.kind === 'status').flatMap(r => r.status.trajectory ?? [])
-    .filter(s => s.sessionId === start.submission.sessionId).map(s => [s.tick, s])).values()].sort((a, b) => a.tick - b.tick)
+  const samples = [...new Map(records.filter(r => r.kind === 'status').flatMap(r => r.status.trajectory ?? []).filter(s => s.sessionId === start.submission.sessionId).map(s => [s.tick, s])).values()].sort((a, b) => a.tick - b.tick)
   const sections = []
   for (const section of start.sections) {
     const length = Math.hypot(section.nx, section.nz)

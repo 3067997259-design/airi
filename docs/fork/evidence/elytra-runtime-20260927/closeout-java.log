@@ -1,0 +1,336 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.6.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Configuration on demand is an incubating feature.
+Running Stonecutter 0.9.6
+
+> Configure project :1.21.1
+Fabric Loom: 1.17.11
+
+> Task :1.21.1:stonecutterPrepare UP-TO-DATE
+> Task :1.21.1:stonecutterGenerate UP-TO-DATE
+> Task :1.21.1:compileJava UP-TO-DATE
+> Task :1.21.1:processResources UP-TO-DATE
+> Task :1.21.1:classes UP-TO-DATE
+> Task :1.21.1:stonecutterPrepareClient UP-TO-DATE
+> Task :1.21.1:stonecutterGenerateClient UP-TO-DATE
+> Task :1.21.1:compileClientJava UP-TO-DATE
+> Task :1.21.1:processClientResources NO-SOURCE
+> Task :1.21.1:clientClasses UP-TO-DATE
+> Task :1.21.1:stonecutterPrepareTest
+> Task :1.21.1:stonecutterGenerateTest
+> Task :1.21.1:compileTestJava
+> Task :1.21.1:processTestResources NO-SOURCE
+> Task :1.21.1:testClasses
+
+> Task :1.21.1:test
+
+FlightApproachTest > nearbySupportedGoalBehindAWallDoesNotAuthorizeDescent() PASSED
+
+FlightApproachTest > distinctSteeringOffsetsAreNotMergedByDisplayRounding() PASSED
+
+FlightApproachTest > clearSupportedFinalApproachStillPermitsDescent() PASSED
+
+FlightDynamicsOrderTest > theDisplacementUsesThePreThrustVelocity() PASSED
+
+FlightDynamicsOrderTest > aNewIgnitionMovesTheVelocityButNotThePositionOfItsOwnTick() PASSED
+
+FlightGeometryTest > waterIsASurfaceNotTheRiverbed() PASSED
+
+FlightGeometryTest > waterIsNotFlyableButAirAndPassableAre() PASSED
+
+FlightGeometryTest > leavesAreACollisionSurface() PASSED
+
+FlightGeometryTest > unknownCellsStopTheScanAsSolid() PASSED
+
+FlightGeometryTest > aLateralWallWithASlowSinkStillPitchesUp() PASSED
+
+FlightGeometryTest > waterAndPlantsAreNeverLandingSupports() PASSED
+
+FlightGeometryTest > fractionalFlightHeightDoesNotMoveTheBlockSurface() PASSED
+
+FlightHandoverReplayTest > withoutInheritanceTheCooldownWouldReset() PASSED
+
+FlightHandoverReplayTest > controllerLevelReplayMatchesDecisionsAcrossAHandover() PASSED
+
+FlightHandoverReplayTest > aPassedEntryIsNotChasedBack() PASSED
+
+FlightHandoverReplayTest > handoverKeepsTheActiveTargetAndDoesNotReChasePassedEntries() PASSED
+
+FlightHandoverReplayTest > aNewSessionsFirstPointIsSkippedWhenAlreadyBehind() PASSED
+
+FlightHandoverReplayTest > theTerminalEntryStillNeedsTheReach() PASSED
+
+FlightHandoverReplayTest > sameStateDecisionsMatchAcrossTheHandover() PASSED
+
+FlightHandoverReplayTest > handoverInheritsTheUnfinishedFireCooldown() PASSED
+
+FlightHandoverRulesTest > aNewerRevisionReplacesThePendingRoute() PASSED
+
+FlightHandoverRulesTest > aRevisionNotNewerThanTheFlyingSessionIsRefused() PASSED
+
+FlightHandoverRulesTest > aStaleRouteExpiresAndIsDropped() PASSED
+
+FlightHandoverRulesTest > aDuplicateDeliveryKeepsTheNewerPendingRoute() PASSED
+
+FlightHandoverRulesTest > aLateButConnectableRouteJoinsAfterCompletion() PASSED
+
+FlightHandoverRulesTest > anEarlyReadyRouteSwitchesAsSoonAsItsEntryIsWithinTwoReaches() PASSED
+
+FlightHandoverRulesTest > aWaterStateCannotConnect() PASSED
+
+FlightHandoverRulesTest > anUnconnectableRouteAtCompletionIsDropped() PASSED
+
+FlightHandoverRulesTest > anOutOfOrderOlderRevisionKeepsTheNewerPendingRoute() PASSED
+
+FlightLandingPlanTest > refusesASiteBehindTheCurrentHeading() PASSED
+
+FlightLandingPlanTest > acceptsAReachableSiteOnFlatGround() PASSED
+
+FlightLandingPlanTest > refusesASiteWhoseSupportIsWater() PASSED
+
+FlightLandingPlanTest > aVerifiedPlanMovesTheRecoveryIntoLanding() PASSED
+
+FlightLandingPlanTest > refusesASiteWithoutStandingHeadroom() PASSED
+
+FlightOwnershipTest > aFailureFreezesTheOutcomeAndEntersRecover() PASSED
+
+FlightOwnershipTest > theHardDeadlineReleaseCarriesATypedReason() PASSED
+
+FlightOwnershipTest > aNewRouteIsRefusedWithRecoveringWhileTheHardDeadlineHolds() PASSED
+
+FlightOwnershipTest > landingKeepsOwnershipPastTheSoftWindowToo() PASSED
+
+FlightOwnershipTest > theRecoveryWindowKeepsALiveControlClaim() PASSED
+
+FlightOwnershipTest > aFailedLandingLegReturnsToRecoveryInsteadOfReleasing() PASSED
+
+FlightOwnershipTest > thePolicyWindowRearmsInsideTheHardDeadline() PASSED
+
+FlightOwnershipTest > aSecondFailureDoesNotRewriteTheFirstOne() PASSED
+
+FlightOwnershipTest > settlingKeepsTheFailureAndTheWindow() PASSED
+
+FlightOwnershipTest > theSoftWindowExpiryKeepsOwnershipWhileTheHardDeadlineHolds() PASSED
+
+FlightOwnershipTest > revokeCancelsTheRecovery() PASSED
+
+FlightOwnershipTest > completingARouteDoesNotBlockALaterFailure() PASSED
+
+FlightOwnershipTest > phaseAdvancesPrepareTrackHold() PASSED
+
+FlightPlanningTest > liveRocketPastNominalExpiryDoesNotSpendWorkerRequests() PASSED
+
+FlightPlanningTest > reservationDoesNotExecuteTheCandidateTailAfterItsHandoff() PASSED
+
+FlightPlanningTest > shortReservationRequiresReadinessAndHandsOverAtEightTicks() PASSED
+
+FlightPlanningTest > existingBoostCanExpireInsideTheVerifiedReservation() PASSED
+
+FlightPlanningTest > reservationRejectsAClimbThatRequiresTheRocketToKeepBurning() PASSED
+
+FlightPlanningTest > reservationUsesTheSameDescentToleranceAsTheScreenedCandidate() PASSED
+
+FlightPlanningTest > reservedPrefixRejectsWorldContactAndAnExpiredBudget() PASSED
+
+FlightPlanningTest > closedPlannerNeverQueriesTheLiveWorld() PASSED
+
+FlightPlanningTest > failedWorkerReleasesItsPrefixBeforeTheAdoptionTick() PASSED
+
+FlightPlanningTest > intermediateExpiryCanHitACellMissedByNominalAndEndpointTrajectories() PASSED
+
+FlightRecoveryIntentTest > finalStopPredictsRecoveryInsteadOfFlyingStraightBeyondTheArrival() PASSED
+
+FlightRecoveryIntentTest > stopApproachStillUsesThrustWhenEveryGlideLosesWaterClearance() PASSED
+
+FlightRecoveryIntentTest > descentCanFinishOnSolidGroundWithoutCallingContactAnEmergency() PASSED
+
+FlightRecoveryIntentTest > obstacleAboveTheContactPatchStillRejectsIt() PASSED
+
+FlightRecoveryIntentTest > anUnsafeLandingBearingCannotRemoveTheStraightEscapeCandidate() PASSED
+
+FlightRecoveryIntentTest > missingFrictionOrANarrowLedgeCannotCertifyLanding() PASSED
+
+FlightRecoveryIntentTest > unverifiedRecoveryCannotCommitAnotherIrreversibleBoost() PASSED
+
+FlightRecoveryIntentTest > waterNeverQualifiesAsLandingContact() PASSED
+
+FlightRecoveryIntentTest > slowLandingFitsAThreeBlockPadAfterGroundFriction() PASSED
+
+FlightRecoveryIntentTest > stopApproachPreservesAGlideInsteadOfBuyingProgressWithANewBoost() PASSED
+
+FlightRecoveryIntentTest > anExplicitFinalStopDoesNotSpendFiveSecondsFlyingPastItsEndpoint() PASSED
+
+FlightRecoveryIntentTest > clearRecoveryKeepsTheRequestedDescentAndHeading() PASSED
+
+FlightRecoveryTest > flatGroundIsNotAnUphillObstacleJustBecauseThePilotIsLow() PASSED
+
+FlightRecoveryTest > withoutARocketThePitchStillClimbs() PASSED
+
+FlightRecoveryTest > clearAndHighDescendsGently() PASSED
+
+FlightRecoveryTest > aStrongSinkOntoRisingTerrainIsArrestedOnce() PASSED
+
+FlightRecoveryTest > anAttachedBoostIsNeverStacked() PASSED
+
+FlightRecoveryTest > risingTerrainAheadPitchesUp() PASSED
+
+FlightRecoveryTest > lowOverFlatGroundFlares() PASSED
+
+FlightRocketTest > ignitionUsesSelectedRecipeAndKeepsThatDurationThroughLaterTicks() PASSED
+
+FlightRocketTest > aLiveRocketNeverBecomesUnpoweredFromAnExpiredEstimate() PASSED
+
+FlightRocketTest > recipeLevelsHaveRandomLifetimesRatherThanFixedSeconds() PASSED
+
+FlightSequenceTest > revisedRouteAndMissingNativeTickRejectActivePlans() PASSED
+
+FlightSequenceTest > slowResidualRunoutStillCountsAgainstTheGoalRadius() PASSED
+
+FlightSequenceTest > originMismatchDoesNotReplayTheFirstInput() PASSED
+
+FlightSequenceTest > supportPhysicsIsReadOncePerCellButRefreshedForTheNextTick() PASSED
+
+FlightSequenceTest > budgetRefusalInsideArrivalSphereDoesNotClaimCompletionOrLatchUndecided() PASSED
+
+FlightSequenceTest > arrivalTimeMayExtendOnlyAfterCheckingTheExtraInputs() PASSED
+
+FlightSequenceTest > rejectedIdentityDoesNotReplaceTheQueuedPlan() PASSED
+
+FlightSequenceTest > plannerCannotMutateQueuedCommandsOrSmuggleIgnition() PASSED
+
+FlightSequenceTest > contactTailKeepsControlInsideTheArrivalSphere() PASSED
+
+FlightSequenceTest > lastContactTickUsesSinkSpeedNotUnclippedDepth() PASSED
+
+FlightSequenceTest > latePlanIsNotShiftedToTheCurrentTick() PASSED
+
+FlightSequenceTest > rejectedLandingInsideTheGoalDoesNotBecomeCompletion() PASSED
+
+FlightSequenceTest > changedWorldCannotReuseCachedLandingApproval() PASSED
+
+FlightSequenceTest > settledGoalRadiusIncludesTheHeightAboveSupport() PASSED
+
+FlightSessionArmComparisonTest > aSplitTerminalOutsideThePredictionRangeKeepsTheFirstActionIdentical() PASSED
+
+FlightSessionArmComparisonTest > aSplitTerminalInsideThePredictionRangeIsARouteVisibilityDifference() PASSED
+
+FlightSessionBudgetTest > thePreviousWinnerIsReCheckedFirstInTheGlobalOrder() PASSED
+
+FlightSessionBudgetTest > thePredictionUsesTheSamePassedPlaneRuleAsTheRealCursor() PASSED
+
+FlightSessionBudgetTest > aNormalCandidateRunsExactlyTheHorizon() PASSED
+
+FlightSessionBudgetTest > anInterruptedSearchIsUnverifiedNotNoRoute() PASSED
+
+FlightSessionContinuationTest > firesWhenTheUnpoweredGlideWouldSinkBelowTheContinuationFloor() PASSED
+
+FlightSessionContinuationTest > smallHorizontalGainDoesNotEraseVerticalTrackingError() PASSED
+
+FlightSessionContinuationTest > doesNotFireWhenTheGlideIsAlsoTheBetterProgress() PASSED
+
+FlightSessionContinuationTest > theTerminalLookaheadSeesAnObstacleJustPastTheTerminus() PASSED
+
+FlightSessionContinuationTest > aPredictedDiveIntoWaterIsRejectedEvenWithRocketsInHand() PASSED
+
+FlightSessionContinuationTest > doesNotFireWhileABoostIsStillActive() PASSED
+
+FlightSessionContinuationTest > ignitionUsesAnOfferedRecipeInsteadOfTheDefaultHandRecipe() PASSED
+
+FlightSessionContinuationTest > levelRouteDoesNotRewardAnUnnecessaryLateralTurn() PASSED
+
+FlightSessionContinuationTest > flyingJustAboveTheWaterIsStillValid() PASSED
+
+FlightSessionHoldTest > holdTargetIsWrittenToTheFieldAndKeepsClearance() PASSED
+
+FlightSessionHoldTest > lowApproachKeepsAltitudeInsteadOfDiving() PASSED
+
+FlightSessionHoldTest > theHoldFollowsTheHeadingInsteadOfOrbitingAFixedPoint() PASSED
+
+FlightSessionHoldTest > holdNeverTargetsBelowTheScannedSurface() PASSED
+
+FlightSessionPolicyTest > theLevelWaterStateFindsAnUnpoweredLevelPolicy() PASSED
+
+FlightSessionPolicyTest > theWinnerDoesNotDependOnTheCandidateEnumerationOrder() PASSED
+
+FlightSessionRoutePolicyTest > theSearchReportsItsCost() PASSED
+
+FlightSessionRoutePolicyTest > aTurnIsFollowedAndTheStraightOvershootIsBlocked() PASSED
+
+FlightSessionRoutePolicyTest > theTerminalIsNotCompletedEarlyByThePassedPlaneRule() PASSED
+
+FlightSessionRoutePolicyTest > aLowCeilingRejectsTheClimbingPolicies() PASSED
+
+FlightSessionRoutePolicyTest > fireCandidatesFollowTheRocketAndCooldownGates() PASSED
+
+FlightSessionRoutePolicyTest > passingAWaypointReplacesTheDiveWithTheNextAim() PASSED
+
+FlightSessionSafeFrameTest > aWallAheadIsAvoidedWithASymmetricTurn() PASSED
+
+FlightSessionSafeFrameTest > aShortSafePrefixIsNotEnoughWhenTheEndStateHasNoRoom() PASSED
+
+FlightSessionSafeFrameTest > theSearchIsSymmetricAndRateLimited() PASSED
+
+FlightSessionSafeFrameTest > allBlockedReportsTheLatestContactAsEmergency() PASSED
+
+FlightSessionStatsTest > perTickCountersResetWhileTheCumulativeTotalsAccumulate() PASSED
+
+FlightSessionStatsTest > aBudgetStopIsReportedInsteadOfFakingAFullEvaluation() PASSED
+
+FlightSessionStatsTest > theRejectCategoriesAddUpToTheRejectedCandidates() PASSED
+
+FlightSessionStatsTest > aViableTickReportsTheFeasibleCount() PASSED
+
+FlightSessionTerminalRegressionTest > aWaterContactPastTheNearTermWindowIsNotALanding() PASSED
+
+FlightSessionTerminalRegressionTest > anArrivalWhoseHoldOnlyReachesTheGroundIsNotAVerifiedLanding() PASSED
+
+FlightSessionTerminalRegressionTest > segmentedArm19478ArrivalDoesNotHideTheObstacleJustPastTheTerminal() PASSED
+
+FlightSessionTerminalRegressionTest > fullArm19220ArrivalDoesNotHideTheObstacleJustPastTheTerminal() PASSED
+
+FlightSessionThroughWaitTest > aThroughHandoverKeepsTheAltitudeWhileWaiting() PASSED
+
+FlightSessionThroughWaitTest > aStopLegKeepsTheDescendingHold() PASSED
+
+FlightSteeringRegressionTest > ab28TurnsTowardTheBearingAcrossTheAngleSeam() PASSED
+
+FlightSteeringRegressionTest > launchUsesTheFlightSegmentInsteadOfTheFootAnchor() PASSED
+
+FlightSteeringRegressionTest > aPassedTerminalStillNeedsItsArrivalVolume() PASSED
+
+FlightSteeringRegressionTest > submittingAnAlreadyLimitedFrameDoesNotReverseItsTurn() PASSED
+
+FlightSteeringRegressionTest > thePredictedFirstStepUsesTheLimitedPitch() PASSED
+
+FlightSteeringRegressionTest > ab27AltitudeErrorDoesNotMakeThePilotChaseAPassedEntry() PASSED
+
+FlightSteeringRegressionTest > yawNormalizationDoesNotChangeThePhysicalCommand() PASSED
+
+FlightStopApproachTest > aThroughLegKeepsItsCruiseContinuationRule() PASSED
+
+FlightStopApproachTest > waterDoesNotBecomeALandingSurfaceForTheApproach() PASSED
+
+FlightStopApproachTest > terminalRadiusDoesNotInheritTheCruiseLookaheadDistance() PASSED
+
+FlightStopApproachTest > stopIgnitionCannotHideItsLastBoostTicksPastTheScreeningHorizon() PASSED
+
+FlightStopApproachTest > slowFinalDescentDoesNotRequireCruiseClearanceAboveSolidGround() PASSED
+
+FlightVoxelBoundsTest > motionAlongAnExactlyTouchingWallDoesNotInventPenetration() PASSED
+
+FlightVoxelBoundsTest > negativeCoordinatesUseTheSameIntersectionRule() PASSED
+
+FlightVoxelBoundsTest > adjacentWallOutsideTheInflatedBoxDoesNotIntersectIt() PASSED
+
+FlightVoxelBoundsTest > anActuallyIntersectingCeilingStillRejectsTheFlight() PASSED
+
+FlightVoxelBoundsTest > aShortCornerContactBetweenSweepSamplesIsStillRejected() PASSED
+
+FlightVoxelBoundsTest > ceilingAboveTheInflatedBoxDoesNotIntersectIt() PASSED
+
+FlightVoxelBoundsTest > dominantAxisCollisionCannotBeHiddenByTheFinalDiagonalPosition() PASSED
+
+FlightWarmupTest > constructionDoesNotUseTheLiveWorldForSyntheticWarmup() PASSED
+
+BUILD SUCCESSFUL in 15s
+11 actionable tasks: 4 executed, 7 up-to-date

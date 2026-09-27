@@ -1,0 +1,205 @@
+
+ RUN  v4.1.11 D:/airi
+
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > assertLoopbackEndpoint > accepts loopback hosts 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > assertLoopbackEndpoint > throws for non-loopback hosts 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > assertLoopbackEndpoint > throws for a URL that cannot be parsed 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameWorldIdentityFrom > reads identity fields from structuredContent 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameWorldIdentityFrom > accepts snake_case fields and falls back to a connection-scoped world id 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameWorldIdentityFrom > parses identity fields from JSON text content as a fallback 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameWorldIdentityFrom > merges the local player state into the identity 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameWorldIdentityFrom > returns undefined when no Minecraft version can be read 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > game host config persistence > round-trips a config including the token 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > game host config persistence > returns undefined for a missing or malformed config 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > game host config persistence > round-trips the movement planner selection 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > game host config persistence > round-trips the flight planner switch 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > connects with a loopback URL and sends the bearer token as a header 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > caches the world identity from get_status and get_self 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > rejects a non-loopback url before any connection is attempted 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > strips the token from the config view exposed over IPC 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > keeps the stored token when an apply omits it 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > disconnects and persists an empty url when the bridge is disabled 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reconnects after an empty-url disconnect without a duplicate capability withdrawal 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > observes only tools on the allowed whitelist 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > applies the persisted config at boot 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > exposes the MC-0c/MC-1a/MC-2d domain tools 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > rejects a domain command while the host is not connected 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > observes through the registry and grades the receipt checked 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > never turns a missing coordinate into the origin 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > dedups a retried move command by request id 515ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports the vehicle trip receipt on a boat move_to 7ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > rejects a second write while one is in flight 568ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports the running command from game_status while one is in flight 577ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > says through the registry without claiming change evidence 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > collects the requested count with a per-break attribution 570ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > recovers a drop in a one-block pit with one scaffolding placement 5849ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports the drop position when a pit drop cannot be recovered 5543ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > crafts a known recipe and reports the measured inventory delta 417ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails a recipe that needs a crafting table without claiming success 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports an exhausted craft loop as not_confirmed, never as crafted 2025ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > drops a hotbar stack and reports the measured inventory decrease 326ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > moves a main-inventory stack into the hotbar before dropping it 170ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > verifies a late-reflected drop from the emptied target slot 3157ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails to drop when a main-inventory stack has no hotbar slot to move into 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > locates another player through the server-side player list 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > resolves a follow target through the player list when the entity list is truncated 1233ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > resolves a player target beyond the entity radius when the list is not truncated 1240ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > ends follow with target_dimension_changed when the fine read reports another dimension 217ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > ends follow with entity_unloaded after the bounded wait when a non-player target leaves every read 13440ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports target_not_in_read when a truncated list cannot resolve a non-player target 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > passes the binding dimension to the follow entity query 1020ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > equips an item from the main inventory into the armor slot and verifies it 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails an equip with not_in_inventory when the item is absent 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > uses an item through start_using, a get_self poll, then release_using 2609ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > aborts an item use through stop_using instead of releasing 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > uses a block and an entity through place_block and use_entity 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > observes inventory, equipment and effects beside the player state 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > records missing observe reads without failing the observation 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > caps an over-long observed inventory list and notes the truncation 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > ends follow with target_lost when nothing matches 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > supplies from the hotbar and verifies the food delta 211ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > moves main-inventory food into an empty hotbar slot before eating 216ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails supply with no_food when nothing edible is reachable 8ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > refuses supply when hunger is already full without starting a use 8ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > sleeps at a bed and reports the sleep timer 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails sleep with not_sleeping when the player never falls asleep 7ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails sleep with no_bed when the block is not a bed 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > respawns after death and reports the fresh position 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > fails respawn with not_dead while the player is alive 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > follows through the terrain port and keeps the first target uuid 1028ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > plans the follow leg to a stand point on the keep ring, not the target cell 1023ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > ends follow with target_offline when the fixed player leaves every read 220ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > ends follow with target_unreachable after three failed legs 1869ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > does not plan a follow leg while the target stays inside the keep distance 1022ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > reports cannot_air_follow in travelMode auto when the target glides without an elytra 3083ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > assesses a worn chest elytra as available for an air follow 3061ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > attributes a collect to the break window only 574ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > does not count inventory growth with no break as collected 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > evaluates the harvest, equips the tool from the main inventory and breaks 258ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > refuses a break no reachable tool can harvest, before mining 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > attributes a required product from server break evidence 567ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > setupGameHost > returns structured tool prerequisites when collect lacks the tool 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > opens, reads, moves a whole stack and closes a chest menu 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > surfaces menu_mismatch and never clicks when the container id changes 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > crafts through a table with the two-beat claim and a verified inventory delta 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > reports unknown_recipe from a crafting table without claiming success 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > rejects a non-crafting menu with menu_not_crafting 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > reports not_confirmed when the crafting output never appears 408ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > loads and takes a furnace output, recording residue without counting it as output 512ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > menu and workstation commands (mc-4b) > reports slot_empty when a furnace has no finished output 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameCommandPort (mc-1c D1) > reports offline state and reuses the renderer registry path after connect 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameCommandPort (mc-1c D1) > rejects an empty cancel id without touching the registry 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > gameCommandPort (mc-1c D1) > reports a command aborted before issue as cancelled without a registry entry 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > fires a bow once and reports the shot without claiming a hit 424ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > leads a riding target with its vehicle motion (F-24) 418ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > records the resolved profile and predicted curve on the receipt 413ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > resolves the firework profile from the client projectile report (B-08) 623ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > lobs over a corridor wall that blocks the flat arc 424ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > refuses a bow shot with no ballistic solution and keeps the ammo 25ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > refuses an under-drawn bow before starting the client task 16ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > maps ammo-verified shots without a projectile uuid by shot order 425ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > carries a kill event onto a shot that is accounted after the event 435ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > attributes a kill when the death event names the projectile this shot fired 431ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > keeps a target death unobserved when the event names another projectile 428ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > attributes a kill when the death event names this player as the attacker 418ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > keeps a target death unobserved when the event names another attacker 416ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > attributes a kill within the shot-time window when the event names no uuids 432ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > keeps a target death unobserved when the event has no attribution and no window 418ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports the mod aim point re-read for a target that moved after the shot started 420ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports returned false when only a backup trident exists and this throw is missing 620ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports no_ammo from combat_start without firing a phantom shot 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports weapon_unavailable for auto with no ranged weapon and does not start 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports target_lost when the target cannot be resolved, with no phantom shots 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > cancels a charging bow through combat_cancel without claiming a release 409ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > loads then fires a crossbow, reflecting the charged state 421ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > records a trident throw and reports a returned trident 622ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > reports a trident return timeout distinctly from a returned trident 620ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > ends a shot with reflex_preempted and keeps the fired shot 421ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > ranged weapon commands (mc-4d) > refuses a riptide trident without starting a combat task 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > terminates the active write command on a dimension change and binds new commands to the new dimension 972ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > launches a riptide, reports displacement and durability, and verifies arrival 157ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > fails a riptide with riptide_unavailable and never charges when conditions are unmet 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > passes the mod water/rain diagnostics through a riptide_unavailable receipt 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > polls the released trident durability until the server syncs the new value 318ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > keeps the release-time durability when the server never syncs a change 1699ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > aborts a charging riptide through the abort path without a launch 7ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > establishes a missing world binding from a late player read and still stops on the next dimension change 472ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > advanced movement and dimension binding (mc-4e) > resolves a command stopped by a dimension change when the post-settle read stalls 2478ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > sends a generic menu button and reports an observed menu change 216ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reports button_sent when no menu change is observed after the click 214ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > sets beacon effects and reports applied when the effect appears 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reports beacon_sent when the effect does not appear in the bounded read 4080ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > rejects beacon with menu_not_beacon and never calls the primitive 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > rejects beacon without a primary effect and never calls the primitive 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > selects a villager trade and returns the offer summary 7ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > rejects select_trade with menu_not_trade and never calls the primitive 8ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > renames an item at an anvil and returns the applied name 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > rejects set_name with menu_not_anvil and never calls the primitive 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reports no_menu when no container is open 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reads a written book with bounded pages and a truncation flag, never checked 8ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reads a written book from an explicit slot 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > returns unsupported_item for a non-book item 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reads sign text and fails not_sign for a non-sign block 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > places one block verified by a fresh world read and an inventory decrease 5ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > fails with menu_open instead of silently not confirming a place while a menu is open 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reports not_in_inventory when the block item is missing 8ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > reports blocked when the target spot is occupied and does not place 9ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > places a batch with per-block results and stops at the first failure 6ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > bounds placement attempts per block and reports not_confirmed 526ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > life and content commands (mc-4f) > passes sneak and yaw through to the place primitive 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > breaks one block and confirms it with a bounded fresh read 257ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > fails already_air without issuing a break 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > fails out_of_reach without walking or breaking 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > attacks with the best inventory sword and reports a kill when the target disappears 319ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > reports a hit only when a fresh read observed a health drop 325ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > reports a kill when the target disappears after observed damage 1039ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > fails out_of_reach for a target beyond the approach range without swinging 4ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/index.test.ts > break and melee commands (mc-4g) > fails target_lost before selecting a weapon or swinging 3ms
+ ↓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/e02-route.integration.test.ts > river canyon route (E-02 live) > flies the fixture route 1x and records each attempt
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > wears the elytra, deploys off the edge, thrusts, and lands at the goal 7ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > wears a spare suit by hand when the armor write cannot reach the chest 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > releases the takeoff keys before pressing jump to deploy 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > fails with unavailable when no elytra exists 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > lands early and reports low_supply when rockets run low 271ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > takes off with the bridge launch macro and never runs off an edge 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > falls back to the edge run when the macro cannot open the glider 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > still launches when the only rocket sits in the offhand 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > lands instead of dropping control when cancelled in flight 241ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > climbs and thrusts when terrain blocks the cruise altitude 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > ignores terrain far to the side of the flight corridor 14ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > climbs over terrain one block to the side of the heading 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > climbs over terrain one layer above the player feet 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > treats an unreadable block in the corridor as an obstacle 2ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > ends an approach that overstays its own deadline 232ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > switches to the next firework stack when the selected one runs out 244ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > walks the last meters when the glide lands short 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > reports a landing miss as stuck 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > is reachable through the vehicle dispatcher 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > descends in place instead of flying to the goal when rockets run low 231ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > scans ahead for a verified support area when landing early 24ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > never records a single block as a landing site 249ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > cancels during the approach instead of waiting for the landing branch 246ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > stays unknown when the glide state is never observed 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > reports water as its own outcome instead of a normal landing 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > picks a nearby landing target instead of the goal when cancelled 235ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > releases the input when a state read fails in flight 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > lands early when the elytra wears down in flight 249ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > does not go around when no verified site exists 372ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > does not count a landing on the roof over the goal as arrival 0ms
+ × apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > types the long-route participation into the flight result 6298ms
+   → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove > omits the long-route field when the flight planner switch is off 3ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > evaluateApproachEntry > names each missing approach condition 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > evaluateApproachEntry > enters when aligned, under the roof and able to glide 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > evaluateApproachEntry > lets the short final bypass alignment and speed 0ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > submits the planned route and completes without host control writes 5213ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > refuses the flight when no verified route can be planned 1ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > revokes, excludes the failure point and resubmits after a client rejection 9828ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > continues a local frontier route instead of landing at the frontier 7792ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > hands the next leg over early to a capable client 10056ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > continues the flight when the client holds after its path 9146ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > lands through the safety ending when a held handover never arrives 4977ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > flies the final approach through the client channel when a site is near the goal 5259ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > falls back to the host landing when the client refuses the final approach 5542ms
+ ✓ apps/stage-tamagotchi/src/main/services/airi/game-host/movement/elytra.test.ts > runElytraMove channel mode (R3) > stops replanning after the same spot is rejected twice 10169ms

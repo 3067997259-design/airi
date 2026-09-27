@@ -839,7 +839,8 @@ describe('runElytraMove', () => {
     expect(result.detail).toContain('roof')
   })
 
-  it('types the long-route participation into the flight result', async () => {
+  // This receipt test runs real terrain searches, as the channel tests below do.
+  it('types the long-route participation into the flight result', { timeout: 60_000 }, async () => {
     // E-02 venue gap 2: refusals used to exist only in debug logs; the receipt
     // now carries whether the layer ever planned, how often, and why not.
     const goal = { x: 200, y: 64, z: 0 }
@@ -1092,8 +1093,10 @@ describe('runElytraMove channel mode (R3)', { timeout: 60_000 }, () => {
   // the bounded landing walk still has a deadline to hit.
   const clock = { value: 1_000_000 }
   const channelClock = {
-    sleep: async () => {
-      clock.value += 50
+    sleep: async (ms: number) => {
+      // Advance by the requested delay so stall and landing deadlines represent
+      // the same number of polls as production, without waiting in real time.
+      clock.value += ms
     },
     now: () => clock.value,
   }
