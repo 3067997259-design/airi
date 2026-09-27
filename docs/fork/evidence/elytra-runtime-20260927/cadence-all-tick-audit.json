@@ -1,0 +1,640 @@
+{
+  "results": [
+    {
+      "tag": "cadence-2-01",
+      "plannedSupportSamples": 24,
+      "emptyCollisionSamples": 0,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "cave-approach",
+      "sha256": "f4d0da9fb637a30d53db7ec6fdeaae29e06d01b9a0690129ed9d0c268ab010c3",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1064,
+          "position": {
+            "x": -976.0017012416756,
+            "y": 73.31383463323401,
+            "z": -85.45187136584316
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1073,
+          "position": {
+            "x": -969.5225241570258,
+            "y": 73.05119785503643,
+            "z": -97.78653717217671
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1086,
+          "position": {
+            "x": -956.2841639648766,
+            "y": 71.08600987817422,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1092,
+          "position": {
+            "x": -950.8211014168004,
+            "y": 69.96981976650625,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1121,
+          "position": {
+            "x": -918.4930130293753,
+            "y": 69.37902394460971,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 1168,
+          "position": {
+            "x": -871.294983946392,
+            "y": 68.6770746108729,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 1207,
+          "position": {
+            "x": -861.3132442455658,
+            "y": 68.59037296736147,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "tick": 1231,
+          "position": {
+            "x": -848.0067509721341,
+            "y": 66.39193491248173,
+            "z": -258.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 216,
+      "sweptPoints": 3923,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8.000001,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "settled_ground",
+        "damage": 0,
+        "verified": true
+      },
+      "targetLanding": true,
+      "localLandingVerified": true,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    },
+    {
+      "tag": "cadence-2-02",
+      "plannedSupportSamples": 0,
+      "emptyCollisionSamples": 0,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "second-roof-exit",
+      "sha256": "6e9b7676f04de2c5df90ad5c153a7dae6871e853cc7b3637d30c5cbc81a074c9",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 1878,
+          "position": {
+            "x": -976.0016232269645,
+            "y": 73.31360813155287,
+            "z": -85.45178554966103
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 1887,
+          "position": {
+            "x": -969.5233731873883,
+            "y": 73.05133013735148,
+            "z": -97.78686735065101
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 1900,
+          "position": {
+            "x": -956.280550688059,
+            "y": 71.08454853256542,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 1906,
+          "position": {
+            "x": -950.7673829472586,
+            "y": 69.96453680947972,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 1935,
+          "position": {
+            "x": -918.4932451862751,
+            "y": 69.3723265111578,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 1981,
+          "position": {
+            "x": -871.0799092948888,
+            "y": 68.69295590249538,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "passed": false
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 139,
+      "sweptPoints": 2979,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25,
+      "maxPitch": 8,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      },
+      "targetLanding": false,
+      "localLandingVerified": false,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    },
+    {
+      "tag": "cadence-2-03",
+      "plannedSupportSamples": 56,
+      "emptyCollisionSamples": 8,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "cave-approach",
+      "sha256": "44f1d969a89bba0dd1bca0d943426c79be95671fbfbd9927b56ebb2c14532eaf",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 2262,
+          "position": {
+            "x": -976.0017012416756,
+            "y": 73.31383463323401,
+            "z": -85.45187136584316
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 2271,
+          "position": {
+            "x": -969.4880417903078,
+            "y": 73.12615716702153,
+            "z": -97.77312736289745
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 2284,
+          "position": {
+            "x": -956.287094027053,
+            "y": 71.07752988074571,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 2290,
+          "position": {
+            "x": -950.8197879533031,
+            "y": 69.96834375700347,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 2319,
+          "position": {
+            "x": -918.4921893739893,
+            "y": 69.38076422311508,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 2366,
+          "position": {
+            "x": -871.6111881880437,
+            "y": 68.58704188963836,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 2405,
+          "position": {
+            "x": -861.2570720348488,
+            "y": 68.00838959754735,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "tick": 2427,
+          "position": {
+            "x": -849.9718447694028,
+            "y": 66.32600708645207,
+            "z": -258.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 215,
+      "sweptPoints": 3937,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000004999999987,
+      "maxPitch": 8.0000003,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "settled_ground",
+        "damage": 0,
+        "verified": true
+      },
+      "targetLanding": true,
+      "localLandingVerified": true,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    },
+    {
+      "tag": "cadence-3-01",
+      "plannedSupportSamples": 0,
+      "emptyCollisionSamples": 0,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "last-roof-exit",
+      "sha256": "74d16499eb545fc5d1b1b9d1cb505126f0bddfe4306d23b8df13278f0bfac540",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 2742,
+          "position": {
+            "x": -976.0336963119648,
+            "y": 73.33892052148882,
+            "z": -85.48706594316131
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 2751,
+          "position": {
+            "x": -971.2175578431946,
+            "y": 73.38249444276258,
+            "z": -98.44571693902013
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 2764,
+          "position": {
+            "x": -956.0551352484127,
+            "y": 72.53748747969618,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 2770,
+          "position": {
+            "x": -950.4288530405878,
+            "y": 70.46837400791696,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 2799,
+          "position": {
+            "x": -918.4946140942683,
+            "y": 69.3761168627751,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 2851,
+          "position": {
+            "x": -871.3660473477612,
+            "y": 68.47400190557379,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 2905,
+          "position": {
+            "x": -860.0926968931368,
+            "y": 68.20300856791924,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "passed": false
+        }
+      ],
+      "nativeTicks": 212,
+      "sweptPoints": 3766,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 23.86590000000001,
+      "maxPitch": 8.000001000000001,
+      "ownersValid": true,
+      "localVerified": false,
+      "ending": {
+        "stopReason": "route_failed",
+        "damage": 0,
+        "verified": false
+      },
+      "targetLanding": false,
+      "localLandingVerified": false,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    },
+    {
+      "tag": "cadence-3-02",
+      "plannedSupportSamples": 16,
+      "emptyCollisionSamples": 0,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "cave-approach",
+      "sha256": "38881817527a275d6f0ce3a1cb3e2919abfe6a499b6ccb46ad7ab01735e5c48a",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 3197,
+          "position": {
+            "x": -976.0337619041028,
+            "y": 73.33879160096231,
+            "z": -85.48713809451307
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 3206,
+          "position": {
+            "x": -971.2172912440415,
+            "y": 73.38264682036927,
+            "z": -98.4456132615717
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 3219,
+          "position": {
+            "x": -956.1844387432019,
+            "y": 71.80953661479965,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 3225,
+          "position": {
+            "x": -950.796946386731,
+            "y": 69.51144830447441,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 3255,
+          "position": {
+            "x": -916.4632945743914,
+            "y": 69.37535656571825,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 3301,
+          "position": {
+            "x": -870.5443087307139,
+            "y": 70.30026243111453,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 3322,
+          "position": {
+            "x": -862.6532493501318,
+            "y": 71.51147944290487,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "tick": 3335,
+          "position": {
+            "x": -848.5604818174023,
+            "y": 69.07259183276156,
+            "z": -258.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 187,
+      "sweptPoints": 3777,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000009999999975,
+      "maxPitch": 8.000001,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "settled_ground",
+        "damage": 0,
+        "verified": true
+      },
+      "targetLanding": true,
+      "localLandingVerified": true,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    },
+    {
+      "tag": "cadence-3-03",
+      "plannedSupportSamples": 0,
+      "emptyCollisionSamples": 0,
+      "build": "0.2.106+1.21.1",
+      "wholeRunDamage": 0,
+      "prefixThrough": "cave-approach",
+      "sha256": "c033a0a8ae276eb9f11ce3f9ebd37904748a68f916d6a862a801e7fecf9a3728",
+      "sections": [
+        {
+          "name": "upper-wool",
+          "tick": 3651,
+          "position": {
+            "x": -976.016964515206,
+            "y": 73.34644524594927,
+            "z": -85.4686609667267
+          },
+          "passed": true
+        },
+        {
+          "name": "lower-wool",
+          "tick": 3659,
+          "position": {
+            "x": -971.2853189701626,
+            "y": 73.38148813211089,
+            "z": -98.47206848839659
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-approach",
+          "tick": 3673,
+          "position": {
+            "x": -956.0423997528035,
+            "y": 72.71835239762603,
+            "z": -115
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-entry",
+          "tick": 3678,
+          "position": {
+            "x": -950.1935620258229,
+            "y": 70.55289657823852,
+            "z": -123
+          },
+          "passed": true
+        },
+        {
+          "name": "slab-exit",
+          "tick": 3707,
+          "position": {
+            "x": -918.4943623259167,
+            "y": 69.37370417206172,
+            "z": -158.5
+          },
+          "passed": true
+        },
+        {
+          "name": "second-roof-exit",
+          "tick": 3753,
+          "position": {
+            "x": -869.6913412589071,
+            "y": 70.41462836019235,
+            "z": -216.5
+          },
+          "passed": true
+        },
+        {
+          "name": "last-roof-exit",
+          "tick": 3773,
+          "position": {
+            "x": -862.9650841135092,
+            "y": 69.99953735972021,
+            "z": -246.5
+          },
+          "passed": true
+        },
+        {
+          "name": "cave-approach",
+          "tick": 3787,
+          "position": {
+            "x": -848.8993841473,
+            "y": 68.95263746890268,
+            "z": -258.5
+          },
+          "passed": true
+        }
+      ],
+      "nativeTicks": 197,
+      "sweptPoints": 3843,
+      "contacts": [],
+      "gapTicks": 0,
+      "damage": 0,
+      "maxYaw": 25.000009999999975,
+      "maxPitch": 8.00000034,
+      "ownersValid": true,
+      "localVerified": true,
+      "ending": {
+        "stopReason": "settled_ground",
+        "damage": 0,
+        "verified": true
+      },
+      "targetLanding": true,
+      "localLandingVerified": true,
+      "auditSpan": "all route-owned ticks, including intervals after a failed gate",
+      "allRouteTicksVerified": true
+    }
+  ]
+}

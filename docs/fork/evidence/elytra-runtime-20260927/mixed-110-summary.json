@@ -1,0 +1,90 @@
+{
+  "scope": "frozen local route, mixed hotbar recipes, fixed grade-1 launch",
+  "engineeringChecks": "deferred by user",
+  "results": [
+    {
+      "tag": "mixed-window-01",
+      "sha256": "6278fbc792e6ec2b9945644a3c901845843f9de0fc883bdb44c592e8f9a9d5c3",
+      "build": "0.2.110+1.21.1",
+      "pass": true,
+      "error": 0.7089709661091073,
+      "budget": 0,
+      "damage": 0,
+      "stable": 22,
+      "fires": [
+        {
+          "tick": 2056,
+          "z": -87.6258557267623,
+          "planned": 3,
+          "actual": 3
+        },
+        {
+          "tick": 2102,
+          "z": -148.47961799537566,
+          "planned": 2,
+          "actual": 2
+        },
+        {
+          "tick": 2138,
+          "z": -193.2396424471767,
+          "planned": 1,
+          "actual": 1
+        }
+      ],
+      "recipeMismatches": 0,
+      "maxBoostCount": 1
+    },
+    {
+      "tag": "mixed-window-02",
+      "sha256": "c3c4ac50e4eda9e691489e30bf3b7333e742f922157ff9132b368fb6c38f8e0c",
+      "build": "0.2.110+1.21.1",
+      "pass": true,
+      "error": 0.6702020343574848,
+      "budget": 0,
+      "damage": 0,
+      "stable": 20,
+      "fires": [
+        {
+          "tick": 2514,
+          "z": -87.75717721942905,
+          "planned": 3,
+          "actual": 3
+        },
+        {
+          "tick": 2562,
+          "z": -150.8065858288419,
+          "planned": 2,
+          "actual": 2
+        }
+      ],
+      "recipeMismatches": 0,
+      "maxBoostCount": 1
+    },
+    {
+      "tag": "mixed-window-03",
+      "sha256": "ccf15fc84d7e31b97a7de4efbc6cb93c75963e03016869646e7fce93dd432c2d",
+      "build": "0.2.110+1.21.1",
+      "pass": true,
+      "error": 0.7091044576631513,
+      "budget": 0,
+      "damage": 0,
+      "stable": 20,
+      "fires": [
+        {
+          "tick": 2983,
+          "z": -82.95755363842869,
+          "planned": 3,
+          "actual": 3
+        },
+        {
+          "tick": 3028,
+          "z": -143.54379974650283,
+          "planned": 3,
+          "actual": 3
+        }
+      ],
+      "recipeMismatches": 0,
+      "maxBoostCount": 1
+    }
+  ]
+}

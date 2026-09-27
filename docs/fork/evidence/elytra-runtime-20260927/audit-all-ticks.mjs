@@ -143,5 +143,5 @@ for (const result of results) {
   result.allRouteTicksVerified = result.prefixVerified
   delete result.prefixVerified
 }
-writeFileSync(new URL('all-tick-audit.json', root), `${JSON.stringify({ results }, null, 2)}\n`)
+writeFileSync(new URL(process.env.AUDIT_OUTPUT ?? 'all-tick-audit.json', root), `${JSON.stringify({ results }, null, 2)}\n`)
 console.info(results.map(r => ({ run: r.tag, build: r.build, local: r.localVerified, ticks: r.nativeTicks, contacts: r.contacts.length, gaps: r.gapTicks, damage: r.damage, yaw: r.maxYaw.toFixed(2), ending: r.ending.verified })))

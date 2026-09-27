@@ -1,0 +1,35 @@
+[
+  {
+    run: 'mixed-02',
+    build: '0.2.109+1.21.1',
+    local: true,
+    ticks: 199,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'mixed-03',
+    build: '0.2.109+1.21.1',
+    local: true,
+    ticks: 204,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'mixed-04',
+    build: '0.2.109+1.21.1',
+    local: false,
+    ticks: 207,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  }
+]

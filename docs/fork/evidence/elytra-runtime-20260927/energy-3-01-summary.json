@@ -1,0 +1,61 @@
+{
+  "tag": "energy-3-01",
+  "build": "0.2.107+1.21.1",
+  "crossings": [
+    {
+      "name": "upper-wool",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "lower-wool",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "slab-approach",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "slab-entry",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "slab-exit",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "second-roof-exit",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "last-roof-exit",
+      "events": [],
+      "passed": false
+    },
+    {
+      "name": "cave-approach",
+      "events": [],
+      "passed": false
+    }
+  ],
+  "continuous": false,
+  "damage": 0,
+  "minHealth": 20,
+  "samples": 12,
+  "controlledTicks": 1,
+  "budgetExhausted": 1,
+  "settled": 0,
+  "stopReason": "route_failed",
+  "endReason": "no_viable_trajectory",
+  "endDetail": "no_viable_trajectory eval=20 ok=0 sim=1ms reject[c=20,f=0,s=0,ta=0] first=collision@t15(-984.5,63.2,-49.3)block=minecraft:water shape=empty entry=0/203 target=-985.5,73.5,-65.5 at=-984.5,64.4,-48.5 pitch=-28.1",
+  "localPass": false,
+  "endingVerified": false,
+  "fullCoursePass": false,
+  "terminalError": 259.33972145459444,
+  "targetLanding": false
+}

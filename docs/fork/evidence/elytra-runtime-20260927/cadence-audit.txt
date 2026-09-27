@@ -1,0 +1,68 @@
+[
+  {
+    run: 'cadence-2-01',
+    build: '0.2.106+1.21.1',
+    local: true,
+    ticks: 216,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'cadence-2-02',
+    build: '0.2.106+1.21.1',
+    local: false,
+    ticks: 139,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: false
+  },
+  {
+    run: 'cadence-2-03',
+    build: '0.2.106+1.21.1',
+    local: true,
+    ticks: 215,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'cadence-3-01',
+    build: '0.2.106+1.21.1',
+    local: false,
+    ticks: 212,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '23.87',
+    ending: false
+  },
+  {
+    run: 'cadence-3-02',
+    build: '0.2.106+1.21.1',
+    local: true,
+    ticks: 187,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  },
+  {
+    run: 'cadence-3-03',
+    build: '0.2.106+1.21.1',
+    local: true,
+    ticks: 197,
+    contacts: 0,
+    gaps: 0,
+    damage: 0,
+    yaw: '25.00',
+    ending: true
+  }
+]

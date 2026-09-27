@@ -1,0 +1,1 @@
+"{\"status\":\"ok\",\"checked\":false,\"commandId\":\"bc2e813f-d5a9-4ff5-9e95-968228651c9d\",\"endReason\":\"running\",\"postCondition\":{\"kind\":\"none\",\"target\":0,\"actual\":0,\"met\":true},\"world\":{\"worldId\":\"connection-scoped\",\"dimension\":\"minecraft:overworld\",\"connectionGeneration\":2,\"connectionId\":\"3517360a-7ae5-4556-8be6-1b14fa8edd09\"}}"

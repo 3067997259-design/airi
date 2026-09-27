@@ -838,7 +838,10 @@ function collectFrontierCandidates(input: {
       // The frontier must be flyable by the body box, not just air at the
       // cell: a frontier one cell from a wall would start the next leg in a
       // collision (R4 cave-diag-07).
-      if (!bodyFootprintClear(input.cells, x, y, z))
+      // Node positions use y + 0.5. The inflated 1.8-block body reaches
+      // y + 2.45, so checking only two voxel layers admits low ceilings
+      // that the final chord sweep must reject.
+      if (!bodyFootprintClear(input.cells, x, y, z, { clearance: 3 }))
         continue
       const openSky = openToSky(input.cells, x, y + 2, z)
       if (input.requiredOpenSky && !openSky)
@@ -1083,48 +1086,32 @@ export async function planLowRoute(input: {
   interface ChosenRoute { candidate?: FrontierCandidate, route: Extract<SpaceRoute, { ok: true }>, cost: number, score: number }
   let chosen: ChosenRoute | undefined
   if (!coveredGoal) {
-    const openSkyCandidates = collectFrontierCandidates({
+    const FRONTIER_CLIMB_PENALTY = 3
+    const nextSection = input.mustPass?.[0]
+    // Rank before the bounded search shortlist. A path score cannot recover
+    // river or covered cells already removed by a progress-only shortlist.
+    // This bound omits unknown detours and walls; the verified path supplies
+    // those costs after search. A roof alone is not an invalid continuation.
+    const frontierPotential = (candidate: FrontierCandidate): number => candidate.progress
+      - (Math.max(0, candidate.point.y - input.goal.y)
+        + Math.max(0, candidate.point.y - input.self.y)) * FRONTIER_CLIMB_PENALTY
+    const candidates = collectFrontierCandidates({
       cells,
       cellsByY,
       goalY,
       self: input.self,
       dirX,
       dirZ,
-      requiredOpenSky: true,
+      requiredOpenSky: false,
     })
-    // With must-pass sections an open-sky candidate must not preempt a
-    // ceiling-covered one: the slab passage is covered, so an open-sky-only
-    // pool would keep choosing the bank top (ab-30 plan §1).
-    const nextSection = input.mustPass?.[0]
-    const candidates = (nextSection === undefined
-      ? (openSkyCandidates.length > 0
-          ? openSkyCandidates
-          : collectFrontierCandidates({
-              cells,
-              cellsByY,
-              goalY,
-              self: input.self,
-              dirX,
-              dirZ,
-              requiredOpenSky: false,
-            }))
-      : collectFrontierCandidates({
-          cells,
-          cellsByY,
-          goalY,
-          self: input.self,
-          dirX,
-          dirZ,
-          requiredOpenSky: false,
-        }))
-      .sort((a, b) => b.progress - a.progress || a.offRay - b.offRay)
+      .sort((a, b) => frontierPotential(b) - frontierPotential(a) || a.offRay - b.offRay)
     // Greedy thinning for diversity: near-duplicate cells around the same
     // bank top would all be tried and none would offer the river.
     const distinct: FrontierCandidate[] = []
     for (const candidate of candidates) {
       if (distinct.length >= FRONTIER_CANDIDATES_MAX)
         break
-      if (distinct.some(chosenCandidate => Math.hypot(chosenCandidate.point.x - candidate.point.x, chosenCandidate.point.z - candidate.point.z) < FRONTIER_MIN_SEPARATION))
+      if (distinct.some(chosenCandidate => Math.hypot(chosenCandidate.point.x - candidate.point.x, chosenCandidate.point.y - candidate.point.y, chosenCandidate.point.z - candidate.point.z) < FRONTIER_MIN_SEPARATION))
         continue
       distinct.push(candidate)
     }
@@ -1135,7 +1122,6 @@ export async function planLowRoute(input: {
     // penalties, so a level river route beats a bank-top hop even when the
     // hop is shorter (R4 cave-diag-15: leg 2 was again a one-block backward
     // hop because the old score subtracted the leg length).
-    const FRONTIER_CLIMB_PENALTY = 3
     const pathLengthOf = (path: Vec3[]): number => {
       let length = 0
       for (let index = 1; index < path.length; index++) {
@@ -1145,8 +1131,15 @@ export async function planLowRoute(input: {
       }
       return length
     }
-    const scoreOf = (progress: number, cost: number, path: Vec3[]): number =>
-      progress - (cost - pathLengthOf(path)) - climbTotalOf(path) * FRONTIER_CLIMB_PENALTY
+    const scoreOf = (progress: number, cost: number, path: Vec3[]): number => {
+      // An inherited high start is not free altitude. Counting only new climb
+      // selected the bank top in host-04 (74 -> 81), then treated that height
+      // as the next leg's baseline. Keep the target altitude in frontier cost
+      // so a covered lower continuation can compete with that ratchet.
+      const excessHeight = Math.max(0, path.at(-1)!.y - input.goal.y)
+      return progress - (cost - pathLengthOf(path))
+        - (climbTotalOf(path) + excessHeight) * FRONTIER_CLIMB_PENALTY
+    }
     // A candidate whose path actually crosses the next must-pass rectangle
     // outranks any amount of progress along the bearing.
     const SECTION_BONUS = 1_000
@@ -1191,7 +1184,7 @@ export async function planLowRoute(input: {
           cells,
           start: input.self,
           goal: candidate.point,
-          clearance: 2,
+          clearance: 3,
           timeCapMs: perSearch,
         })
         if (!route.ok)
@@ -1210,7 +1203,7 @@ export async function planLowRoute(input: {
       cells,
       start: input.self,
       goal: input.goal,
-      clearance: 2,
+      clearance: 3,
       ...(input.searchTimeCapMs !== undefined ? { timeCapMs: input.searchTimeCapMs } : {}),
     })
     if (route.ok)

@@ -36,7 +36,7 @@ import { createFlightChannelRunner } from '../flight/channel'
 import { evaluatePatch, lowestRoofAboveGoal } from '../flight/landing-site'
 import { createLiveCorridorPort } from '../flight/live-corridor'
 import { planLiveFlightControl } from '../flight/live-port'
-import { LOW_ROUTE_DESCENT_STEP, LOW_ROUTE_HOLD_MS, LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
+import { LOW_ROUTE_DESCENT_STEP, LOW_ROUTE_HOLD_MS, LOW_ROUTE_SPAN, LOW_ROUTE_TTL_MS, LOW_ROUTE_WAYPOINT_REACH, planLowRoute } from '../flight/low-route'
 import { classifyTouchdown } from '../flight/touchdown'
 import { angleDelta, clamp, defaultSleep, horizontalDistance, yawTo } from './geometry'
 import { launchFromGround } from './launch'
@@ -432,6 +432,10 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         port,
         self: position,
         goal,
+        // Read the river bends beside the goal bearing. The four-block strip
+        // in host-03 lost the low continuation and selected the bank top.
+        // Each slab still obeys the planner's 32,000-cell read bound.
+        halfWidth: 12,
         // The canyon plan needs the longer cap: the body-clearance and climb
         // costs make the search explore more than the open-air default did.
         searchTimeCapMs: CHANNEL_PLAN_TIME_CAP_MS,
@@ -440,13 +444,45 @@ export async function runElytraMove(options: VehicleMoveOptions): Promise<Vehicl
         ...(corridorBearing ? { bearing: corridorBearing } : {}),
         ...(options.mustPass && options.mustPass.length > 0 ? { mustPass: options.mustPass } : {}),
       })
+      debug?.(`channel plan from=${JSON.stringify(position)} status=${result.status} kind=${result.waypointKind ?? 'none'} climb=${result.maxClimbSlope ?? 0} path=${JSON.stringify(result.channelPath ?? [])}`)
       return { ...result, planMs: now() - startedAt }
     }
 
-    const plan = await planFrom(startState.position)
+    let plan = await planFrom(startState.position)
     if (plan.status !== 'planned' || !plan.path || plan.path.length < 2) {
       debug?.(`channel route refused (${plan.status}${plan.reason ? `: ${plan.reason}` : ''}); refusing the flight instead of flying direct`)
       return { terminal: { status: 'unavailable', failure: 'route_unavailable', detail: `no verified flight channel (${plan.status})`, channel: channelReceipt() } }
+    }
+    // Launch changes height before the first frontier can be reached. A short
+    // local leg exposed its endpoint as a terminal constraint while the next
+    // region was still being read (host-02: y75 above the y64.5 frontier).
+    // Read up to two connected suffixes while grounded. Only exact shared
+    // vertices are joined: this adds no chord outside the verified segments.
+    if (startState.onGround) {
+      for (let extension = 0; extension < 2 && plan.local === true && !shouldStop(); extension++) {
+        const initialPath = channelPathOf(plan)
+        let length = 0
+        for (let index = 1; index < initialPath.length; index++)
+          length += horizontalDistance(initialPath[index - 1]!, initialPath[index]!)
+        if (length >= LOW_ROUTE_SPAN)
+          break
+        const frontier = initialPath.at(-1)!
+        const suffix = await planFrom(frontier)
+        const suffixPath = channelPathOf(suffix)
+        const entry = suffixPath[0]
+        if (suffix.status !== 'planned' || !suffix.path || suffixPath.length < 2 || !entry
+          || Math.hypot(frontier.x - entry.x, frontier.y - entry.y, frontier.z - entry.z) > 1e-6) {
+          debug?.(`channel startup continuation refused (${suffix.status}; exact join=${entry !== undefined && frontier.x === entry.x && frontier.y === entry.y && frontier.z === entry.z})`)
+          break
+        }
+        plan = {
+          ...suffix,
+          path: [...plan.path!, ...suffix.path.slice(1)],
+          channelPath: [...initialPath, ...suffixPath.slice(1)],
+          planMs: plan.planMs + suffix.planMs,
+        }
+        debug?.(`channel startup continuation joined: points=${plan.channelPath!.length}`)
+      }
     }
     legMeta = { kind: 'initial', plannedFrom: startState.position, planMs: plan.planMs, rawPath: plan.path }
     let activePath = channelPathOf(plan)
